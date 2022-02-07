@@ -456,64 +456,77 @@ def parse_js(path, print_flag=False):
 def parse_xml(path, xml_path, prod_name, print_flag=False):
     xml_file = os.path.join(path, xml_path)
 
-    if not os.path.isfile(xml_file):
-        raise RuntimeError("Cannot find {}, run csyn first".format(xml_file))
-    json_file = os.path.join(path,"report.json")
-    outfile = open(json_file, "w")
-    with open(xml_file, "r") as xml:
-        profile = xmltodict.parse(xml.read())["profile"]
-        json.dump(profile, outfile, indent=2)
+    p = xml_file.rsplit('/', 1)[0]
 
-    config = RptSetup(profile, prod_name)
-    config.eval_members()
+    other_xml_file = [xml_file]
+    for file in os.listdir(p):
+        if file.endswith("_csynth.xml") and file != "test_csynth.xml":
+            fpath = os.path.join(p, file)
+            other_xml_file.append(fpath)
 
-    res = {}
-    res["HLS Version"] = config.prod_name + " " + config.version
-    res["Product family"] = config.prod_family
-    res["Target device"] = config.target_device
-    res["Top Model Name"] = config.top_model_name
-    res["Target CP"] = config.target_cp + " " + config.assignment_unit
-    res["Estimated CP"] = config.estimated_cp + " " + config.assignment_unit
-    res["Latency (cycles)"] = "Min {:<6}; ".format(config.min_latency) + \
-                              "Max {:<6}".format(config.max_latency)
-    res["Interval (cycles)"] = "Min {:<6}; ".format(config.min_interval) + \
-                               "Max {:<6}".format(config.max_interval)
+    for xml_file in other_xml_file:
+        if not os.path.isfile(xml_file):
+            raise RuntimeError("Cannot find {}, run csyn first".format(xml_file))
+        json_file = os.path.join(path,"report.json")
+        outfile = open(json_file, "w")
+        with open(xml_file, "r") as xml:
+            profile = xmltodict.parse(xml.read())["profile"]
+            json.dump(profile, outfile, indent=2)
+        
+        print(f"File: {xml_file}")
+        config = RptSetup(profile, prod_name)
+        config.eval_members()
+        res = {}
+        res["HLS Version"] = config.prod_name + " " + config.version
+        res["Product family"] = config.prod_family
+        res["Target device"] = config.target_device
+        res["Top Model Name"] = config.top_model_name
+        res["Target CP"] = config.target_cp + " " + config.assignment_unit
+        res["Estimated CP"] = config.estimated_cp + " " + config.assignment_unit
+        res["Latency (cycles)"] = "Min {:<6}; ".format(config.min_latency) + \
+                                  "Max {:<6}".format(config.max_latency)
+        res["Interval (cycles)"] = "Min {:<6}; ".format(config.min_interval) + \
+                                   "Max {:<6}".format(config.max_interval)
 
-    est_resources = config.est_resources
-    avail_resources = config.avail_resources
-    key_avail = list(avail_resources.keys())
+        est_resources = config.est_resources
+        avail_resources = config.avail_resources
+        key_avail = list(avail_resources.keys())
 
-    resources = {}
-    for name in key_avail:
+        resources = {}
+        for name in key_avail:
+            try:
+                item = [est_resources[name], avail_resources[name]]
+                item.append("{}%".format(round(int(item[0])/int(item[1])*100)))
+                resources[name] = item.copy()
+            except ZeroDivisionError:
+                item.append("0%")
+                resources[name] = item.copy()
+            except:
+                pass
+        res["Resources"] = tabulate([[key] + resources[key] for key in resources.keys()],
+                                    headers=["Type", "Used", "Total", "Util"],
+                                    colalign=("left","right","right","right"))
+        lst = list(res.items())
+        tablestr = tabulate(lst, tablefmt="psql").split("\n")
+        endash = tablestr[0].split("+")
+        splitline = "+" + endash[1] + "+" + endash[2] + "+"
+        tablestr.insert(5, splitline)
+        table = '\n'.join(tablestr)
+
+        # Latency information extraction
+        clock_unit = config.performance_unit
+        summary = config.loop_latency
+
+        info_table = Displayer(clock_unit)
         try:
-            item = [est_resources[name], avail_resources[name]]
-            item.append("{}%".format(round(int(item[0])/int(item[1])*100)))
-            resources[name] = item.copy()
-        except ZeroDivisionError:
-            item.append("0%")
-            resources[name] = item.copy()
+            info_table.init_table(summary)
+            info_table.collect_data(summary)
+            info_table.display()
         except:
             pass
-    res["Resources"] = tabulate([[key] + resources[key] for key in resources.keys()],
-                                headers=["Type", "Used", "Total", "Util"],
-                                colalign=("left","right","right","right"))
-    lst = list(res.items())
-    tablestr = tabulate(lst, tablefmt="psql").split("\n")
-    endash = tablestr[0].split("+")
-    splitline = "+" + endash[1] + "+" + endash[2] + "+"
-    tablestr.insert(5, splitline)
-    table = '\n'.join(tablestr)
 
-    # Latency information extraction
-    clock_unit = config.performance_unit
-    summary = config.loop_latency
-
-    info_table = Displayer(clock_unit)
-    info_table.init_table(summary)
-    info_table.collect_data(summary)
-
-    if print_flag:
-        print(table)
+        if print_flag:
+            print(table) 
     return info_table
 
 def report_stats(target, folder):

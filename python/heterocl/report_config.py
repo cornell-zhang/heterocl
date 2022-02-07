@@ -82,8 +82,7 @@ class RptSetup(object):
         try:
             return reduce(operator.getitem, keys, self.profile)
         except KeyError:
-            print("Invalid key")
-            raise
+            pass
 
     def eval_members(self):
         """Initialize each attribute to appropriate values.
