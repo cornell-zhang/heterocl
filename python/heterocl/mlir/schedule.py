@@ -26,8 +26,8 @@ def create_schedule(inputs, func, name=""):
 
         func_op = sch.device_top
         # create exact memref alloc
-        for tensor, arg in zip(inputs, func_op.entry_block.arguments):
-            tensor.op = arg
+        for placeholder, arg in zip(inputs, func_op.entry_block.arguments):
+            placeholder.tensor.op = arg
         # execute all fcompute and generate inner IR nodes
         # 1) func is hcl.compute: IR nodes not build inplace (default)
         # 2) func is defined by imperative DSL: IR nodes build inplace
