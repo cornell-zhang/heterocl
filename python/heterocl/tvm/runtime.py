@@ -544,11 +544,12 @@ def copy_and_compile(platform, mode, backend, host_only, cfg, script):
     elif platform == "stratus_hls":
         # process project.tcl file
         tcl_path = os.path.join(Project.path, "project.tcl")
-        process_tcl = os.path.exists(tcl_path)
+        tclparams_path = os.path.join(Project.path, "project.tcl.params")
+        process_tcl = os.path.exists(tclparams_path)
         content = ""
         if process_tcl:
             # read tcl file in project path
-            with open(tcl_path, "r") as f:
+            with open(tclparams_path, "r") as f:
                 lines = f.readlines()
             # read tcl file in harness
             with open(os.path.join(path, "stratus", "project.tcl"), "r") as f:

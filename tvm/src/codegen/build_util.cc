@@ -400,7 +400,7 @@ void GenKernelCode(std::string& test_file, std::vector<std::string> arg_names,
       std::string filename = it->first;
       std::string code = it->second;
       std::ofstream stream;
-      stream.open(project + '/' + filename);
+      stream.open(project + '/' + filename, std::ofstream::trunc);
       stream << code;
       stream.close();
     }

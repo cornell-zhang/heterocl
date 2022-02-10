@@ -2,6 +2,7 @@
  * Copyright (c) 2021 by Contributors
  * \file codegen_shls.cc
  */
+#include "codegen_shls.h"
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <tvm/build_module.h>
@@ -17,7 +18,6 @@
 #include "../codegen_soda.h"
 #include "./hierarchy.h"
 #include "./port_direction.h"
-#include "codegen_shls.h"
 
 namespace TVM {
 namespace codegen {
@@ -28,7 +28,7 @@ void CodeGenStratusHLS::printTclFile() {
   // Add following two lines to project.tcl
   // if there is external memory access
   if (this->ext_mem.size() == 0) return;
-  this->support_fnames.push_back("project.tcl");
+  this->support_fnames.push_back("project.tcl.params");
   this->support_files.push_back(
       "use_hls_lib \"./memlib\"\n"
       "define_external_array_access -to System -from dut");
@@ -93,7 +93,7 @@ void CodeGenStratusHLS::GenerateSystemModule(
   this->PrintIndentAnyStream(ss, scope);
   ss << "dut_wrapper *m_dut;\n";
   this->PrintIndentAnyStream(ss, scope);
-  ss << "tb *tb;\n";
+  ss << "tb *m_tb;\n";
 
   this->PrintIndentAnyStream(ss, scope);
   ss << "SC_CTOR(System)\n";
@@ -179,7 +179,7 @@ void CodeGenStratusHLS::GenerateTestBenchHeader(
   this->PrintIndentAnyStream(ss, scope);
   ss << "sc_in<bool>\tclk;\n";
   this->PrintIndentAnyStream(ss, scope);
-  ss << "sc_in<bool>\trst;\n";
+  ss << "sc_out<bool>\trst;\n";
   this->PrintIndentAnyStream(ss, scope);
   ss << "sc_in<bool>\tfinish;\n\n";
 
@@ -216,9 +216,10 @@ void CodeGenStratusHLS::GenerateTestBenchHeader(
   this->PrintIndentAnyStream(ss, scope);
   ss << "SC_HAS_PROCESS(tb);\n";
   this->PrintIndentAnyStream(ss, scope);
-  ss << "tb( sc_module name, ";
+  ss << "tb( sc_module_name name";
   // pass off-chip mems in the argument list of tb constructor
   for (unsigned i = 0; i < offchip_mems.size(); i++) {
+    ss << ", ";
     PrintType(mem_dtypes[i], ss);
     ss << " _" << offchip_mems[i];
     ss << "[";
@@ -230,6 +231,7 @@ void CodeGenStratusHLS::GenerateTestBenchHeader(
     }
     ss << "])\n";
   }
+  ss << ")\n";
   // intialize p2p ports in the constructor
   this->PrintIndentAnyStream(ss, scope);
   ss << ": clk(\"clk\")\n";
@@ -245,13 +247,17 @@ void CodeGenStratusHLS::GenerateTestBenchHeader(
   ss << "{\n";
   scope += 2;
   this->PrintIndentAnyStream(ss, scope);
-  ss << "SC_CTHREAD(source, clk.pose());\n";
+  ss << "SC_CTHREAD(source, clk.pos());\n";
   this->PrintIndentAnyStream(ss, scope);
-  ss << "SC_CTHREAD(sin, clk.pose());\n";
+  ss << "SC_CTHREAD(sink, clk.pos());\n";
   scope -= 2;
   this->PrintIndentAnyStream(ss, scope);
-  ss << "};\n";
   ss << "}\n\n";
+  this->PrintIndentAnyStream(ss, scope);
+  ss << "void source();\n";
+  this->PrintIndentAnyStream(ss, scope);
+  ss << "void sink();\n";
+  ss << "};\n\n";
   ss << "#endif // TB_H";
 
   this->support_fnames.push_back("tb.h");
@@ -401,9 +407,7 @@ void CodeGenStratusHLS::GenerateModule(
   if (top_level) _top_name = name;
   printHeader(decl_os);
 
-  decl_os << "SC_MODULE("
-          << "name"
-          << ") \n{\n";
+  decl_os << "SC_MODULE(" << name << ") \n{\n";
   int module_scope = this->BeginScopeHeader();
   PrintIndentAnyStream(decl_os, h_indent_);
   decl_os << "sc_in<bool> clk;\n";
@@ -1305,9 +1309,7 @@ std::string CodeGenStratusHLS::Finish() {
   return finalstr;
 }
 
-std::string CodeGenStratusHLS::GetHost() {
-  return this->host_code;
-}
+std::string CodeGenStratusHLS::GetHost() { return this->host_code; }
 
 std::string CodeGenStratusHLS::GetDevice() { return Finish(); }
 
