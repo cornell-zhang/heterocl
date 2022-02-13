@@ -1,7 +1,7 @@
 from ..types import dtype_to_str
 import numpy as np
 import hcl_mlir
-from mlir.dialects import memref
+from hcl_mlir.dialects import memref
 
 
 class PlaceHolder(object):

@@ -3,8 +3,8 @@ import hcl_mlir
 from hcl_mlir import GlobalInsertionPoint, get_context, get_location, ImperativeLoopNestCount, ImperativeLoopDepth, StageName
 from heterocl.schedule import Stage
 
-from mlir.dialects import builtin, std
-from mlir.ir import *
+from hcl_mlir.dialects import (builtin, std, hcl as hcl_d)
+from hcl_mlir.ir import *
 
 from .dfg import DataflowGraph
 from ..devices import Device, DevMemoryPair
@@ -232,7 +232,7 @@ class Schedule(object):
                 raise RuntimeError("Not supported partition type")
             factor = IntegerAttr.get(i32, factor)
             dim = IntegerAttr.get(i32, dim)
-            res = hcl_mlir.PartitionOp(
+            res = hcl_d.PartitionOp(
                 target.result, partition_type, dim, factor, ip=GlobalInsertionPoint.get())
 
     def reuse_at(self, target, parent, axis, name=None):
@@ -251,7 +251,7 @@ class Schedule(object):
             f32 = F32Type.get(ctx)
             # TODO: Need to do shape inference
             memref_type = MemRefType.get(target.shape, f32, loc=loc)
-            res = hcl_mlir.ReuseAtOp(memref_type, parent.stage_handle.result,
+            res = hcl_d.ReuseAtOp(memref_type, parent.stage_handle.result,
                                      target.result, axis.result, ip=GlobalInsertionPoint.get())
 
     def buffer_at(self, target, parent, axis, name=None):
@@ -269,7 +269,7 @@ class Schedule(object):
             f32 = F32Type.get(ctx)
             # TODO: Need to do shape inference
             memref_type = MemRefType.get(target.shape, f32, loc=loc)
-            res = hcl_mlir.BufferAtOp(memref_type, parent.stage_handle.result,
+            res = hcl_d.BufferAtOp(memref_type, parent.stage_handle.result,
                                       target.result, axis.result, ip=GlobalInsertionPoint.get())
 
     def to(self, tensor, dst=None, fifo_depth=-1):
@@ -290,7 +290,7 @@ class Schedule(object):
                 i32 = IntegerType.get_signless(32)
                 fifo_depth = IntegerAttr.get(i32, fifo_depth)
                 # do .to() scheduling
-                to_op = hcl_mlir.InterKernelToOp(
+                to_op = hcl_d.InterKernelToOp(
                     tensor.result, dst.stage_handle.result, fifo_depth, ip=GlobalInsertionPoint.get())
 
 
@@ -307,8 +307,8 @@ class Stage(object):
         self.name = name
         # create stage handle
         with get_context() as ctx, get_location() as loc:
-            loop_handle_type = hcl_mlir.StageHandleType.get(ctx)
-            self.stage_handle = hcl_mlir.CreateStageHandleOp(
+            loop_handle_type = hcl_d.StageHandleType.get(ctx)
+            self.stage_handle = hcl_d.CreateStageHandleOp(
                 loop_handle_type, StringAttr.get(name), ip=GlobalInsertionPoint.get()
             )
         # wait for setting axes
@@ -354,7 +354,7 @@ class Stage(object):
             if not isinstance(args[i], OpResult):
                 args[i] = args[i].result
         with get_context(), get_location():
-            hcl_mlir.ReorderOp(self.stage_handle.result, args,
+            hcl_d.ReorderOp(self.stage_handle.result, args,
                                ip=GlobalInsertionPoint.get())
 
     def split(self, parent, factor=None, nparts=None, mode="transform"):
@@ -368,8 +368,8 @@ class Stage(object):
         with get_context() as ctx, get_location():
             i32 = IntegerType.get_signless(32)
             factor = IntegerAttr.get(i32, factor)
-            loop_handle_type = hcl_mlir.LoopHandleType.get(ctx)
-            split_op = hcl_mlir.SplitOp(loop_handle_type, loop_handle_type,
+            loop_handle_type = hcl_d.LoopHandleType.get(ctx)
+            split_op = hcl_d.SplitOp(loop_handle_type, loop_handle_type,
                                         self.stage_handle.result, var.result, factor, ip=GlobalInsertionPoint.get())
         return split_op.results[0], split_op.results[1]
 
@@ -380,8 +380,8 @@ class Stage(object):
             i32 = IntegerType.get_signless(32)
             x_factor = IntegerAttr.get(i32, x_factor)
             y_factor = IntegerAttr.get(i32, y_factor)
-            loop_handle_type = hcl_mlir.LoopHandleType.get(ctx)
-            tile_op = hcl_mlir.TileOp(loop_handle_type, loop_handle_type, loop_handle_type, loop_handle_type,
+            loop_handle_type = hcl_d.LoopHandleType.get(ctx)
+            tile_op = hcl_d.TileOp(loop_handle_type, loop_handle_type, loop_handle_type, loop_handle_type,
                                       self.stage_handle.result, x_parent.result, y_parent.result, x_factor, y_factor, ip=GlobalInsertionPoint.get())
 
     def pipeline(self, var, initiation_interval=1):
@@ -392,7 +392,7 @@ class Stage(object):
         with get_context(), get_location():
             i32 = IntegerType.get_signless(32)
             ii = IntegerAttr.get(i32, initiation_interval)
-            hcl_mlir.PipelineOp(self.stage_handle.result,
+            hcl_d.PipelineOp(self.stage_handle.result,
                                 var.result, ii, ip=GlobalInsertionPoint.get())
 
     def unroll(self, var, factor=0):
@@ -403,7 +403,7 @@ class Stage(object):
         with get_context(), get_location():
             i32 = IntegerType.get_signless(32)
             factor = IntegerAttr.get(i32, factor)
-            hcl_mlir.UnrollOp(self.stage_handle.result, var.result,
+            hcl_d.UnrollOp(self.stage_handle.result, var.result,
                               factor, ip=GlobalInsertionPoint.get())
 
     def parallel(self, var):
@@ -412,7 +412,7 @@ class Stage(object):
         if isinstance(var, int):
             var = self.axis[var]
         with get_context(), get_location():
-            hcl_mlir.ParallelOp(self.stage_handle.result,
+            hcl_d.ParallelOp(self.stage_handle.result,
                                 var.result, ip=GlobalInsertionPoint.get())
 
     def fuse(self, *args):
@@ -426,8 +426,8 @@ class Stage(object):
             if not isinstance(args[i], OpResult):
                 args[i] = args[i].result
         with get_context() as ctx, get_location():
-            loop_handle_type = hcl_mlir.LoopHandleType.get(ctx)
-            fused = hcl_mlir.FuseOp(
+            loop_handle_type = hcl_d.LoopHandleType.get(ctx)
+            fused = hcl_d.FuseOp(
                 loop_handle_type, self.stage_handle.result, args, ip=GlobalInsertionPoint.get())
         return fused
 
@@ -437,8 +437,8 @@ class Stage(object):
         if isinstance(scope, int):
             scope = parent.op.axis[scope]
         with get_context() as ctx, get_location():
-            loop_handle_type = hcl_mlir.LoopHandleType.get(ctx)
-            fused = hcl_mlir.ComputeAtOp(
+            loop_handle_type = hcl_d.LoopHandleType.get(ctx)
+            fused = hcl_d.ComputeAtOp(
                 self.stage_handle.result, parent.stage_handle.result, scope.result, ip=GlobalInsertionPoint.get())
 
     def systolic(self):

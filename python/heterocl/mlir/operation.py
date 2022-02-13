@@ -2,12 +2,11 @@ import inspect
 from collections import OrderedDict
 
 import hcl_mlir
-import hcl_mlir.affine as affine
 from hcl_mlir import (ASTBuilder, GlobalInsertionPoint, get_context,
                       get_location)
 
-from mlir.dialects import std, builtin
-from mlir.ir import *
+from hcl_mlir.dialects import (std, affine, builtin, arith, hcl as hcl_d)
+from hcl_mlir.ir import *
 
 from .. import config, types
 from .schedule import Schedule, Stage
@@ -107,6 +106,14 @@ def sum(data, axis=None, dtype=None, name=""):
     return hcl_mlir.SumOp(data, axis, get_dtype_str(dtype))
 
 
+def max(data, axis=None, dtype=None, name=""):
+    return hcl_mlir.MaxOp(data, axis, get_dtype_str(dtype))
+
+
+def min(data, axis=None, dtype=None, name=""):
+    return hcl_mlir.MinOp(data, axis, get_dtype_str(dtype))
+
+
 def compute_body(shape, fcompute, ret_tensor, name):
     """ Builds loop nests for declarative compute APIs.
     """
@@ -148,8 +155,8 @@ def compute_body(shape, fcompute, ret_tensor, name):
             loop_handles = []
             for loop_name in arg_names:
                 loop_handles.append(
-                    hcl_mlir.CreateLoopHandleOp(
-                        hcl_mlir.LoopHandleType.get(
+                    hcl_d.CreateLoopHandleOp(
+                        hcl_d.LoopHandleType.get(
                             ctx), StringAttr.get(loop_name)
                     )
                 )
@@ -228,10 +235,9 @@ def compute_body(shape, fcompute, ret_tensor, name):
             # store the result back to tensor
             # we have to read the ssa value out first, then store back to tensor
             if isinstance(result_expr, hcl_mlir.SumOp):
-                zero_idx = std.ConstantOp(
+                zero_idx = arith.ConstantOp(
                     IndexType.get(), IntegerAttr.get(IndexType.get(), 0), ip=GlobalInsertionPoint.get())
                 value = affine.AffineLoadOp(
-                    hcl_mlir.get_mlir_type(result_expr.dtype),
                     result_expr.result,
                     [zero_idx.result],
                     loc=loc,

@@ -3,8 +3,8 @@ import re
 import subprocess
 from sys import platform
 import time
-from mlir import ir
-from mlir import runtime as rt
+from hcl_mlir import ir
+from hcl_mlir import runtime as rt
 import numpy as np
 import ctypes
 from ..report import parse_xml
