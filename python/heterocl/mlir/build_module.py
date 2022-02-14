@@ -129,7 +129,7 @@ void top("""
         Schedule._DataflowGraph.subgraph["outputs"]
     args = []
     for node in all_inputs_outputs:
-        tensor = node.tensor
+        tensor = node.tensor.tensor
         arg = hcl_mlir.print_mlir_type(tensor.dtype) + " " + tensor.name
         for index in tensor.shape:
             arg += "[{}]".format(index)

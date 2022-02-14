@@ -155,10 +155,7 @@ def compute_body(shape, fcompute, ret_tensor, name):
             loop_handles = []
             for loop_name in arg_names:
                 loop_handles.append(
-                    hcl_d.CreateLoopHandleOp(
-                        hcl_d.LoopHandleType.get(
-                            ctx), StringAttr.get(loop_name)
-                    )
+                    hcl_d.CreateLoopHandleOp(StringAttr.get(loop_name))
                 )
         if hcl_mlir.EXTRACT_FUNCTION:
             if ret_tensor is not None:
