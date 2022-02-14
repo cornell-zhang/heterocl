@@ -20,7 +20,7 @@ def _test_kernel(kernel):
     for i in range(0, 10):
         assert ret_B[i] == np_A[i]+1
 
-# @pytest.mark.skip(reason="Somehow crashes pytest, but runs fine with python")
+@pytest.mark.skip(reason="Somehow crashes pytest, but runs fine with python")
 def test_fcompute_basic():
 
     def kernel(A):

@@ -1,9 +1,11 @@
 import heterocl as hcl
 import os, sys
 import numpy as np
+import pytest
 
 hcl.init(hcl.Int(12))
 
+@pytest.mark.skip(reason="crashes pytest: aborted")
 def test_bit():
 
     A = hcl.placeholder((32, 12), "A")

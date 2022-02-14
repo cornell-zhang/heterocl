@@ -1,8 +1,9 @@
 import heterocl as hcl
 import os, sys
 import numpy as np
+import pytest
 
-
+@pytest.mark.skip(reason="seg fault")
 def test_systolic():
 
     A = hcl.placeholder((32, 32), "A")

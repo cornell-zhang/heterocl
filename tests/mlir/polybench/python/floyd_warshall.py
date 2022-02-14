@@ -43,3 +43,6 @@ def floyd_warshall_golden(N, path, DATA_TYPE):
         for i in range(N):
             for j in range(N):
                 path[i][j] = path[i][j] if path[i][j] < path[i][k] + path[k][j] else path[i][k] + path[k][j]
+
+if __name__ == "__main__":
+    top_floyd_warshall()
