@@ -1,9 +1,39 @@
 from ..types import dtype_to_str
 import numpy as np
+import hcl_mlir
+from hcl_mlir.dialects import memref
+
+
+class PlaceHolder(object):
+    """A wrapper class for hcl-mlir TensorOp
+    """
+
+    def __init__(self, shape, dtype, name=""):
+        self.tensor = hcl_mlir.TensorOp(
+            shape, memref.AllocOp, dtype, name=name)
+        self.shape = shape
+        self.dtype = dtype
+        self.name = name
+
+    def __getattr__(self, key):
+        if key == "tensor":
+            return self.tensor
+        elif key == "dtype":
+            return self.dtype  # hcl.Type
+        else:
+            return self.tensor.__getattribute__(key)
+
+    def __getitem__(self, indices):
+        return self.tensor.__getitem__(indices)
+
+    def __setitem__(self, indices, expr):
+        self.tensor.__setitem__(indices, expr)
+
 
 class Tensor(object):
     """A wrapper class for numpy array
     """
+
     def __init__(self, np_array, dtype):
         self.dtype = dtype
         # Data type check

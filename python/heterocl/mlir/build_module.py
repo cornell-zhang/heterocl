@@ -2,12 +2,11 @@ import io
 
 import hcl_mlir
 from hcl_mlir import GlobalInsertionPoint, get_context, get_location
-import hcl_mlir.affine as affine
+from hcl_mlir.dialects import (affine, hcl as hcl_d)
 
-from mlir import passmanager
-from mlir.execution_engine import *
-from mlir.ir import *
-from mlir.dialects import builtin
+from hcl_mlir import passmanager
+from hcl_mlir.execution_engine import *
+from hcl_mlir.ir import *
 
 from .module import HCLModule
 from .operation import placeholder
@@ -24,7 +23,7 @@ def lower(schedule,
     """Lowering step before build into target
        by applying optimization pass
     """
-    hcl_mlir.loop_transformation(schedule.device_module)
+    hcl_d.loop_transformation(schedule.device_module)
     return schedule.device_module
 
 
@@ -110,7 +109,7 @@ def separate_host_device(schedule):
     subgraph_name["outputs"] = [
         node.name for node in Schedule._DataflowGraph.subgraph["outputs"]]
     roots = [node.name for node in Schedule._DataflowGraph.roots]
-    hcl_mlir.host_device_separation(
+    hcl_d.host_device_separation(
         host_module, xcel_module, extern_module, device_map, roots, subgraph_name)
     host_module.dump()
     xcel_module.dump()
@@ -150,7 +149,7 @@ def build_fpga_kernel(schedule, target=None, name="top", stmt=None):
 
     # generate xcel code
     buf = io.StringIO()
-    hcl_mlir.emit_hlscpp(schedule.xcel_module, buf)
+    hcl_d.emit_hlscpp(schedule.xcel_module, buf)
     buf.seek(0)
     hls_code = buf.read()
     with open("{}/kernel.cpp".format(target.project), "w") as outfile:
@@ -158,7 +157,7 @@ def build_fpga_kernel(schedule, target=None, name="top", stmt=None):
 
     # generate host code
     host_buf = io.StringIO()
-    hcl_mlir.emit_hlscpp(schedule.host_module, host_buf)
+    hcl_d.emit_hlscpp(schedule.host_module, host_buf)
     host_buf.seek(0)
     host_code = host_buf.read()
     with open("{}/host.cpp".format(target.project), "w") as outfile:
@@ -166,7 +165,7 @@ def build_fpga_kernel(schedule, target=None, name="top", stmt=None):
 
     # generate extern code
     extern_buf = io.StringIO()
-    hcl_mlir.emit_hlscpp(schedule.extern_module, extern_buf)
+    hcl_d.emit_hlscpp(schedule.extern_module, extern_buf)
     extern_buf.seek(0)
     extern_code = extern_buf.read()
     with open("{}/extern.cpp".format(target.project), "w") as outfile:
@@ -181,22 +180,13 @@ def build_fpga_kernel(schedule, target=None, name="top", stmt=None):
     return hcl_module
 
 
-def reconcile_unrealized_casts(module):
-    # TODO(Niansong): not useful for now, consider removal
-    import mlir.conversions
-    pm = passmanager.PassManager.parse(
-        "reconcile-unrealized-casts")
-    pm.run(module)
-    return module
-
-
 def build_llvm(schedule, target=None, name="top", stmt=None):
     with get_context() as ctx, get_location():
         func = schedule.device_top
         func.attributes['llvm.emit_c_interface'] = UnitAttr.get()
         # print("\n\nBefore Lowering: ")
         schedule.device_module.dump()
-        hcl_mlir.lower_hcl_to_llvm(schedule.device_module, ctx)
+        hcl_d.lower_hcl_to_llvm(schedule.device_module, ctx)
         num_results = len(func.type.results)
         # print("lowered.")
         # print("\n\nAfter Lowering: ")

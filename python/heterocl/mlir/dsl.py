@@ -1,6 +1,7 @@
 import hcl_mlir
 from hcl_mlir import ImperativeLoopNestCount, ImperativeLoopDepth, StageName
 from .schedule import Schedule
+from hcl_mlir.dialects import affine
 
 
 class WithScope(object):
@@ -39,7 +40,7 @@ def for_(begin, end, step=1, name="i"):
     hcl_mlir.GlobalInsertionPoint.save(loop.body)
 
     def _exit_cb():
-        hcl_mlir.affine.AffineYieldOp([], ip=hcl_mlir.GlobalInsertionPoint.get())
+        affine.AffineYieldOp([], ip=hcl_mlir.GlobalInsertionPoint.get())
         hcl_mlir.GlobalInsertionPoint.restore()
         ImperativeLoopDepth.set(ImperativeLoopDepth.get() - 1)
 
