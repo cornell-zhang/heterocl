@@ -2,7 +2,6 @@ import hcl_mlir
 
 from hcl_mlir import GlobalInsertionPoint, get_context, get_location
 from .context import ImperativeLoopNestCount, ImperativeLoopDepth, StageName
-from heterocl.schedule import Stage
 
 from hcl_mlir.dialects import (builtin, std, hcl as hcl_d)
 from hcl_mlir.ir import *
