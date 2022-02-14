@@ -1,6 +1,7 @@
 import hcl_mlir
 
-from hcl_mlir import GlobalInsertionPoint, get_context, get_location, ImperativeLoopNestCount, ImperativeLoopDepth, StageName
+from hcl_mlir import GlobalInsertionPoint, get_context, get_location
+from .context import ImperativeLoopNestCount, ImperativeLoopDepth, StageName
 from heterocl.schedule import Stage
 
 from hcl_mlir.dialects import (builtin, std, hcl as hcl_d)
@@ -252,7 +253,7 @@ class Schedule(object):
             # TODO: Need to do shape inference
             memref_type = MemRefType.get(target.shape, f32, loc=loc)
             res = hcl_d.ReuseAtOp(memref_type, parent.stage_handle.result,
-                                     target.result, axis.result, ip=GlobalInsertionPoint.get())
+                                  target.result, axis.result, ip=GlobalInsertionPoint.get())
 
     def buffer_at(self, target, parent, axis, name=None):
         """Create a write buffer reusing the output of current stage"""
@@ -270,7 +271,7 @@ class Schedule(object):
             # TODO: Need to do shape inference
             memref_type = MemRefType.get(target.shape, f32, loc=loc)
             res = hcl_d.BufferAtOp(memref_type, parent.stage_handle.result,
-                                      target.result, axis.result, ip=GlobalInsertionPoint.get())
+                                   target.result, axis.result, ip=GlobalInsertionPoint.get())
 
     def to(self, tensor, dst=None, fifo_depth=-1):
         # host-device data movement
@@ -307,9 +308,8 @@ class Stage(object):
         self.name = name
         # create stage handle
         with get_context() as ctx, get_location() as loc:
-            loop_handle_type = hcl_d.StageHandleType.get(ctx)
             self.stage_handle = hcl_d.CreateStageHandleOp(
-                loop_handle_type, StringAttr.get(name), ip=GlobalInsertionPoint.get()
+                StringAttr.get(name), ip=GlobalInsertionPoint.get()
             )
         # wait for setting axes
         self.loop_handles = None
@@ -355,7 +355,7 @@ class Stage(object):
                 args[i] = args[i].result
         with get_context(), get_location():
             hcl_d.ReorderOp(self.stage_handle.result, args,
-                               ip=GlobalInsertionPoint.get())
+                            ip=GlobalInsertionPoint.get())
 
     def split(self, parent, factor=None, nparts=None, mode="transform"):
         """Split the stage either by factor providing outer scope, or both
@@ -368,9 +368,7 @@ class Stage(object):
         with get_context() as ctx, get_location():
             i32 = IntegerType.get_signless(32)
             factor = IntegerAttr.get(i32, factor)
-            loop_handle_type = hcl_d.LoopHandleType.get(ctx)
-            split_op = hcl_d.SplitOp(loop_handle_type, loop_handle_type,
-                                        self.stage_handle.result, var.result, factor, ip=GlobalInsertionPoint.get())
+            split_op = hcl_d.SplitOp(self.stage_handle.result, var.result, factor, ip=GlobalInsertionPoint.get())
         return split_op.results[0], split_op.results[1]
 
     def tile(self, x_parent, y_parent, x_factor, y_factor):
@@ -380,9 +378,8 @@ class Stage(object):
             i32 = IntegerType.get_signless(32)
             x_factor = IntegerAttr.get(i32, x_factor)
             y_factor = IntegerAttr.get(i32, y_factor)
-            loop_handle_type = hcl_d.LoopHandleType.get(ctx)
-            tile_op = hcl_d.TileOp(loop_handle_type, loop_handle_type, loop_handle_type, loop_handle_type,
-                                      self.stage_handle.result, x_parent.result, y_parent.result, x_factor, y_factor, ip=GlobalInsertionPoint.get())
+            tile_op = hcl_d.TileOp(self.stage_handle.result, x_parent.result, y_parent.result, x_factor, y_factor, ip=GlobalInsertionPoint.get())
+        return tile_op.results[0], tile_op.results[1], tile_op.results[2], tile_op.results[3]
 
     def pipeline(self, var, initiation_interval=1):
         """Pipeline the iteration.
@@ -393,7 +390,7 @@ class Stage(object):
             i32 = IntegerType.get_signless(32)
             ii = IntegerAttr.get(i32, initiation_interval)
             hcl_d.PipelineOp(self.stage_handle.result,
-                                var.result, ii, ip=GlobalInsertionPoint.get())
+                             var.result, ii, ip=GlobalInsertionPoint.get())
 
     def unroll(self, var, factor=0):
         """Unroll the iteration.
@@ -404,7 +401,7 @@ class Stage(object):
             i32 = IntegerType.get_signless(32)
             factor = IntegerAttr.get(i32, factor)
             hcl_d.UnrollOp(self.stage_handle.result, var.result,
-                              factor, ip=GlobalInsertionPoint.get())
+                           factor, ip=GlobalInsertionPoint.get())
 
     def parallel(self, var):
         """Parallelize the iteration.
@@ -413,7 +410,7 @@ class Stage(object):
             var = self.axis[var]
         with get_context(), get_location():
             hcl_d.ParallelOp(self.stage_handle.result,
-                                var.result, ip=GlobalInsertionPoint.get())
+                             var.result, ip=GlobalInsertionPoint.get())
 
     def fuse(self, *args):
         """Fuse multiple consecutive iteration variables into a single iteration variable.
@@ -426,9 +423,7 @@ class Stage(object):
             if not isinstance(args[i], OpResult):
                 args[i] = args[i].result
         with get_context() as ctx, get_location():
-            loop_handle_type = hcl_d.LoopHandleType.get(ctx)
-            fused = hcl_d.FuseOp(
-                loop_handle_type, self.stage_handle.result, args, ip=GlobalInsertionPoint.get())
+            fused = hcl_d.FuseOp(self.stage_handle.result, args, ip=GlobalInsertionPoint.get())
         return fused
 
     def compute_at(self, parent, scope):

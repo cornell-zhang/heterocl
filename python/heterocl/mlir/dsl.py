@@ -1,7 +1,8 @@
 import hcl_mlir
-from hcl_mlir import ImperativeLoopNestCount, ImperativeLoopDepth, StageName
-from .schedule import Schedule
 from hcl_mlir.dialects import affine
+
+from .context import ImperativeLoopDepth, ImperativeLoopNestCount, StageName
+from .schedule import Schedule
 
 
 class WithScope(object):
