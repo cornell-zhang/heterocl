@@ -4,7 +4,6 @@ import pytest
 
 hcl.init(hcl.Float(32))
 
-@pytest.mark.skip(reason="crashes pytest: aborted")
 def test_vadd(target=None):
     n = 2
     A = hcl.placeholder((n, n), "A")
@@ -22,7 +21,6 @@ def test_vadd(target=None):
     golden = m1.asnumpy() + m2.asnumpy()
     assert np.allclose(golden, m3.asnumpy()), "test_vadd failed."
 
-@pytest.mark.skip(reason="crashes pytest: aborted")
 def test_vsum(target=None):
     n = 2
     A = hcl.placeholder((n,), "A")

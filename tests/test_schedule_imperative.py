@@ -44,7 +44,6 @@ def test_if():
     np.testing.assert_allclose(b_np, b_hcl.asnumpy())
 
 
-@pytest.mark.skip(reason="crashes pytest: aborted")
 def test_schedule_intra_stage():
 
     hcl.init()

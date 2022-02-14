@@ -46,7 +46,6 @@ def test_schedule_return():
     for i in range(10):
         assert(_B[i] == _A[i] + 1)
 
-@pytest.mark.skip(reason="LLVM JIT ExecutionEngine doesn't support multiple returns for now")
 def test_schedule_return_multi():
     hcl.init()
     A = hcl.placeholder((10,))
@@ -121,7 +120,6 @@ def test_select():
 
     assert np.allclose(np_B, np_C)
 
-@pytest.mark.skip(reason="no bitwise and for now")
 def test_bitwise_and():
     hcl.init(hcl.UInt(8))
 
@@ -146,7 +144,6 @@ def test_bitwise_and():
     f(hcl_a, hcl_b, hcl_c)
     assert np.array_equal(hcl_c.asnumpy(), g)
 
-@pytest.mark.skip(reason="no bitwise or for now")
 def test_bitwise_or():
     hcl.init(hcl.UInt(8))
 
@@ -177,7 +174,6 @@ def test_tensor_slice_shape():
     assert(A[0].shape == (4, 5))
     assert(A[0][1].shape == (5,))
 
-@pytest.mark.skip(reason="TVM operators are deprecated")
 def test_build_from_stmt():
     hcl.init(hcl.Int())
     # First, we still need to create HeteroCL inputs
