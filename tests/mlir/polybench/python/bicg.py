@@ -51,15 +51,15 @@ def bicg_golden(M, N, A, p, r, q, s):
     return s, q
 
 def main(M=32, N=32, dtype=hcl.Float(32), target=None):
-    A = np.random.randint(10, size=(N, M)).astype(np.float32)
-    p = np.random.randint(10, size=(M, )).astype(np.float32)
-    r = np.random.randint(10, size=(N, )).astype(np.float32)
-    q = np.random.randint(10, size=(N, )).astype(np.float32)
-    s = np.random.randint(10, size=(M, )).astype(np.float32)
+    A = hcl.asarray(np.random.randint(10, size=(N, M)).astype(np.float32), hcl.Float(32))
+    p = hcl.asarray(np.random.randint(10, size=(M, )).astype(np.float32), hcl.Float(32))
+    r = hcl.asarray(np.random.randint(10, size=(N, )).astype(np.float32), hcl.Float(32))
+    q = hcl.asarray(np.random.randint(10, size=(N, )).astype(np.float32), hcl.Float(32))
+    s = hcl.asarray(np.random.randint(10, size=(M, )).astype(np.float32), hcl.Float(32))
     f = top_bicg(M, N, dtype, target)
     f(A, p, r, q, s)
-    s_golden, q_golden = bicg_golden(M, N, A, p, r, q, s)
-    if np.allclose(s, s_golden) and np.allclose(q, q_golden):
+    s_golden, q_golden = bicg_golden(M, N, A.asnumpy(), p.asnumpy(), r.asnumpy(), q.asnumpy(), s.asnumpy())
+    if np.allclose(s.asnumpy(), s_golden) and np.allclose(q.asnumpy(), q_golden):
         print("pass")
     else:
         print("fail")

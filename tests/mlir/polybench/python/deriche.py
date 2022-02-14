@@ -110,7 +110,6 @@ def top_deriche(W=64, H=64, alpha=0.25, k=0.1, a1=0.1, a2=0.1,
 
 import numpy as np
 import math as mt
-from utils.helper import *
 
 def deriche_golden(W, H, alpha, k, a1, a2, a3, a4, a5, a6, a7, a8, b1, b2, c1, c2, ImageIn, ImageOut, DATA_TYPE):
     

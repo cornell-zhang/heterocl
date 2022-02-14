@@ -112,20 +112,20 @@ def correlation_golden(M, N, epsilon, mean, stddev, data, corr):
 
 
 def main(M=32, N=32, epsilon=0.1, dtype=hcl.Float(32), target=None):
-    data = np.random.randint(10, size=(N, M)).astype(np.float32)
-    mean = np.random.randint(10, size=(M,)).astype(np.float32)
-    mean_golden = np.zeros(mean.shape, dtype=np.float32)
-    stddev = np.random.randint(10, size=(M,)).astype(np.float32)
-    stddev_golden = np.zeros(mean.shape, dtype=np.float32)
-    corr = np.random.randint(10, size=(M, M)).astype(np.float32)
-    corr_golden = np.zeros(corr.shape, dtype=np.float32)
+    data = hcl.asarray(np.random.randint(10, size=(N, M)).astype(np.float32), hcl.Float(32))
+    mean = hcl.asarray(np.random.randint(10, size=(M,)).astype(np.float32), hcl.Float(32))
+    mean_golden = np.zeros((M,), dtype=np.float32)
+    stddev = hcl.asarray(np.random.randint(10, size=(M,)).astype(np.float32), hcl.Float(32))
+    stddev_golden = np.zeros((M,), dtype=np.float32)
+    corr = hcl.asarray(np.random.randint(10, size=(M, M)).astype(np.float32), hcl.Float(32))
+    corr_golden = np.zeros((M, M), dtype=np.float32)
     f = top_correlation(M, N, epsilon, dtype, target)
     f(data, mean, stddev, corr)
     correlation_golden(M, N, epsilon, mean_golden, stddev_golden, corr_golden)
     if (
-        np.allclose(mean, mean_golden)
-        and np.allclose(stddev, stddev_golden)
-        and np.allclose(corr, corr_golden)
+        np.allclose(mean.asnumpy(), mean_golden)
+        and np.allclose(stddev.asnumpy(), stddev_golden)
+        and np.allclose(corr.asnumpy(), corr_golden)
     ):
         print("pass")
     else:

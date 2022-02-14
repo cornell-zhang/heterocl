@@ -46,12 +46,12 @@ def main(N=2, dtype=hcl.Float(32), target=None):
     A = np.random.randint(10, size=(N, N)).astype(np.float32)
     A_np = np.matmul(A, A.T)
     # A_np is our random Hermitian matrix
-    A = np.copy(A_np)
+    A = hcl.asarray(np.copy(A_np), dtype=hcl.Float(32))
     A_golden = np.copy(A_np)
     cholesky_golden(N, A_golden)
     f = top_cholesky(N, dtype, target)
     f(A)
-    if np.allclose(A, A_golden):
+    if np.allclose(A.asnumpy(), A_golden):
         print("pass")
     else:
         print("failed")
