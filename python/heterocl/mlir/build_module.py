@@ -1,13 +1,13 @@
 import io
 
 import hcl_mlir
-from hcl_mlir import GlobalInsertionPoint, get_context, get_location
-from hcl_mlir.dialects import (affine, hcl as hcl_d)
-
-from hcl_mlir import passmanager
+from hcl_mlir import (GlobalInsertionPoint, get_context, get_location,
+                      passmanager)
+from hcl_mlir.dialects import affine, hcl as hcl_d
 from hcl_mlir.execution_engine import *
 from hcl_mlir.ir import *
 
+from ..devices import Platform
 from .module import HCLModule
 from .operation import placeholder
 from .runtime import copy_build_files
@@ -140,6 +140,15 @@ void top("""
 
 
 def build_fpga_kernel(schedule, target=None, name="top", stmt=None):
+    if target == "vhls":
+        buf = io.StringIO()
+        hcl_d.emit_hlscpp(schedule.device_module, buf)
+        buf.seek(0)
+        hls_code = buf.read()
+        return hls_code
+    elif not isinstance(target, Platform):
+        raise RuntimeError("Not supported target")
+
     # make the project folder and copy files
     copy_build_files(target)
 
