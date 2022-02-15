@@ -1,7 +1,6 @@
 import heterocl as hcl
 import heterocl.tvm as tvm
 import numpy as np
-import pytest
 
 def test_schedule_no_return():
     hcl.init()
@@ -168,8 +167,9 @@ def test_bitwise_or():
     f(hcl_a, hcl_b, hcl_c)
     assert np.array_equal(hcl_c.asnumpy(), g)
 
-def test_tensor_slice_shape():
+def test_tesnro_slice_shape():
     A = hcl.placeholder((3, 4, 5))
+
     assert(A.shape == (3, 4, 5))
     assert(A[0].shape == (4, 5))
     assert(A[0][1].shape == (5,))
@@ -237,6 +237,3 @@ def test_build_from_stmt():
     np_B = hcl_B.asnumpy()
 
     assert(np.array_equal(np_B, np_golden))
-
-
-test_tensor_slice_shape()

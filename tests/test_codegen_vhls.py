@@ -1,6 +1,5 @@
 import heterocl as hcl
-import pytest
-# import tests.__test_codegen_harness as harness
+import tests.__test_codegen_harness as harness
 
 target="vhls"
 

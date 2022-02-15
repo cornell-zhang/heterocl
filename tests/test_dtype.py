@@ -432,3 +432,5 @@ def test_dtype_large_array():
     test_kernel(hcl.Fixed(11, 9))
     test_kernel(hcl.Fixed(18, 16))
     test_kernel(hcl.Fixed(37, 35))
+
+test_dtype_long_int()

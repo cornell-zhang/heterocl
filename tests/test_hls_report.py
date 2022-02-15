@@ -206,89 +206,87 @@ def _test_rpt(config):
     test_multi_query()
     test_all_query()
 
-# TODO
-#def test_knn_digitrec(vhls):
-#    config = {
-#        'vhls' : vhls,
-#        'has_algorithm' : 1,
-#        'algorithm' : {
-#            'report_path' : '../samples/digitrec/s1-project/...',
-#            'name' : 'knn_digitrec'
-#        },
-#        'get_max' : 'Latency',
-#        'col' : 'Category',
-#        'info' : 'NoQuery',
-#        'loop_query' : {
-#            'query' : ['knn_mat'],
-#            'name' : 'LoopQuery'
-#        },
-#        'column_query' : {
-#            'query' : ['Trip Count'],
-#            'name' : 'ColumnQuery'
-#        },
-#        'level_query' : {
-#            'val' : 0,
-#            'name' : 'LevelQuery'
-#        },
-#        'level_out_of_bound' : {
-#            'val' : [5, -2],
-#            'name' : 'LevelQueryOOB'
-#        },
-#        'multi_query' : {
-#            'row_query' : ['train_images'],
-#            'level_query' : 0,
-#            'name' : 'MultiQuery'
-#        },
-#        'all_query' : {
-#            'row_query' : ['knn_mat'],
-#            'col_query' : ['Latency'],
-#            'level_query' : 1,
-#            'name' : 'AllQuery'
-#        }
-#    }
-#    _test_rpt(config)
+def test_knn_digitrec(vhls):
+    config = {
+        'vhls' : vhls,
+        'has_algorithm' : 1,
+        'algorithm' : {
+            'report_path' : '/test_report_data/digitrec_report.xml',
+            'name' : 'knn_digitrec'
+        },
+        'get_max' : 'Latency',
+        'col' : 'Category',
+        'info' : 'NoQuery',
+        'loop_query' : {
+            'query' : ['knn_update'],
+            'name' : 'LoopQuery'
+        },
+        'column_query' : {
+            'query' : ['Trip Count'],
+            'name' : 'ColumnQuery'
+        },
+        'level_query' : {
+            'val' : 0,
+            'name' : 'LevelQuery'
+        },
+        'level_out_of_bound' : {
+            'val' : [5, -2],
+            'name' : 'LevelQueryOOB'
+        },
+        'multi_query' : {
+            'row_query' : ['knn_update_y1'],
+            'level_query' : 0,
+            'name' : 'MultiQuery'
+        },
+        'all_query' : {
+            'row_query' : ['knn_mat_burst_s0_knn_mat_burst_s1'],
+            'col_query' : ['Latency'],
+            'level_query' : 1,
+            'name' : 'AllQuery'
+        }
+    }
+    _test_rpt(config)
 
-# TODO
-#def test_kmeans(vhls):
-#    config = {
-#        'vhls' : vhls,
-#        'has_algorithm' : 1,
-#        'algorithm' : {
-#            'report_path' : '../samples/kmeans/project/...',
-#            'name' : 'kmeans'
-#        },
-#        'get_max' : 'Iteration Latency',
-#        'col' : 'Category',
-#        'info' : 'NoQuery',
-#        'loop_query' : {
-#            'query' : ['points_burst'],
-#            'name' : 'LoopQuery'
-#        },
-#        'column_query' : {
-#            'query' : ['Latency'],
-#            'name' : 'ColumnQuery'
-#        },
-#        'level_query' : {
-#            'val' : 0,
-#            'name' : 'LevelQuery'
-#        },
-#        'level_out_of_bound' : {
-#            'val' : [5, -2],
-#            'name' : 'LevelQueryOOB'
-#        },
-#        'multi_query' : {
-#            'row_query' : ['means_burst'],
-#            'level_query' : 1,
-#            'name' : 'MultiQuery'
-#        },
-#        'all_query' : {
-#            'row_query' : ['means_burst'],
-#            'col_query' : ['Latency'],
-#            'level_query' : 1,
-#            'name' : 'AllQuery'
-#        }
-#    }
-#    _test_rpt(config)
+def test_kmeans(vhls):
+    config = {
+        'vhls' : vhls,
+        'has_algorithm' : 1,
+        'algorithm' : {
+            'report_path' : '/test_report_data/kmeans_report.xml',
+            'name' : 'kmeans'
+        },
+        'get_max' : 'Absolute Time Latency',
+        'col' : 'Category',
+        'info' : 'NoQuery',
+        'loop_query' : {
+            'query' : ['points_burst'],
+            'name' : 'LoopQuery'
+        },
+        'column_query' : {
+            'query' : ['Latency'],
+            'name' : 'ColumnQuery'
+        },
+        'level_query' : {
+            'val' : 0,
+            'name' : 'LevelQuery'
+        },
+        'level_out_of_bound' : {
+            'val' : [5, -2],
+            'name' : 'LevelQueryOOB'
+        },
+        'multi_query' : {
+            'row_query' : ['main_loop'],
+            'level_query' : 1,
+            'name' : 'MultiQuery'
+        },
+        'all_query' : {
+            'row_query' : ['calc_sum'],
+            'col_query' : ['Latency'],
+            'level_query' : 1,
+            'name' : 'AllQuery'
+        }
+    }
+    _test_rpt(config)
 
 def test_sobel(vhls):
     config = {
@@ -460,8 +458,8 @@ def test_spam_filter(vhls):
     _test_rpt(config)
 
 if __name__ == '__main__':
-    #test_knn_digitrec(False)
-    #test_kmeans(False)
+    test_knn_digitrec(False)
+    test_kmeans(False)
     test_sobel(False)
     test_sobel_partial(False)
     test_canny(False)

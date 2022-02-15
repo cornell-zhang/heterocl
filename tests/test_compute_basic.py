@@ -1,16 +1,15 @@
 import heterocl as hcl
 import numpy
-import pytest
 
 def _test_kernel(kernel):
-    A = hcl.placeholder((10,), dtype=hcl.Int(32))
+    A = hcl.placeholder((10,))
     s = hcl.create_schedule([A], kernel)
     f = hcl.build(s)
 
     np_A = numpy.random.randint(10, size=(10,))
     np_B = numpy.zeros(10)
 
-    hcl_A = hcl.asarray(np_A, dtype=hcl.Int(32))
+    hcl_A = hcl.asarray(np_A)
     hcl_B = hcl.asarray(np_B, dtype=hcl.Int(32))
 
     f(hcl_A, hcl_B)
@@ -23,11 +22,9 @@ def _test_kernel(kernel):
 def test_fcompute_basic():
 
     def kernel(A):
-        return hcl.compute(A.shape, lambda x: A[x]+1, dtype=hcl.Int(32), name="B")
+        return hcl.compute(A.shape, lambda x: A[x]+1)
 
     _test_kernel(kernel)
-
-test_fcompute_basic()
 
 def test_fcompute_function_wrapper():
 
@@ -162,15 +159,15 @@ def test_update():
     def kernel(A, B):
         hcl.update(B, lambda x: A[x]+1)
 
-    A = hcl.placeholder((10,), dtype=hcl.Int(32))
-    B = hcl.placeholder((10,), dtype=hcl.Int(32))
+    A = hcl.placeholder((10,))
+    B = hcl.placeholder((10,))
     s = hcl.create_schedule([A, B], kernel)
     f = hcl.build(s)
 
     np_A = numpy.random.randint(10, size=(10,))
     np_B = numpy.zeros(10)
 
-    hcl_A = hcl.asarray(np_A, dtype=hcl.Int(32))
+    hcl_A = hcl.asarray(np_A)
     hcl_B = hcl.asarray(np_B, dtype=hcl.Int(32))
 
     f(hcl_A, hcl_B)
@@ -218,7 +215,7 @@ def test_mutate_basic():
     np_A = numpy.random.randint(10, size=(10,))
     np_B = numpy.zeros(10)
 
-    hcl_A = hcl.asarray(np_A, dtype=hcl.Int(32))
+    hcl_A = hcl.asarray(np_A)
     hcl_B = hcl.asarray(np_B, dtype=hcl.Int(32))
 
     f(hcl_A, hcl_B)
@@ -249,7 +246,7 @@ def test_mutate_complex():
     for i in range(0, 10):
         gold_B.append(len([x for x in np_A[i] if x > 5]))
 
-    hcl_A = hcl.asarray(np_A, dtype=hcl.Int(32))
+    hcl_A = hcl.asarray(np_A)
     hcl_B = hcl.asarray(np_B, dtype=hcl.Int(32))
 
     f(hcl_A, hcl_B)
