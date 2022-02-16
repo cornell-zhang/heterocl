@@ -11,6 +11,7 @@ from hcl_mlir.ir import *
 from .. import config, types
 from .schedule import Schedule, Stage
 from .tensor import Tensor, PlaceHolder
+from .context import UniqueName
 
 
 def init(init_dtype=types.Int(32), raise_assert_exception=True):
@@ -33,7 +34,7 @@ def placeholder(shape, name=None, dtype=None):
     """Construct a HeteroCL placeholder for inputs/outputs.
     """
     if name is None:
-        name = hcl_mlir.UniqueName.get("tensor")
+        name = UniqueName.get("tensor")
     if not hcl_mlir.is_hcl_mlir_type(dtype):
         dtype = get_dtype_str(dtype)
     tensor = PlaceHolder(shape, dtype, name)
@@ -49,7 +50,7 @@ def scalar(init, name=None, dtype=None):
     - init: int, float, or expr
     """
     if name is None:
-        name = hcl_mlir.UniqueName.get("scalar")
+        name = UniqueName.get("scalar")
     ret_tensor = placeholder((1,), name=name, dtype=dtype)
     ret_tensor.build()
     index = hcl_mlir.ConstantOp(hcl_mlir.idx_type, 0)
@@ -296,7 +297,7 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
         raise RuntimeError("The shape of compute API must be a tuple")
     shape = tuple([int(s) if isinstance(s, float) else s for s in shape])
     if name is None:
-        name = hcl_mlir.UniqueName.get("tensor")
+        name = UniqueName.get("tensor")
     # create return tensor
     ret_tensor = placeholder(shape, dtype=dtype, name=name)
     # build return tensor
@@ -329,6 +330,6 @@ def mutate(domain, fcompute, name):
     if not isinstance(domain, tuple):
         raise RuntimeError("The domain of mutate API must be a tuple")
     if name is None:
-        name = hcl_mlir.UniqueName.get("stage")
+        name = UniqueName.get("stage")
     compute_body(domain, fcompute, None, name)
     return

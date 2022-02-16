@@ -1,7 +1,7 @@
 import hcl_mlir
 
 from hcl_mlir import GlobalInsertionPoint, get_context, get_location
-from .context import ImperativeLoopNestCount, ImperativeLoopDepth, StageName
+from .context import ImperativeLoopNestCount, ImperativeLoopDepth, StageName, UniqueName
 
 from hcl_mlir.dialects import (builtin, std, hcl as hcl_d)
 from hcl_mlir.ir import *
@@ -10,7 +10,7 @@ from .dfg import DataflowGraph
 from ..devices import Device, DevMemoryPair
 
 
-def create_schedule(inputs, func, name=""):
+def create_schedule(inputs, func=None, name=""):
     """Create a schedule for compute optimizations.
     """
     outputs = []
@@ -20,7 +20,10 @@ def create_schedule(inputs, func, name=""):
     GlobalInsertionPoint.clear()
     # create exact HCL IR nodes
     if name == "":
-        name = func.__name__
+        if func != None:
+            name = func.__name__
+        else:
+            name = UniqueName.get("schedule")
     sch = Schedule(name, inputs)
     with get_context() as ctx, get_location() as loc:
 
@@ -303,7 +306,7 @@ class Stage(object):
 
     def __init__(self, name=None):
         if name is None:
-            name = hcl_mlir.UniqueName.get("stage")
+            name = UniqueName.get("stage")
         self.name = name
         # create stage handle
         with get_context() as ctx, get_location() as loc:
