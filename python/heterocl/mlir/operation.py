@@ -10,7 +10,7 @@ from hcl_mlir.ir import *
 
 from .. import config, types
 from .schedule import Schedule, Stage
-from .tensor import Tensor, PlaceHolder
+from .tensor import Array, PlaceHolder
 from .context import UniqueName
 
 
@@ -42,7 +42,7 @@ def placeholder(shape, name=None, dtype=None):
 
 
 def asarray(np_array, dtype):
-    return Tensor(np_array, dtype)
+    return Array(np_array, dtype)
 
 
 def scalar(init, name=None, dtype=None):

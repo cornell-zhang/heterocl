@@ -108,7 +108,7 @@ def execute_llvm_backend(execution_engine, name, return_num, *argv):
     """
     if not isinstance(argv, list):
         argv = list(argv)
-    # Unwrap hcl Tensor to get numpy arrays
+    # Unwrap hcl Array to get numpy arrays
     argv = [arg.unwrap() for arg in argv]
     # Extract output arrays
     return_args = argv[-return_num:]

@@ -30,8 +30,10 @@ class PlaceHolder(object):
         self.tensor.__setitem__(indices, expr)
 
 
-class Tensor(object):
+class Array(object):
     """A wrapper class for numpy array
+    Differences between array and tensor:
+    tensor is only a placeholder while array holds actual values
     """
 
     def __init__(self, np_array, dtype):
