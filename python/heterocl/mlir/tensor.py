@@ -4,7 +4,7 @@ import hcl_mlir
 from hcl_mlir.dialects import memref
 
 
-class PlaceHolder(object):
+class Tensor(object):
     """A wrapper class for hcl-mlir TensorOp
     """
 

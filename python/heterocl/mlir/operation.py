@@ -10,7 +10,7 @@ from hcl_mlir.ir import *
 
 from .. import config, types
 from .schedule import Schedule, Stage
-from .tensor import Array, PlaceHolder
+from .tensor import Array, Tensor
 from .context import UniqueName
 
 
@@ -37,7 +37,7 @@ def placeholder(shape, name=None, dtype=None):
         name = UniqueName.get("tensor")
     if not hcl_mlir.is_hcl_mlir_type(dtype):
         dtype = get_dtype_str(dtype)
-    tensor = PlaceHolder(shape, dtype, name)
+    tensor = Tensor(shape, dtype, name)
     return tensor
 
 
@@ -141,7 +141,7 @@ def compute_body(shape, fcompute, ret_tensor, name):
     closure_var = inspect.getclosurevars(fcompute).nonlocals
     inputs = []
     for _, var in closure_var.items():
-        if isinstance(var, PlaceHolder):
+        if isinstance(var, Tensor):
             inputs.append(var.tensor)
     input_types = []
     for in_tensor in inputs:
