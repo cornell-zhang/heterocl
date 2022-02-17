@@ -311,7 +311,8 @@ def update(tensor, fcompute, name=None):
     name: str
     """
     # Check tensor type
-    if not isinstance(tensor, hcl_mlir.build_ir.TensorOp):
+    if not isinstance(tensor, hcl_mlir.build_ir.TensorOp) and \
+       not isinstance(tensor, PlaceHolder):
         raise RuntimeError("Unexpected argument type of the " +
                            "first argument: {}, update API expects tensor as input.".format(type(tensor)))
     if name is None:
