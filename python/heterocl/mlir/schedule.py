@@ -25,18 +25,36 @@ def create_schedule(inputs, func=None, name=""):
         else:
             name = UniqueName.get("schedule")
     sch = Schedule(name, inputs)
-    with get_context() as ctx, get_location() as loc:
 
-        func_op = sch.device_top
-        # create exact memref alloc
-        for placeholder, arg in zip(inputs, func_op.entry_block.arguments):
-            placeholder.tensor.op = arg
+    # build IR
+    with get_context() as ctx, get_location() as loc:
+        # get all compute nodes
+        # TODO: support imperative programming
         # execute all fcompute and generate inner IR nodes
         # 1) func is hcl.compute: IR nodes not build inplace (default)
         # 2) func is defined by imperative DSL: IR nodes build inplace
-        hcl_mlir.enable_build_inplace()
         ret = func(*inputs)
-        hcl_mlir.disable_build_inplace()
+
+        # create exact IR reference
+        func_op = sch.device_top
+        for placeholder, arg in zip(inputs, func_op.entry_block.arguments):
+            placeholder.op.update_op(arg)
+
+        # traverse backward in AST to build IR
+        def traverse(node, visited):
+            # roots
+            if node in visited:
+                return
+            visited.append(node)
+            if isinstance(node.op, hcl_mlir.TensorOp):
+                node.op.build()
+            else:
+                for input in node.op.inputs:
+                    traverse(input, visited)
+                compute_op = node.op
+                compute_op.build()
+
+        traverse(ret, [])
 
         # append the output tensors to the input list
         if ret is not None:
@@ -45,7 +63,7 @@ def create_schedule(inputs, func=None, name=""):
             else:
                 outputs.append(ret)
             # recompute the function type
-            return_types = [v.get_memref_type() for v in outputs]
+            return_types = [v.memref_type for v in outputs]
             function_type = FunctionType.get(
                 inputs=func_op.type.inputs, results=return_types)
             func_op.attributes["type"] = TypeAttr.get(function_type)
@@ -119,7 +137,8 @@ class Schedule(object):
         # create top-level function
         input_types = []
         for tensor in inputs:
-            input_types.append(tensor.get_memref_type())
+            # should be a hcl_mlir.TensorOp
+            input_types.append(tensor.op.memref_type)
         with get_context() as ctx, get_location() as loc:
             device_top = builtin.FuncOp(name="top", type=FunctionType.get(
                 inputs=input_types, results=[]), ip=InsertionPoint(self._device_module.body))
@@ -370,7 +389,8 @@ class Stage(object):
         with get_context() as ctx, get_location():
             i32 = IntegerType.get_signless(32)
             factor = IntegerAttr.get(i32, factor)
-            split_op = hcl_d.SplitOp(self.stage_handle.result, var.result, factor, ip=GlobalInsertionPoint.get())
+            split_op = hcl_d.SplitOp(
+                self.stage_handle.result, var.result, factor, ip=GlobalInsertionPoint.get())
         return split_op.results[0], split_op.results[1]
 
     def tile(self, x_parent, y_parent, x_factor, y_factor):
@@ -380,7 +400,8 @@ class Stage(object):
             i32 = IntegerType.get_signless(32)
             x_factor = IntegerAttr.get(i32, x_factor)
             y_factor = IntegerAttr.get(i32, y_factor)
-            tile_op = hcl_d.TileOp(self.stage_handle.result, x_parent.result, y_parent.result, x_factor, y_factor, ip=GlobalInsertionPoint.get())
+            tile_op = hcl_d.TileOp(self.stage_handle.result, x_parent.result,
+                                   y_parent.result, x_factor, y_factor, ip=GlobalInsertionPoint.get())
         return tile_op.results[0], tile_op.results[1], tile_op.results[2], tile_op.results[3]
 
     def pipeline(self, var, initiation_interval=1):
@@ -425,7 +446,8 @@ class Stage(object):
             if not isinstance(args[i], OpResult):
                 args[i] = args[i].result
         with get_context() as ctx, get_location():
-            fused = hcl_d.FuseOp(self.stage_handle.result, args, ip=GlobalInsertionPoint.get())
+            fused = hcl_d.FuseOp(self.stage_handle.result,
+                                 args, ip=GlobalInsertionPoint.get())
         return fused
 
     def compute_at(self, parent, scope):

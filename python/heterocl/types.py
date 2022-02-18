@@ -1,8 +1,9 @@
 """Define HeteroCL data types"""
-#pylint: disable=too-few-public-methods, too-many-return-statements
+# pylint: disable=too-few-public-methods, too-many-return-statements
 import numbers
 from collections import OrderedDict
 from .debug import DTypeError
+from . import config
 
 class Type(object):
     """The base class for all data types
@@ -16,15 +17,18 @@ class Type(object):
     fracs: int
         Number of fractional bits.
     """
+
     def __init__(self, bits=32, fracs=0):
         if not isinstance(bits, numbers.Integral):
             raise DTypeError("Bitwidth must be an integer.")
         if not isinstance(fracs, numbers.Integral):
             raise DTypeError("Number of fractional bits must be an integer.")
         if bits > 2047:
-            raise DTypeError("The maximum supported total bitwidth is 2047 bits.")
+            raise DTypeError(
+                "The maximum supported total bitwidth is 2047 bits.")
         if fracs > 255:
-            raise DTypeError("The maximum supported fractional bitwidth is 255 bits.")
+            raise DTypeError(
+                "The maximum supported fractional bitwidth is 255 bits.")
         self.bits = bits
         self.fracs = fracs
 
@@ -32,36 +36,48 @@ class Type(object):
         other = dtype_to_hcl(other)
         return other.bits == self.bits and other.fracs == self.fracs
 
+
 class Int(Type):
     """Arbitrary-bit signed integers"""
+
     def __repr__(self):
         return "Int(" + str(self.bits) + ")"
 
+
 class UInt(Type):
     """Arbitrary-bit unsigned integers"""
+
     def __repr__(self):
         return "UInt(" + str(self.bits) + ")"
 
+
 class Float(Type):
     """Floating points"""
+
     def __repr__(self):
         return "Float(" + str(self.bits) + ")"
 
+
 class Fixed(Type):
     """Arbitrary-bit signed fixed points"""
+
     def __repr__(self):
         return "Fixed(" + str(self.bits) + ", " + str(self.fracs) + ")"
 
+
 class UFixed(Type):
     """Arbitrary-bit unsigned fixed points"""
+
     def __repr__(self):
         return "UFixed(" + str(self.bits) + ", " + str(self.fracs) + ")"
+
 
 class Struct(Type):
     """A C-like struct
 
     The struct members are defined with a Python dictionary
     """
+
     def __init__(self, dtype_dict):
         self.bits = 0
         for name, dtype in dtype_dict.items():
@@ -82,6 +98,7 @@ class Struct(Type):
 
     def __getitem__(self, key):
         return self.__getattr__(key)
+
 
 def dtype_to_str(dtype):
     """Convert a data type to string format.
@@ -116,12 +133,13 @@ def dtype_to_str(dtype):
             if fracs == 0:
                 return "uint" + str(bits)
             return "ufixed" + str(bits) + "_" + str(fracs)
-        else: # Float
+        else:  # Float
             return "float" + str(dtype.bits)
     else:
         if not isinstance(dtype, str):
             raise DTypeError("Unsupported data type format")
         return dtype
+
 
 def dtype_to_hcl(dtype):
     """Convert a data type to Heterocl type.
@@ -155,6 +173,16 @@ def dtype_to_hcl(dtype):
     else:
         raise DTypeError("Unrecognized data type format")
 
+
+def get_dtype_str(dtype=None):
+    if not dtype is None and not isinstance(dtype, (Type, str)):
+        raise RuntimeError("Type error")
+    dtype = config.init_dtype if dtype is None else dtype
+    if not isinstance(dtype, str):
+        dtype = dtype_to_str(dtype)
+    return dtype
+
+
 def get_bitwidth(dtype):
     """Get the bitwidth of a given data type.
 
@@ -169,6 +197,7 @@ def get_bitwidth(dtype):
     """
     dtype = dtype_to_hcl(dtype)
     return dtype.bits
+
 
 def get_fractional_bitwidth(dtype):
     """Get the fractional bitwidth of a given data type.
