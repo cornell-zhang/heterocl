@@ -161,7 +161,8 @@ class Schedule(object):
             device_top = builtin.FuncOp(name="top", type=FunctionType.get(
                 inputs=input_types, results=[]), ip=InsertionPoint(self._device_module.body))
             device_top.add_entry_block()
-            device_top.attributes["top"] = UnitAttr.get()
+            if hcl_mlir.EXTRACT_FUNCTION:
+                device_top.attributes["top"] = UnitAttr.get()
         GlobalInsertionPoint.save(InsertionPoint(self._device_module.body))
         GlobalInsertionPoint.save(InsertionPoint(device_top.entry_block))
         self._device_top = device_top
