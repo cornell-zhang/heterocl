@@ -55,10 +55,10 @@ def separate_host_device(schedule):
             loop_names = ["i{}".format(i) for i in range(len(shape))]
             # create new tensors for host
             host_tensor = placeholder(
-                shape, name=tensor.name+"_host", dtype=tensor.dtype)
-            host_tensor.build()
+                shape, name=tensor.op.name+"_host", dtype=tensor.op.dtype)
+            host_tensor.op.build()
             if node in Schedule._DataflowGraph.subgraph["outputs"]:
-                host_tensors.append(host_tensor.result)
+                host_tensors.append(host_tensor.op.result)
             # create initialization loops
             loops = []
             body_ip = GlobalInsertionPoint.get()
@@ -68,7 +68,7 @@ def separate_host_device(schedule):
                     ub,
                     step=1,
                     name=loop_name,
-                    stage=tensor.name+"_host" if i == 0 else "",
+                    stage=tensor.op.name+"_host" if i == 0 else "",
                     ip=body_ip,
                 )
                 if i != 0:  # manually add terminator!
@@ -76,9 +76,9 @@ def separate_host_device(schedule):
                 loops.append(loop)
                 body_ip = InsertionPoint(loop.body)
             GlobalInsertionPoint.save(body_ip)
-            cst = hcl_mlir.ConstantOp(tensor.dtype, 0)
+            cst = hcl_mlir.ConstantOp(tensor.op.dtype, 0)
             store = hcl_mlir.StoreOp(
-                cst, host_tensor, [hcl_mlir.IterVar(loop.induction_variable) for loop in loops])
+                cst, host_tensor.op, [hcl_mlir.IterVar(loop.induction_variable) for loop in loops])
             GlobalInsertionPoint.restore()
         # call device function
         host_tensors = [
@@ -91,9 +91,9 @@ def separate_host_device(schedule):
         # fix device top function signature
         func_op = schedule.xcel_top
         function_type = FunctionType.get(
-            inputs=[node.tensor.get_memref_type()
+            inputs=[node.tensor.memref_type
                     for node in Schedule._DataflowGraph.subgraph["inputs"]],
-            results=[node.tensor.get_memref_type() for node in Schedule._DataflowGraph.subgraph["outputs"]])
+            results=[node.tensor.memref_type for node in Schedule._DataflowGraph.subgraph["outputs"]])
         func_op.attributes["type"] = TypeAttr.get(function_type)
         func_op.attributes["inputs"] = StringAttr.get(
             ",".join([node.tensor.name+"_xcel" for node in Schedule._DataflowGraph.subgraph["inputs"]]))
@@ -129,7 +129,7 @@ void top("""
         Schedule._DataflowGraph.subgraph["outputs"]
     args = []
     for node in all_inputs_outputs:
-        tensor = node.tensor.tensor
+        tensor = node.tensor.op
         arg = hcl_mlir.print_mlir_type(tensor.dtype) + " " + tensor.name
         for index in tensor.shape:
             arg += "[{}]".format(index)
@@ -153,6 +153,8 @@ def build_fpga_kernel(schedule, target=None, name="top", stmt=None):
     copy_build_files(target)
 
     # data placement
+    if not hcl_mlir.EXTRACT_FUNCTION:
+        raise RuntimeError("Should set hcl_mlir.EXTRACT_FUNCTION to True!")
     Schedule._DataflowGraph.graph_partition()
     separate_host_device(schedule)
 
