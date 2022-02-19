@@ -66,21 +66,27 @@ def main(P=16, Q=22, R=18, S=24, alpha=0.1, beta=0.1):
     B = np.random.randint(10, size=(Q, R)).astype(np.float32)
     C = np.random.randint(10, size=(R, S)).astype(np.float32)
     D = np.random.randint(10, size=(P, S)).astype(np.float32)
-    res1 = np.zeros((P, S), dtype=np.float32)
-    res2 = np.zeros((P, S), dtype=np.float32)
-    res3 = np.zeros((P, S), dtype=np.float32)
-    f1(A, B, C, D, res1)
-    f2(A, B, C, D, res2)
-    f3(A, B, C, D, res3)
+    A_hcl = hcl.asarray(A, dtype=hcl.Float(32))
+    B_hcl = hcl.asarray(B, dtype=hcl.Float(32))
+    C_hcl = hcl.asarray(C, dtype=hcl.Float(32))
+    D_hcl = hcl.asarray(D, dtype=hcl.Float(32))
+    res1 = hcl.asarray(np.zeros((P, S), dtype=np.float32), dtype=hcl.Float(32))
+    res2 = hcl.asarray(np.zeros((P, S), dtype=np.float32), dtype=hcl.Float(32))
+    res3 = hcl.asarray(np.zeros((P, S), dtype=np.float32), dtype=hcl.Float(32))
+    f1(A_hcl, B_hcl, C_hcl, D_hcl, res1)
+    f2(A_hcl, B_hcl, C_hcl, D_hcl, res2)
+    f3(A_hcl, B_hcl, C_hcl, D_hcl, res3)
     golden = alpha * np.matmul(np.matmul(A, B), C) + beta * D
     if (
-        np.allclose(golden, res1)
-        and np.allclose(res1, res2)
-        and np.allclose(res2, res3)
+        np.allclose(golden, res1.asnumpy())
+        and np.allclose(res1, res2.asnumpy())
+        and np.allclose(res2, res3.asnumpy())
     ):
         print("passed")
     else:
         print("failed")
+        print(res1.asnumpy())
+        print(golden)
 
 
 if __name__ == "__main__":
