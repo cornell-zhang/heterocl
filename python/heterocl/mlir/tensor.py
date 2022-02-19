@@ -3,14 +3,14 @@ from typing import List
 
 import hcl_mlir
 import numpy as np
-from hcl_mlir import (ASTBuilder, GlobalInsertionPoint, get_context,
-                      get_location)
+from hcl_mlir import ASTBuilder, GlobalInsertionPoint
 from hcl_mlir.dialects import affine, arith, builtin
 from hcl_mlir.dialects import hcl as hcl_d
 from hcl_mlir.dialects import memref, std
 from hcl_mlir.ir import *
 
 from ..types import dtype_to_str, get_dtype_str
+from .context import get_context, get_location
 from .schedule import Schedule, Stage
 
 

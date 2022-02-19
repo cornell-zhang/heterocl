@@ -1,13 +1,14 @@
 import hcl_mlir
-
-from hcl_mlir import GlobalInsertionPoint, get_context, get_location
-from .context import ImperativeLoopNestCount, ImperativeLoopDepth, StageName, UniqueName
-
-from hcl_mlir.dialects import (builtin, std, hcl as hcl_d)
+from hcl_mlir import GlobalInsertionPoint
+from hcl_mlir.dialects import builtin
+from hcl_mlir.dialects import hcl as hcl_d
+from hcl_mlir.dialects import std
 from hcl_mlir.ir import *
 
-from .dfg import DataflowGraph
 from ..devices import Device, DevMemoryPair
+from .context import (ImperativeLoopDepth, ImperativeLoopNestCount, StageName,
+                      UniqueName, get_context, get_location, set_context)
+from .dfg import DataflowGraph
 
 
 def create_schedule(inputs, func=None, name=""):
@@ -15,8 +16,10 @@ def create_schedule(inputs, func=None, name=""):
     """
     if not isinstance(inputs, list):
         inputs = [inputs]
-    # reset the global variables
+    # initialization
     GlobalInsertionPoint.clear()
+    set_context()
+
     # create exact HCL IR nodes
     if name == "":
         if func != None:
@@ -128,7 +131,7 @@ class Schedule(object):
         self.name = name
         # Device-agnostic module:
         # used for transformation
-        self._device_module = Module.create(hcl_mlir.get_location())
+        self._device_module = Module.create(get_location())
         self._device_top = None
 
         # Device-aware module:
@@ -149,12 +152,12 @@ class Schedule(object):
         Schedule._DataflowGraph = DataflowGraph(name, inputs)
 
         # create top-level function
-        input_types = []
-        for tensor in inputs:
-            if not isinstance(tensor.op, hcl_mlir.TensorOp):
-                raise RuntimeError("Inputs should be hcl_mlir.TensorOp")
-            input_types.append(tensor.op.memref_type)
         with get_context() as ctx, get_location() as loc:
+            input_types = []
+            for tensor in inputs:
+                if not isinstance(tensor.op, hcl_mlir.TensorOp):
+                    raise RuntimeError("Inputs should be hcl_mlir.TensorOp")
+                input_types.append(tensor.op.memref_type)
             device_top = builtin.FuncOp(name="top", type=FunctionType.get(
                 inputs=input_types, results=[]), ip=InsertionPoint(self._device_module.body))
             device_top.add_entry_block()
@@ -164,7 +167,7 @@ class Schedule(object):
         self._device_top = device_top
 
     def create_host_module(self):
-        self._host_module = Module.create(hcl_mlir.get_location())
+        self._host_module = Module.create(get_location())
         with get_context() as ctx, get_location() as loc:
             # create top-level function
             self._host_top = builtin.FuncOp(name="main", type=FunctionType.get(
@@ -191,7 +194,7 @@ class Schedule(object):
         return self._xcel_module
 
     def create_extern_module(self):
-        self._extern_module = Module.create(hcl_mlir.get_location())
+        self._extern_module = Module.create(get_location())
         with get_context() as ctx, get_location() as loc:
             # create top-level function
             self._extern_top = builtin.FuncOp(name="top", type=FunctionType.get(

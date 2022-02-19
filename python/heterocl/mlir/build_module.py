@@ -1,13 +1,14 @@
 import io
 
 import hcl_mlir
-from hcl_mlir import (GlobalInsertionPoint, get_context, get_location,
-                      passmanager)
-from hcl_mlir.dialects import affine, hcl as hcl_d
+from hcl_mlir import GlobalInsertionPoint
+from hcl_mlir.dialects import affine
+from hcl_mlir.dialects import hcl as hcl_d
 from hcl_mlir.execution_engine import *
 from hcl_mlir.ir import *
 
 from ..devices import Platform
+from .context import get_context, get_location
 from .module import HCLModule
 from .operation import placeholder
 from .runtime import copy_build_files
@@ -130,7 +131,9 @@ void top("""
     args = []
     for node in all_inputs_outputs:
         tensor = node.tensor.op
-        arg = hcl_mlir.print_mlir_type(tensor.dtype) + " " + tensor.name
+        with get_context():
+            arg = hcl_mlir.print_mlir_type(
+                hcl_mlir.get_mlir_type(tensor.dtype)) + " " + tensor.name
         for index in tensor.shape:
             arg += "[{}]".format(index)
         args.append(arg)

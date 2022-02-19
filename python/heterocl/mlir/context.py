@@ -1,5 +1,8 @@
 from contextvars import ContextVar
 
+from hcl_mlir.dialects import hcl as hcl_d
+from hcl_mlir.ir import *
+
 ImperativeLoopNestCount = ContextVar("ImperativeLoopNestCount", default=1)
 ImperativeLoopDepth = ContextVar("ImperativeLoopDepth", default=0)
 StageName = ContextVar("StageName", default="")
@@ -32,3 +35,26 @@ class UniqueName(object):
         else:
             raise RuntimeError(f"Unrecognized case in get_unique_name: {case}")
         return name
+
+
+class GlobalContext(object):
+    def __init__(self):
+        self.ctx = None
+        self.loc = None
+
+    def get_context(self):
+        return self.ctx
+
+    def set_context(self):
+        self.ctx = Context()
+        hcl_d.register_dialect(self.ctx)
+        self.loc = Location.unknown(self.ctx)
+
+    def get_location(self):
+        return self.loc
+
+
+global_ctx = GlobalContext()
+get_context = global_ctx.get_context
+set_context = global_ctx.set_context
+get_location = global_ctx.get_location

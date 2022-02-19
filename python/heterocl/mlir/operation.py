@@ -1,9 +1,7 @@
 from collections import OrderedDict
 
 import hcl_mlir
-from hcl_mlir.dialects import affine, arith, builtin
-from hcl_mlir.dialects import hcl as hcl_d
-from hcl_mlir.dialects import memref, std
+from hcl_mlir.dialects import memref
 from hcl_mlir.ir import *
 
 from .. import config, types
