@@ -390,7 +390,7 @@ class Stage(object):
         args = list(args)
         for i in range(0, len(args)):
             if isinstance(args[i], int):
-                args[i] = self.axis[args[i]]
+                args[i] = self.op.axis[args[i]]
             if not isinstance(args[i], OpResult):
                 args[i] = args[i].result
         with get_context(), get_location():
@@ -403,7 +403,7 @@ class Stage(object):
         if nparts != None or mode != "transform":
             raise RuntimeError("Not supported")
         if isinstance(parent, int):
-            parent = self.axis[parent]
+            parent = self.op.axis[parent]
         var = parent
         with get_context() as ctx, get_location():
             i32 = IntegerType.get_signless(32)
@@ -427,7 +427,7 @@ class Stage(object):
         """Pipeline the iteration.
         """
         if isinstance(var, int):
-            var = self.axis[var]
+            var = self.op.axis[var]
         with get_context(), get_location():
             i32 = IntegerType.get_signless(32)
             ii = IntegerAttr.get(i32, initiation_interval)
@@ -438,7 +438,7 @@ class Stage(object):
         """Unroll the iteration.
         """
         if isinstance(var, int):
-            var = self.axis[var]
+            var = self.op.axis[var]
         with get_context(), get_location():
             i32 = IntegerType.get_signless(32)
             factor = IntegerAttr.get(i32, factor)
@@ -449,7 +449,7 @@ class Stage(object):
         """Parallelize the iteration.
         """
         if isinstance(var, int):
-            var = self.axis[var]
+            var = self.op.axis[var]
         with get_context(), get_location():
             hcl_d.ParallelOp(self.stage_handle.result,
                              var.result, ip=GlobalInsertionPoint.get())
@@ -461,7 +461,7 @@ class Stage(object):
         args = list(args)
         for i in range(0, len(args)):
             if isinstance(args[i], int):
-                args[i] = self.axis[args[i]]
+                args[i] = self.op.axis[args[i]]
             if not isinstance(args[i], OpResult):
                 args[i] = args[i].result
         with get_context() as ctx, get_location():
@@ -476,9 +476,8 @@ class Stage(object):
         if isinstance(scope, int):
             scope = parent.op.axis[scope]
         with get_context() as ctx, get_location():
-            loop_handle_type = hcl_d.LoopHandleType.get(ctx)
-            compute_at = hcl_d.ComputeAtOp(loop_handle_type,
-                                           self.stage_handle.result, parent.stage_handle.result, scope.result, ip=GlobalInsertionPoint.get())
+            compute_at = hcl_d.ComputeAtOp(
+                self.stage_handle.result, parent.stage_handle.result, scope.result, ip=GlobalInsertionPoint.get())
 
     def systolic(self):
         """Wrap the current stage as a systolic array
