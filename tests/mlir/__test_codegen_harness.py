@@ -1,4 +1,5 @@
 import heterocl as hcl
+import re
 
 def test_dtype(target, strings, test_fixed_point=True):
     def test_int():
@@ -27,14 +28,14 @@ def test_dtype(target, strings, test_fixed_point=True):
     if test_fixed_point:
         test_fixed()
 
-def test_print(target):
-    hcl.init()
-    A = hcl.placeholder((10, 32))
-    def kernel(A):
-        hcl.print(A[0])
-        return hcl.compute(A.shape, lambda *args: A[args])
-    s = hcl.create_schedule([A], kernel)
-    code = hcl.build(s, target=target)
+# def test_print(target):
+#     hcl.init()
+#     A = hcl.placeholder((10, 32))
+#     def kernel(A):
+#         hcl.print(A[0])
+#         return hcl.compute(A.shape, lambda *args: A[args])
+#     s = hcl.create_schedule([A], kernel)
+#     code = hcl.build(s, target=target)
 
 def test_pragma(target, strings, test_partition=True):
     hcl.init()
@@ -56,7 +57,7 @@ def test_pragma(target, strings, test_partition=True):
         s3 = hcl.create_schedule([A, B, C])
         s3.partition(A, hcl.Partition.Block, dim=2, factor=2)
         code3 = hcl.build(s3, target=target)
-        assert strings[2] in code3
+        assert re.search(strings[2], code3)
 
 def test_set_bit(target, string):
     hcl.init()

@@ -11,14 +11,14 @@ def test_dtype():
                                 "ap_ufixed<5, 2>",
                                 "ap_fixed<7, 3>"])
 
-def test_print():
-    harness.test_print(target)
+# def test_print():
+#     harness.test_print(target)
 
 def test_pragma():
     harness.test_pragma(target,
                         ["#pragma HLS unroll factor=4",
                          "#pragma HLS pipeline II=2",
-                         "#pragma HLS array_partition variable=A block dim=2 factor=2"])
+                         r"#pragma HLS array_partition variable=A\d* block dim=2 factor=2"])
 
 def test_set_bit():
     harness.test_set_bit(target, "A[0][4] = 1")
