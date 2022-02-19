@@ -38,7 +38,11 @@ def create_schedule(inputs, func=None, name=""):
 
     # build IR
     with get_context() as ctx, get_location() as loc:
-        # get all compute nodes
+        # create exact IR reference
+        func_op = sch.device_top
+        for placeholder, arg in zip(inputs, func_op.entry_block.arguments):
+            placeholder.op.update_op(arg)
+
         # TODO: support imperative programming
         # execute all fcompute and generate inner IR nodes
         # 1) func is hcl.compute: IR nodes not build inplace (default)
@@ -50,11 +54,6 @@ def create_schedule(inputs, func=None, name=""):
                     "Need to specify output for the function to be scheduled")
         else:
             ret = output
-
-        # create exact IR reference
-        func_op = sch.device_top
-        for placeholder, arg in zip(inputs, func_op.entry_block.arguments):
-            placeholder.op.update_op(arg)
 
         # traverse backward in AST to build IR
         def traverse(node, visited):

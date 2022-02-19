@@ -19,14 +19,13 @@ class WithScope(object):
         self._exit_cb()
 
 
-def for_(begin, end, step=1, name="i"):
+def for_(begin, end, step=1, tag=""):
     """Construct a FOR loop.
 
     Be careful: should not be used with other compute APIs like sum
     """
     depth = ImperativeLoopDepth.get()
     count = ImperativeLoopNestCount.get()
-    stage = StageName.get() if depth == 0 else ""
     if depth == 0:
         ImperativeLoopNestCount.set(count + 1)
     ImperativeLoopDepth.set(depth + 1)
@@ -34,7 +33,7 @@ def for_(begin, end, step=1, name="i"):
     # TODO(Niansong): loop bounds must be expressions of itervar, e.g. k+1
     if isinstance(begin, (int, hcl_mlir.IterVar)) and isinstance(end, (int, hcl_mlir.IterVar)):
         loop = hcl_mlir.make_affine_for(
-            begin, end, step, name=name, stage=stage, ip=hcl_mlir.GlobalInsertionPoint.get())
+            begin, end, step, stage=tag, ip=hcl_mlir.GlobalInsertionPoint.get())
     else:
         raise RuntimeError("Not implemented")
     iter_var = hcl_mlir.IterVar(loop.induction_variable)
@@ -60,6 +59,7 @@ def if_(cond):
     Schedule._IfElseStack.append(if_op)
 
     def _exit_cb():
+        affine.AffineYieldOp([], ip=hcl_mlir.GlobalInsertionPoint.get())
         hcl_mlir.GlobalInsertionPoint.restore()
 
     return WithScope(None, _exit_cb)
@@ -72,9 +72,11 @@ def else_():
     if len(Schedule._IfElseStack) == 0:
         raise RuntimeError("There is no if_ in front of the else_ branch")
     last_if_op = Schedule._IfElseStack.pop()
+    last_if_op.regions[1].blocks.append(*[])
     hcl_mlir.GlobalInsertionPoint.save(last_if_op.else_block)
 
     def _exit_cb():
+        affine.AffineYieldOp([], ip=hcl_mlir.GlobalInsertionPoint.get())
         hcl_mlir.GlobalInsertionPoint.restore()
 
     return WithScope(None, _exit_cb)
