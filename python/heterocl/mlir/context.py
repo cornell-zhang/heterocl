@@ -9,7 +9,7 @@ class UniqueName(object):
     scalar_idx = 0
     tensor_idx = 0
     stage_idx = 0
-    schdule_idx = 0
+    schedule_idx = 0
 
     def __init__(self):
         pass

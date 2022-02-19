@@ -13,7 +13,6 @@ from ..devices import Device, DevMemoryPair
 def create_schedule(inputs, func=None, name=""):
     """Create a schedule for compute optimizations.
     """
-    outputs = []
     if not isinstance(inputs, list):
         inputs = [inputs]
     # reset the global variables
@@ -24,6 +23,14 @@ def create_schedule(inputs, func=None, name=""):
             name = func.__name__
         else:
             name = UniqueName.get("schedule")
+    if func == None:
+        # TODO: Suppose only one output, and the output is the last argument
+        output = inputs[-1]
+        root_nodes = []
+        for tensor in inputs:
+            if isinstance(tensor.op, hcl_mlir.TensorOp):
+                root_nodes.append(tensor)
+        inputs = root_nodes
     sch = Schedule(name, inputs)
 
     # build IR
@@ -33,7 +40,13 @@ def create_schedule(inputs, func=None, name=""):
         # execute all fcompute and generate inner IR nodes
         # 1) func is hcl.compute: IR nodes not build inplace (default)
         # 2) func is defined by imperative DSL: IR nodes build inplace
-        ret = func(*inputs)
+        if func != None:
+            ret = func(*inputs)
+            if ret == None:
+                raise RuntimeError(
+                    "Need to specify output for the function to be scheduled")
+        else:
+            ret = output
 
         # create exact IR reference
         func_op = sch.device_top
@@ -42,7 +55,6 @@ def create_schedule(inputs, func=None, name=""):
 
         # traverse backward in AST to build IR
         def traverse(node, visited):
-            # roots
             if node in visited:
                 return
             visited.append(node)
@@ -58,6 +70,7 @@ def create_schedule(inputs, func=None, name=""):
 
         # append the output tensors to the input list
         if ret is not None:
+            outputs = []
             if isinstance(ret, tuple):
                 outputs = list(ret)
             else:
@@ -93,8 +106,9 @@ def create_schedule(inputs, func=None, name=""):
             GlobalInsertionPoint.save(InsertionPoint(ret_op))
 
     # let each stage's output be an attribute of the function
-    for op, stage in Stage._mapping:
-        func.__setattr__(op.name, op)
+    if func != None:
+        for op, stage in Stage._mapping:
+            func.__setattr__(op.name, op)
     return sch
 
 
@@ -137,7 +151,8 @@ class Schedule(object):
         # create top-level function
         input_types = []
         for tensor in inputs:
-            # should be a hcl_mlir.TensorOp
+            if not isinstance(tensor.op, hcl_mlir.TensorOp):
+                raise RuntimeError("Inputs should be hcl_mlir.TensorOp")
             input_types.append(tensor.op.memref_type)
         with get_context() as ctx, get_location() as loc:
             device_top = builtin.FuncOp(name="top", type=FunctionType.get(

@@ -153,6 +153,8 @@ def build_fpga_kernel(schedule, target=None, name="top", stmt=None):
     copy_build_files(target)
 
     # data placement
+    if not hcl_mlir.EXTRACT_FUNCTION:
+        raise RuntimeError("Should set hcl_mlir.EXTRACT_FUNCTION to True!")
     Schedule._DataflowGraph.graph_partition()
     separate_host_device(schedule)
 
