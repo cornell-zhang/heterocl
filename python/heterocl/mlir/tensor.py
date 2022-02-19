@@ -266,12 +266,13 @@ class Array(object):
     """
 
     def __init__(self, np_array, dtype):
-        self.dtype = dtype
-        # Data type check
-        hcl_dtype_str = dtype_to_str(dtype)
-        correct_dtype = np.dtype(hcl_dtype_str)
-        if np_array.dtype != correct_dtype:
-            np_array = np_array.astype(correct_dtype)
+        self.dtype = dtype # should specify the type of `dtype`
+        if dtype != None:
+            # Data type check
+            hcl_dtype_str = dtype_to_str(dtype)
+            correct_dtype = np.dtype(hcl_dtype_str)
+            if np_array.dtype != correct_dtype:
+                np_array = np_array.astype(correct_dtype)
         self.np_array = np_array
 
     def asnumpy(self):

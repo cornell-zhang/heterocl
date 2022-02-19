@@ -29,7 +29,7 @@ def placeholder(shape, name=None, dtype=None):
     return tensor
 
 
-def asarray(np_array, dtype):
+def asarray(np_array, dtype=None):
     return Array(np_array, dtype)
 
 
