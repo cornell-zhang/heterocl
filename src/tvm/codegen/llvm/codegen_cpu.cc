@@ -123,45 +123,50 @@ llvm::Value* CodeGenCPU::CreateStructRefPtr(Type t, llvm::Value* buf,
   }
   switch (kind) {
     case intrinsic::kArrAddr: {
-      return builder_->CreateInBoundsGEP(buf, index);
+      return builder_->CreateInBoundsGEP(buf->getType(), buf, index);
     }
     case intrinsic::kArrData: {
-      return builder_->CreateInBoundsGEP(buf, {index, ConstInt32(0)});
+      return builder_->CreateInBoundsGEP(buf->getType(), buf,
+                                         {index, ConstInt32(0)});
     }
     case intrinsic::kArrShape: {
-      return builder_->CreateInBoundsGEP(buf, {index, ConstInt32(4)});
+      return builder_->CreateInBoundsGEP(buf->getType(), buf,
+                                         {index, ConstInt32(4)});
     }
     case intrinsic::kArrStrides: {
-      return builder_->CreateInBoundsGEP(buf, {index, ConstInt32(5)});
+      return builder_->CreateInBoundsGEP(buf->getType(), buf,
+                                         {index, ConstInt32(5)});
     }
     case intrinsic::kArrNDim: {
-      return builder_->CreateInBoundsGEP(buf, {index, ConstInt32(2)});
+      return builder_->CreateInBoundsGEP(buf->getType(), buf,
+                                         {index, ConstInt32(2)});
     }
     case intrinsic::kArrTypeCode: {
-      return builder_->CreateInBoundsGEP(buf,
+      return builder_->CreateInBoundsGEP(buf->getType(), buf,
                                          {index, ConstInt32(3), ConstInt32(0)});
     }
     case intrinsic::kArrTypeBits: {
-      return builder_->CreateInBoundsGEP(buf,
+      return builder_->CreateInBoundsGEP(buf->getType(), buf,
                                          {index, ConstInt32(3), ConstInt32(0)});
     }
     case intrinsic::kArrTypeLanes: {
-      return builder_->CreateInBoundsGEP(buf,
+      return builder_->CreateInBoundsGEP(buf->getType(), buf,
                                          {index, ConstInt32(3), ConstInt32(1)});
     }
     case intrinsic::kArrTypeFracs: {
-      return builder_->CreateInBoundsGEP(buf,
+      return builder_->CreateInBoundsGEP(buf->getType(), buf,
                                          {index, ConstInt32(3), ConstInt32(2)});
     }
     case intrinsic::kArrByteOffset: {
-      return builder_->CreateInBoundsGEP(buf, {index, ConstInt32(6)});
+      return builder_->CreateInBoundsGEP(buf->getType(), buf,
+                                         {index, ConstInt32(6)});
     }
     case intrinsic::kArrDeviceId: {
-      return builder_->CreateInBoundsGEP(buf,
+      return builder_->CreateInBoundsGEP(buf->getType(), buf,
                                          {index, ConstInt32(1), ConstInt32(1)});
     }
     case intrinsic::kArrDeviceType: {
-      return builder_->CreateInBoundsGEP(buf,
+      return builder_->CreateInBoundsGEP(buf->getType(), buf,
                                          {index, ConstInt32(1), ConstInt32(0)});
     }
     case intrinsic::kTVMValueContent: {
@@ -169,14 +174,14 @@ llvm::Value* CodeGenCPU::CreateStructRefPtr(Type t, llvm::Value* buf,
       CHECK(t.is_handle() || t.bits() == 64);
       if (t.is_int()) {
         buf = builder_->CreatePointerCast(buf, t_int64_->getPointerTo());
-        return builder_->CreateInBoundsGEP(buf, index);
+        return builder_->CreateInBoundsGEP(buf->getType(), buf, index);
       } else if (t.is_float()) {
         buf = builder_->CreatePointerCast(buf, t_float64_->getPointerTo());
-        return builder_->CreateInBoundsGEP(buf, index);
+        return builder_->CreateInBoundsGEP(buf->getType(), buf, index);
       } else {
         CHECK(t.is_handle());
         buf = builder_->CreatePointerCast(buf, t_tvm_value_->getPointerTo());
-        buf = builder_->CreateInBoundsGEP(buf, index);
+        buf = builder_->CreateInBoundsGEP(buf->getType(), buf, index);
         return builder_->CreatePointerCast(buf, t_void_p_->getPointerTo());
       }
     }
@@ -229,8 +234,8 @@ llvm::GlobalVariable* CodeGenCPU::InitContextPtr(llvm::Type* p_type,
 
 llvm::Value* CodeGenCPU::GetContextPtr(llvm::GlobalVariable* gv) {
   CHECK(gv != nullptr);
-  llvm::LoadInst* faddr =
-      builder_->CreateAlignedLoad(gv, llvm::MaybeAlign(gv->getAlignment()));
+  llvm::LoadInst* faddr = builder_->CreateAlignedLoad(
+      gv->getType(), gv, llvm::MaybeAlign(gv->getAlignment()));
   faddr->setMetadata("tbaa", md_builder_->createTBAAStructTagNode(
                                  md_tbaa_ctx_ptr_, md_tbaa_ctx_ptr_, 0));
   return faddr;
@@ -347,12 +352,12 @@ llvm::Value* CodeGenCPU::PackClosureData(const Array<Var>& vfields,
   llvm::Value* cdata = builder_->CreateAlloca(tcdata, ConstInt32(1));
   llvm::Value* zero = ConstInt32(0);
   for (size_t i = 0; i < vfields.size(); ++i) {
-    builder_->CreateStore(
-        var_map_.at(vfields[i].get()),
-        builder_->CreateInBoundsGEP(cdata, {zero, ConstInt32(i)}));
+    builder_->CreateStore(var_map_.at(vfields[i].get()),
+                          builder_->CreateInBoundsGEP(cdata->getType(), cdata,
+                                                      {zero, ConstInt32(i)}));
   }
   *num_bytes = data_layout_->getTypeAllocSize(
-      llvm::cast<llvm::PointerType>(cdata->getType())->getElementType());
+      llvm::cast<llvm::PointerType>(cdata->getType())->getPointerElementType());
   return cdata;
 }
 
@@ -361,7 +366,9 @@ void CodeGenCPU::UnpackClosureData(
     std::unordered_map<const Variable*, llvm::Value*>* vmap) {
   for (size_t i = 0; i < vfields.size(); ++i) {
     (*vmap)[vfields[i].get()] = builder_->CreateLoad(
-        builder_->CreateInBoundsGEP(cdata, {ConstInt32(0), ConstInt32(i)}));
+        cdata->getType(),
+        builder_->CreateInBoundsGEP(cdata->getType(), cdata,
+                                    {ConstInt32(0), ConstInt32(i)}));
   }
 }
 
@@ -395,7 +402,9 @@ void CodeGenCPU::CreateParallelLaunch(const Stmt& body, int num_task) {
   par_env.num_task = Var("num_task", Int(32));
   new_vmap[par_env.task_id.get()] = task_id;
   new_vmap[par_env.num_task.get()] = builder_->CreateLoad(
-      builder_->CreateInBoundsGEP(penv, {ConstInt32(0), ConstInt32(1)}));
+      penv->getType(),
+      builder_->CreateInBoundsGEP(penv->getType(), penv,
+                                  {ConstInt32(0), ConstInt32(1)}));
   par_env.penv = penv;
   std::swap(function_, f);
   std::swap(parallel_env_, par_env);
@@ -486,8 +495,8 @@ llvm::Value* CodeGenCPU::GetPackedFuncHandle(const std::string& fname) {
   BasicBlock* init_block = BasicBlock::Create(*ctx_, "handle_init", function_);
   BasicBlock* end_block =
       BasicBlock::Create(*ctx_, "handle_init_end", function_);
-  llvm::Value* handle =
-      builder_->CreateAlignedLoad(hptr, llvm::MaybeAlign(align));
+  llvm::Value* handle = builder_->CreateAlignedLoad(hptr->getType(), hptr,
+                                                    llvm::MaybeAlign(align));
   llvm::Value* handle_not_null = builder_->CreateICmpNE(
       handle, llvm::Constant::getNullValue(t_tvm_func_handle_));
   builder_->CreateCondBr(handle_not_null, end_block, init_block,
@@ -496,7 +505,8 @@ llvm::Value* CodeGenCPU::GetPackedFuncHandle(const std::string& fname) {
   builder_->SetInsertPoint(init_block);
   llvm::Value* out = builder_->CreateAlloca(t_tvm_func_handle_);
   llvm::LoadInst* ctx = builder_->CreateAlignedLoad(
-      gv_mod_ctx_, llvm::MaybeAlign(gv_mod_ctx_->getAlignment()));
+      gv_mod_ctx_->getType(), gv_mod_ctx_,
+      llvm::MaybeAlign(gv_mod_ctx_->getAlignment()));
   ctx->setMetadata("tbaa", md_builder_->createTBAAStructTagNode(
                                md_tbaa_ctx_ptr_, md_tbaa_ctx_ptr_, 0));
   llvm::Value* retcode = builder_->CreateCall(
@@ -504,7 +514,7 @@ llvm::Value* CodeGenCPU::GetPackedFuncHandle(const std::string& fname) {
       {ctx, GetConstString(fname), out});
   init_block = CheckCallSuccess(retcode);
   llvm::Value* loaded_handle =
-      builder_->CreateAlignedLoad(out, llvm::MaybeAlign(align));
+      builder_->CreateAlignedLoad(out->getType(), out, llvm::MaybeAlign(align));
   builder_->CreateBr(end_block);
   // end block
   builder_->SetInsertPoint(end_block);
@@ -526,11 +536,13 @@ llvm::Value* CodeGenCPU::CreateCallPacked(const Call* op) {
   llvm::Value* stack_value = MakeValue(op->args[1]);
   llvm::Value* stack_tcode = MakeValue(op->args[2]);
   llvm::Value* arg_value = builder_->CreateInBoundsGEP(
+      t_tvm_value_->getPointerTo(),
       builder_->CreatePointerCast(stack_value, t_tvm_value_->getPointerTo()),
       ConstInt32(begin));
   llvm::Value* arg_tcode =
       CreateBufferPtr(Int(32), stack_tcode, ConstInt32(begin));
   llvm::Value* ret_value = builder_->CreateInBoundsGEP(
+      t_tvm_value_->getPointerTo(),
       builder_->CreatePointerCast(stack_value, t_tvm_value_->getPointerTo()),
       ConstInt32(end));
   llvm::Value* ret_tcode =
@@ -541,6 +553,7 @@ llvm::Value* CodeGenCPU::CreateCallPacked(const Call* op) {
   Type r_type = op->type;
   Type r_api_type = ir::APIType(r_type);
   llvm::Value* rvalue = builder_->CreateAlignedLoad(
+      LLVMType(r_api_type)->getPointerTo(),
       builder_->CreatePointerCast(ret_value,
                                   LLVMType(r_api_type)->getPointerTo()),
       llvm::MaybeAlign(8));
@@ -606,15 +619,15 @@ llvm::Value* CodeGenCPU::CreateIntrinsic(const Call* op) {
     if (kind == intrinsic::kArrAddr) {
       return builder_->CreatePointerCast(ref, t_void_p_);
     } else if (kind == intrinsic::kArrTypeCode) {
-      llvm::Value* val = builder_->CreateLoad(ref);
+      llvm::Value* val = builder_->CreateLoad(ref->getType(), ref);
       llvm::Type* t = LLVMType(op->type);
       return builder_->CreateAnd(val, llvm::ConstantInt::get(t, 31));
     } else if (kind == intrinsic::kArrTypeBits) {
-      llvm::Value* val = builder_->CreateLoad(ref);
+      llvm::Value* val = builder_->CreateLoad(ref->getType(), ref);
       llvm::Type* t = LLVMType(op->type);
       return builder_->CreateLShr(val, llvm::ConstantInt::get(t, 5));
     } else {
-      return builder_->CreateLoad(ref);
+      return builder_->CreateLoad(ref->getType(), ref);
     }
   } else if (op->is_intrinsic(intrinsic::tvm_struct_set)) {
     CHECK_EQ(op->args.size(), 4U);

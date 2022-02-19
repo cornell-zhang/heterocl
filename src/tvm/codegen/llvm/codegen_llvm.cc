@@ -532,7 +532,7 @@ llvm::Value* CodeGenLLVM::CreateBufferPtr(Type t, llvm::Value* buffer,
   if (btype != ptype) {
     buffer = builder_->CreatePointerCast(buffer, ptype);
   }
-  return builder_->CreateInBoundsGEP(buffer, index);
+  return builder_->CreateInBoundsGEP(ptype, buffer, index);
 }
 
 llvm::Value* CodeGenLLVM::CreateBufferVecPtr(Type t, llvm::Value* buffer,
@@ -546,7 +546,7 @@ llvm::Value* CodeGenLLVM::CreateBufferVecPtr(Type t, llvm::Value* buffer,
   if (btype != ptype) {
     buffer = builder_->CreatePointerCast(buffer, ptype);
   }
-  return builder_->CreateInBoundsGEP(buffer, index);
+  return builder_->CreateInBoundsGEP(ptype, buffer, index);
 }
 
 llvm::Value* CodeGenLLVM::GetVarValue(const Variable* v) const {
@@ -890,7 +890,7 @@ llvm::Value* CodeGenLLVM::VisitExpr_(const Load* op) {
   int alignment, native_bits;
   GetAlignment(t, op->buffer_var.get(), op->index, &alignment, &native_bits);
   llvm::Value* ptr = CreateBufferPtr(t, buffer, index);
-  llvm::LoadInst* load = builder_->CreateAlignedLoad(
+  llvm::LoadInst* load = builder_->CreateAlignedLoad(ptr->getType(), 
       ptr, llvm::MaybeAlign(alignment), is_volatile);
   AddAliasInfo(load, op->buffer_var.get(), op->index, t);
   return load;
