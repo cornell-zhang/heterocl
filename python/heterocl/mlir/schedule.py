@@ -465,7 +465,8 @@ class Stage(object):
             if not isinstance(args[i], OpResult):
                 args[i] = args[i].result
         with get_context() as ctx, get_location():
-            fused = hcl_d.FuseOp(self.stage_handle.result,
+            loop_handle_type = hcl_d.LoopHandleType.get(ctx)
+            fused = hcl_d.FuseOp(loop_handle_type, self.stage_handle.result,
                                  args, ip=GlobalInsertionPoint.get())
         return fused
 
@@ -476,8 +477,8 @@ class Stage(object):
             scope = parent.op.axis[scope]
         with get_context() as ctx, get_location():
             loop_handle_type = hcl_d.LoopHandleType.get(ctx)
-            fused = hcl_d.ComputeAtOp(
-                self.stage_handle.result, parent.stage_handle.result, scope.result, ip=GlobalInsertionPoint.get())
+            compute_at = hcl_d.ComputeAtOp(loop_handle_type,
+                                           self.stage_handle.result, parent.stage_handle.result, scope.result, ip=GlobalInsertionPoint.get())
 
     def systolic(self):
         """Wrap the current stage as a systolic array
