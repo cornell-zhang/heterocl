@@ -1,8 +1,9 @@
 import hcl_mlir
-from hcl_mlir.dialects import affine
+from hcl_mlir.dialects import affine, hcl as hcl_d
+from hcl_mlir.ir import *
 
-from .context import ImperativeLoopDepth, ImperativeLoopNestCount, StageName
-from .schedule import Schedule
+from .context import ImperativeLoopDepth, ImperativeLoopNestCount, StageName, UniqueName
+from .schedule import Schedule, Stage
 
 
 class WithScope(object):
@@ -26,14 +27,24 @@ def for_(begin, end, step=1, tag=""):
     """
     depth = ImperativeLoopDepth.get()
     count = ImperativeLoopNestCount.get()
+    if tag == None:
+        stage_name = StageName.get()
+    else:
+        stage_name = tag
     if depth == 0:
+        Schedule._CurrentStage = Stage(stage_name)
+        Schedule._TopFunction.__setattr__(stage_name, Schedule._CurrentStage)
         ImperativeLoopNestCount.set(count + 1)
     ImperativeLoopDepth.set(depth + 1)
+
     hcl_mlir.enable_build_inplace()
     # TODO(Niansong): loop bounds must be expressions of itervar, e.g. k+1
     if isinstance(begin, (int, hcl_mlir.IterVar)) and isinstance(end, (int, hcl_mlir.IterVar)):
+        loop_name = UniqueName.get("loop")
+        loop_handle = hcl_d.CreateLoopHandleOp(StringAttr.get(loop_name), ip=hcl_mlir.GlobalInsertionPoint.ip_stack[-depth-1])
         loop = hcl_mlir.make_affine_for(
-            begin, end, step, stage=tag, ip=hcl_mlir.GlobalInsertionPoint.get())
+            begin, end, step, name=loop_name, stage=stage_name, ip=hcl_mlir.GlobalInsertionPoint.get())
+        Schedule._CurrentStage.add_axis(loop_handle)
     else:
         raise RuntimeError("Not implemented")
     iter_var = hcl_mlir.IterVar(loop.induction_variable)

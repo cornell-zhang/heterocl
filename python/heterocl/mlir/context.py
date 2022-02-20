@@ -10,6 +10,7 @@ StageName = ContextVar("StageName", default="")
 
 class UniqueName(object):
     scalar_idx = 0
+    loop_idx = 0
     tensor_idx = 0
     stage_idx = 0
     schedule_idx = 0
@@ -23,6 +24,9 @@ class UniqueName(object):
             # Imperative computing stage
             name = "stage_" + str(cls.stage_idx)
             cls.stage_idx += 1
+        elif case == "loop":
+            name = "loop_" + str(cls.loop_idx)
+            cls.loop_idx += 1
         elif case == "scalar":
             name = "scalar_" + str(cls.scalar_idx)
             cls.scalar_idx += 1

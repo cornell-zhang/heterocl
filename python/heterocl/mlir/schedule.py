@@ -34,7 +34,7 @@ def create_schedule(inputs, func=None, name=""):
             if isinstance(tensor.op, hcl_mlir.TensorOp):
                 root_nodes.append(tensor)
         inputs = root_nodes
-    sch = Schedule(name, inputs)
+    sch = Schedule(name, inputs, func)
 
     # build IR
     with get_context() as ctx, get_location() as loc:
@@ -124,9 +124,11 @@ class Schedule(object):
     """Create a compute schedule
     """
     _IfElseStack = []
+    _CurrentStage = None
+    _TopFunction = None
     _DataflowGraph = DataflowGraph()
 
-    def __init__(self, name, inputs):
+    def __init__(self, name, inputs, func=None):
         self.name = name
         # Device-agnostic module:
         # used for transformation
@@ -147,6 +149,8 @@ class Schedule(object):
 
         # Other facilities
         Stage._mapping = []  # operation->stage
+        Schedule._CurrentStage = None
+        Schedule._TopFunction = func
         Schedule._IfElseStack = []
         Schedule._DataflowGraph = DataflowGraph(name, inputs)
 
@@ -237,6 +241,8 @@ class Schedule(object):
     def __getitem__(self, target):
         """Return a Stage
         """
+        if isinstance(target, Stage):
+            return target
         for op, stage in Stage._mapping:
             if op.name == target.name:
                 return stage
@@ -351,7 +357,7 @@ class Stage(object):
                 StringAttr.get(name), ip=GlobalInsertionPoint.get()
             )
         # wait for setting axes
-        self.loop_handles = None
+        self._axis = []
         StageName.set(name)
         ImperativeLoopDepth.set(0)
         ImperativeLoopNestCount.set(0)
@@ -375,6 +381,13 @@ class Stage(object):
             from .operation import placeholder
             op = placeholder((1,), name=self.name)
             Stage._mapping.append((op, self))
+
+    def add_axis(self, axis):
+        self._axis.append(axis)
+
+    @property
+    def axis(self):
+        return self._axis
 
     def set_output(self, output):
         # output: TensorOp
