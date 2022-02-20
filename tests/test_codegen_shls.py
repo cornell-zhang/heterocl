@@ -16,8 +16,8 @@ def test_print():
 
 def test_pragma():
     harness.test_pragma(target,
-                    ["HLS_UNROLL_LOOP(COMPLETE, 4, \"compute3_j\")",
-                     "HLS_PIPELINE_LOOP(HARD_STALL, 2, \"compute3_i\")", 
+                    ["HLS_UNROLL_LOOP(COMPLETE, 4,",
+                     "HLS_PIPELINE_LOOP(HARD_STALL, 2,", 
                      "HLS_MAP_TO_REG_BANK(A)"])
 
 def test_set_bit():
