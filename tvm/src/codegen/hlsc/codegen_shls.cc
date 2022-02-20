@@ -895,7 +895,7 @@ void CodeGenStratusHLS::GenForStmt(const For* op, std::string pragma,
       }
       i++;
     }
-    stream << "HLS_UNROLL_LOOP(COMPLETE, " << unroll_factor << "\"" << loop_name
+    stream << "HLS_UNROLL_LOOP(COMPLETE, " << unroll_factor << ", \"" << loop_name
            << "\");\n";
   } else if (op->for_type == ForType::Pipelined) {
     int II = 0, i = 0;
