@@ -284,7 +284,7 @@ def test_compute_at():
         assert "0 to 20" in str(loop.body.operations[0])
         assert "jj" in str(loop.body.operations[1].attributes["loop_name"])
         assert "0 to 20" in str(loop.body.operations[1])
-        # _verify_build(s0)
+        _verify_build(s0)
         # axis 1
         A, B, C = _build_kernel()
         s1 = hcl.create_schedule([A, C])
@@ -295,7 +295,7 @@ def test_compute_at():
         assert "0 to 30" in str(loop.body.operations[0])
         assert "mm" in str(loop.body.operations[1].attributes["loop_name"])
         assert "0 to 30" in str(loop.body.operations[1])
-        # _verify_build(s1)
+        _verify_build(s1)
         # axis 2
         A, B, C = _build_kernel()
         s2 = hcl.create_schedule([A, C])
@@ -304,7 +304,7 @@ def test_compute_at():
         loop = hcl_mlir.get_affine_loop_nests(s2.device_top)[0][2]["body"]
         assert "mm" in str(loop.attributes["loop_name"])
         assert "0 to 30" in str(loop)
-        # _verify_build(s2)
+        _verify_build(s2)
 
     def test_case_2():
         A, B, C = _build_kernel()
@@ -315,7 +315,7 @@ def test_compute_at():
         loop = hcl_mlir.get_affine_loop_nests(s.device_top)[0][0]["body"]
         assert "ii_jj_fused" in str(loop.attributes["loop_name"])
         assert "0 to 200" in str(loop)
-        # _verify_build(s)
+        _verify_build(s)
 
     def test_case_3():
         A, B, C = _build_kernel()
@@ -335,7 +335,7 @@ def test_compute_at():
         assert "0 to min affine_map<(d0, d1) -> (3, -d0 + 20)>" in str(loops[3]["body"])
         assert "mm" in str(loops[4]["name"])
         assert "0 to 30" in str(loops[4]["body"])
-        # _verify_build(s)
+        _verify_build(s)
 
     # compute_at and reorder, compute at an axis that is not reordered
     # check both directions of reorder and compute_at
@@ -352,7 +352,7 @@ def test_compute_at():
         assert "0 to 10" in str(loops[1]["body"])
         assert "mm" in str(loops[2]["name"])
         assert "0 to 30" in str(loops[2]["body"])
-        # _verify_build(s0)
+        _verify_build(s0)
 
     # compute_at and reorder, compute at an axis that has been reordered
     # note that the results will be different
@@ -371,7 +371,7 @@ def test_compute_at():
         assert "0 to 30" in str(loops[2]["body"])
         assert "mm" in str(loops[1]["body"].body.operations[1].attributes["loop_name"])
         assert "0 to 30" in str(loops[1]["body"].body.operations[1])
-        # _verify_build(s0)
+        _verify_build(s0)
 
     # TODO: Fix this
     def test_case_6():
@@ -384,7 +384,7 @@ def test_compute_at():
         ir = hcl.lower(s)
         print(ir)
         assert "allocate B[int32 * 1 * 1 * 1]" in str(ir)
-        # _verify_build(s)
+        _verify_build(s)
 
     test_case_1()
     test_case_2()
