@@ -19,3 +19,9 @@ def test_pragma():
                     ["HLS_UNROLL_LOOP(COMPLETE, 4, \"compute3_j\")",
                      "HLS_PIPELINE_LOOP(HARD_STALL, 2, \"compute3_i\")", 
                      "HLS_MAP_TO_REG_BANK(A)"])
+
+def test_set_bit():
+    harness.test_set_bit(target, "A[0][4] = 1")
+
+def test_set_slice():
+    harness.test_set_slice(target, "A[0](4, 1) = 1")

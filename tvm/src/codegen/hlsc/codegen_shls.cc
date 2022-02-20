@@ -2,7 +2,6 @@
  * Copyright (c) 2021 by Contributors
  * \file codegen_shls.cc
  */
-#include "codegen_shls.h"
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <tvm/build_module.h>
@@ -18,6 +17,7 @@
 #include "../codegen_soda.h"
 #include "./hierarchy.h"
 #include "./port_direction.h"
+#include "codegen_shls.h"
 
 namespace TVM {
 namespace codegen {
@@ -895,8 +895,8 @@ void CodeGenStratusHLS::GenForStmt(const For* op, std::string pragma,
       }
       i++;
     }
-    stream << "HLS_UNROLL_LOOP(COMPLETE, " << unroll_factor << ", \"" << loop_name
-           << "\");\n";
+    stream << "HLS_UNROLL_LOOP(COMPLETE, " << unroll_factor << ", \""
+           << loop_name << "\");\n";
   } else if (op->for_type == ForType::Pipelined) {
     int II = 0, i = 0;
     for (auto key : op->annotate_keys) {
