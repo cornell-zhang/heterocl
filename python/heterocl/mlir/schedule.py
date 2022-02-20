@@ -61,7 +61,8 @@ def create_schedule(inputs, func=None, name=""):
                 return
             visited.append(node)
             if isinstance(node.op, hcl_mlir.TensorOp):
-                node.build()
+                if node not in inputs:
+                    node.build()
             else:
                 for input in node.op.inputs:
                     traverse(input, visited)

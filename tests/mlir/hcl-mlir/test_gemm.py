@@ -22,9 +22,12 @@ def test_gemm_cpu(target=None):
     A = np.random.randint(10, size=(32, 32)).astype(np.float32)
     B = np.random.randint(10, size=(32, 32)).astype(np.float32)
     C = np.zeros((32, 32), dtype=np.float32)
-    f(A, B, C)
+    hcl_A = hcl.asarray(A)
+    hcl_B = hcl.asarray(B)
+    hcl_C = hcl.asarray(C)
+    f(hcl_A, hcl_B, hcl_C)
     golden = np.matmul(A, B)
-    if (np.allclose(golden, C)):
+    if (np.allclose(golden, hcl_C.asnumpy())):
         print("test_gemm passed")
     else:
         print("test_gemm failed")
