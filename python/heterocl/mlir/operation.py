@@ -8,7 +8,7 @@ from .. import config, types
 from ..types import get_dtype_str, Type
 from .context import UniqueName
 from .tensor import Array, Tensor
-
+from .utils import hcl_dtype_to_mlir
 
 def init(init_dtype=types.Int(32), raise_assert_exception=True):
     """Initialize a HeteroCL environment with configurations.
@@ -57,7 +57,7 @@ def reduce_axis(lower, upper, name=None):
 
 
 def cast(dtype, expr):
-    return hcl_mlir.CastOp(expr, dtype)
+    return hcl_mlir.CastOp(expr, hcl_dtype_to_mlir(dtype))
 
 
 def select(cond, true_val, false_val):

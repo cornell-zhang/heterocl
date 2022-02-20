@@ -9,7 +9,7 @@ def hcl_dtype_to_mlir(dtype):
     elif isinstance(dtype, Int):
         return IntegerType.get_signless(dtype.bits)
     elif isinstance(dtype, UInt):
-        return IntegerType.get_signed(dtype.bits)
+        return IntegerType.get_unsigned(dtype.bits)
     elif isinstance(dtype, Fixed):
         return hcl_d.FixedType.get(dtype.bits, dtype.fracs)
     elif isinstance(dtype, UFixed):
