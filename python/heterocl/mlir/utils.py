@@ -17,9 +17,9 @@ def hcl_dtype_to_mlir(dtype):
     elif isinstance(dtype, Float):
         if dtype.bits == 16:
             return F16Type.get()
-        elif dtype.bits == "32":
+        elif dtype.bits == 32:
             return F32Type.get()
-        elif dtype.bits == "64":
+        elif dtype.bits == 64:
             return F64Type.get()
     else:
         raise RuntimeError("Not supported type")

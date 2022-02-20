@@ -33,6 +33,8 @@ class Type(object):
         self.fracs = fracs
 
     def __eq__(self, other):
+        if other == None:
+            return False
         other = dtype_to_hcl(other)
         return other.bits == self.bits and other.fracs == self.fracs
 

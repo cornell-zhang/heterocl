@@ -22,9 +22,9 @@ def placeholder(shape, name=None, dtype=None):
     """
     if name is None:
         name = UniqueName.get("tensor")
-    if not dtype is None and not isinstance(dtype, (Type, str)):
+    if not dtype == None and not isinstance(dtype, (Type, str)):
         raise RuntimeError("Type error")
-    dtype = config.init_dtype if dtype is None else dtype
+    dtype = config.init_dtype if dtype == None else dtype
     tensor = Tensor(shape, dtype, name=name, impl="tensor")
     return tensor
 
@@ -113,9 +113,9 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
     shape = tuple([int(s) if isinstance(s, float) else s for s in shape])
     if name is None:
         name = UniqueName.get("tensor")
-    if not dtype is None and not isinstance(dtype, (Type, str)):
+    if not dtype == None and not isinstance(dtype, (Type, str)):
         raise RuntimeError("Type error")
-    dtype = config.init_dtype if dtype is None else dtype
+    dtype = config.init_dtype if dtype == None else dtype
     ret_tensor = Tensor(shape, dtype, name=name, fcompute=fcompute, impl="compute")
     return ret_tensor
 
