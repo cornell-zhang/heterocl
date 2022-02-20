@@ -46,7 +46,7 @@ def if_mac(y, x, in_h, in_w, pad_top, pad_left, pad_down, pad_right):
 
 def pad_nchw(data, padding=[1, 1], name="pad", dtype=None):
     assert len(data.shape) == 4, "Only support 4D padding"
-    if dtype is None:
+    if dtype == None:
         dtype = data.dtype
     batch, channel, in_height, in_width = data.shape
     out_height, out_width = in_height + 2 * \
@@ -65,7 +65,7 @@ def conv2d_nchw(
         dilation=[1, 1],
         out_dtype=None,
         name='binary_conv2d'):
-    if out_dtype is None:
+    if out_dtype == None:
         out_dtype = hcl.Int()
     assert isinstance(strides, int) or len(strides) == 2
     assert isinstance(dilation, int) or len(dilation) == 2
@@ -122,16 +122,25 @@ def conv2d_nchw(
                 hcl.select(
                     if_mac(yy * stride_h + ry * dilation_h, xx * stride_w + rx * dilation_w, pad_in_height,
                            pad_in_width, pad_top, pad_left, pad_down, pad_right),  # neglect padding pixels in mac
-                    hcl.cast(hcl.get_dtype_str(out_dtype), ((1 - temp[nn, 0, yy * stride_h + ry * dilation_h,
+                    hcl.cast(out_dtype, ((1 - temp[nn, 0, yy * stride_h + ry * dilation_h,
                                xx * stride_w + rx * dilation_w] ^
                       Filter[ff, 0, ry, rx])
                      << 1) - 1),  # xnor
-                    hcl.cast(hcl.get_dtype_str(out_dtype), 0)),
+                    hcl.cast(out_dtype, 0)),
                 axis=[ry, rx], dtype=out_dtype, name=name+"_sum"),
             name=name,
             dtype=out_dtype)
     return out
 
+
+def batch_norm_threshold(
+        data,
+        threshold,
+        name="batch_norm_threshold"):
+    return hcl.compute(data.shape, lambda i, c, h, w: hcl.select(
+        data[i, c, h, w] > threshold[c, h, w],
+        hcl.cast(qtype_bit, 1),  # quantize
+        hcl.cast(qtype_bit, 0)), name=name, dtype=qtype_bit)
 
 """
 def pad_nhwc(data, padding=[1, 1], name="pad", dtype=None):
@@ -281,7 +290,7 @@ def packed_conv2d_nchw(
         bitwidth=None,
         mac=True,
         name='packed_binary_conv2d'):
-    if out_dtype is None or out_dtype == '':
+    if out_dtype == None or out_dtype == '':
         out_dtype = hcl.Int()
     assert isinstance(strides, int) or len(strides) == 2
     assert isinstance(dilation, int) or len(dilation) == 2
@@ -392,7 +401,7 @@ def packed_conv2d_nhwc(
         out_dtype=None,
         bitwidth=None,
         name='packed_binary_conv2d'):
-    if out_dtype is None or out_dtype == '':
+    if out_dtype == None or out_dtype == '':
         out_dtype = hcl.Int()
     assert isinstance(strides, int) or len(strides) == 2
     assert isinstance(dilation, int) or len(dilation) == 2
@@ -748,16 +757,6 @@ def batch_norm(
         1,  # quantize
         0), name=name, dtype=qtype_bit)
     return out, moving_mean, moving_var
-
-
-def batch_norm_threshold(
-        data,
-        threshold,
-        name="batch_norm_threshold"):
-    return hcl.compute(data.shape, lambda i, c, h, w: hcl.select(
-        data[i, c, h, w] > threshold[c, h, w],
-        1,  # quantize
-        0), name=name, dtype=qtype_bit)
 
 
 def packed_batch_norm_threshold(
