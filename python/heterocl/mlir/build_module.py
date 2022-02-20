@@ -56,8 +56,8 @@ def separate_host_device(schedule):
             loop_names = ["i{}".format(i) for i in range(len(shape))]
             # create new tensors for host
             host_tensor = placeholder(
-                shape, name=tensor.op.name+"_host", dtype=tensor.op.dtype)
-            host_tensor.op.build()
+                shape, name=tensor.op.name+"_host", dtype=tensor.dtype)
+            host_tensor.build()
             if node in Schedule._DataflowGraph.subgraph["outputs"]:
                 host_tensors.append(host_tensor.op.result)
             # create initialization loops

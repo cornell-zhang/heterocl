@@ -61,12 +61,11 @@ def create_schedule(inputs, func=None, name=""):
                 return
             visited.append(node)
             if isinstance(node.op, hcl_mlir.TensorOp):
-                node.op.build()
+                node.build()
             else:
                 for input in node.op.inputs:
                     traverse(input, visited)
-                compute_op = node.op
-                compute_op.build()
+                node.build()
 
         traverse(ret, [])
 
@@ -160,6 +159,7 @@ class Schedule(object):
             for tensor in inputs:
                 if not isinstance(tensor.op, hcl_mlir.TensorOp):
                     raise RuntimeError("Inputs should be hcl_mlir.TensorOp")
+                tensor.init()
                 input_types.append(tensor.op.memref_type)
             device_top = builtin.FuncOp(name="top", type=FunctionType.get(
                 inputs=input_types, results=[]), ip=InsertionPoint(self._device_module.body))

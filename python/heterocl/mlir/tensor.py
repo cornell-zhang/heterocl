@@ -9,9 +9,10 @@ from hcl_mlir.dialects import hcl as hcl_d
 from hcl_mlir.dialects import memref, std
 from hcl_mlir.ir import *
 
-from ..types import dtype_to_str, get_dtype_str
+from ..types import dtype_to_str, Type
 from .context import get_context, get_location
 from .schedule import Schedule, Stage
+from .utils import hcl_dtype_to_mlir
 
 
 class Tensor(object):
@@ -19,8 +20,25 @@ class Tensor(object):
     op can be placeholder (alloc) or compute op
     """
 
-    def __init__(self, op):
-        self.op = op
+    def __init__(self, shape, dtype, fcompute=None, name="", impl="tensor"):
+        if not isinstance(dtype, Type):
+            raise RuntimeError("dtype should be hcl.Type")
+        else:
+            self.dtype = dtype
+        if impl == "tensor":
+            self.op = hcl_mlir.TensorOp(
+                shape, memref.AllocOp, dtype, name=name)
+        elif impl == "compute":
+            self.op = ComputeOp(shape, fcompute, dtype, name)
+        else:
+            raise RuntimeError("Not supported implementation method")
+
+    def init(self):
+        self.op.dtype = hcl_dtype_to_mlir(self.dtype)
+
+    def build(self):
+        self.init()
+        self.op.build()
 
     def __getattr__(self, key):
         if key == "op":
@@ -88,10 +106,8 @@ class ComputeOp(object):
         self.dtype = dtype
         self.name = name
         self.inputs: List[Tensor] = inputs
-        if not hcl_mlir.is_hcl_mlir_type(dtype):
-            dtype = get_dtype_str(dtype)
-        self.output = Tensor(hcl_mlir.TensorOp(
-            shape, memref.AllocOp, dtype, name=name))  # placeholder
+        self.output = Tensor(shape, dtype, name=name,
+                             impl="tensor")  # placeholder
         self.arg_names = arg_names
 
     def build(self):
@@ -266,7 +282,7 @@ class Array(object):
     """
 
     def __init__(self, np_array, dtype):
-        self.dtype = dtype # should specify the type of `dtype`
+        self.dtype = dtype  # should specify the type of `dtype`
         if dtype != None:
             # Data type check
             hcl_dtype_str = dtype_to_str(dtype)

@@ -5,9 +5,9 @@ from hcl_mlir.dialects import memref
 from hcl_mlir.ir import *
 
 from .. import config, types
-from ..types import get_dtype_str
+from ..types import get_dtype_str, Type
 from .context import UniqueName
-from .tensor import Array, ComputeOp, Tensor
+from .tensor import Array, Tensor
 
 
 def init(init_dtype=types.Int(32), raise_assert_exception=True):
@@ -22,10 +22,10 @@ def placeholder(shape, name=None, dtype=None):
     """
     if name is None:
         name = UniqueName.get("tensor")
-    if not hcl_mlir.is_hcl_mlir_type(dtype):
-        dtype = get_dtype_str(dtype)
-    placeholder = hcl_mlir.TensorOp(shape, memref.AllocOp, dtype, name=name)
-    tensor = Tensor(placeholder)
+    if not dtype is None and not isinstance(dtype, (Type, str)):
+        raise RuntimeError("Type error")
+    dtype = config.init_dtype if dtype is None else dtype
+    tensor = Tensor(shape, dtype, name=name, impl="tensor")
     return tensor
 
 
@@ -113,8 +113,10 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
     shape = tuple([int(s) if isinstance(s, float) else s for s in shape])
     if name is None:
         name = UniqueName.get("tensor")
-    op = ComputeOp(shape, fcompute, dtype, name)
-    ret_tensor = Tensor(op)
+    if not dtype is None and not isinstance(dtype, (Type, str)):
+        raise RuntimeError("Type error")
+    dtype = config.init_dtype if dtype is None else dtype
+    ret_tensor = Tensor(shape, dtype, name=name, fcompute=fcompute, impl="compute")
     return ret_tensor
 
 
