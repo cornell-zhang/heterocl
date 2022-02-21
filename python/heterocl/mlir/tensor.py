@@ -295,5 +295,5 @@ class Array(object):
         return self.np_array
 
     def unwrap(self):
-        # TODO(Niansong): suppor unwrap fixed-point tensor here
+        # TODO(Niansong): support unwrap fixed-point tensor here
         return self.np_array
