@@ -36,9 +36,12 @@ class Tensor(object):
     def init(self):
         self.op.dtype = hcl_dtype_to_mlir(self.dtype)
 
-    def build(self):
+    def build(self, sch=None):
         self.init()
-        self.op.build()
+        if isinstance(self.op, hcl_mlir.TensorOp):
+            self.op.build()
+        else:
+            self.op.build(sch)
 
     def __getattr__(self, key):
         if key == "op":
@@ -110,7 +113,7 @@ class ComputeOp(object):
                              impl="tensor")  # placeholder
         self.arg_names = arg_names
 
-    def build(self):
+    def build(self, sch):
         input_types = []
         for in_tensor in self.inputs:  # hcl.Tensor -> hcl_mlir.TensorOp
             input_types.append(in_tensor.memref_type)
@@ -270,7 +273,7 @@ class ComputeOp(object):
 
         if self.output is not None:
             hcl_mlir.enable_build_inplace()
-            Schedule._DataflowGraph.add_edges(self.inputs, self.output)
+            sch.DataflowGraph.add_edges(self.inputs, self.output)
 
         return self.output
 
