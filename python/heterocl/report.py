@@ -3,8 +3,6 @@ import json
 import time
 import xmltodict
 import pandas as pd
-# Support for graphical display of the report
-#import matplotlib.pyplot as plt
 from .report_config import RptSetup
 from tabulate import tabulate
 from .schedule import Stage
@@ -57,6 +55,10 @@ class Displayer(object):
 
     get_max(col)
         Sort the latency in a decreasing order for specific latency category.
+
+    add_fields(val)
+        Dictionary representation of the Displayer object's member of 
+        report files.
                                                                       
     display(loops=None, level=None, cols=None)
         Display the report table with appropriate query arguments.
@@ -373,6 +375,31 @@ class Displayer(object):
         tup_lst = list(map(lambda x: (x[0], x[1], x[2].count('+')), tup_lst))
         return list(reversed(sorted(tup_lst, key=lambda x: int(x[1]))))
 
+    def add_fields(self, val): 
+        """Append additional data present in separate report files.
+
+        Parameters
+        ----------
+        val: dict
+            Dictionary representation of the Displayer object's member
+            of report files.
+                                                                                    
+        Returns
+        ----------
+        None
+        """
+        self._category = val['_category']
+        self._category_aux = val['_category_aux']
+        self._loop_name += val['_loop_name']
+        self._loop_name_aux += val['_loop_name_aux']
+        self._max_level = val['_max_level'] if val['_max_level'] > self._max_level else self._max_level
+
+        for key in self._category_aux:
+            try:
+                self._data[key] += val['_data'][key]
+            except:
+                self._data[key] = val['_data'][key]
+
     def display(self, loops=None, level=None, cols=None):
         """Display the report file.
   
@@ -431,7 +458,7 @@ class Displayer(object):
         print('* Units in {}'.format(self.unit))
         splt = df.loc[rows, cols].to_string().split("\n")
         pd.set_option('max_colwidth', len(splt[0]) * 100)
-        return df.loc[rows, cols].to_string()
+        return df.loc[rows, cols].to_string() 
 
 def parse_js(path, print_flag=False):
     js_file = os.path.join(path, "kernel/reports/lib/report_data.js")
@@ -456,78 +483,96 @@ def parse_js(path, print_flag=False):
 def parse_xml(path, xml_path, prod_name, print_flag=False):
     xml_file = os.path.join(path, xml_path)
 
+    # Collect files other than the main one.
     p = xml_file.rsplit('/', 1)[0]
-
-    other_xml_file = [xml_file]
+    other_xml_file = []
     for file in os.listdir(p):
         if file.endswith("_csynth.xml") and file != "test_csynth.xml":
             fpath = os.path.join(p, file)
             other_xml_file.append(fpath)
 
-    for xml_file in other_xml_file:
-        if not os.path.isfile(xml_file):
-            raise RuntimeError("Cannot find {}, run csyn first".format(xml_file))
-        json_file = os.path.join(path,"report.json")
-        outfile = open(json_file, "w")
-        with open(xml_file, "r") as xml:
-            profile = xmltodict.parse(xml.read())["profile"]
-            json.dump(profile, outfile, indent=2)
-        
-        print(f"File: {xml_file}")
-        config = RptSetup(profile, prod_name)
-        config.eval_members()
-        res = {}
-        res["HLS Version"] = config.prod_name + " " + config.version
-        res["Product family"] = config.prod_family
-        res["Target device"] = config.target_device
-        res["Top Model Name"] = config.top_model_name
-        res["Target CP"] = config.target_cp + " " + config.assignment_unit
-        res["Estimated CP"] = config.estimated_cp + " " + config.assignment_unit
-        res["Latency (cycles)"] = "Min {:<6}; ".format(config.min_latency) + \
-                                  "Max {:<6}".format(config.max_latency)
-        res["Interval (cycles)"] = "Min {:<6}; ".format(config.min_interval) + \
-                                   "Max {:<6}".format(config.max_interval)
+    # Display the general information in `test_csynth.xml`
+    if not os.path.isfile(xml_file):
+        raise RuntimeError("Cannot find {}, run csyn first".format(xml_file))
+    json_file = os.path.join(path,"report.json")
+    outfile = open(json_file, "w")
+    with open(xml_file, "r") as xml:
+        profile = xmltodict.parse(xml.read())["profile"]
+        json.dump(profile, outfile, indent=2)
+    
+    config = RptSetup(profile, prod_name)
+    config.eval_members()
+    res = {}
+    res["HLS Version"] = config.prod_name + " " + config.version
+    res["Product family"] = config.prod_family
+    res["Target device"] = config.target_device
+    res["Top Model Name"] = config.top_model_name
+    res["Target CP"] = config.target_cp + " " + config.assignment_unit
+    res["Estimated CP"] = config.estimated_cp + " " + config.assignment_unit
+    res["Latency (cycles)"] = "Min {:<6}; ".format(config.min_latency) + \
+                              "Max {:<6}".format(config.max_latency)
+    res["Interval (cycles)"] = "Min {:<6}; ".format(config.min_interval) + \
+                               "Max {:<6}".format(config.max_interval)
 
-        est_resources = config.est_resources
-        avail_resources = config.avail_resources
-        key_avail = list(avail_resources.keys())
+    est_resources = config.est_resources
+    avail_resources = config.avail_resources
+    key_avail = list(avail_resources.keys())
 
-        resources = {}
-        for name in key_avail:
-            try:
-                item = [est_resources[name], avail_resources[name]]
-                item.append("{}%".format(round(int(item[0])/int(item[1])*100)))
-                resources[name] = item.copy()
-            except ZeroDivisionError:
-                item.append("0%")
-                resources[name] = item.copy()
-            except:
-                pass
-        res["Resources"] = tabulate([[key] + resources[key] for key in resources.keys()],
-                                    headers=["Type", "Used", "Total", "Util"],
-                                    colalign=("left","right","right","right"))
-        lst = list(res.items())
-        tablestr = tabulate(lst, tablefmt="psql").split("\n")
-        endash = tablestr[0].split("+")
-        splitline = "+" + endash[1] + "+" + endash[2] + "+"
-        tablestr.insert(5, splitline)
-        table = '\n'.join(tablestr)
-
-        # Latency information extraction
-        clock_unit = config.performance_unit
-        summary = config.loop_latency
-
-        info_table = Displayer(clock_unit)
+    resources = {}
+    for name in key_avail:
         try:
-            info_table.init_table(summary)
-            info_table.collect_data(summary)
-            info_table.display()
+            item = [est_resources[name], avail_resources[name]]
+            item.append("{}%".format(round(int(item[0])/int(item[1])*100)))
+            resources[name] = item.copy()
+        except ZeroDivisionError:
+            item.append("0%")
+            resources[name] = item.copy()
         except:
             pass
+    res["Resources"] = tabulate([[key] + resources[key] for key in resources.keys()],
+                                headers=["Type", "Used", "Total", "Util"],
+                                colalign=("left","right","right","right"))
+    lst = list(res.items())
+    tablestr = tabulate(lst, tablefmt="psql").split("\n")
+    endash = tablestr[0].split("+")
+    splitline = "+" + endash[1] + "+" + endash[2] + "+"
+    tablestr.insert(5, splitline)
+    table = '\n'.join(tablestr)
 
-        if print_flag:
-            print(table) 
-    return info_table
+    clock_unit = config.performance_unit
+
+    # Parse latency information in the main report file (if it exists)
+    summary = config.loop_latency
+    out_info_table = Displayer(clock_unit)
+    try:
+        out_info_table.init_table(summary)
+        out_info_table.collect_data(summary)
+    except:
+        pass
+
+    # Latency information extraction
+    for lat_xml_file in other_xml_file:
+        with open(lat_xml_file, "r") as xml:
+            profile = xmltodict.parse(xml.read())["profile"]
+        
+        config = RptSetup(profile, prod_name)
+        config.eval_members()
+
+        summary = config.loop_latency
+
+        try:
+            info_table = Displayer(clock_unit)
+            info_table.init_table(summary)
+            info_table.collect_data(summary)
+            res = vars(info_table)
+            out_info_table.add_fields(res)
+        except:
+            print("Report for issue")
+            pass
+
+    if print_flag:
+        print(table) 
+    return out_info_table
 
 def report_stats(target, folder):
     path = folder
