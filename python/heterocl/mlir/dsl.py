@@ -20,6 +20,19 @@ class WithScope(object):
         self._exit_cb()
 
 
+def return_(expr=None):
+    hcl_mlir.enable_build_inplace()
+    # ret_expr = expr.build()
+    if expr is not None:
+        builder = hcl_mlir.ASTBuilder()
+        ret_expr = builder.visit(expr)
+        ret_op = hcl_mlir.std.ReturnOp(
+            [ret_expr], ip=hcl_mlir.GlobalInsertionPoint.get())
+    else:
+        ret_op = hcl_mlir.std.ReturnOp(
+            [], ip=hcl_mlir.GlobalInsertionPoint.get())
+    return ret_op
+
 def for_(begin, end, step=1, tag=""):
     """Construct a FOR loop.
 

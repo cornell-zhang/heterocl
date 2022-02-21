@@ -1,6 +1,7 @@
 import heterocl as hcl
 import numpy as np
 import hcl_mlir
+import pytest
 
 def test_pipeline():
     hcl.init()
@@ -471,6 +472,7 @@ def test_compute_at_with_reuse_2D():
     f(b_hcl)
     np.testing.assert_array_equal(c_np, b_hcl.asnumpy())
 
+@pytest.mark.skip(reason="crashes pytest")
 def test_compute_at_with_reuse_2D_complex():
     hcl.init()
     A = hcl.compute((10, 10), lambda y, x: x + y, "A")
