@@ -20,7 +20,6 @@ def top_2mm(
             lambda x, y: hcl.sum(A[x, r] * B[r, y], axis=r, dtype=dtype),
             name="out_AB",
         )
-
         k = hcl.reduce_axis(0, R, "k")
         out_ABC = hcl.compute(
             (P, S),
@@ -36,8 +35,6 @@ def top_2mm(
         return E
 
     s1 = hcl.create_schedule([A, B, C, D], kernel_2mm)
-    s2 = hcl.create_schedule([A, B, C, D], kernel_2mm)
-    s3 = hcl.create_schedule([A, B, C, D], kernel_2mm)
 
     #### Applying customizations ####
     AB = kernel_2mm.out_AB
@@ -47,21 +44,17 @@ def top_2mm(
     s1[AB].compute_at(s1[ABC], ABC.axis[0])
     s1[ABC].compute_at(s1[E], E.axis[0])
 
-    s2[AB].compute_at(s2[ABC], ABC.axis[0])
-    s2[ABC].compute_at(s2[E], E.axis[1])
+    # s2[AB].compute_at(s2[ABC], ABC.axis[0])
+    # s2[ABC].compute_at(s2[E], E.axis[1])
 
-    s3[E].reorder(E.axis[1], E.axis[0])
-    s3[AB].compute_at(s3[ABC], ABC.axis[0])
+    # s3[E].reorder(E.axis[1], E.axis[0])
+    # s3[AB].compute_at(s3[ABC], ABC.axis[0])
 
-    return (
-        hcl.build(s1, target=target),
-        hcl.build(s2, target=target),
-        hcl.build(s3, target=target),
-    )
+    return hcl.build(s1, target=target)
 
 
 def main(P=16, Q=22, R=18, S=24, alpha=0.1, beta=0.1):
-    f1, f2, f3 = top_2mm(P=P, Q=Q, R=R, S=S, alpha=alpha, beta=beta)
+    f1 = top_2mm(P=P, Q=Q, R=R, S=S, alpha=alpha, beta=beta)
     A = np.random.randint(10, size=(P, Q)).astype(np.float32)
     B = np.random.randint(10, size=(Q, R)).astype(np.float32)
     C = np.random.randint(10, size=(R, S)).astype(np.float32)
@@ -71,16 +64,12 @@ def main(P=16, Q=22, R=18, S=24, alpha=0.1, beta=0.1):
     C_hcl = hcl.asarray(C, dtype=hcl.Float(32))
     D_hcl = hcl.asarray(D, dtype=hcl.Float(32))
     res1 = hcl.asarray(np.zeros((P, S), dtype=np.float32), dtype=hcl.Float(32))
-    res2 = hcl.asarray(np.zeros((P, S), dtype=np.float32), dtype=hcl.Float(32))
-    res3 = hcl.asarray(np.zeros((P, S), dtype=np.float32), dtype=hcl.Float(32))
     f1(A_hcl, B_hcl, C_hcl, D_hcl, res1)
-    f2(A_hcl, B_hcl, C_hcl, D_hcl, res2)
-    f3(A_hcl, B_hcl, C_hcl, D_hcl, res3)
     golden = alpha * np.matmul(np.matmul(A, B), C) + beta * D
     if (
         np.allclose(golden, res1.asnumpy())
-        and np.allclose(res1, res2.asnumpy())
-        and np.allclose(res2, res3.asnumpy())
+        # and np.allclose(golden, res2.asnumpy())
+        # and np.allclose(golden, res3.asnumpy())
     ):
         print("passed")
     else:
