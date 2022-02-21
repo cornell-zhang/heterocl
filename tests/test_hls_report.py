@@ -92,6 +92,33 @@ def spam_filter():
     pass
 # END TODO
 
+def stages():
+
+    A = hcl.placeholder((32, 32), "A")
+    C = hcl.placeholder((32, 32), "C")
+    def kernel(A, C):
+        B = hcl.compute(A.shape, lambda i, j : A[i, j] + 1, "B")
+        D = hcl.compute(A.shape, lambda i, j : B[i, j] + 1, "D")
+        E = hcl.compute(A.shape, lambda i, j : C[i, j] + 1, "E")
+        F = hcl.compute(A.shape, lambda i, j : D[i, j] + E[i, j], "F")
+        return F
+
+    target = hcl.Platform.xilinx_zc706
+    target.config(compiler="vivado_hls", mode="csyn", project="stages-tvm.prj")
+    s = hcl.create_schedule([A, C], kernel)
+    s.to(kernel.B, s[kernel.D])
+    s.to(kernel.D, s[kernel.F])
+    s.to(kernel.E, s[kernel.F])
+    mod = hcl.build(s, target=target)
+    np_A = np.zeros((32, 32))
+    np_C = np.zeros((32, 32))
+    np_F = np.zeros((32, 32))
+    hcl_A = hcl.asarray(np_A)
+    hcl_C = hcl.asarray(np_C)
+    hcl_F = hcl.asarray(np_F)
+    mod(hcl_A, hcl_C, hcl_F)
+    return mod.report()
+
 def refine(res_tbl):
     lst = res_tbl.split("\n")
     pattern = re.compile(r'\s\s+') 
@@ -457,6 +484,48 @@ def test_spam_filter(vhls):
     }
     _test_rpt(config)
 
+def test_multi_rpt(vhls):
+    config = {
+        'vhls' : vhls,
+        'has_algorithm' : 0,
+        'algorithm' : {
+            'report_path' : '/test_report_data/multi_report.xml',
+            'name' : 'stages'
+        },
+        'get_max' : 'Latency',
+        'col' : 'Category',
+        'info' : 'NoQuery',
+        'loop_query' : {
+            'query' : ['B', 'F'],
+            'name' : 'LoopQuery'
+        },
+        'column_query' : {
+            'query' : ['Trip Count', 'Latency', 'Iteration Latency', 
+                        'Pipeline II', 'Pipeline Depth'],
+            'name' : 'ColumnQuery'
+        },
+        'level_query' : {
+            'val' : 0,
+            'name' : 'LevelQuery'
+        },
+        'level_out_of_bound' : {
+            'val' : [5, -2],
+            'name' : 'LevelQueryOOB'
+        },
+        'multi_query' : {
+            'row_query' : ['D'],
+            'level_query' : 1,
+            'name' : 'MultiQuery'
+        },
+        'all_query' : {
+            'row_query' : ['B', 'E'],
+            'col_query' : ['Latency'],
+            'level_query' : 0,
+            'name' : 'AllQuery'
+        }
+    }
+    _test_rpt(config)
+
 if __name__ == '__main__':
     test_knn_digitrec(False)
     test_kmeans(False)
@@ -464,3 +533,4 @@ if __name__ == '__main__':
     test_sobel_partial(False)
     test_canny(False)
     test_spam_filter(False) 
+    test_multi_rpt(False)
