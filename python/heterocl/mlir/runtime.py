@@ -109,9 +109,9 @@ def execute_llvm_backend(execution_engine, name, return_num, *argv):
     if not isinstance(argv, list):
         argv = list(argv)
     # Unwrap hcl Array to get numpy arrays
-    argv = [arg.unwrap() for arg in argv]
+    argv_np = [arg.unwrap() for arg in argv]
     # Extract output arrays
-    return_args = argv[-return_num:]
+    return_args = argv_np[-return_num:]
     # Convert output variables from numpy arrays to memref pointers
     return_pointers = list()
     for arg in return_args:
@@ -119,7 +119,7 @@ def execute_llvm_backend(execution_engine, name, return_num, *argv):
         return_pointers.append(ctypes.pointer(ctypes.pointer(memref)))
     # Convert input variables from numpy arrays to memref pointers
     arg_pointers = list()
-    for arg in argv[0:-return_num]:
+    for arg in argv_np[0:-return_num]:
         memref = rt.get_ranked_memref_descriptor(arg)
         arg_pointers.append(ctypes.pointer(ctypes.pointer(memref)))
     # Invoke device top-level function
@@ -127,4 +127,4 @@ def execute_llvm_backend(execution_engine, name, return_num, *argv):
     # Copy output arrays back
     for i, return_p in enumerate(return_pointers):
         out_array = rt.ranked_memref_to_numpy(return_p[0])
-        np.copyto(argv[-(len(return_args)-i)], out_array)
+        np.copyto(argv[-(len(return_args)-i)].np_array, out_array)

@@ -198,14 +198,16 @@ def build_llvm(schedule, target=None, name="top", stmt=None):
     with get_context() as ctx, get_location():
         func = schedule.device_top
         func.attributes['llvm.emit_c_interface'] = UnitAttr.get()
-        # print("\n\nBefore Lowering: ")
-        schedule.device_module.dump()
-        hcl_d.lower_hcl_to_llvm(schedule.device_module, ctx)
+        # module = schedule.device_module
+        module = Module.parse(str(schedule.device_module), ctx)
+        # module.dump()
+        hcl_d.loop_transformation(module)
+        hcl_d.lower_hcl_to_llvm(module, ctx)
         num_results = len(func.type.results)
         # print("lowered.")
         # print("\n\nAfter Lowering: ")
-        # schedule.device_module.dump()
-        execution_engine = ExecutionEngine(schedule.device_module)
+        # module.dump()
+        execution_engine = ExecutionEngine(module)
         hcl_module = HCLModule(name, execution_engine,
                                "llvm", ctx, return_num=num_results)
         return hcl_module
