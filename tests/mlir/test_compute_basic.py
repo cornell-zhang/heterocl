@@ -65,8 +65,6 @@ def test_fcompute_imperative_return():
 
     _test_kernel(kernel)
 
-test_fcompute_imperative_return()
-
 def test_fcompute_imperative_function():
 
     def kernel(A):

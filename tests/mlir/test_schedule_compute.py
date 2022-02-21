@@ -455,8 +455,8 @@ def test_compute_at_with_reuse_1D():
 
 def test_compute_at_with_reuse_2D():
     hcl.init()
-    A = hcl.compute((10, 10), lambda y, x: x + y, "A")
-    B = hcl.compute((8, 8), lambda y, x: A[y, x] + A[y+1, x+1] + A[y+2, x+2], "B")
+    A = hcl.compute((10, 10), lambda y, x: x + y, name="A", dtype=hcl.Int(32))
+    B = hcl.compute((8, 8), lambda y, x: A[y, x] + A[y+1, x+1] + A[y+2, x+2], name="B", dtype=hcl.Int(32))
     s = hcl.create_schedule([B])
     s[A].compute_at(s[B], B.axis[1])
     ir = hcl.lower(s)
@@ -531,8 +531,8 @@ def test_compute_at_no_dep_diff_shape_larger():
     # the outer one will be truncated
     s[A].compute_at(s[B], B.axis[1])
     f = hcl.build(s)
-    a_hcl = hcl.asarray(np.zeros(A.shape, dtype="int"))
-    b_hcl = hcl.asarray(np.zeros(B.shape, dtype="int"))
+    a_hcl = hcl.asarray(np.zeros(A.shape, dtype="int"), dtype=hcl.Int(32))
+    b_hcl = hcl.asarray(np.zeros(B.shape, dtype="int"), dtype=hcl.Int(32))
     f(a_hcl, b_hcl)
     a_np = np.fromfunction(lambda i, j: i + j, A.shape, dtype="int")
     b_np = np.fromfunction(lambda i, j: i - j, B.shape, dtype="int")
@@ -555,8 +555,8 @@ def test_multi_stage():
     f = hcl.build(s)
     a_np = np.random.randint(0, 10, size=(10, 10))
     b_np = np.zeros(shape=(10,), dtype="int")
-    a_hcl = hcl.asarray(a_np)
-    b_hcl = hcl.asarray(b_np)
+    a_hcl = hcl.asarray(a_np, dtype=hcl.Int(32))
+    b_hcl = hcl.asarray(b_np, dtype=hcl.Int(32))
     f(a_hcl, b_hcl)
     d_np = np.sum(a_np, axis=1)
     np.testing.assert_array_equal(d_np, b_hcl.asnumpy())

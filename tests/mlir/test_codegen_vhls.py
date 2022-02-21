@@ -1,6 +1,6 @@
 import heterocl as hcl
 import __test_codegen_harness as harness
-
+import pytest
 target="vhls"
 
 def test_dtype():
@@ -11,14 +11,15 @@ def test_dtype():
                                 "ap_ufixed<5, 2>",
                                 "ap_fixed<7, 3>"])
 
-# def test_print():
-#     harness.test_print(target)
+@pytest.mark.skip(reason="print op to be supported")
+def test_print():
+    harness.test_print(target)
 
 def test_pragma():
     harness.test_pragma(target,
                         ["#pragma HLS unroll factor=4",
                          "#pragma HLS pipeline II=2",
-                         r"#pragma HLS array_partition variable=A\d* block dim=2 factor=2"])
+                         r"#pragma HLS array_partition variable=v\d* block dim=2 factor=2"])
 
 def test_set_bit():
     harness.test_set_bit(target, "A[0][4] = 1")
@@ -44,8 +45,8 @@ def test_index_split():
     s = hcl.create_schedule([A, B])
     s[B].split(B.axis[0], 5)
     code = hcl.build(s, target="vhls")
-    print(code)
-    assert "B[(y_inner + (y_outer * 5))][x]" in code
+    assert "(y_outer * 5)" in code
+    assert "y_inner +" in code
 
 def test_index_split_reshape():
     hcl.init()
@@ -64,7 +65,9 @@ def test_index_fuse():
     s = hcl.create_schedule([A, B])
     s[B].fuse(B.axis[0], B.axis[1])
     code = hcl.build(s, target="vhls")
-    assert "B[(y_x_fused / 10)][(y_x_fused % 10)]" in code
+    assert "(y_x_fused % 10)" in code
+    assert "(y_x_fused / 10)" in code
+
 
 def test_binary_conv():
     hcl.init()
@@ -84,6 +87,7 @@ def test_binary_conv():
     assert "for (int ff_inner = 0; ff_inner < 5; ++ff_inner)" in code
     assert "if (ff_inner < (64 - (ff_outer * 5)))" in code
 
+
 def test_legacy_interface():
     hcl.init()
     A = hcl.placeholder((10, 10), "A")
@@ -91,8 +95,9 @@ def test_legacy_interface():
     s = hcl.create_schedule([A, B])
     s[B].fuse(B.axis[0], B.axis[1])
     code = hcl.build(s, target="vhls")
-    assert "A[10][10]" in code
-    assert "B[10][10]" in code
+    assert "v0[10][10]" in code
+    assert "v1[10][10]" in code
+
 
 def test_select_type_cast():
     def test_imm_ops():
