@@ -1,5 +1,6 @@
 import heterocl as hcl
 import numpy as np
+import os
 import re
 import json
 import xmltodict
@@ -146,11 +147,33 @@ def get_rpt(config):
         with open(xml_file, "r") as xml:
             profile = xmltodict.parse(xml.read())["profile"]
         clock_unit = profile["PerformanceEstimates"]["SummaryOfOverallLatency"]["unit"]
-        summary = profile["PerformanceEstimates"]["SummaryOfLoopLatency"]
-  
+
         rpt = hcl.report.Displayer(clock_unit)
-        rpt.init_table(summary)
-        rpt.collect_data(summary)
+        try:
+            summary = profile["PerformanceEstimates"]["SummaryOfLoopLatency"]
+            rpt.init_table(summary)
+            rpt.collect_data(summary)
+        except:
+            pass
+
+        path = config['algorithm']['data_path']
+        if path:
+            other_rpt = []
+            path = str(pathlib.Path(__file__).parent.absolute()) + path
+            for file in os.listdir(path):
+                if file.endswith("_csynth.xml") and file != "test_csynth.xml":
+                    fpath = os.path.join(path, file)
+                    other_rpt.append(fpath)
+
+            for files in other_rpt:
+                with open(files, "r") as xml:
+                    profile = xmltodict.parse(xml.read())["profile"]
+                summary = profile["PerformanceEstimates"]["SummaryOfLoopLatency"]
+                rpt_inner = hcl.report.Displayer(clock_unit)
+                rpt_inner.init_table(summary)
+                rpt_inner.collect_data(summary)
+                res = vars(rpt_inner)
+                rpt.add_fields(res) 
     return rpt
 
 def _test_rpt(config):
@@ -239,6 +262,7 @@ def test_knn_digitrec(vhls):
         'has_algorithm' : 1,
         'algorithm' : {
             'report_path' : '/test_report_data/digitrec_report.xml',
+            'data_path' : '',
             'name' : 'knn_digitrec'
         },
         'get_max' : 'Latency',
@@ -280,6 +304,7 @@ def test_kmeans(vhls):
         'has_algorithm' : 1,
         'algorithm' : {
             'report_path' : '/test_report_data/kmeans_report.xml',
+            'data_path' : '',
             'name' : 'kmeans'
         },
         'get_max' : 'Absolute Time Latency',
@@ -321,6 +346,7 @@ def test_sobel(vhls):
         'has_algorithm' : 0,
         'algorithm' : {
             'report_path' : '/test_report_data/sobel_report.xml',
+            'data_path' : '',
             'name' : 'sobel'
         },
         'get_max' : 'Latency',
@@ -363,6 +389,7 @@ def test_sobel_partial(vhls):
         'has_algorithm' : 0,
         'algorithm' : {
             'report_path' : '/test_report_data/sobel_report_partial.xml',
+            'data_path' : '',
             'name' : 'sobel_partial'
         },
         'get_max' : 'Latency',
@@ -405,6 +432,7 @@ def test_canny(vhls):
         'has_algorithm' : 0,
         'algorithm' : {
             'report_path' : '/test_report_data/canny_report.xml',
+            'data_path' : '',
             'name' : 'canny'
         },
         'get_max' : 'Max Latency',
@@ -448,6 +476,7 @@ def test_spam_filter(vhls):
         'has_algorithm' : 0,
         'algorithm' : {
             'report_path' : '/test_report_data/spam_filter_report.xml',
+            'data_path' : '',
             'name' : 'spam_filter'
         },
         'get_max' : 'Latency',
@@ -485,11 +514,14 @@ def test_spam_filter(vhls):
     _test_rpt(config)
 
 def test_multi_rpt(vhls):
+    # `report_path` can also be switched into 
+    # `/test_report_data/multi_report.xml`
     config = {
         'vhls' : vhls,
         'has_algorithm' : 0,
         'algorithm' : {
-            'report_path' : '/test_report_data/multi_report.xml',
+            'report_path' : '/test_report_data/stages_report/test_csynth.xml',
+            'data_path' : '/test_report_data/stages_report/',
             'name' : 'stages'
         },
         'get_max' : 'Latency',
