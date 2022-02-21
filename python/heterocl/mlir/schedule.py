@@ -63,10 +63,10 @@ def create_schedule(inputs, func=None, name=""):
             if isinstance(node.op, hcl_mlir.TensorOp):
                 if node not in inputs:
                     node.build()
-            else:
+            else:  # ComputeOp
                 for input in node.op.inputs:
                     traverse(input, visited)
-                node.build()
+                node.build(sch)
 
         traverse(ret, [])
 
@@ -87,7 +87,7 @@ def create_schedule(inputs, func=None, name=""):
             new_outputs = []
             for output in outputs:
                 new_outputs.append(output.result)
-            Schedule._DataflowGraph.set_leaves(outputs)
+            sch.DataflowGraph.set_leaves(outputs)
             assert len(new_outputs) == len(outputs)
             ret_op = std.ReturnOp(new_outputs, ip=GlobalInsertionPoint.get())
             GlobalInsertionPoint.restore()
@@ -126,7 +126,6 @@ class Schedule(object):
     _IfElseStack = []
     _CurrentStage = None
     _TopFunction = None
-    _DataflowGraph = DataflowGraph()
 
     def __init__(self, name, inputs, func=None):
         self.name = name
@@ -152,7 +151,7 @@ class Schedule(object):
         Schedule._CurrentStage = None
         Schedule._TopFunction = func
         Schedule._IfElseStack = []
-        Schedule._DataflowGraph = DataflowGraph(name, inputs)
+        self.DataflowGraph = DataflowGraph(name, inputs)
 
         # create top-level function
         with get_context() as ctx, get_location() as loc:
@@ -328,7 +327,7 @@ class Schedule(object):
             if not isinstance(tensor, list):
                 tensor = [tensor]
             for t in tensor:
-                Schedule._DataflowGraph.propagate_annotation(t, dst.types)
+                self.DataflowGraph.propagate_annotation(t, dst.types)
         # inter-stage data movement
         elif isinstance(dst, Stage):
             with get_context() as ctx, get_location() as loc:
