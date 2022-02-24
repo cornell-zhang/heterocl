@@ -48,7 +48,15 @@ def create_schedule(inputs, func=None, name=""):
         # 1) func is hcl.compute: IR nodes not build inplace (default)
         # 2) func is defined by imperative DSL: IR nodes build inplace
         if func != None:
+            """
+            When having code like
+            def kernel(A):
+                A[0][4] = 1
+            It should automatically enable in-place building
+            """
+            hcl_mlir.enable_build_inplace()
             ret = func(*inputs)
+            hcl_mlir.disable_build_inplace()
             if ret == None:
                 raise RuntimeError(
                     "Need to specify output for the function to be scheduled")
