@@ -57,29 +57,25 @@ def create_schedule(inputs, func=None, name=""):
             hcl_mlir.enable_build_inplace()
             ret = func(*inputs)
             hcl_mlir.disable_build_inplace()
-            if ret == None:
-                raise RuntimeError(
-                    "Need to specify output for the function to be scheduled")
         else:
             ret = output
 
-        # traverse backward in AST to build IR
-        def traverse(node, visited):
-            if node in visited:
-                return
-            visited.append(node)
-            if isinstance(node.op, hcl_mlir.TensorOp):
-                if node not in inputs:
-                    node.build()
-            else:  # ComputeOp
-                for input in node.op.inputs:
-                    traverse(input, visited)
-                node.build(sch)
-
-        traverse(ret, [])
-
-        # append the output tensors to the input list
         if ret is not None:
+            # traverse backward in AST to build IR
+            def traverse(node, visited):
+                if node in visited:
+                    return
+                visited.append(node)
+                if isinstance(node.op, hcl_mlir.TensorOp):
+                    if node not in inputs:
+                        node.build()
+                else:  # ComputeOp
+                    for input in node.op.inputs:
+                        traverse(input, visited)
+                    node.build(sch)
+
+            traverse(ret, [])
+
             outputs = []
             if isinstance(ret, tuple):
                 outputs = list(ret)
