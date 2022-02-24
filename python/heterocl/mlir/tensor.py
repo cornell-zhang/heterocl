@@ -215,7 +215,7 @@ class ComputeOp(object):
 
                 # store the result back to tensor
                 # we have to read the ssa value out first, then store back to tensor
-                if isinstance(result_expr, hcl_mlir.SumOp):
+                if isinstance(result_expr, hcl_mlir.ReduceOp):
                     zero_idx = arith.ConstantOp(
                         IndexType.get(), IntegerAttr.get(IndexType.get(), 0), ip=GlobalInsertionPoint.get())
                     value = affine.AffineLoadOp(
@@ -224,7 +224,13 @@ class ComputeOp(object):
                         loc=loc,
                         ip=GlobalInsertionPoint.get()
                     )
-                    value.attributes["from"] = StringAttr.get("sum_rv")
+                    if isinstance(result_expr, hcl_mlir.SumOp):
+                        prefix = "sum"
+                    elif isinstance(result_expr, hcl_mlir.MinOp):
+                        prefix = "min"
+                    elif isinstance(result_expr, hcl_mlir.MaxOp):
+                        prefix = "max"
+                    value.attributes["from"] = StringAttr.get("{}_rv".format(prefix))
                 else:
                     value = result_expr.built_op
 
