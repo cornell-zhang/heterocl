@@ -20,7 +20,7 @@ class Tensor(object):
     op can be placeholder (alloc) or compute op
     """
 
-    def __init__(self, shape, dtype, fcompute=None, name="", impl="tensor"):
+    def __init__(self, shape, dtype, fcompute=None, name="", impl="tensor", output=None):
         if not isinstance(dtype, Type):
             raise RuntimeError("dtype should be hcl.Type")
         else:
@@ -29,19 +29,32 @@ class Tensor(object):
             self.op = hcl_mlir.TensorOp(
                 shape, memref.AllocOp, dtype, name=name)
         elif impl == "compute":
-            self.op = ComputeOp(shape, fcompute, dtype, name)
+            self.op = ComputeOp(shape, fcompute, dtype, name, output)
         else:
             raise RuntimeError("Not supported implementation method")
+        self.uses = []
+
+        if Schedule.BUILD_INPLACE:
+            self.build()
 
     def init(self):
         self.op.dtype = hcl_dtype_to_mlir(self.dtype)
 
-    def build(self, sch=None):
+    def build(self):
         self.init()
-        if isinstance(self.op, hcl_mlir.TensorOp):
-            self.op.build()
-        else:
-            self.op.build(sch)
+        self.op.build()
+
+    def add_use(self, use):
+        # `use` is another Tensor
+        self.uses.append(use)
+
+    @property
+    def is_placeholder(self):
+        return isinstance(self.op, hcl_mlir.TensorOp)
+
+    @property
+    def is_compute(self):
+        return isinstance(self.op, ComputeOp)
 
     def __getattr__(self, key):
         if key == "op":
@@ -51,6 +64,9 @@ class Tensor(object):
                 return self.op.output.op
         elif key == "dtype":
             return self.dtype  # hcl.Type
+        elif key == "uses":
+            print("useafaf")
+            return self.uses
         elif key == "result":
             if isinstance(self.op, hcl_mlir.TensorOp):
                 return self.op.result
@@ -77,7 +93,7 @@ class Tensor(object):
 
 class ComputeOp(object):
 
-    def __init__(self, shape, fcompute, dtype, name):
+    def __init__(self, shape, fcompute, dtype, name, output=None):
         # check if input arguments are valid
         out_ndim = len(shape)
         argspec = inspect.getfullargspec(fcompute)
@@ -109,11 +125,14 @@ class ComputeOp(object):
         self.dtype = dtype
         self.name = name
         self.inputs: List[Tensor] = inputs
-        self.output = Tensor(shape, dtype, name=name,
-                             impl="tensor")  # placeholder
+        if output == None:
+            self.output = Tensor(shape, dtype, name=name,
+                                 impl="tensor")  # placeholder
+        else:  # hcl.update
+            self.output = output
         self.arg_names = arg_names
 
-    def build(self, sch):
+    def build(self):
         input_types = []
         for in_tensor in self.inputs:  # hcl.Tensor -> hcl_mlir.TensorOp
             input_types.append(in_tensor.memref_type)
@@ -230,7 +249,8 @@ class ComputeOp(object):
                         prefix = "min"
                     elif isinstance(result_expr, hcl_mlir.MaxOp):
                         prefix = "max"
-                    value.attributes["from"] = StringAttr.get("{}_rv".format(prefix))
+                    value.attributes["from"] = StringAttr.get(
+                        "{}_rv".format(prefix))
                 else:
                     value = result_expr.built_op
 
@@ -279,7 +299,8 @@ class ComputeOp(object):
 
         if self.output is not None:
             hcl_mlir.enable_build_inplace()
-            sch.DataflowGraph.add_edges(self.inputs, self.output)
+            Schedule._CurrentSchedule.DataflowGraph.add_edges(
+                self.inputs, self.output)
 
         return self.output
 

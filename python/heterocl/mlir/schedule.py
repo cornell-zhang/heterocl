@@ -13,41 +13,40 @@ from .dfg import DataflowGraph
 
 def create_schedule(inputs, func=None, name=""):
     """Create a schedule for compute optimizations.
+    inputs: list of Tensor
     """
     if not isinstance(inputs, list):
         inputs = [inputs]
+    new_inputs = []
+    for tensor in inputs:
+        if not isinstance(tensor.op, hcl_mlir.TensorOp):
+            print("Warning: Only placeholder inputs will be considered!")
+        else:
+            new_inputs.append(tensor)
+    inputs = new_inputs
     # initialization
     GlobalInsertionPoint.clear()
     set_context()
 
-    # create exact HCL IR nodes
+    # create actual HCL IR nodes
     if name == "":
         if func != None:
             name = func.__name__
         else:
             name = UniqueName.get("schedule")
-    if func == None:
-        # TODO: Suppose only one output, and the output is the last argument
-        output = inputs[-1]
-        root_nodes = []
-        for tensor in inputs:
-            if isinstance(tensor.op, hcl_mlir.TensorOp):
-                root_nodes.append(tensor)
-        inputs = root_nodes
     sch = Schedule(name, inputs, func)
 
     # build IR
     with get_context() as ctx, get_location() as loc:
-        # create exact IR reference
+        # create actual IR reference
         func_op = sch.device_top
         for placeholder, arg in zip(inputs, func_op.entry_block.arguments):
             placeholder.op.update_op(arg)
 
-        # TODO: support imperative programming
         # execute all fcompute and generate inner IR nodes
         # 1) func is hcl.compute: IR nodes not build inplace (default)
         # 2) func is defined by imperative DSL: IR nodes build inplace
-        if func != None:
+        if func != None:  # can build function directly
             """
             When having code like
             def kernel(A):
@@ -55,29 +54,37 @@ def create_schedule(inputs, func=None, name=""):
             It should automatically enable in-place building
             """
             hcl_mlir.enable_build_inplace()
+            Schedule.BUILD_INPLACE = True
             ret = func(*inputs)
+            Schedule.BUILD_INPLACE = False
             hcl_mlir.disable_build_inplace()
         else:
-            ret = output
+            ret = None
+            # traverse forward in AST to build IR
+
+            def topological_sort(roots):
+                lst = []
+                output_tensor = []
+                working_set = roots.copy()
+                while len(working_set) != 0:
+                    node = working_set.pop(0)
+                    lst.append(node)
+                    if len(node.uses) == 0:  # also get the output tensors
+                        output_tensor.append(node)
+                    for use in node.uses:
+                        flags = [
+                            in_tensor in lst for in_tensor in use.op.inputs]
+                        if sum(flags) == len(use.op.inputs):
+                            working_set.append(use)
+                return lst, output_tensor
+
+            order, ret = topological_sort(inputs)
+            for tensor in order:
+                tensor.build()
 
         if ret is not None:
-            # traverse backward in AST to build IR
-            def traverse(node, visited):
-                if node in visited:
-                    return
-                visited.append(node)
-                if isinstance(node.op, hcl_mlir.TensorOp):
-                    if node not in inputs:
-                        node.build()
-                else:  # ComputeOp
-                    for input in node.op.inputs:
-                        traverse(input, visited)
-                    node.build(sch)
-
-            traverse(ret, [])
-
             outputs = []
-            if isinstance(ret, tuple):
+            if isinstance(ret, (list, tuple)):
                 outputs = list(ret)
             else:
                 outputs.append(ret)
@@ -128,8 +135,10 @@ class Schedule(object):
     """Create a compute schedule
     """
     _IfElseStack = []
+    _CurrentSchedule = None
     _CurrentStage = None
     _TopFunction = None
+    BUILD_INPLACE = False
 
     def __init__(self, name, inputs, func=None):
         self.name = name
@@ -152,6 +161,7 @@ class Schedule(object):
 
         # Other facilities
         Stage._mapping = []  # operation->stage
+        Schedule._CurrentSchedule = self
         Schedule._CurrentStage = None
         Schedule._TopFunction = func
         Schedule._IfElseStack = []

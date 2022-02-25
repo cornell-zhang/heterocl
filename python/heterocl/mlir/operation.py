@@ -10,6 +10,7 @@ from .context import UniqueName
 from .tensor import Array, Tensor
 from .utils import hcl_dtype_to_mlir
 
+
 def init(init_dtype=types.Int(32), raise_assert_exception=True):
     """Initialize a HeteroCL environment with configurations.
     """
@@ -116,26 +117,27 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
     if not dtype == None and not isinstance(dtype, (Type, str)):
         raise RuntimeError("Type error")
     dtype = config.init_dtype if dtype == None else dtype
-    ret_tensor = Tensor(shape, dtype, name=name, fcompute=fcompute, impl="compute")
+    ret_tensor = Tensor(shape, dtype, name=name,
+                        fcompute=fcompute, impl="compute")
+    for tensor in ret_tensor.op.inputs:
+        tensor.add_use(ret_tensor)
     return ret_tensor
 
 
-def update(tensor, fcompute, name=None):
+def update(tensor: Tensor, fcompute, name=None):
     """
-    tensor: hcl_mlir.build_ir.TensorOp
     fcompute: function, callable
     name: str
     """
     # Check tensor type
-    if not isinstance(tensor, hcl_mlir.build_ir.TensorOp) and \
-       not isinstance(tensor, PlaceHolder):
+    if not isinstance(tensor, Tensor):
         raise RuntimeError("Unexpected argument type of the " +
                            "first argument: {}, update API expects tensor as input.".format(type(tensor)))
     if name is None:
         name = tensor.name + "_updated"
-    shape = tensor.shape
-    compute_body(shape, fcompute, tensor, name)
-    return
+    new_tensor = Tensor(tensor.shape, tensor.dtype, fcompute=fcompute,
+                        name=name, impl="compute", output=tensor)
+    tensor.add_use(new_tensor)
 
 
 def mutate(domain, fcompute, name):
