@@ -80,7 +80,8 @@ def create_schedule(inputs, func=None, name=""):
 
             order, ret = topological_sort(inputs)
             for tensor in order:
-                tensor.build()
+                if tensor not in inputs:
+                    tensor.build()
 
         if ret is not None:
             outputs = []

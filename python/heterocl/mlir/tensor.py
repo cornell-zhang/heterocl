@@ -126,9 +126,11 @@ class ComputeOp(object):
         self.name = name
         self.inputs: List[Tensor] = inputs
         if output == None:
+            self.update = False
             self.output = Tensor(shape, dtype, name=name,
                                  impl="tensor")  # placeholder
-        else:  # hcl.update
+        else:
+            self.update = True
             self.output = output
         self.arg_names = arg_names
 
@@ -149,7 +151,8 @@ class ComputeOp(object):
                         hcl_d.CreateLoopHandleOp(StringAttr.get(loop_name))
                     )
             # build output tensor
-            self.output.build()
+            if not self.update:
+                self.output.build()
             # main computation part
             if hcl_mlir.EXTRACT_FUNCTION:
                 if self.output is not None:
