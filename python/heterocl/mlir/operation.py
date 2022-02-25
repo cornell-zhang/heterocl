@@ -5,8 +5,9 @@ from hcl_mlir.dialects import memref
 from hcl_mlir.ir import *
 
 from .. import config, types
-from ..types import get_dtype_str, Type
+from ..types import Type, get_dtype_str
 from .context import UniqueName
+from .schedule import Schedule
 from .tensor import Array, Tensor
 from .utils import hcl_dtype_to_mlir
 
@@ -138,6 +139,7 @@ def update(tensor: Tensor, fcompute, name=None):
     new_tensor = Tensor(tensor.shape, tensor.dtype, fcompute=fcompute,
                         name=name, impl="compute", output=tensor)
     tensor.add_use(new_tensor)
+    Schedule._CurrentSchedule.DataflowGraph.add_edges(tensor, new_tensor)
 
 
 def mutate(domain, fcompute, name):

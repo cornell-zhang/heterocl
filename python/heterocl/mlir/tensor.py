@@ -33,6 +33,7 @@ class Tensor(object):
         else:
             raise RuntimeError("Not supported implementation method")
         self.uses = []
+        self.name = name
 
         if Schedule.BUILD_INPLACE:
             self.build()
@@ -65,8 +66,9 @@ class Tensor(object):
         elif key == "dtype":
             return self.dtype  # hcl.Type
         elif key == "uses":
-            print("useafaf")
             return self.uses
+        elif key == "name":
+            return self.name
         elif key == "result":
             if isinstance(self.op, hcl_mlir.TensorOp):
                 return self.op.result
@@ -300,8 +302,8 @@ class ComputeOp(object):
             else:
                 stage.set_ir_node(loops[0])
 
+        hcl_mlir.enable_build_inplace()
         if self.output is not None:
-            hcl_mlir.enable_build_inplace()
             Schedule._CurrentSchedule.DataflowGraph.add_edges(
                 self.inputs, self.output)
 
