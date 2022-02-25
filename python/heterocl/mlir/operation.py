@@ -5,7 +5,7 @@ from hcl_mlir.dialects import memref
 from hcl_mlir.ir import *
 
 from .. import config, types
-from ..types import Type, get_dtype_str
+from ..types import Type, get_dtype_str, dtype_to_hcl
 from .context import UniqueName
 from .schedule import Schedule
 from .tensor import Array, Tensor
@@ -26,6 +26,8 @@ def placeholder(shape, name=None, dtype=None):
         name = UniqueName.get("tensor")
     if not dtype == None and not isinstance(dtype, (Type, str)):
         raise RuntimeError("Type error")
+    if isinstance(dtype, str):
+        dtype = dtype_to_hcl(dtype)
     dtype = config.init_dtype if dtype == None else dtype
     tensor = Tensor(shape, dtype, name=name, impl="tensor")
     return tensor
