@@ -1,5 +1,5 @@
 import heterocl as hcl
-import numpy as np
+import re
 
 def test_compute_single_stage():
 
@@ -8,7 +8,8 @@ def test_compute_single_stage():
         return hcl.compute(A.shape, lambda x: A[x]+1, "B")
     s = hcl.create_schedule(A, kernel)
 
-    assert kernel.B.input_stages == set([A.first_update])
+    node_map = s.DataflowGraph.node_map
+    assert node_map["A"] in node_map["B"].parents
 
 def test_update_single_stage():
 
@@ -17,7 +18,8 @@ def test_update_single_stage():
         hcl.update(A, lambda x: A[x]+1, "AU")
     s = hcl.create_schedule(A, kernel)
 
-    assert kernel.AU.input_stages == set([A.first_update])
+    node_map = s.DataflowGraph.node_map
+    assert node_map["A"] in node_map["AU"].parents
 
 def test_compute_two_stages():
 
@@ -27,7 +29,8 @@ def test_compute_two_stages():
         return hcl.compute(B.shape, lambda x: B[x]+1, "C")
     s = hcl.create_schedule(A, kernel)
 
-    assert kernel.C.input_stages == set([kernel.B])
+    node_map = s.DataflowGraph.node_map
+    assert node_map["B"] in node_map["C"].parents
 
 def test_compute_two_stages_complex():
 
@@ -37,28 +40,25 @@ def test_compute_two_stages_complex():
         return hcl.compute(B.shape, lambda x: A[x]+B[x], "C")
     s = hcl.create_schedule(A, kernel)
 
-    assert kernel.C.input_stages == set([kernel.B, A.first_update])
+    node_map = s.DataflowGraph.node_map
+    assert node_map["A"] in node_map["C"].parents and node_map["B"] in node_map["C"].parents
 
 def test_imperative_stage_rhs():
 
     A = hcl.placeholder((10,), "A")
     def kernel(A):
-        with hcl.Stage("S"):
-            A[0] += 1
+        A[0] += 1
     s = hcl.create_schedule(A, kernel)
-
-    assert kernel.S.input_stages == set([A.first_update])
+    assert r"%arg0[%c0]"in str(s.device_module)
 
 def test_imperative_stage_lhs():
 
     A = hcl.placeholder((10,), "A")
     B = hcl.placeholder((10,), "B")
     def kernel(A, B):
-        with hcl.Stage("S"):
-            A[0] = B[0]
+        A[0] = B[0]
     s = hcl.create_schedule([A, B], kernel)
-
-    assert kernel.S.input_stages == set([A.first_update, B.first_update])
+    assert r"%arg1[%c0]"in str(s.device_module)
 
 def test_imperative_multi_stages():
 
@@ -66,10 +66,10 @@ def test_imperative_multi_stages():
     def kernel(A):
         B = hcl.compute(A.shape, lambda x: A[x]+1, "B")
         C = hcl.compute(A.shape, lambda x: A[x]+1, "C")
-        with hcl.Stage("S"):
-            C[0] = B[0]
+        C[0] = B[0]
         return B, C
     s = hcl.create_schedule(A, kernel)
 
-    assert kernel.S.input_stages == set([kernel.B, kernel.C])
-
+    node_map = s.DataflowGraph.node_map
+    assert node_map["A"] in node_map["B"].parents and node_map["A"] in node_map["C"].parents
+    assert re.search(r'affine\.load %\d+\[%c0\] {from = "B"}', str(s.device_module))
