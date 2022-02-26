@@ -4,6 +4,7 @@ from hcl_mlir.ir import *
 
 from .context import ImperativeLoopDepth, ImperativeLoopNestCount, StageName, UniqueName
 from .schedule import Schedule, Stage
+from .operation import all, any
 
 
 class WithScope(object):
@@ -20,6 +21,18 @@ class WithScope(object):
         self._exit_cb()
 
 
+def and_(*args):
+    """Compute the logic AND between expressions.
+    """
+    return all(*args)
+
+
+def or_(*args):
+    """Compute the logic OR between expressions.
+    """
+    return any(*args)
+
+
 def return_(expr=None):
     hcl_mlir.enable_build_inplace()
     # ret_expr = expr.build()
@@ -32,6 +45,7 @@ def return_(expr=None):
         ret_op = hcl_mlir.std.ReturnOp(
             [], ip=hcl_mlir.GlobalInsertionPoint.get())
     return ret_op
+
 
 def for_(begin, end, step=1, tag=""):
     """Construct a FOR loop.
@@ -54,7 +68,8 @@ def for_(begin, end, step=1, tag=""):
     # TODO(Niansong): loop bounds must be expressions of itervar, e.g. k+1
     if isinstance(begin, (int, hcl_mlir.IterVar)) and isinstance(end, (int, hcl_mlir.IterVar)):
         loop_name = UniqueName.get("loop")
-        loop_handle = hcl_d.CreateLoopHandleOp(StringAttr.get(loop_name), ip=hcl_mlir.GlobalInsertionPoint.ip_stack[-depth-1])
+        loop_handle = hcl_d.CreateLoopHandleOp(StringAttr.get(
+            loop_name), ip=hcl_mlir.GlobalInsertionPoint.ip_stack[-depth-1])
         loop = hcl_mlir.make_affine_for(
             begin, end, step, name=loop_name, stage=stage_name, ip=hcl_mlir.GlobalInsertionPoint.get())
         Schedule._CurrentStage.add_axis(loop_handle)
