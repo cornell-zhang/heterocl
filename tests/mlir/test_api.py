@@ -167,7 +167,7 @@ def test_bitwise_or():
     f(hcl_a, hcl_b, hcl_c)
     assert np.array_equal(hcl_c.asnumpy(), g)
 
-def test_tesnro_slice_shape():
+def test_tensor_slice_shape():
     A = hcl.placeholder((3, 4, 5))
 
     assert(A.shape == (3, 4, 5))
