@@ -107,11 +107,11 @@ def conv2d_nchw(
                 hcl.select(
                     if_mac(yy * stride_h + ry * dilation_h, xx * stride_w + rx * dilation_w, pad_in_height,
                            pad_in_width, pad_top, pad_left, pad_down, pad_right),  # neglect padding pixels in mac
-                    ((1 - temp[nn, rc, yy * stride_h + ry * dilation_h,
-                               xx * stride_w + rx * dilation_w] ^
-                      Filter[ff, rc, ry, rx])
-                     << 1) - 1,  # xnor
-                    0),
+                    hcl.cast(out_dtype, ((1 - temp[nn, rc, yy * stride_h + ry * dilation_h,
+                                                   xx * stride_w + rx * dilation_w] ^
+                                          Filter[ff, rc, ry, rx])
+                                         << 1) - 1),  # xnor
+                    hcl.cast(out_dtype, 0)),
                 axis=[rc, ry, rx], dtype=out_dtype, name=name+"_sum"),
             name=name,
             dtype=out_dtype)
@@ -123,9 +123,9 @@ def conv2d_nchw(
                     if_mac(yy * stride_h + ry * dilation_h, xx * stride_w + rx * dilation_w, pad_in_height,
                            pad_in_width, pad_top, pad_left, pad_down, pad_right),  # neglect padding pixels in mac
                     hcl.cast(out_dtype, ((1 - temp[nn, 0, yy * stride_h + ry * dilation_h,
-                               xx * stride_w + rx * dilation_w] ^
-                      Filter[ff, 0, ry, rx])
-                     << 1) - 1),  # xnor
+                                                   xx * stride_w + rx * dilation_w] ^
+                                          Filter[ff, 0, ry, rx])
+                                         << 1) - 1),  # xnor
                     hcl.cast(out_dtype, 0)),
                 axis=[ry, rx], dtype=out_dtype, name=name+"_sum"),
             name=name,
@@ -141,6 +141,46 @@ def batch_norm_threshold(
         data[i, c, h, w] > threshold[c, h, w],
         hcl.cast(qtype_bit, 1),  # quantize
         hcl.cast(qtype_bit, 0)), name=name, dtype=qtype_bit)
+
+
+def max_pool2d_nchw(
+        data,
+        pooling=[1, 1],
+        stride=[1, 1],
+        padding=[0, 0],
+        layout='NCHW',
+        name='binary_max_pool2d'):
+    assert len(data.shape) == 4, "only support 4-dim pooling"
+    assert len(stride) == 2, "only support 2-dim stride"
+    pooling_h, pooling_w = pooling
+    stride_h, stride_w = stride
+    batch, channel, height, width = data.shape
+    if len(padding) == 4:
+        pad_top = padding[0]
+        pad_left = padding[1]
+        pad_bottom = padding[2]
+        pad_right = padding[3]
+    else:
+        pad_top, pad_left, pad_bottom, pad_right = get_pad_tuple(padding)
+    pad_before = [0, 0, pad_top, pad_left]
+    pad_after = [0, 0, pad_bottom, pad_right]
+    if (pad_top, pad_left, pad_bottom, pad_right) != (0, 0, 0, 0):
+        raise RuntimeError("Not supported padding")
+    out_height = (height - pooling_h + pad_top + pad_bottom) // stride_h + 1
+    out_width = (width - pooling_w + pad_left + pad_right) // stride_w + 1
+    dheight = hcl.reduce_axis(0, pooling_h)
+    dwidth = hcl.reduce_axis(0, pooling_w)
+    return hcl.compute(
+        (batch, channel, out_height, out_width),
+        lambda i, c, h, w: hcl.select(hcl.max(data[i, c, h *
+                                                   stride_h +
+                                                   dheight, w *
+                                                   stride_w +
+                                                   dwidth], axis=[dheight, dwidth], dtype=data.dtype, name=name+"_max") > hcl.cast(data.dtype, 0),
+                                      hcl.cast(qtype_bit, 1),
+                                      hcl.cast(qtype_bit, 0)),
+        name=name, dtype=qtype_bit)
+
 
 """
 def pad_nhwc(data, padding=[1, 1], name="pad", dtype=None):
@@ -469,53 +509,6 @@ def packed_conv2d_nhwc(
         name=name,
         dtype=out_dtype)
     return out
-
-
-def max_pool2d_nchw(
-        data,
-        pooling=[1, 1],
-        stride=[1, 1],
-        padding=[0, 0],
-        layout='NCHW',
-        name='binary_max_pool2d'):
-    assert len(data.shape) == 4, "only support 4-dim pooling"
-    assert len(stride) == 2, "only support 2-dim stride"
-    max = hcl.reducer(
-        hcl.min_value(data.dtype),
-        lambda x, y: tvm.make.Max(x, y),
-        data.dtype)
-    pooling_h, pooling_w = pooling
-    stride_h, stride_w = stride
-    batch, channel, height, width = data.shape
-    if len(padding) == 4:
-        pad_top = padding[0]
-        pad_left = padding[1]
-        pad_bottom = padding[2]
-        pad_right = padding[3]
-    else:
-        pad_top, pad_left, pad_bottom, pad_right = get_pad_tuple(
-            padding, (pooling_h, pooling_w))
-    pad_before = [0, 0, pad_top, pad_left]
-    pad_after = [0, 0, pad_bottom, pad_right]
-    if (pad_top, pad_left, pad_bottom, pad_right) != (0, 0, 0, 0):
-        data = pad(data, pad_before, pad_after,
-                   pad_value=hcl.min_value(data.dtype), name=name+"_pad")
-    out_height = simplify(
-        (height - pooling_h + pad_top + pad_bottom) // stride_h + 1)
-    out_width = simplify(
-        (width - pooling_w + pad_left + pad_right) // stride_w + 1)
-    dheight = hcl.reduce_axis(0, pooling_h)
-    dwidth = hcl.reduce_axis(0, pooling_w)
-    return hcl.compute(
-        (batch, channel, out_height, out_width),
-        lambda i, c, h, w: hcl.select(max(data[i, c, h *
-                                               stride_h +
-                                               dheight, w *
-                                               stride_w +
-                                               dwidth], axis=[dheight, dwidth]) > 0,
-                                      1,
-                                      0),
-        name=name, dtype=qtype_bit)
 
 
 def packed_max_pool2d_nchw(
