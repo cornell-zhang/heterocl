@@ -9,10 +9,10 @@ from hcl_mlir.dialects import hcl as hcl_d
 from hcl_mlir.dialects import memref, std
 from hcl_mlir.ir import *
 
-from ..types import dtype_to_str, Type
+from ..types import Type, dtype_to_str
 from .context import get_context, get_location
 from .schedule import Schedule, Stage
-from .utils import hcl_dtype_to_mlir
+from .utils import get_extra_type_hints, hcl_dtype_to_mlir
 
 
 class Tensor(object):
@@ -169,6 +169,8 @@ class ComputeOp(object):
                     inputs=input_types+return_types, results=[]), ip=GlobalInsertionPoint.ip_stack[0])
                 stage_func_op.attributes["inputs"] = StringAttr.get(
                     ",".join([tensor.name for tensor in self.inputs]))
+                stage_func_op.attributes["extra_itypes"] = StringAttr.get("".join([get_extra_type_hints(
+                    tensor.op.dtype) for tensor in self.inputs] + [get_extra_type_hints(self.output.op.dtype)]))  # inputs & outputs
                 if self.output is not None:
                     stage_func_op.attributes["outputs"] = StringAttr.get(
                         self.output.op.name)

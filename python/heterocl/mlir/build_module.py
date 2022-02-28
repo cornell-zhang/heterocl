@@ -13,6 +13,7 @@ from .module import HCLModule
 from .operation import placeholder
 from .runtime import copy_build_files
 from .schedule import Schedule
+from .utils import get_extra_type_hints
 
 
 def lower(schedule,
@@ -98,8 +99,14 @@ def separate_host_device(schedule):
         func_op.attributes["type"] = TypeAttr.get(function_type)
         func_op.attributes["inputs"] = StringAttr.get(
             ",".join([node.tensor.name+"_xcel" for node in schedule.DataflowGraph.subgraph["inputs"]]))
+        extra_itypes = "".join([get_extra_type_hints(
+            node.tensor.op.dtype) for node in schedule.DataflowGraph.subgraph["inputs"]])
+        func_op.attributes["extra_itypes"] = StringAttr.get(extra_itypes)
         func_op.attributes["outputs"] = StringAttr.get(
             ",".join([node.tensor.name+"_xcel" for node in schedule.DataflowGraph.subgraph["outputs"]]))
+        extra_otypes = "".join([get_extra_type_hints(
+            node.tensor.op.dtype) for node in schedule.DataflowGraph.subgraph["outputs"]])
+        func_op.attributes["extra_itypes"] = StringAttr.get(extra_otypes)
     hcl_mlir.disable_build_inplace()
 
     # call C++ pass to further fix the references

@@ -3,7 +3,6 @@
 import numbers
 from collections import OrderedDict
 from .debug import DTypeError
-from . import config
 
 class Type(object):
     """The base class for all data types
@@ -174,15 +173,6 @@ def dtype_to_hcl(dtype):
             raise DTypeError("Unrecognized data type")
     else:
         raise DTypeError("Unrecognized data type format")
-
-
-def get_dtype_str(dtype=None):
-    if not dtype is None and not isinstance(dtype, (Type, str)):
-        raise RuntimeError("Type error")
-    dtype = config.init_dtype if dtype is None else dtype
-    if not isinstance(dtype, str):
-        dtype = dtype_to_str(dtype)
-    return dtype
 
 
 def get_bitwidth(dtype):

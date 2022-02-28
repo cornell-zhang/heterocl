@@ -1,7 +1,10 @@
 import hcl_mlir
-from hcl_mlir.ir import *
 from hcl_mlir.dialects import hcl as hcl_d
-from ..types import Int, UInt, Fixed, UFixed, Float
+from hcl_mlir.ir import *
+
+from ..config import init_dtype
+from ..types import Fixed, Float, Int, Type, UFixed, UInt, dtype_to_str
+
 
 def hcl_dtype_to_mlir(dtype):
     if hcl_mlir.is_hcl_mlir_type(dtype):
@@ -23,3 +26,24 @@ def hcl_dtype_to_mlir(dtype):
             return F64Type.get()
     else:
         raise RuntimeError("Not supported type")
+
+
+def get_dtype_str(dtype):
+    if not dtype is None and not isinstance(dtype, (Type, str)):
+        raise RuntimeError("Type error")
+    dtype = init_dtype if dtype is None else dtype
+    if not isinstance(dtype, str):
+        dtype = dtype_to_str(dtype)
+    return dtype
+
+
+def get_extra_type_hints(dtype):
+    """
+    dtype: MLIR type
+    """
+    if dtype.is_unsigned:
+        return "u"
+    elif dtype.is_signed:
+        return "s"
+    else:
+        return "_"
