@@ -9,7 +9,7 @@ from hcl_mlir.dialects import hcl as hcl_d
 from hcl_mlir.dialects import memref, std
 from hcl_mlir.ir import *
 
-from ..types import dtype_to_str, Type
+from ..types import dtype_to_str, Type, Int, UInt, Float, Fixed, UFixed
 from .context import get_context, get_location
 from .schedule import Schedule, Stage
 from .utils import hcl_dtype_to_mlir
@@ -318,17 +318,30 @@ class Array(object):
 
     def __init__(self, np_array, dtype):
         self.dtype = dtype  # should specify the type of `dtype`
-        if dtype != None:
+        if dtype != None: 
             # Data type check
-            hcl_dtype_str = dtype_to_str(dtype)
-            correct_dtype = np.dtype(hcl_dtype_str)
-            if np_array.dtype != correct_dtype:
-                np_array = np_array.astype(correct_dtype)
+            # TODO(Niansong): Support any-width integer
+            if isinstance(dtype, (Int, UInt, Float)):
+                hcl_dtype_str = dtype_to_str(dtype)
+                correct_dtype = np.dtype(hcl_dtype_str)
+                if np_array.dtype != correct_dtype:
+                    np_array = np_array.astype(correct_dtype)
+            elif isinstance(dtype, (Fixed, UFixed)):
+                dtype_str = 'int' if isinstance(dtype, Fixed) else 'uint'
+                dtype_str += str(dtype.bits)
+                int_dtype = np.dtype(dtype_str)
+                np_array = np_array * (2**dtype.fracs)
+                np_array = np_array.astype(int_dtype)
         self.np_array = np_array
 
     def asnumpy(self):
-        return self.np_array
+        # TODO(Niansong): Support any-width integer
+        if isinstance(self.dtype, (Fixed, UFixed)):
+            res_array = self.np_array.astype(np.float64)
+            res_array = res_array / 2**(self.dtype.fracs)
+            return res_array
+        else:
+            return self.np_array
 
     def unwrap(self):
-        # TODO(Niansong): support unwrap fixed-point tensor here
         return self.np_array
