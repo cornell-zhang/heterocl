@@ -302,25 +302,32 @@ class Array(object):
         self.dtype = dtype  # should specify the type of `dtype`
         if dtype != None: 
             # Data type check
-            # TODO(Niansong): Support any-width integer
             if isinstance(dtype, (Int, UInt, Float)):
                 hcl_dtype_str = dtype_to_str(dtype)
                 correct_dtype = np.dtype(hcl_dtype_str)
                 if np_array.dtype != correct_dtype:
                     np_array = np_array.astype(correct_dtype)
             elif isinstance(dtype, (Fixed, UFixed)):
-                dtype_str = 'int' if isinstance(dtype, Fixed) else 'uint'
-                dtype_str += str(dtype.bits)
+                dtype_str = 'int64' if isinstance(dtype, Fixed) else 'uint64'
                 int_dtype = np.dtype(dtype_str)
                 np_array = np_array * (2**dtype.fracs)
                 np_array = np_array.astype(int_dtype)
         self.np_array = np_array
 
     def asnumpy(self):
-        # TODO(Niansong): Support any-width integer
         if isinstance(self.dtype, (Fixed, UFixed)):
-            res_array = self.np_array.astype(np.float64)
-            res_array = res_array / 2**(self.dtype.fracs)
+            # Handle overflow
+            res_array = self.np_array.astype(np.int64)
+            sb = 1 << self.dtype.bits
+            if isinstance(self.dtype, Fixed):
+                sb_limit = 1 << (self.dtype.bits - 1)
+                res_array = res_array % sb
+                cast_func = lambda x : x if x < sb_limit else x - sb
+                res_array = np.vectorize(cast_func)(res_array)
+            else:
+                res_array = res_array % sb
+
+            res_array = res_array.astype(np.float64) / 2**(self.dtype.fracs)
             return res_array
         else:
             return self.np_array
