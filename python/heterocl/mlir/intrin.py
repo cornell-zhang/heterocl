@@ -3,6 +3,9 @@ import hcl_mlir
 def exp(x):
     return hcl_mlir.MathExpOp(x)
 
+def power(x, y):
+    return hcl_mlir.MathPowOp(x, y)
+
 def log(x):
     return hcl_mlir.MathLogOp(x)
 
