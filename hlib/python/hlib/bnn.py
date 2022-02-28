@@ -168,8 +168,8 @@ def max_pool2d_nchw(
         raise RuntimeError("Not supported padding")
     out_height = (height - pooling_h + pad_top + pad_bottom) // stride_h + 1
     out_width = (width - pooling_w + pad_left + pad_right) // stride_w + 1
-    dheight = hcl.reduce_axis(0, pooling_h)
-    dwidth = hcl.reduce_axis(0, pooling_w)
+    dheight = hcl.reduce_axis(0, pooling_h, "rh")
+    dwidth = hcl.reduce_axis(0, pooling_w, "rw")
     return hcl.compute(
         (batch, channel, out_height, out_width),
         lambda i, c, h, w: hcl.select(hcl.max(data[i, c, h *
@@ -180,20 +180,6 @@ def max_pool2d_nchw(
                                       hcl.cast(qtype_bit, 1),
                                       hcl.cast(qtype_bit, 0)),
         name=name, dtype=qtype_bit)
-
-
-"""
-def pad_nhwc(data, padding=[1, 1], name="pad", dtype=None):
-    assert len(data.shape) == 4, "Only support 4D padding"
-    if dtype == None:
-        dtype = data.dtype
-    batch, in_height, in_width, channel = data.shape
-    out_height, out_width = in_height + 2 * \
-        padding[0], in_width + 2 * padding[1]
-    return hcl.compute((batch, out_height, out_width, channel),
-                       lambda ii, hh, ww, cc: hcl.select(if_mac(hh, ww, out_height, out_width, padding[0], padding[1], padding[0], padding[1]),
-                                                         data[ii, hh-padding[0], ww-padding[1], cc], 0),
-                       dtype=dtype, name=name)
 
 
 def flatten(data, name="flatten"):
@@ -211,6 +197,49 @@ def flatten(data, name="flatten"):
     return hcl.compute(oshape, lambda i, j: data[tuple([i] + unwrap(j, ishape[1:]))],
                        name=name,
                        dtype=data.dtype)
+
+
+def dense(data, weight, bias=None, use_relu=False, dtype=None, name="binary_dense"):
+    assert len(
+        data.shape) == 2 and len(
+        weight.shape) == 2, "only support 2-dim dense"
+    if bias is not None:
+        assert len(bias.shape) == 1
+    batch, in_dim = data.shape
+    out_dim, _ = weight.shape
+    k = hcl.reduce_axis(0, in_dim, "k")
+    var_w = np.sqrt(2. / in_dim)  # predefined constant
+    # var_w = 1
+    if bias is None:
+        matmul = hcl.compute((batch, out_dim), lambda i, j: hcl.cast(dtype, hcl.sum(hcl.cast(dtype, hcl.all(
+            data[i, k] == weight[j, k])), axis=k, dtype=dtype) * 2 - in_dim), name=name+"_matmul", dtype=dtype)  # Data type needs to be specified!
+    else:
+        matmul = hcl.compute((batch, out_dim), lambda i, j: hcl.cast(bias.dtype, (hcl.sum(hcl.cast(bias.dtype, hcl.all(data[i, k] == weight[j, k])), axis=k, dtype=bias.dtype, name=name+"_sum") * 2 - in_dim) * var_w + bias[j]),
+                             name=(name+"_matmul" if use_relu else name),
+                             dtype=bias.dtype)
+    if use_relu:
+        matmul = hcl.compute(
+            (batch, out_dim),
+            lambda i, j: hcl.select(matmul[i, j] > 0, hcl.cast(
+                qtype_bit, 1), hcl.cast(qtype_bit, 0)),
+            name=name,
+            dtype=qtype_bit
+        )
+    return matmul
+
+
+"""
+def pad_nhwc(data, padding=[1, 1], name="pad", dtype=None):
+    assert len(data.shape) == 4, "Only support 4D padding"
+    if dtype == None:
+        dtype = data.dtype
+    batch, in_height, in_width, channel = data.shape
+    out_height, out_width = in_height + 2 * \
+        padding[0], in_width + 2 * padding[1]
+    return hcl.compute((batch, out_height, out_width, channel),
+                       lambda ii, hh, ww, cc: hcl.select(if_mac(hh, ww, out_height, out_width, padding[0], padding[1], padding[0], padding[1]),
+                                                         data[ii, hh-padding[0], ww-padding[1], cc], 0),
+                       dtype=dtype, name=name)
 
 
 def packed_flatten(data, name="packed_flatten"):
@@ -236,38 +265,6 @@ def packed_flatten_nhwc(data, name="packed_flatten"):
     out_shape = (batch, in_height * in_width * channel)
     return hcl.compute(out_shape, lambda i, j: data[i, j / (in_width * channel) % in_height, j / channel % in_width, j % channel],
                        name=name)
-
-
-def dense(data, weight, bias=None, use_relu=False, name="binary_dense"):
-    assert len(
-        data.shape) == 2 and len(
-        weight.shape) == 2, "only support 2-dim dense"
-    if bias is not None:
-        assert len(bias.shape) == 1
-    batch, in_dim = data.shape
-    out_dim, _ = weight.shape
-    k = hcl.reduce_axis(0, in_dim)
-    var_w = np.sqrt(2. / in_dim)  # predefined constant
-    # var_w = 1
-    if bias is None:
-        matmul = hcl.compute((batch, out_dim), lambda i, j: sum(
-            hcl.all(data[i, k] == weight[j, k]), axis=k)
-            * 2 - in_dim,
-            name=name+"_matmul")  # Data type needs to be specified!
-    else:
-        matmul = hcl.compute((batch, out_dim), lambda i, j: (hcl.sum(
-            hcl.all(data[i, k] == weight[j, k]), axis=k, dtype=bias.dtype, name=name+"_sum")
-            * 2 - in_dim) * var_w + bias[j],
-            name=(name+"_matmul" if use_relu else name),
-            dtype=bias.dtype)
-    if use_relu:
-        matmul = hcl.compute(
-            (batch, out_dim),
-            lambda i, j: hcl.select(matmul[i, j] > 0, 1, 0),
-            name=name,
-            dtype=qtype_bit
-        )
-    return matmul
 
 
 def _popcount(num, bitwidth, name="popcnt"):
