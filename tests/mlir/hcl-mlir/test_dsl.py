@@ -8,9 +8,9 @@ def test_dsl():
     def kernel(A):
         with hcl.for_(0, 32, 1, tag="A") as i:
             with hcl.for_(0, 32, 1) as j:
-                with hcl.if_(i > j):
+                with hcl.if_(i > j): # affine.if
                     A[i, j] += 1
-                with hcl.elif_(i == j):
+                with hcl.elif_(A[i, j] == 0): # scf.if
                     A[i, j] = A[i, j] - 2
                 with hcl.else_():
                     A[i, j] = A[i, j] * 3

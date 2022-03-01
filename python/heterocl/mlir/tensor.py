@@ -3,7 +3,7 @@ from typing import List
 
 import hcl_mlir
 import numpy as np
-from hcl_mlir import ASTBuilder, GlobalInsertionPoint
+from hcl_mlir import ASTVisitor, GlobalInsertionPoint
 from hcl_mlir.dialects import affine, arith, builtin
 from hcl_mlir.dialects import hcl as hcl_d
 from hcl_mlir.dialects import memref, std
@@ -230,7 +230,7 @@ class ComputeOp(object):
             if self.output is not None:
                 # traverse the fcompute again
                 result_expr = self.fcompute(*iter_var)
-                builder = ASTBuilder()
+                builder = ASTVisitor()
                 true_result = builder.visit(result_expr)
                 result_expr.built_op = true_result
 

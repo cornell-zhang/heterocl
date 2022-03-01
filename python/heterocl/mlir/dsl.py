@@ -1,5 +1,5 @@
 import hcl_mlir
-from hcl_mlir.dialects import affine, hcl as hcl_d
+from hcl_mlir.dialects import affine, scf, hcl as hcl_d
 from hcl_mlir.ir import *
 
 from .context import ImperativeLoopDepth, ImperativeLoopNestCount, StageName, UniqueName
@@ -37,7 +37,7 @@ def return_(expr=None):
     hcl_mlir.enable_build_inplace()
     # ret_expr = expr.build()
     if expr is not None:
-        builder = hcl_mlir.ASTBuilder()
+        builder = hcl_mlir.ASTVisitor()
         ret_expr = builder.visit(expr)
         ret_op = hcl_mlir.std.ReturnOp(
             [ret_expr], ip=hcl_mlir.GlobalInsertionPoint.get())
@@ -98,7 +98,10 @@ def if_(cond):
     Schedule._IfElseStack.append(if_op)
 
     def _exit_cb():
-        affine.AffineYieldOp([], ip=hcl_mlir.GlobalInsertionPoint.get())
+        if isinstance(if_op, affine.AffineIfOp):
+            affine.AffineYieldOp([], ip=hcl_mlir.GlobalInsertionPoint.get())
+        else:
+            scf.YieldOp([], ip=hcl_mlir.GlobalInsertionPoint.get())
         hcl_mlir.GlobalInsertionPoint.restore()
 
     return WithScope(None, _exit_cb)
@@ -115,7 +118,10 @@ def else_():
     hcl_mlir.GlobalInsertionPoint.save(last_if_op.else_block)
 
     def _exit_cb():
-        affine.AffineYieldOp([], ip=hcl_mlir.GlobalInsertionPoint.get())
+        if isinstance(last_if_op, affine.AffineIfOp):
+            affine.AffineYieldOp([], ip=hcl_mlir.GlobalInsertionPoint.get())
+        else:
+            scf.YieldOp([], ip=hcl_mlir.GlobalInsertionPoint.get())
         hcl_mlir.GlobalInsertionPoint.restore()
 
     return WithScope(None, _exit_cb)
@@ -140,9 +146,15 @@ def elif_(cond):
     Schedule._IfElseStack.append(if_op)
 
     def _exit_cb():
-        affine.AffineYieldOp([], ip=hcl_mlir.GlobalInsertionPoint.get())
+        if isinstance(if_op, affine.AffineIfOp):
+            affine.AffineYieldOp([], ip=hcl_mlir.GlobalInsertionPoint.get())
+        else:
+            scf.YieldOp([], ip=hcl_mlir.GlobalInsertionPoint.get())
         hcl_mlir.GlobalInsertionPoint.restore()
-        affine.AffineYieldOp([], ip=hcl_mlir.GlobalInsertionPoint.get())
+        if isinstance(last_if_op, affine.AffineIfOp):
+            affine.AffineYieldOp([], ip=hcl_mlir.GlobalInsertionPoint.get())
+        else:
+            scf.YieldOp([], ip=hcl_mlir.GlobalInsertionPoint.get())
         hcl_mlir.GlobalInsertionPoint.restore()
 
     return WithScope(None, _exit_cb)
