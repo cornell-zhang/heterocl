@@ -55,9 +55,7 @@ def create_schedule(inputs, func=None, name=""):
             It should automatically enable in-place building
             """
             hcl_mlir.enable_build_inplace()
-            Schedule.BUILD_INPLACE = True
             ret = func(*inputs)
-            Schedule.BUILD_INPLACE = False
             hcl_mlir.disable_build_inplace()
         else:
             ret = None
@@ -144,7 +142,6 @@ class Schedule(object):
     _CurrentSchedule = None
     _CurrentStage = None
     _TopFunction = None
-    BUILD_INPLACE = False
 
     def __init__(self, name, inputs, func=None):
         self.name = name

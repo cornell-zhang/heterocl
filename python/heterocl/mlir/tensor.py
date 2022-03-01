@@ -21,10 +21,9 @@ class Tensor(object):
     """
 
     def __init__(self, shape, dtype, fcompute=None, name="", impl="tensor", output=None):
-        if not isinstance(dtype, Type):
-            raise RuntimeError("dtype should be hcl.Type")
-        else:
-            self.dtype = dtype
+        # hcl.Type before building
+        # hcl_mlir.Type after building
+        self.dtype = dtype
         if impl == "tensor":
             self.op = hcl_mlir.TensorOp(
                 shape, memref.AllocOp, dtype, name=name)
@@ -35,7 +34,7 @@ class Tensor(object):
         self.uses = []
         self.name = name
 
-        if Schedule.BUILD_INPLACE:
+        if hcl_mlir.is_build_inplace():
             self.build()
 
     def init(self):
@@ -127,13 +126,8 @@ class ComputeOp(object):
         self.dtype = dtype
         self.name = name
         self.inputs: List[Tensor] = inputs
-        if output == None:
-            self.update = False
-            self.output = Tensor(shape, dtype, name=name,
-                                 impl="tensor")  # placeholder
-        else:
-            self.update = True
-            self.output = output
+        self.update = True if output != None else False
+        self.output = output
         self.arg_names = arg_names
 
     def build(self):
@@ -154,6 +148,7 @@ class ComputeOp(object):
                     )
             # build output tensor
             if not self.update:
+                self.output = Tensor(self.shape, self.dtype, name=self.name, impl="tensor")  # placeholder
                 self.output.build()
             # main computation part
             if hcl_mlir.EXTRACT_FUNCTION:
@@ -286,7 +281,6 @@ class ComputeOp(object):
             else:
                 stage.set_ir_node(loops[0])
 
-        hcl_mlir.enable_build_inplace()
         if self.output is not None:
             Schedule._CurrentSchedule.DataflowGraph.add_edges(
                 self.inputs, self.output)
