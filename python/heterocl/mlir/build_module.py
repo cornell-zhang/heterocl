@@ -32,12 +32,16 @@ def lower(schedule,
 def build(schedule, target=None, name="top", stmt=None):
     """Build the executable according to the schedule and target.
     """
-    lowered_module = lower(schedule)
-
-    if target != None:
-        return build_fpga_kernel(schedule, target, name, stmt)
-    else:
-        return build_llvm(schedule, target, name, stmt)
+    try: 
+        lowered_module = lower(schedule)
+        if target != None:
+            return build_fpga_kernel(schedule, target, name, stmt)
+        else:
+            return build_llvm(schedule, target, name, stmt)
+    except Exception as e:
+        raise e
+    finally:
+        hcl_mlir.reset_build_inplace()
 
 
 def separate_host_device(schedule):
