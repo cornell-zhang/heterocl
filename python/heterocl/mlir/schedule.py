@@ -9,6 +9,7 @@ from ..devices import Device, DevMemoryPair
 from .context import (ImperativeLoopDepth, ImperativeLoopNestCount, StageName,
                       UniqueName, get_context, get_location, set_context)
 from .dfg import DataflowGraph
+from .utils import get_extra_type_hints
 
 
 def create_schedule(inputs, func=None, name=""):
@@ -94,6 +95,9 @@ def create_schedule(inputs, func=None, name=""):
             function_type = FunctionType.get(
                 inputs=func_op.type.inputs, results=return_types)
             func_op.attributes["type"] = TypeAttr.get(function_type)
+            extra_otypes = "".join(
+                [get_extra_type_hints(v.op.dtype) for v in outputs])
+            func_op.attributes["extra_otypes"] = StringAttr.get(extra_otypes)
 
             # create block terminator
             new_outputs = []
@@ -114,6 +118,7 @@ def create_schedule(inputs, func=None, name=""):
             function_type = FunctionType.get(
                 inputs=func_op.type.inputs, results=[])
             func_op.attributes["type"] = TypeAttr.get(function_type)
+            func_op.attributes["extra_otypes"] = StringAttr.get("")
             # create block terminator
             ret_op = std.ReturnOp([], ip=GlobalInsertionPoint.get())
             GlobalInsertionPoint.restore()
@@ -169,6 +174,7 @@ class Schedule(object):
         self.DataflowGraph = DataflowGraph(name, inputs)
 
         # create top-level function
+        extra_itypes = ""
         with get_context() as ctx, get_location() as loc:
             input_types = []
             for tensor in inputs:
@@ -176,8 +182,12 @@ class Schedule(object):
                     raise RuntimeError("Inputs should be hcl_mlir.TensorOp")
                 tensor.init()
                 input_types.append(tensor.op.memref_type)
+                extra_itypes += get_extra_type_hints(tensor.op.dtype)
             device_top = builtin.FuncOp(name="top", type=FunctionType.get(
                 inputs=input_types, results=[]), ip=InsertionPoint(self._device_module.body))
+            device_top.attributes["extra_itypes"] = StringAttr.get(
+                extra_itypes)
+            device_top.attributes["extra_otypes"] = StringAttr.get("")
             device_top.add_entry_block()
             if hcl_mlir.EXTRACT_FUNCTION:
                 device_top.attributes["top"] = UnitAttr.get()

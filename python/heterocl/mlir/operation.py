@@ -5,11 +5,11 @@ from hcl_mlir.dialects import memref
 from hcl_mlir.ir import *
 
 from .. import config, types
-from ..types import Type, get_dtype_str, dtype_to_hcl
+from ..types import Type, dtype_to_hcl
 from .context import UniqueName
 from .schedule import Schedule
 from .tensor import Array, Tensor
-from .utils import hcl_dtype_to_mlir
+from .utils import get_dtype_str, hcl_dtype_to_mlir
 
 
 def init(init_dtype=types.Int(32), raise_assert_exception=True):
