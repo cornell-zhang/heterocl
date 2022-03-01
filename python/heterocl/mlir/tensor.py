@@ -281,6 +281,8 @@ class ComputeOp(object):
             else:
                 stage.set_ir_node(loops[0])
 
+        if Schedule._TopFunction != None:
+            hcl_mlir.enable_build_inplace()
         if self.output is not None:
             Schedule._CurrentSchedule.DataflowGraph.add_edges(
                 self.inputs, self.output)
