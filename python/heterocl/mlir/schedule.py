@@ -12,7 +12,7 @@ from .dfg import DataflowGraph
 from .utils import get_extra_type_hints
 
 
-def create_schedule(inputs, func=None, name=""):
+def build_schedule(inputs, func=None, name=""):
     """Create a schedule for compute optimizations.
     inputs: list of Tensor
     """
@@ -127,6 +127,15 @@ def create_schedule(inputs, func=None, name=""):
         for op, stage in Stage._mapping:
             func.__setattr__(op.name, op)
     return sch
+
+def create_schedule(inputs, func=None, name=""):
+    try:
+        return build_schedule(inputs, func, name)
+    except Exception as e:
+        raise e 
+    finally:
+        hcl_mlir.reset_build_inplace()
+
 
 
 class Partition(object):
