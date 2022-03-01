@@ -158,3 +158,21 @@ def elif_(cond):
         hcl_mlir.GlobalInsertionPoint.restore()
 
     return WithScope(None, _exit_cb)
+
+
+def while_(cond):
+    """Construct an IF branch.
+    """
+    hcl_mlir.enable_build_inplace()
+    if isinstance(cond, hcl_mlir.ExprOp):
+        while_op = hcl_mlir.make_while(
+            cond, ip=hcl_mlir.GlobalInsertionPoint.get())
+    else:
+        raise RuntimeError("Not implemented")
+    hcl_mlir.GlobalInsertionPoint.save(while_op.after.blocks[0])
+
+    def _exit_cb():
+        scf.YieldOp([], ip=hcl_mlir.GlobalInsertionPoint.get())
+        hcl_mlir.GlobalInsertionPoint.restore()
+
+    return WithScope(None, _exit_cb)
