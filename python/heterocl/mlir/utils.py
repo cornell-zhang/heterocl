@@ -41,9 +41,12 @@ def get_extra_type_hints(dtype):
     """
     dtype: MLIR type
     """
-    if dtype.is_unsigned:
-        return "u"
-    elif dtype.is_signed:
-        return "s"
+    if not hcl_mlir.is_hcl_mlir_type(dtype):
+        raise RuntimeError("Not MLIR type!")
+    if isinstance(dtype, IntegerType):
+        if dtype.is_unsigned:
+            return "u"
+        elif dtype.is_signed or dtype.is_signless:
+            return "s"
     else:
         return "_"
