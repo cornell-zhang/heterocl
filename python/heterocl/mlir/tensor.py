@@ -316,12 +316,22 @@ class Array(object):
                 np_array = np_array % sb
                 cast_func = lambda x : x if x < sb_limit else x - sb
                 np_array = np.vectorize(cast_func)(np_array)
-                np_array = np_array.astype(np.int64)
+                #TODO(Niansong): change back to int64 after adding 
+                # a new pass to add casts
+                hcl_dtype_str = dtype_to_str(dtype)
+                correct_dtype = np.dtype(hcl_dtype_str)
+                np_array = np_array.astype(correct_dtype)
+                # np_array = np_array.astype(np.int64)
             elif isinstance(dtype, UInt):
                 # Handle overflow
                 sb = 1 << self.dtype.bits
                 np_array = np_array % sb
-                np_array = np_array.astype(np.int64)
+                #TODO(Niansong): change back to int64 after adding 
+                # a new pass to add casts
+                hcl_dtype_str = dtype_to_str(dtype)
+                correct_dtype = np.dtype(hcl_dtype_str)
+                np_array = np_array.astype(correct_dtype)
+                # np_array = np_array.astype(np.int64)
             elif isinstance(dtype, Fixed):
                 # Handle overflow
                 sb = 1 << self.dtype.bits
