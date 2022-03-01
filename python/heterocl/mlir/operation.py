@@ -45,13 +45,12 @@ def scalar(init, name=None, dtype=None):
     if name is None:
         name = UniqueName.get("scalar")
     ret_tensor = placeholder((1,), name=name, dtype=dtype)
-    ret_tensor.build()
-    index = hcl_mlir.ConstantOp(hcl_mlir.idx_type, 0)
+    index = hcl_mlir.ConstantOp("index", 0)
     if not hcl_mlir.is_hcl_mlir_type(dtype):
         dtype = get_dtype_str(dtype)
     if isinstance(init, int) or isinstance(init, float):
         init = hcl_mlir.ConstantOp(dtype, init)
-    hcl_mlir.StoreOp(init, ret_tensor, [index])
+    hcl_mlir.StoreOp(init, ret_tensor.op, [index])
     return ret_tensor
 
 
