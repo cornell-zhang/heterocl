@@ -63,8 +63,7 @@ def test_set_bit(target, string):
     hcl.init()
     A = hcl.placeholder((10,), "A")
     def kernel(A):
-        with hcl.Stage("S"):
-            A[0][4] = 1
+        A[0][4] = 1
     s = hcl.create_schedule([A], kernel)
     code = hcl.build(s, target=target)
     assert string in code
@@ -73,8 +72,7 @@ def test_set_slice(target, string):
     hcl.init()
     A = hcl.placeholder((10,), "A")
     def kernel(A):
-        with hcl.Stage("S"):
-            A[0][5:1] = 1
+        A[0][5:1] = 1
     s = hcl.create_schedule([A], kernel)
     code = hcl.build(s, target=target)
     assert string in code
