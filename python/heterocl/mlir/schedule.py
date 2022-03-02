@@ -128,14 +128,14 @@ def build_schedule(inputs, func=None, name=""):
             func.__setattr__(op.name, op)
     return sch
 
+
 def create_schedule(inputs, func=None, name=""):
     try:
         return build_schedule(inputs, func, name)
     except Exception as e:
-        raise e 
+        raise e
     finally:
         hcl_mlir.reset_build_inplace()
-
 
 
 class Partition(object):
@@ -449,7 +449,7 @@ class Stage(object):
             parent = self.op.axis[parent]
         var = parent
         with get_context() as ctx, get_location():
-            i32 = IntegerType.get_signless(32)
+            i32 = IntegerType.get_unsigned(32)
             factor = IntegerAttr.get(i32, factor)
             split_op = hcl_d.SplitOp(
                 self.stage_handle.result, var.result, factor, ip=GlobalInsertionPoint.get())
@@ -459,7 +459,7 @@ class Stage(object):
         """ Perform tiling on two dimensions
         """
         with get_context() as ctx, get_location():
-            i32 = IntegerType.get_signless(32)
+            i32 = IntegerType.get_unsigned(32)
             x_factor = IntegerAttr.get(i32, x_factor)
             y_factor = IntegerAttr.get(i32, y_factor)
             tile_op = hcl_d.TileOp(self.stage_handle.result, x_parent.result,
@@ -472,7 +472,7 @@ class Stage(object):
         if isinstance(var, int):
             var = self.op.axis[var]
         with get_context(), get_location():
-            i32 = IntegerType.get_signless(32)
+            i32 = IntegerType.get_unsigned(32)
             ii = IntegerAttr.get(i32, initiation_interval)
             hcl_d.PipelineOp(self.stage_handle.result,
                              var.result, ii, ip=GlobalInsertionPoint.get())
@@ -483,7 +483,7 @@ class Stage(object):
         if isinstance(var, int):
             var = self.op.axis[var]
         with get_context(), get_location():
-            i32 = IntegerType.get_signless(32)
+            i32 = IntegerType.get_unsigned(32)
             factor = IntegerAttr.get(i32, factor)
             hcl_d.UnrollOp(self.stage_handle.result, var.result,
                            factor, ip=GlobalInsertionPoint.get())
