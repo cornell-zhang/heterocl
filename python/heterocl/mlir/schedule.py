@@ -376,7 +376,7 @@ class Stage(object):
     """
 
     # TODO: Need to find a hashable way to create dict
-    mapping = []  # operation->stage
+    _mapping = []  # operation->stage
 
     def __init__(self, name=None):
         if name is None:
@@ -398,13 +398,13 @@ class Stage(object):
             self.stage_handle = hcl_d.CreateStageHandleOp(
                 StringAttr.get(self.name), ip=GlobalInsertionPoint.get()
             )
-        if self.op is not None:
-            Stage._mapping.append((self.op, self))
-        else:
+        if self.op is None:
             # pseudo return tensor for stage with no return value
             from .operation import placeholder
             op = placeholder((1,), name=self.name)
             Stage._mapping.append((op, self))
+        elif Schedule._TopFunction == None and (self.op, self) not in Stage._mapping:
+            Stage._mapping.append((self.op, self))
 
     def add_axis(self, axis):
         self._axis.append(axis)
@@ -416,6 +416,7 @@ class Stage(object):
     def set_output(self, output):
         # output: TensorOp
         self.op = output
+        Stage._mapping.append((self.op, self))
 
     def set_ir_node(self, ir_node):
         self.ir_node = ir_node

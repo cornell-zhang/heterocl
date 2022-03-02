@@ -10,6 +10,7 @@ print("Using {} as IR".format(IR))
 
 if ir_name == "mlir":
     from .mlir.schedule import *
+    from .mlir.scheme import *
     from .mlir.build_module import *
     from .mlir.operation import *
     from .mlir.runtime import *

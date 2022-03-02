@@ -257,6 +257,16 @@ class ComputeOp(object):
                                 original_tensor_op[i])
                 else:
                     write_back = self.output.op.result
+                write_back_elt = IntegerType(
+                    MemRefType(write_back.type).element_type)
+                if value.result.type != write_back_elt:
+                    print(
+                        "Warning: store operation has different input types. Cast from {} to {}.".format(
+                            value.result.type, write_back_elt
+                        )
+                    )
+                    value = hcl_mlir.CastOp(result_expr, write_back_elt)
+                    value.build()
                 ret_val = affine.AffineStoreOp(
                     value.result,
                     write_back,
