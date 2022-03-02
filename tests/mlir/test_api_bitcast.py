@@ -9,11 +9,9 @@ def test_bitcast_uint2float():
     def algorithm(A):
         B = hcl.bitcast(A, hcl.Float(32))
         return B
-        
 
     s = hcl.create_schedule([A], algorithm)
-    f = hcl.build(s, "vhls")
-    print(f)
+    f = hcl.build(s)
 
     _A_np = np.random.randint(100, size=(10,10)).astype(np.uint32)
     _A = hcl.asarray(_A_np, dtype=hcl.UInt(32))
@@ -25,6 +23,9 @@ def test_bitcast_uint2float():
     answer = np.frombuffer(_A_np.tobytes(), np.float32).reshape((10,10))
 
     assert np.array_equal(_B, answer)
+
+    code = hcl.build(s, "vhls")
+    assert "union { uint32_t from; float to;}" in code
 
 def test_bitcast_float2uint():
     hcl.init()
