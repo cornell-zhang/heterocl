@@ -49,7 +49,8 @@ def test_imperative_stage_rhs():
     def kernel(A):
         A[0] += 1
     s = hcl.create_schedule(A, kernel)
-    assert r"%arg0[%c0]"in str(s.device_module)
+    print(s.device_module)
+    assert r"%arg0[0]"in str(s.device_module)
 
 def test_imperative_stage_lhs():
 
@@ -58,7 +59,7 @@ def test_imperative_stage_lhs():
     def kernel(A, B):
         A[0] = B[0]
     s = hcl.create_schedule([A, B], kernel)
-    assert r"%arg1[%c0]"in str(s.device_module)
+    assert r"%arg1[0]"in str(s.device_module)
 
 def test_imperative_multi_stages():
 
@@ -72,4 +73,4 @@ def test_imperative_multi_stages():
 
     node_map = s.DataflowGraph.node_map
     assert node_map["A"] in node_map["B"].parents and node_map["A"] in node_map["C"].parents
-    assert re.search(r'affine\.load %\d+\[%c0\] {from = "B"}', str(s.device_module))
+    assert re.search(r'affine\.load %\d+\[0\] {from = "B"}', str(s.device_module))
