@@ -64,6 +64,8 @@ class Tensor(object):
                 return self.op.output.op
         elif key == "dtype":
             return self.dtype  # hcl.Type
+        elif key == "shape":
+            return self.op.shape
         elif key == "uses":
             return self.uses
         elif key == "name":
