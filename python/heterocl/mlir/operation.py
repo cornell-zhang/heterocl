@@ -155,3 +155,42 @@ def mutate(domain, fcompute, name):
         name = UniqueName.get("stage")
     compute_body(domain, fcompute, None, name)
     return
+
+
+def bitcast(tensor, dst_dtype, name=None):
+    """Bitcast a HeteroCL tensor or expression to the destination data type of the same bitwidth.
+    This API **bitcast** the input tensor from its own data type (source dtype)
+    to the destination data type (dst_dtype). The destination data type must have
+    the same bitwidth with the source datatype. 
+    """
+    if not isinstance(tensor, Tensor) and not isinstance(tensor, hcl_mlir.ExprOp):
+        raise RuntimeError("bitcast input must be HeteroCL Tensor or ExprOp.")
+
+    # check type
+    if not isinstance(dst_dtype, Type):
+        raise RuntimeError("dst_dtype should be HeteroCL data type.")
+
+    # check bitwidth
+    if isinstance(tensor, Tensor):
+        src_bitwidth = tensor.dtype.bits
+    else:  # ExprOp
+        src_bitwidth = hcl_mlir.get_bitwidth(tensor.dtype)
+    dst_bitwidth = dst_dtype.bits
+    if src_bitwidth != dst_bitwidth:
+        raise RuntimeError("Destination datatype bitwidth does not match source bitwidth:" +
+                           f"source bitwidth: {src_bitwidth} , destination bitwidth {dst_bitwidth}.")
+
+    # set up name, shape, and fcompute
+    dst_dtype_str = get_dtype_str(dst_dtype)
+    if isinstance(tensor, Tensor):
+        name = tensor.name + '_' + dst_dtype_str if name is None else name
+        shape = tensor.shape
+        fcompute = lambda *args: hcl_mlir.BitCastOp(
+            hcl_dtype_to_mlir(dst_dtype), tensor[args])
+        return compute(shape, fcompute, name=name, dtype=dst_dtype)
+    else:
+        bitcast = hcl_mlir.BitCastOp(hcl_dtype_to_mlir(dst_dtype), tensor)
+        builder = hcl_mlir.ASTVisitor(mode="build")
+        builder.visit(bitcast)
+        # return an expression
+        return bitcast

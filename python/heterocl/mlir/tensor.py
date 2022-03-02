@@ -257,8 +257,8 @@ class ComputeOp(object):
                                 original_tensor_op[i])
                 else:
                     write_back = self.output.op.result
-                write_back_elt = IntegerType(
-                    MemRefType(write_back.type).element_type)
+                elt = MemRefType(write_back.type).element_type
+                write_back_elt = hcl_mlir.get_concrete_type(elt)
                 if value.result.type != write_back_elt:
                     print(
                         "Warning: store operation has different input types. Cast from {} to {}.".format(
