@@ -382,11 +382,7 @@ class Stage(object):
         if name is None:
             name = UniqueName.get("stage")
         self.name = name
-        # create stage handle
-        with get_context() as ctx, get_location() as loc:
-            self.stage_handle = hcl_d.CreateStageHandleOp(
-                StringAttr.get(name), ip=GlobalInsertionPoint.get()
-            )
+        self.stage_handle = None
         # wait for setting axes
         self._axis = []
         StageName.set(name)
@@ -396,15 +392,12 @@ class Stage(object):
         self.op = None
         self.ir_node = None
 
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exception_type, exception_value, traceback):
-        if exception_type is RuntimeError:
-            return
-        if ImperativeLoopNestCount.get() > 1:
-            # TODO(Niansong): write a better warning message
-            raise RuntimeWarning("more than one loop in ...")
+    def done(self):
+        # create stage handle
+        with get_context() as ctx, get_location() as loc:
+            self.stage_handle = hcl_d.CreateStageHandleOp(
+                StringAttr.get(self.name), ip=GlobalInsertionPoint.get()
+            )
         if self.op is not None:
             Stage._mapping.append((self.op, self))
         else:

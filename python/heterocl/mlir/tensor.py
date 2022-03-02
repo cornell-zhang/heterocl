@@ -128,8 +128,15 @@ class ComputeOp(object):
         self.dtype = dtype
         self.name = name
         self.inputs: List[Tensor] = inputs
-        self.update = True if output != None else False
-        self.output = output
+        self.stage = Stage(self.name)
+        if output == None:
+            self.update = False
+            self.output = Tensor(self.shape, self.dtype,
+                                 name=self.name, impl="tensor")  # placeholder
+        else:
+            self.update = True
+            self.output = output
+        self.stage.set_output(self.output)
         self.arg_names = arg_names
 
     def build(self):
@@ -140,7 +147,7 @@ class ComputeOp(object):
         # Disable build-in-place for declarative compute
         hcl_mlir.disable_build_inplace()
         # Start building loop-nest
-        with get_context() as ctx, get_location() as loc, Stage(self.name) as stage:
+        with get_context() as ctx, get_location() as loc:
             # create loop handles in the top function
             with GlobalInsertionPoint.get():
                 loop_handles = []
@@ -149,8 +156,7 @@ class ComputeOp(object):
                         hcl_d.CreateLoopHandleOp(StringAttr.get(loop_name))
                     )
             # build output tensor
-            if not self.update:
-                self.output = Tensor(self.shape, self.dtype, name=self.name, impl="tensor")  # placeholder
+            if not self.update and Schedule._TopFunction == None:
                 self.output.build()
             # main computation part
             if hcl_mlir.EXTRACT_FUNCTION:
@@ -173,7 +179,7 @@ class ComputeOp(object):
                         self.output.op.name)
                 stage_func_op.add_entry_block()
                 # attach the function to the stage
-                stage.set_ir_node(stage_func_op)
+                self.stage.set_ir_node(stage_func_op)
                 # call this function in the top function
                 call_arglist = []
                 for tensor in self.inputs:
@@ -266,8 +272,7 @@ class ComputeOp(object):
 
             # set loop handles
             if self.output is not None:
-                stage.set_output(self.output)
-                stage.op.set_axis(loop_handles)
+                self.stage.op.set_axis(loop_handles)
             else:
                 # TODO(Niansong):
                 # attach axis for hcl.mutate
@@ -281,8 +286,9 @@ class ComputeOp(object):
                 ret_op = std.ReturnOp([], ip=GlobalInsertionPoint.get())
                 GlobalInsertionPoint.restore()
             else:
-                stage.set_ir_node(loops[0])
+                self.stage.set_ir_node(loops[0])
 
+        self.stage.done()
         if Schedule._TopFunction != None:
             hcl_mlir.enable_build_inplace()
         if self.output is not None:
@@ -300,7 +306,7 @@ class Array(object):
 
     def __init__(self, np_array, dtype):
         self.dtype = dtype  # should specify the type of `dtype`
-        if dtype != None: 
+        if dtype != None:
             # Data type check
             if isinstance(dtype, Float):
                 hcl_dtype_str = dtype_to_str(dtype)
@@ -312,9 +318,9 @@ class Array(object):
                 sb = 1 << self.dtype.bits
                 sb_limit = 1 << (self.dtype.bits - 1)
                 np_array = np_array % sb
-                cast_func = lambda x : x if x < sb_limit else x - sb
+                def cast_func(x): return x if x < sb_limit else x - sb
                 np_array = np.vectorize(cast_func)(np_array)
-                #TODO(Niansong): change back to int64 after adding 
+                # TODO(Niansong): change back to int64 after adding
                 # a new pass to add casts
                 hcl_dtype_str = dtype_to_str(dtype)
                 correct_dtype = np.dtype(hcl_dtype_str)
@@ -324,7 +330,7 @@ class Array(object):
                 # Handle overflow
                 sb = 1 << self.dtype.bits
                 np_array = np_array % sb
-                #TODO(Niansong): change back to int64 after adding 
+                # TODO(Niansong): change back to int64 after adding
                 # a new pass to add casts
                 hcl_dtype_str = dtype_to_str(dtype)
                 correct_dtype = np.dtype(hcl_dtype_str)
@@ -336,7 +342,7 @@ class Array(object):
                 sb_limit = 1 << (self.dtype.bits - 1)
                 np_array = np_array * (2**dtype.fracs)
                 np_array = np.fix(np_array) % sb
-                cast_func = lambda x : x if x < sb_limit else x - sb
+                def cast_func(x): return x if x < sb_limit else x - sb
                 np_array = np.vectorize(cast_func)(np_array)
                 np_array = np_array.astype(np.int64)
             elif isinstance(dtype, UFixed):
@@ -349,7 +355,8 @@ class Array(object):
 
     def asnumpy(self):
         if isinstance(self.dtype, (Fixed, UFixed)):
-            res_array = self.np_array.astype(np.float64) / float(2**(self.dtype.fracs))
+            res_array = self.np_array.astype(
+                np.float64) / float(2**(self.dtype.fracs))
             return res_array
         else:
             return self.np_array
