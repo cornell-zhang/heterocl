@@ -78,14 +78,13 @@ def test_binary_conv():
     rx = hcl.reduce_axis(0, 3)
     C = hcl.compute((1, 64, 12, 12),
         lambda nn, ff, yy, xx: hcl.sum(
-            A[nn, rc, yy + ry, xx + rx] * B[ff, rc, ry, rx], axis=[rc, ry, rx]),
+            A[nn, rc, yy + ry, xx + rx] * B[ff, rc, ry, rx], axis=[rc, ry, rx], dtype=hcl.UInt(8)),
         dtype=hcl.UInt(8), name="C")
     s = hcl.create_schedule([A, B, C])
     s[C].split(C.axis[1], factor=5)
     code = hcl.build(s, target='vhls')
-    assert "for (int ff_outer = 0; ff_outer < 13; ++ff_outer)" in code
-    assert "for (int ff_inner = 0; ff_inner < 5; ++ff_inner)" in code
-    assert "if (ff_inner < (64 - (ff_outer * 5)))" in code
+    assert "for (int ff_outer = 0; ff_outer < 13; ff_outer += 1)" in code
+    assert "for (int ff_inner = 0; ff_inner < min(5, ((-v5) + 64)); ff_inner += 1)" in code
 
 
 def test_legacy_interface():
