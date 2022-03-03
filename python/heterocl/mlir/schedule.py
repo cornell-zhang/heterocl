@@ -47,6 +47,7 @@ def build_schedule(inputs, func=None, name=""):
         # execute all fcompute and generate inner IR nodes
         # 1) func is hcl.compute: IR nodes not build inplace (default)
         # 2) func is defined by imperative DSL: IR nodes build inplace
+        hcl_mlir.flags.BIT_OP = False
         if func != None:  # can build function directly
             """
             When having code like
@@ -81,6 +82,8 @@ def build_schedule(inputs, func=None, name=""):
             for tensor in order:
                 if tensor not in inputs:
                     tensor.build()
+        if hcl_mlir.flags.BIT_OP:
+            sch.device_top.attributes["bit"] = UnitAttr.get()
 
         if ret is not None:
             outputs = []
