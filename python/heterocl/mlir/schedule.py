@@ -151,6 +151,7 @@ class Schedule(object):
     """Create a compute schedule
     """
     _IfElseStack = []
+    _DefFuncReturn = []
     _CurrentSchedule = None
     _CurrentStage = None
     _TopFunction = None
@@ -180,6 +181,7 @@ class Schedule(object):
         Schedule._CurrentStage = None
         Schedule._TopFunction = func
         Schedule._IfElseStack = []
+        Schedule._DefFuncReturn = []
         self.DataflowGraph = DataflowGraph(name, inputs)
 
         # create top-level function

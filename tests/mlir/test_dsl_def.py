@@ -9,9 +9,8 @@ def test_module_no_return():
         def update_B(A, B, x):
             B[x] = A[x] + 1
 
-        with hcl.Stage():
-            with hcl.for_(0, 10) as i:
-                update_B(A, B, i)
+        with hcl.for_(0, 10) as i:
+            update_B(A, B, i)
 
     A = hcl.placeholder((10,))
     B = hcl.placeholder((10,))

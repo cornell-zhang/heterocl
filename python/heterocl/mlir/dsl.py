@@ -39,20 +39,6 @@ def or_(*args):
     return any(*args)
 
 
-def return_(expr=None):
-    hcl_mlir.enable_build_inplace()
-    # ret_expr = expr.build()
-    if expr is not None:
-        builder = hcl_mlir.ASTVisitor()
-        ret_expr = builder.visit(expr)
-        ret_op = hcl_mlir.std.ReturnOp(
-            [ret_expr], ip=hcl_mlir.GlobalInsertionPoint.get())
-    else:
-        ret_op = hcl_mlir.std.ReturnOp(
-            [], ip=hcl_mlir.GlobalInsertionPoint.get())
-    return ret_op
-
-
 def for_(begin, end, step=1, tag=""):
     """Construct a FOR loop.
 
@@ -256,6 +242,7 @@ def def_(shapes, dtypes=None, ret_dtype=None, name=None, arg_names=None):
         stage_func_op.add_entry_block()
 
         def wrapped_func(*inputs):
+            hcl_mlir.enable_build_inplace()
             # call this function in the top function
             call_arglist = []
             for i, tensor in enumerate(inputs):
@@ -267,14 +254,6 @@ def def_(shapes, dtypes=None, ret_dtype=None, name=None, arg_names=None):
             # update function type
             stage_func_op.attributes["type"] = TypeAttr.get(
                 FunctionType.get(inputs=input_types+return_types, results=[]))
-            # if output is not None:
-            #     call_arglist.append(output.result)
-            call_op = hcl_mlir.CallOp(None, stage_func_name, call_arglist)
-            call_op.built_op.attributes["inputs"] = StringAttr.get(
-                ",".join([tensor.name for tensor in inputs]))
-            # if output is not None:
-            #     call_op.built_op.attributes["outputs"] = StringAttr.get(
-            #         output.op.name)
 
             # update inner load/store references
             # used for recovery
@@ -309,11 +288,44 @@ def def_(shapes, dtypes=None, ret_dtype=None, name=None, arg_names=None):
                         original_tensor_op[i])
 
             # recover from the subfunction
-            ret_op = std.ReturnOp([], ip=GlobalInsertionPoint.get())
-            GlobalInsertionPoint.restore()
+            if len(Schedule._DefFuncReturn) == 0:
+                ret_op = std.ReturnOp([], ip=GlobalInsertionPoint.get())
+                GlobalInsertionPoint.restore()
+                # build call op
+                call_op = hcl_mlir.CallOp(None, stage_func_name, call_arglist)
+                call_op.built_op.attributes["inputs"] = StringAttr.get(
+                    ",".join([tensor.name for tensor in inputs]))
+            else:
+                if Schedule._DefFuncReturn[0] is not None:
+                    new_return_types = [Schedule._DefFuncReturn[0].dtype]
+                else:
+                    new_return_types = []
+                stage_func_op.attributes["type"] = TypeAttr.get(
+                    FunctionType.get(inputs=input_types, results=new_return_types))
+                GlobalInsertionPoint.restore()
+                # build call op
+                call_op = hcl_mlir.CallOp(
+                    Schedule._DefFuncReturn[0].dtype, stage_func_name, call_arglist)
+                call_op.built_op.attributes["inputs"] = StringAttr.get(
+                    ",".join([tensor.name for tensor in inputs]))
+                # call_op.built_op.attributes["outputs"] = StringAttr.get(
+                #     Schedule._DefFuncReturn[0].name)
 
-            print("func", stage_func_op)
+            return call_op
 
         return wrapped_func
 
     return decorator
+
+
+def return_(expr=None):
+    hcl_mlir.enable_build_inplace()
+    if expr is not None:
+        Schedule._DefFuncReturn.append(expr)
+        ret_op = std.ReturnOp(
+            [expr.result], ip=hcl_mlir.GlobalInsertionPoint.get())
+    else:
+        Schedule._DefFuncReturn.append(None)
+        ret_op = std.ReturnOp(
+            [], ip=hcl_mlir.GlobalInsertionPoint.get())
+    return ret_op
