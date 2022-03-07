@@ -27,19 +27,16 @@ The speedup is over a single-core single-thread CPU execution on AWS F1.
 | :-------- | :----------------: | :----: | :----:| :-----: | :----: | :------------: | :------:| :------: |
 | **[KNN Digit Recognition](samples/digitrec/)**<br/>K=3 #images=1800<br/>`uint49` | 4.1k (0.42%) | 5.5k (0.26%) | 38 (2.0%) | 0 (0.0%) | 250 | 0.73 | 0.07 | 10.4 |
 | **[K-Means](samples/kmeans)**<br/>K=16 #elem=320 x 32<br/>`int32` | 168.2k (16.6%) | 212.1k (10.0%) | 54 (2.8%) | 1.5k (22.5%) | 187 | 65.6 | 0.79 | 83.0 | 
+| **[GEMM-SA](samples/gemm)**<br/>K=M=N=1024<br/>`float` | 331.1k (32.6%) | 529.9k (24.86%) | 887 (45.6%) | 2.6k (37.44%) | 242 | 2961 | 9.74 | 310.1 | 
 
-## Publication
+## Related Publications
 
-If you use HeteroCL in your design, please cite our [FPGA'19 paper](http://www.csl.cornell.edu/~zhiruz/pdfs/heterocl-fpga2019.pdf):
-```
-@article{lai2019heterocl,
-  title={HeteroCL: A Multi-Paradigm Programming Infrastructure for Software-Defined Reconfigurable Computing},
-  author={Lai, Yi-Hsiang and Chi, Yuze and Hu, Yuwei and Wang, Jie and Yu, Cody Hao and 
-          Zhou, Yuan and Cong, Jason and Zhang, Zhiru},
-  journal={Int'l Symp. on Field-Programmable Gate Arrays (FPGA)},
-  year={2019}
-}
-```
++ Shaojie Xiang, Yi-Hsiang Lai, Yuan Zhou, Hongzheng Chen, Niansong Zhang, Debjit Pal, Zhiru Zhang.
+  [HeteroFlow: An Accelerator Programming Model with Decoupled Data Placement for Software-Defined FPGAs](https://www.csl.cornell.edu/~zhiruz/pdfs/heteroflow-fpga2022.pdf).
+  In FPGA, 2022.
++ Yi-Hsiang Lai1, Yuze Chi, Yuwei Hu, Jie Wang, Cody Hao Yu, Yuan Zhou, Jason Cong, Zhiru Zhang.
+  [HeteroCL: A Multi-Paradigm Programming Infrastructure for Software-Defined Reconfigurable Computing](https://www.csl.cornell.edu/~zhiruz/pdfs/heterocl-fpga2019.pdf).
+  In FPGA, 2019. (Best Paper Award)
 
 ## Related Work
 
