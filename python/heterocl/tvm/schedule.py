@@ -9,6 +9,7 @@ from . import tensor as _tensor
 from . import expr as _expr
 from . import stmt as _stmt
 from . import container as _container
+import os
 
 @register_node
 class Buffer(NodeBase):
@@ -255,6 +256,9 @@ class _Schedule(NodeBase):
 
     def partition(self, target, partition_type, dim, factor):
         return _api_internal._SchedulePartition(self, target, dim, factor, partition_type)
+
+    def transpose(self, src, tensor, target_shape):
+        return _api_internal._TransformLayout(self, src, tensor, target_shape) 
 
     # Create separate python functions for data movement FFIs
     # Move a stage's loop body to device
@@ -542,7 +546,7 @@ class _Stage(NodeBase):
         if isinstance(var, int):
             var = self.op.axis[var]
         _api_internal._StageParallel(self, var)
-    
+
     def dataflow(self, var=None):
         """Create dataflow region inside loop or function body
 
@@ -573,6 +577,11 @@ class _Stage(NodeBase):
 
     def stencil(self, burst_width=512, unroll_factor=1, num_iteration=1):
         _api_internal._StageStencil(self, burst_width, unroll_factor, num_iteration)
+
+    def systolic(self, **kwargs):
+        for key, value in kwargs.items():
+            os.environ[key] = value
+        _api_internal._StageSystolic(self)
 
     def pragma(self, var, pragma_type):
         """Annotate the iteration with pragma

@@ -261,6 +261,21 @@ void CreateStencil(StageNode* stage, int burst_width, int unroll_factor,
                          op->input_placeholders, op->output_placeholders, body);
 }
 
+void CreateSystolic(StageNode* stage) {
+  const ExternOpNode* op = stage->op.as<ExternOpNode>();
+  Array<Expr> annotate_keys, annotate_values;
+  // Create an extern module to wrap the AutoSA generated HLS code
+  Stmt body = ExternModule::make("autosa", StringImm::make("HLS"), op->body,
+                 annotate_keys, annotate_values);
+  stage->op = ExternOpNode::make(op->name,
+                                 op->tag,
+                                 op->axis,
+                                 op->inputs,
+                                 op->input_placeholders,
+                                 op->output_placeholders,
+                                 body);
+}
+
 void CreateDataflow(StageNode* stage, IterVar var) {
   const ExternOpNode* op = stage->op.as<ExternOpNode>();
   Stmt body;
@@ -490,6 +505,11 @@ Stage& Stage::split_by_nparts_annotate(IterVar var, Expr nparts) {
 
 Stage& Stage::stencil(int burst_width, int unroll_factor, int num_iteration) {
   CreateStencil(operator->(), burst_width, unroll_factor, num_iteration);
+  return *this;
+}
+
+Stage& Stage::systolic() { // NOLINT(*)
+  CreateSystolic(operator->());
   return *this;
 }
 

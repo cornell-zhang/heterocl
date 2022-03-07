@@ -1,6 +1,6 @@
 /*!
  *  Copyright (c) 2019 by Contributors
- * \file adjust_buffer_binding.cc
+ * \file loop_partition.cc
  */
 #include <arithmetic/Substitute.h>
 #include <tvm/ir.h>
@@ -31,6 +31,42 @@ class BufferBindingAdjuster final : public IRMutator {
   Stmt Mutate_(const LetStmt* op, const Stmt& s) {
     HandleDef(op->var);
     return IRMutator::Mutate_(op, s);
+  }
+
+  Stmt Mutate_(const Stencil* op, const Stmt& s) {
+    Array<VarExpr> new_inputs;
+    Array<VarExpr> new_outputs;
+    for (auto& e : op->inputs) {
+      if (HandleUse(e)) {
+        HCL_DEBUG_LEVEL(2) << "Undefined Stencil input: " << e;
+        CHECK(e.as<Variable>());
+        auto name = e.as<Variable>()->name_hint;
+        CHECK(name_var_map_.count(name)) << name;
+        VarExpr new_buf(name_var_map_[name].node_);
+        new_inputs.push_back(new_buf);
+      } else {
+        new_inputs.push_back(e);
+      }
+    }
+
+    for (auto& e : op->outputs) {
+      if (HandleUse(e)) {
+        HCL_DEBUG_LEVEL(2) << "Undefined Stencil output: " << e;
+        CHECK(e.as<Variable>());
+        auto name = e.as<Variable>()->name_hint;
+        if (name_var_map_.count(name)) {
+          VarExpr new_buf(name_var_map_[name].node_);
+          new_outputs.push_back(new_buf);
+        } else {
+          new_outputs.push_back(e);
+        }
+      } else {
+        new_outputs.push_back(e);
+      }
+    }
+    Stmt body = this->Mutate(op->body);
+    return Stencil::make(new_inputs, new_outputs, body, op->burst_width,
+                         op->unroll_factor, op->num_iteration);
   }
 
   Expr Mutate_(const Let* op, const Expr& e) {
@@ -117,15 +153,24 @@ class BufferBindingAdjuster final : public IRMutator {
     return IRMutator::Mutate_(op, s);
   }
 
-  Expr Mutate_(const Variable* op, const Expr& e) {
-    if (HandleUse(e)) {
-      HCL_DEBUG_LEVEL(2) << "Undefined Variable buffer: " << e;
-      auto buffer_name = op->name_hint;
-      CHECK(name_var_map_.count(buffer_name)) << buffer_name;
-      VarExpr new_buf(name_var_map_[buffer_name].node_);
-      return new_buf;
+  Expr Mutate_(const Call* op, const Expr& e) {
+    if (op->is_intrinsic(Call::transpose)) {
+      CHECK_EQ(op->args.size(), 3);
+      if (HandleUse(op->args[0])) {
+        auto var = op->args[0].as<Variable>();
+        CHECK(var);
+        HCL_DEBUG_LEVEL(2) << "Undefined instrinsic buffer: " << e;
+        auto buffer_name = var->name_hint;
+        CHECK(name_var_map_.count(buffer_name)) << buffer_name;
+        VarExpr new_buf(name_var_map_[buffer_name].node_);
+        return Call::make(Int(32), "transpose",
+                          {new_buf, op->args[1], op->args[2]}, Call::Intrinsic);
+      } else {
+        return IRMutator::Mutate_(op, e);
+      }
+    } else {
+      return IRMutator::Mutate_(op, e);
     }
-    return IRMutator::Mutate_(op, e);
   }
 
   Stmt Mutate_(const Partition* op, const Stmt& s) {
@@ -162,6 +207,13 @@ class BufferBindingAdjuster final : public IRMutator {
                          << op->buffer_var.get() << ") with " << new_buf << "("
                          << new_buf.get() << ")";
       return Load::make(op->type, new_buf, op->index, op->predicate);
+    }
+    return IRMutator::Mutate_(op, e);
+  }
+
+  Expr Mutate_(const Variable* op, const Expr& e) {
+    if (HandleUse(e)) {
+      HCL_DEBUG_LEVEL(2) << "Undefined Variable buffer: " << e;
     }
     return IRMutator::Mutate_(op, e);
   }
@@ -245,18 +297,13 @@ Stmt AdjustBufferBinding(Stmt stmt, Array<NodeRef> arg_list) {
       shape_map[node->data.get()] = node->shape;
       input_args.push_back(node->data);
       buffer_map[node->data.get()] = node->data;
-    } else {
-      const Variable* v = arg_list[i].as<Variable>();
-      CHECK(v) << "Illegal argument " << arg_list[i];
-      Var input_var(arg_list[i].node_);
-      shape_map[v] = {1};
-      input_args.push_back(input_var);
-      buffer_map[v] = input_var;
     }
   }
   Array<Var> undefined = UndefinedVars(stmt, input_args);
   if (undefined.size() > 0) {
     HCL_DEBUG_LEVEL(2) << "Fonud mismatching buffers in the stmt...";
+    HCL_DEBUG_LEVEL(2) << "----------------- stmt -----------------";
+    HCL_DEBUG_LEVEL(2) << stmt;
     for (auto& v : undefined) {
       HCL_DEBUG_LEVEL(2) << "    " << v << "(" << v.get() << ")";
     }

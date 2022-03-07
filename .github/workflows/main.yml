@@ -26,5 +26,5 @@ jobs:
           source $VITIS/settings64.sh
           source /opt/xilinx/xrt/setup.sh
           export LOCAL_CI_TEST=1
-          which vivado_hls
-          python tests/test_cont_integration.py
+          export AUTOSA=/work/shared/common/AutoSA
+          python tests/test_continuous_integration.py

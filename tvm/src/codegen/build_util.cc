@@ -368,7 +368,7 @@ void PrintCopyBack(TVMArray* arr, std::vector<std::string> arg_names,
   }
 }
 
-// generate kernel code into files
+// Generate kernel code into files
 void GenKernelCode(std::string& test_file, std::vector<std::string> arg_names,
                    std::string platform, std::string backend,
                    std::string project) {
@@ -380,28 +380,27 @@ void GenKernelCode(std::string& test_file, std::vector<std::string> arg_names,
   if (platform == "aocl") kernel_ext = "cl";
   stream.open(project + "/kernel." + kernel_ext);
 
-  // generate hash
+  // Generate hash for source kernel file
   std::hash<std::string> hasher;
   stream << "// HASH:" << ((size_t)hasher(test_file) & 0xFFFFFFFF) << "\n";
 
-  // create typedef and header
+  // Create typedef and header
   if (platform == "vivado_hls" || platform == "sdsoc") {
-    // add header file to host code
+    // Add header file to host code
     auto pos = test_file.rfind("#include ");
     auto next = test_file.find('\n', pos);
     test_file.insert(next + 1, "#include \"kernel.h\"\n");
 
-    // create typedef list
+    // Create typedef list
     std::unordered_map<std::string, std::string> typedef_map(
         {{"ap_uint<32>", "ubit32"}, {"ap_int<32>", "bit32"}});
-
     for (auto& kv : typedef_map) {
       while (test_file.find(kv.first) != std::string::npos)
         test_file.replace(test_file.find(kv.first), kv.first.length(),
                           kv.second);
     }
 
-    // generate header file
+    // Generate header file
     std::ofstream header;
     header.open(project + "/kernel.h");
     header << "#ifndef __KERNEL_H__\n"
@@ -413,14 +412,14 @@ void GenKernelCode(std::string& test_file, std::vector<std::string> arg_names,
       header << "typedef " << kv.first << " " << kv.second << ";\n";
     }
 
-    // locate top function
+    // Locate top function
     CHECK(test_file.find("test(") != std::string::npos)
         << "cannot find top function";
     size_t dut = test_file.find("test(");
     size_t begin = test_file.rfind('\n', dut);
     size_t end = test_file.find(')', dut) + 1;
 
-    // TODO(hecmay): better way to specify prgamas
+    // TODO(hecmay): better way to specify pragmas
     if (platform == "sdsoc") {
       // TODO(hecmay): direct memory interface with PL and DDR
       header << "#pragma SDS data copy(";

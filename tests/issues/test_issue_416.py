@@ -61,7 +61,7 @@ def top(target=None):
 
     # Inputs/Outputs definition (§4)
     # Scalars (§4.1)
-    test_image = hcl.placeholder((), "test_image")
+    test_image = hcl.placeholder((1,), "test_image")
     # Tensors (§4.2)
     train_images = hcl.placeholder(data_size, "train_images")
 
@@ -106,8 +106,9 @@ def test_code_gen_knn():
     target = hcl.Platform.aws_f1
     target.config(compiler="vitis", backend="vhls", mode="debug")
     code = top(target)
-    assert "buffer_test_image = test_image" in code, code
-
+    for line in code:
+        if "buffer_test_image" in line:
+            assert "sizeof(ap_uint<49>)*1" in line, line
 
 if __name__ == "__main__":
     test_code_gen_knn()

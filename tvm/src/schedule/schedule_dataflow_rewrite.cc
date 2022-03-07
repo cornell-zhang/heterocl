@@ -175,6 +175,155 @@ class InfoUpdater final : public IRMutator {
   const bool is_sender_;
 };
 
+void Schedule::transform_layout(Stage parent, const Tensor& target,
+                                Array<Expr> shape) {
+  // Locate the stage
+  Stage target_stage = (*this)[target];
+  if (auto op = parent->op.as<ExternOpNode>()) {
+    std::string shape_str = "";
+    std::string delim = "";
+    for (auto& dim : shape) {
+      CHECK(dim.as<IntImm>());
+      shape_str += delim + std::to_string(dim.as<IntImm>()->value);
+      delim = ":";
+    }
+    Stmt new_body =
+        AttrStmt::make(VarExpr(target->op->name), attr::tensor_layout_attrs,
+                       StringImm::make(shape_str), op->body);
+
+    parent->op = ExternOpNode::make(op->name, op->tag, op->axis, op->inputs,
+                                    op->input_placeholders,
+                                    op->output_placeholders, new_body);
+  }
+}
+
+// Create multiple stages attached to the original parent stage
+Array<Tensor> Schedule::explicit_unroll(const Tensor& target,
+                                        const Array<IterVar> axes,
+                                        bool autosa) {
+  // Locate the stage
+  Stage target_stage = (*this)[target];
+  Array<Tensor> ret_tensors;
+
+  // The stage to be explicitly unrolled
+  Buffer target_buffer;
+  auto op = target_stage->op.as<ExternOpNode>();
+  CHECK(op);
+  target_buffer = op->output_placeholders[0];
+  ArrayNode* stages = (*this)->stages.CopyOnWrite();
+  size_t pos = FindNodeRef(stages, target_stage);
+
+  // Unroll the loops explicitly
+  // 1. Create sub-stages and output buffers
+  // 2. Return new body for parent stage with attaching anchors
+  CHECK_GT(axes.size(), 0);
+
+  // Update the dataflow graph
+  // 1. The parent (original) stage has new inputs
+  // 2. The newly created stages output to parent, and takes parent inputs
+  auto parent_new_inputs = op->inputs;
+  auto parent_new_input_placeholders = op->input_placeholders;
+
+  // Assume the outer axis precedes the inner ones
+  // Create PE substage array (1D flattened)
+  std::unordered_map<int, int> pe_row_number;
+  std::vector<Buffer> stage_buffers;
+  std::string unrolled_axes = "";
+  std::string delim = "";
+
+  // TODO(hecmay): support more than 2 level
+  for (int level = axes.size() - 1; level >= 0; level--) {
+    auto& axis = axes[level];
+    auto min = axis->dom->min.as<IntImm>()->value;
+    auto extent = axis->dom->extent.as<IntImm>()->value;
+    HCL_DEBUG_LEVEL(2) << "[ unrolling ] loop No. " << level << " range(" << min
+                       << "," << extent << ")";
+
+    int row_index = axes.size() - level - 1;
+    pe_row_number[row_index] = extent - min;
+
+    // innermost loop unrolling
+    for (int k = min; k < extent; k++) {
+      int replicate_times = 1;
+      // replicate unrolled inner-level PEs
+      for (auto& kv : pe_row_number) {
+        if (kv.first < row_index) {
+          replicate_times *= kv.second;
+        }
+      }
+
+      for (int r = 0; r < replicate_times; r++) {
+        std::string new_name;
+        if (axes.size() == 1) {
+          new_name = target->op->name + "_pe_" + std::to_string(k);
+        } else if (axes.size() == 2) {
+          if (row_index == 0) break;
+          new_name = target->op->name + "_pe_" + std::to_string(k) + "_" +
+                     std::to_string(r);
+        }
+
+        Array<Tensor> new_inputs = op->inputs;
+        Array<Buffer> new_input_placeholders = op->input_placeholders;
+        Array<Buffer> new_output_placeholders;
+
+        // Create op buffer node for new stage
+        Buffer new_output_buf =
+            BufferNode::make(Var(new_name, Handle()), Int(32), Array<Expr>(),
+                             Array<Expr>(), Expr(), new_name, "", 0, 0);
+        new_output_placeholders.push_back(new_output_buf);
+        stage_buffers.push_back(new_output_buf);
+
+        // Create new body for the PE
+        Stmt body = AttrStmt::make(
+            VarExpr(new_name), "kernel_scope", StringImm::make(new_name),
+            // Evaluate::make(1));
+            Evaluate::make(Call::make(Int(32), "pe", {}, Call::Intrinsic)));
+
+        // Create extern op node for the stage
+        auto new_op = ExternOpNode::make(new_name, "", Array<IterVar>(),
+                                         new_inputs, new_input_placeholders,
+                                         new_output_placeholders, body);
+        HCL_DEBUG_LEVEL(2) << "[ debug ] unrolling pe " << new_name
+                           << " body: " << body;
+
+        // Insert the output tensor
+        ret_tensors.push_back(new_op.output(0));
+        parent_new_inputs.push_back(new_op.output(0));
+        parent_new_input_placeholders.push_back(new_output_buf);
+
+        // Add stage into the DFG
+        Stage new_stage(new_op);
+        stages->data.insert(stages->data.begin() + pos, new_stage.node_);
+        (*this)->stage_map.Set(new_op, new_stage);
+      }
+    }
+    unrolled_axes += delim + axis->var.get()->name_hint;
+    delim = ",";
+  }
+
+  // Use original op in case that the stage has been tiled
+  auto origin_op = target_stage->origin_op.as<ExternOpNode>();
+  CHECK(origin_op);
+
+  // Update parent ops and body (set of attaching anchors)
+  Stmt new_body = origin_op->body;
+  Array<Expr> annotate_keys = {StringImm::make("unroll")};
+  Array<Expr> annotate_values = {StringImm::make(unrolled_axes)};
+  std::string key = (autosa) ? "autosa" : "systolic";
+  new_body = ExternModule::make(key, StringImm::make("HLS"), new_body,
+                                annotate_keys, annotate_values);
+
+  std::string parent_name = target->op->name;
+  for (auto& buffer : stage_buffers) {
+    new_body = AttrStmt::make(VarExpr(buffer.node_), "attach_scope",
+                              StringImm::make(parent_name), new_body);
+  }
+  target_stage->op = ExternOpNode::make(
+      op->name, op->tag, op->axis, parent_new_inputs,
+      parent_new_input_placeholders, op->output_placeholders, new_body);
+  return ret_tensors;
+}
+
 // Initialize static channel count
 int InfoUpdater::channelCount = 0;
 

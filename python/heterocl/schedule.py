@@ -265,6 +265,61 @@ class Schedule(object):
                         "inconsistent tensor joining"
             self.sch.join(target, dest, self[src])
 
+    def transpose(self, tensor=None):
+        """ transpose a tensor """
+        if tensor is not None:
+            src = None
+            if isinstance(tensor, tuple):
+                src, tensor = tensor
+                src = self.__getitem__(src)
+            else:
+                src = self.__getitem__(tensor)
+                tensor = tensor.tensor
+            try:
+                shape = [ int(_.value) for _ in tensor.shape ]
+            except: 
+                shape = [ int(_) for _ in tensor.shape ]
+
+            target_shape = shape[::-1]
+            self.cascade_tensor = tensor
+            self.cascade_source_stage = None
+            self.sch.transpose(src, tensor, target_shape)
+        return self
+
+    def pack(self, tensor=None, factor=512):
+        """ pack data for data transfer """
+        if isinstance(tensor, list):
+            for t in tensor:
+                ret = self.pack(t, factor=factor)
+            return self
+
+        if tensor is not None:
+            if isinstance(tensor, tuple):
+                src, tensor = tensor
+                src = self.__getitem__(src)
+            else:
+                src = self.__getitem__(tensor)
+                tensor = tensor.tensor
+
+            try:
+                shape = [ int(_.value) for _ in tensor.shape ]
+            except: 
+                shape = [ int(_) for _ in tensor.shape ]
+            bits = types.get_bitwidth(tensor.dtype)
+            # Calculate target shape
+            new_shape = [1]
+            for index in range(len((shape))):
+                index = len(shape)-index-1
+                bits *= shape[index]
+                if bits > factor:
+                    new_shape = shape[:index] + [ int(bits/factor) ]
+                    break
+
+            self.cascade_tensor = tensor
+            self.cascade_source_stage = None
+            self.sch.transpose(src, tensor, new_shape)
+
+        return self
 
     def to(self, tensor, dst=None, src=None, axis=0,
            mode=_expr.IO.DMA, fifo_depth=1, burst_len=-1):
