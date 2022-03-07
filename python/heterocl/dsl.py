@@ -10,6 +10,7 @@ from .debug import DSLError, APIError
 from .schedule import Stage
 from .module import Module
 from . import util
+from .api import placeholder
 
 def and_(*args):
     """Compute the logic AND between expressions.

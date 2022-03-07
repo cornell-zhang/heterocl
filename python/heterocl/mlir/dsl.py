@@ -1,10 +1,16 @@
 import hcl_mlir
-from hcl_mlir.dialects import affine, scf, hcl as hcl_d
+from hcl_mlir import GlobalInsertionPoint
+from hcl_mlir.dialects import affine, builtin
+from hcl_mlir.dialects import hcl as hcl_d
+from hcl_mlir.dialects import scf, std
 from hcl_mlir.ir import *
 
-from .context import ImperativeLoopDepth, ImperativeLoopNestCount, StageName, UniqueName
-from .schedule import Schedule, Stage
+from .. import config
+from .context import (ImperativeLoopDepth, ImperativeLoopNestCount, StageName,
+                      UniqueName)
 from .operation import all, any
+from .schedule import Schedule, Stage
+from .utils import get_extra_type_hints, hcl_dtype_to_mlir
 
 
 class WithScope(object):
@@ -75,7 +81,7 @@ def for_(begin, end, step=1, tag=""):
         Schedule._CurrentStage.add_axis(loop_handle)
     else:
         raise RuntimeError("Not implemented")
-    iter_var = hcl_mlir.IterVar(loop.induction_variable)
+    iter_var = hcl_mlir.IterVar(loop.induction_variable, name=stage_name)
     hcl_mlir.GlobalInsertionPoint.save(loop.body)
 
     def _exit_cb():
@@ -176,3 +182,138 @@ def while_(cond):
         hcl_mlir.GlobalInsertionPoint.restore()
 
     return WithScope(None, _exit_cb)
+
+
+def def_(shapes, dtypes=None, ret_dtype=None, name=None, arg_names=None):
+    """
+    Define a HeteroCL function from a Python function.
+
+    Actual execution order:
+    (def_(shapes))(fmodule(*args))
+    """
+
+    def decorator(fmodule):
+        fname = name if name is not None else fmodule.__name__
+        code = fmodule.__code__
+        names = code.co_varnames
+        if arg_names is not None:
+            names = list(names)
+            for i in range(len(arg_names)):
+                names[i] = arg_names[i]
+            names = tuple(names)
+        nargs = code.co_argcount
+
+        # prepare input types
+        input_types = []
+        input_elt = []
+        if dtypes is None:
+            dtype = config.init_dtype
+            dtype = hcl_dtype_to_mlir(dtype)
+            if hcl_mlir.is_unsigned_type(dtype):
+                dtype = IntegerType.get_signless(dtype.width)
+            for shape in shapes:
+                input_elt.append(dtype)
+                if shape != ():  # scalar
+                    input_types.append(MemRefType.get(shape, dtype))
+                else:
+                    input_types.append(dtype)
+        elif isinstance(dtypes, list):
+            if len(dtypes) != nargs:
+                raise RuntimeError(
+                    "The number of data types does not match the of arguments")
+            for shape, dtype in zip(shapes, dtypes):
+                dtype = hcl_dtype_to_mlir(dtype)
+                if hcl_mlir.is_unsigned_type(dtype):
+                    dtype = IntegerType.get_signless(dtype.width)
+                input_elt.append(dtype)
+                if shape != ():  # scalar
+                    input_types.append(MemRefType.get(shape, dtype))
+                else:
+                    input_types.append(dtype)
+        else:
+            raise RuntimeError("Unrecognized dtype format")
+        # prepare return types
+        return_types = []
+        return_elt = []
+        if ret_dtype is not None:
+            dtype = hcl_dtype_to_mlir(ret_dtype)
+            return_elt.append(dtype)
+            return_types.append(dtype)
+
+        # create stage function
+        stage_func_name = "Stage_" + fname
+        # here we also put the return in the input argument,
+        # since commonly in C++ we should pass the array by reference
+        stage_func_op = builtin.FuncOp(name=stage_func_name, type=FunctionType.get(
+            inputs=input_types+return_types, results=[]), ip=GlobalInsertionPoint.ip_stack[0])
+        # stage_func_op.attributes["inputs"] = StringAttr.get(
+        #     ",".join([tensor.name for tensor in self.inputs]))
+        stage_func_op.attributes["extra_itypes"] = StringAttr.get("".join([get_extra_type_hints(
+            dtype) for dtype in input_elt] + [get_extra_type_hints(dtype) for dtype in return_elt]))  # inputs & outputs
+        # if self.output is not None:
+        #     stage_func_op.attributes["outputs"] = StringAttr.get(
+        #         self.output.op.name)
+        stage_func_op.add_entry_block()
+
+        def wrapped_func(*inputs):
+            # call this function in the top function
+            call_arglist = []
+            for i, tensor in enumerate(inputs):
+                call_arglist.append(tensor.result)
+                if isinstance(tensor, hcl_mlir.IterVar):
+                    input_types[i] = IndexType.get()
+                    stage_func_op.entry_block.arguments[i].set_type(
+                        IndexType.get())
+            # update function type
+            stage_func_op.attributes["type"] = TypeAttr.get(
+                FunctionType.get(inputs=input_types+return_types, results=[]))
+            # if output is not None:
+            #     call_arglist.append(output.result)
+            call_op = hcl_mlir.CallOp(None, stage_func_name, call_arglist)
+            call_op.built_op.attributes["inputs"] = StringAttr.get(
+                ",".join([tensor.name for tensor in inputs]))
+            # if output is not None:
+            #     call_op.built_op.attributes["outputs"] = StringAttr.get(
+            #         output.op.name)
+
+            # update inner load/store references
+            # used for recovery
+            original_tensor_op = []
+            for tensor, arg in zip(inputs, stage_func_op.entry_block.arguments):
+                if isinstance(tensor, hcl_mlir.IterVar):
+                    original_tensor_op.append(tensor.built_op)
+                    tensor.op = arg
+                    tensor.built_op = arg
+                elif isinstance(tensor.op, hcl_mlir.TensorOp):
+                    original_tensor_op.append(tensor.op.built_op)
+                    tensor.op.update_op(arg)
+                else:  # ComputeOp
+                    original_tensor_op.append(tensor.op.output.op.built_op)
+                    tensor.op.output.op.update_op(arg)
+            # insertion point become the stage function inside
+            GlobalInsertionPoint.save(
+                InsertionPoint(stage_func_op.entry_block))
+
+            # execute the original function
+            fmodule(*inputs)
+
+            # recover as top function op
+            for i, tensor in enumerate(inputs):
+                if isinstance(tensor, hcl_mlir.IterVar):
+                    tensor.op = original_tensor_op[i]
+                    tensor.built_op = original_tensor_op[i]
+                elif isinstance(tensor.op, hcl_mlir.TensorOp):
+                    tensor.op.update_op(original_tensor_op[i])
+                else:  # ComputeOp
+                    tensor.op.output.op.update_op(
+                        original_tensor_op[i])
+
+            # recover from the subfunction
+            ret_op = std.ReturnOp([], ip=GlobalInsertionPoint.get())
+            GlobalInsertionPoint.restore()
+
+            print("func", stage_func_op)
+
+        return wrapped_func
+
+    return decorator
