@@ -214,6 +214,7 @@ def build_llvm(schedule, target=None, name="top", stmt=None):
         # module.dump()
         hcl_d.loop_transformation(module)
         hcl_d.lower_fixed_to_int(module)
+        hcl_d.lower_anywidth_int(module)
         hcl_d.lower_hcl_to_llvm(module, ctx)
         num_results = len(func.type.results)
         # print("lowered.")
