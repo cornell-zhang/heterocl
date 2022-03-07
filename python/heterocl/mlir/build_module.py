@@ -209,12 +209,14 @@ def build_llvm(schedule, target=None, name="top", stmt=None):
     with get_context() as ctx, get_location():
         func = schedule.device_top
         func.attributes['llvm.emit_c_interface'] = UnitAttr.get()
+        func.attributes['top'] = UnitAttr.get()
         # module = schedule.device_module
         module = Module.parse(str(schedule.device_module), ctx)
         # module.dump()
         hcl_d.loop_transformation(module)
         hcl_d.lower_fixed_to_int(module)
         hcl_d.lower_anywidth_int(module)
+        # module.dump()
         hcl_d.lower_hcl_to_llvm(module, ctx)
         num_results = len(func.type.results)
         # print("lowered.")
