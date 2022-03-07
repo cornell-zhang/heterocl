@@ -228,8 +228,8 @@ class ComputeOp(object):
             # transform lambda function to MLIR
             GlobalInsertionPoint.save(body_ip)  # inner-most loop
             # get loop variables (BlockArgument)
-            iter_var = [hcl_mlir.IterVar(loop.induction_variable)
-                        for loop in loops]
+            iter_var = [hcl_mlir.IterVar(loop.induction_variable, name=loop_name)
+                        for loop, loop_name in zip(loops, self.arg_names)]
 
             # calculate the lambda funtion,
             # at the same time build up MLIR nodes;

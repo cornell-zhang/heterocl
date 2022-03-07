@@ -32,7 +32,7 @@ def lower(schedule,
 def build(schedule, target=None, name="top", stmt=None):
     """Build the executable according to the schedule and target.
     """
-    try: 
+    try:
         lowered_module = lower(schedule)
         if target != None:
             return build_fpga_kernel(schedule, target, name, stmt)
@@ -84,7 +84,7 @@ def separate_host_device(schedule):
             GlobalInsertionPoint.save(body_ip)
             cst = hcl_mlir.ConstantOp(tensor.op.dtype, 0)
             store = hcl_mlir.StoreOp(
-                cst, host_tensor.op, [hcl_mlir.IterVar(loop.induction_variable) for loop in loops])
+                cst, host_tensor.op, [hcl_mlir.IterVar(loop.induction_variable, name=loop_name) for loop, loop_name in zip(loops, loop_names)])
             GlobalInsertionPoint.restore()
         # call device function
         host_tensors = [
