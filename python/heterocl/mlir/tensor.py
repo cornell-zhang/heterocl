@@ -1,15 +1,15 @@
 import inspect
-from typing import List
+from typing import List, Callable
 
 import hcl_mlir
 import numpy as np
 from hcl_mlir import ASTVisitor, GlobalInsertionPoint
-from hcl_mlir.dialects import affine, arith, builtin
+from hcl_mlir.dialects import affine, builtin
 from hcl_mlir.dialects import hcl as hcl_d
 from hcl_mlir.dialects import memref, std
 from hcl_mlir.ir import *
 
-from ..types import dtype_to_str, Type, Int, UInt, Float, Fixed, UFixed
+from ..types import dtype_to_str, Int, UInt, Float, Fixed, UFixed
 from .context import get_context, get_location
 from .schedule import Schedule, Stage
 from .utils import get_extra_type_hints, hcl_dtype_to_mlir
@@ -118,11 +118,18 @@ class ComputeOp(object):
             len(argspec.kwonlyargs) == 0
         ), "Keyword arguments are not supported in fcompute"
         # Get input tensors to fcompute
-        closure_var = inspect.getclosurevars(fcompute).nonlocals
+
+        def get_inputs(compute_func, inputs):
+            # tackle nested function problem
+            closure_var = inspect.getclosurevars(compute_func).nonlocals
+            for _, var in closure_var.items():
+                if isinstance(var, Tensor):
+                    inputs.append(var)
+                elif isinstance(var, Callable):
+                    get_inputs(var, inputs)
         inputs = []
-        for _, var in closure_var.items():
-            if isinstance(var, Tensor):
-                inputs.append(var)
+        get_inputs(fcompute, inputs)
+
         self.shape = shape
         self.fcompute = fcompute
         self.dtype = dtype
