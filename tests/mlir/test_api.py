@@ -45,7 +45,6 @@ def test_schedule_return():
     for i in range(10):
         assert(_B[i] == _A[i] + 1)
 
-@pytest.mark.skip(reason="crashes pytest")
 def test_schedule_return_multi():
     hcl.init()
     A = hcl.placeholder((10,))
@@ -93,6 +92,9 @@ def test_resize():
 
     _A = _A.asnumpy()
     _B = _B.asnumpy()
+
+    print(_A)
+    print(_B)
 
     for i in range(10):
         assert(_B[i] == (a[i] + 1)%4)

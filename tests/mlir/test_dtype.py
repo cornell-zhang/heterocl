@@ -142,7 +142,7 @@ def test_dtype_basic_float():
     np_A2 = hcl_A.asnumpy()
     assert np.allclose(np_A, np_A2)
 
-@pytest.mark.skip(reason="any-width integer not supported")
+@pytest.mark.skip(reason="segfault")
 def test_dtype_compute_fixed():
 
     def _test_dtype(dtype):
@@ -214,7 +214,7 @@ def test_fixed_compute_basic():
 
     assert np.allclose(hcl_A.asnumpy() + hcl_B.asnumpy(), hcl_C.asnumpy())
 
-@pytest.mark.skip(reason="any-width integer not supported")
+@pytest.mark.skip(reason="crashed pytest")
 def test_dtype_cast():
 
     def _test_body(dtype1, dtype2, dtype3):
