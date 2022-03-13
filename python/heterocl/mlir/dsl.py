@@ -321,9 +321,16 @@ def def_(shapes, dtypes=None, ret_dtype=None, name=None, arg_names=None):
 def return_(expr=None):
     hcl_mlir.enable_build_inplace()
     if expr is not None:
-        Schedule._DefFuncReturn.append(expr)
-        ret_op = std.ReturnOp(
-            [expr.result], ip=hcl_mlir.GlobalInsertionPoint.get())
+        if expr.built_op == None:  # declarative
+            builder = hcl_mlir.ASTVisitor("build")
+            builder.visit(expr)
+            hcl_mlir.StoreOp(expr, Schedule._CurrentStage.op.op,
+                             Schedule._CurrentStage.op.iter_var)
+            ret_op = Schedule._CurrentStage.op
+        else:  # imperative
+            Schedule._DefFuncReturn.append(expr)
+            ret_op = std.ReturnOp(
+                [expr.result], ip=hcl_mlir.GlobalInsertionPoint.get())
     else:
         Schedule._DefFuncReturn.append(None)
         ret_op = std.ReturnOp(
