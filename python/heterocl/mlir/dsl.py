@@ -321,7 +321,8 @@ def def_(shapes, dtypes=None, ret_dtype=None, name=None, arg_names=None):
 def return_(expr=None):
     hcl_mlir.enable_build_inplace()
     if expr is not None:
-        if expr.built_op == None:  # declarative
+        if isinstance(expr, (int, float, hcl_mlir.IterVar)) or expr.built_op == None:  # declarative
+            expr = hcl_mlir.get_hcl_op(expr)
             builder = hcl_mlir.ASTVisitor("build")
             builder.visit(expr)
             hcl_mlir.StoreOp(expr, Schedule._CurrentStage.op.op,
