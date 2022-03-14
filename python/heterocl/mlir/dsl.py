@@ -68,10 +68,18 @@ def for_(begin, end, step=1, tag=""):
     else:
         raise RuntimeError("Not implemented")
     iter_var = hcl_mlir.IterVar(loop.induction_variable, name=stage_name)
+    if step < 0:
+        hcl_mlir.GlobalInsertionPoint.save(loop.body)
+        begin = hcl_mlir.ConstantOp("index", begin)
+        iter_var = begin - iter_var
+        hcl_mlir.GlobalInsertionPoint.restore()
     hcl_mlir.GlobalInsertionPoint.save(loop.body)
 
     def _exit_cb():
-        affine.AffineYieldOp([], ip=hcl_mlir.GlobalInsertionPoint.get())
+        if isinstance(loop, affine.AffineForOp):
+            affine.AffineYieldOp([], ip=hcl_mlir.GlobalInsertionPoint.get())
+        else:
+            scf.YieldOp([], ip=hcl_mlir.GlobalInsertionPoint.get())
         hcl_mlir.GlobalInsertionPoint.restore()
         ImperativeLoopDepth.set(ImperativeLoopDepth.get() - 1)
 
