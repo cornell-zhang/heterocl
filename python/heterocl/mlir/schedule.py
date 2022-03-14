@@ -79,6 +79,10 @@ def build_schedule(inputs, func=None, name=""):
                 return lst, output_tensor
 
             order, ret = topological_sort(inputs)
+            # Unwrap the stage's output tensor
+            # The Tensor wrapping around ComputeOp/TensorOp acts as a container
+            # The ComputeOp's output Tensor is the actual returned result
+            ret = [t.op.output for t in ret if not isinstance(t.op, hcl_mlir.TensorOp)]
             for tensor in order:
                 if tensor not in inputs:
                     tensor.build()
