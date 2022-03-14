@@ -1,15 +1,15 @@
 import inspect
-from typing import List
+from typing import List, Callable
 
 import hcl_mlir
 import numpy as np
 from hcl_mlir import ASTVisitor, GlobalInsertionPoint
-from hcl_mlir.dialects import affine, arith, builtin
+from hcl_mlir.dialects import affine, builtin
 from hcl_mlir.dialects import hcl as hcl_d
 from hcl_mlir.dialects import memref, std
 from hcl_mlir.ir import *
 
-from ..types import dtype_to_str, Type, Int, UInt, Float, Fixed, UFixed
+from ..types import dtype_to_str, Int, UInt, Float, Fixed, UFixed
 from .context import get_context, get_location
 from .schedule import Schedule, Stage
 from .utils import get_extra_type_hints, hcl_dtype_to_mlir
@@ -118,11 +118,18 @@ class ComputeOp(object):
             len(argspec.kwonlyargs) == 0
         ), "Keyword arguments are not supported in fcompute"
         # Get input tensors to fcompute
-        closure_var = inspect.getclosurevars(fcompute).nonlocals
+
+        def get_inputs(compute_func, inputs):
+            # tackle nested function problem
+            closure_var = inspect.getclosurevars(compute_func).nonlocals
+            for _, var in closure_var.items():
+                if isinstance(var, Tensor):
+                    inputs.append(var)
+                elif isinstance(var, Callable):
+                    get_inputs(var, inputs)
         inputs = []
-        for _, var in closure_var.items():
-            if isinstance(var, Tensor):
-                inputs.append(var)
+        get_inputs(fcompute, inputs)
+
         self.shape = shape
         self.fcompute = fcompute
         self.dtype = dtype
@@ -140,6 +147,7 @@ class ComputeOp(object):
         self.arg_names = arg_names
 
     def build(self):
+        Schedule._CurrentStage = self.stage
         input_types = []
         for in_tensor in self.inputs:  # hcl.Tensor -> hcl_mlir.TensorOp
             input_types.append(in_tensor.memref_type)
@@ -155,6 +163,9 @@ class ComputeOp(object):
                     loop_handles.append(
                         hcl_d.CreateLoopHandleOp(StringAttr.get(loop_name))
                     )
+            # set loop handles
+            if self.output is not None:
+                self.stage.op.set_axis(loop_handles)
             # build output tensor
             if not self.update and Schedule._TopFunction == None:
                 self.output.build()
@@ -230,14 +241,15 @@ class ComputeOp(object):
             # get loop variables (BlockArgument)
             iter_var = [hcl_mlir.IterVar(loop.induction_variable, name=loop_name)
                         for loop, loop_name in zip(loops, self.arg_names)]
+            if self.output is not None:
+                self.output.iter_var = iter_var
 
             # calculate the lambda funtion,
             # at the same time build up MLIR nodes;
             # the Python builtin operators are overloaded in our custom class,
             # thus fcompute can be directly called and run
-            if self.output is not None:
-                # traverse the fcompute again
-                result_expr = self.fcompute(*iter_var)
+            result_expr = self.fcompute(*iter_var)
+            if self.output is not None and result_expr is not None:
                 builder = ASTVisitor()
                 true_result = builder.visit(result_expr)
                 result_expr.built_op = true_result
@@ -274,19 +286,11 @@ class ComputeOp(object):
                     ip=GlobalInsertionPoint.get(),
                 )
                 ret_val.attributes["to"] = StringAttr.get(self.output.op.name)
-            else:
-                self.fcompute(*iter_var)
+            else: # update
+                pass
 
             # remember to add affine.yield after each for loop
             affine.AffineYieldOp([], ip=GlobalInsertionPoint.get())
-
-            # set loop handles
-            if self.output is not None:
-                self.stage.op.set_axis(loop_handles)
-            else:
-                # TODO(Niansong):
-                # attach axis for hcl.mutate
-                pass
 
             # recover insertion point from inner-most loop body
             GlobalInsertionPoint.restore()
