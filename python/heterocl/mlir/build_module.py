@@ -210,18 +210,17 @@ def build_llvm(schedule, target=None, name="top", stmt=None):
         func = schedule.device_top
         func.attributes['llvm.emit_c_interface'] = UnitAttr.get()
         func.attributes['top'] = UnitAttr.get()
-        # module = schedule.device_module
         module = Module.parse(str(schedule.device_module), ctx)
-        # module.dump()
         hcl_d.loop_transformation(module)
         hcl_d.lower_fixed_to_int(module)
         hcl_d.lower_anywidth_int(module)
-        # module.dump()
+        # Note: lower_any_width_int should precede 
+        # move_return_to_input, because it uses input/output
+        # type hints.
+        hcl_d.move_return_to_input(module)
         hcl_d.lower_hcl_to_llvm(module, ctx)
-        num_results = len(func.type.results)
-        # print("lowered.")
-        # print("\n\nAfter Lowering: ")
-        # module.dump()
+        # num_results = len(func.type.results)
+        num_results = 0
         execution_engine = ExecutionEngine(module)
         hcl_module = HCLModule(name, execution_engine,
                                "llvm", ctx, return_num=num_results)
