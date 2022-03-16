@@ -457,7 +457,7 @@ def test_get_slice_expr():
     hcl.init()
 
     def kernel(A):
-        return hcl.compute(A.shape, lambda x: (A[x] + 1)[2:0])
+        return hcl.compute(A.shape, lambda x: (A[x] + 1)[0:2])
 
     A = hcl.placeholder((10,))
     s = hcl.create_schedule(A, kernel)
@@ -479,7 +479,7 @@ def test_get_slice_tensor():
     hcl.init()
 
     def kernel(A):
-        return hcl.compute(A.shape, lambda x: A[x][2:0])
+        return hcl.compute(A.shape, lambda x: A[x][0:2])
 
     A = hcl.placeholder((10,))
     s = hcl.create_schedule(A, kernel)
@@ -501,7 +501,7 @@ def test_get_slice_tensor_reverse():
     hcl.init()
 
     def kernel(A):
-        return hcl.compute(A.shape, lambda x: A[x][0:8])
+        return hcl.compute(A.shape, lambda x: (A[x][0:8]).reverse())
 
     A = hcl.placeholder((10,))
     s = hcl.create_schedule(A, kernel)
@@ -531,7 +531,7 @@ def test_set_slice_expr():
 
     def kernel(A, B):
         with hcl.for_(0, 10) as i:
-            (B[i]+1)[2:0] = A[i]
+            (B[i]+1)[0:2] = A[i]
 
     A = hcl.placeholder((10,))
     B = hcl.placeholder((10,))
@@ -548,7 +548,7 @@ def test_set_slice_tensor():
 
     def kernel(A, B):
         with hcl.for_(0, 10) as i:
-            B[i][2:0] = A[i]
+            B[i][0:2] = A[i]
 
     A = hcl.placeholder((10,))
     B = hcl.placeholder((10,))
@@ -572,7 +572,7 @@ def test_set_slice_tensor_reverse():
 
     def kernel(A, B):
         with hcl.for_(0, 10) as i:
-            B[i][0:8] = A[i]
+            B[i][0:8] = A[i].reverse()
 
     A = hcl.placeholder((10,))
     B = hcl.placeholder((10,))
@@ -601,7 +601,7 @@ def test_slice_op():
     hcl.init()
 
     def kernel(A):
-        return hcl.compute(A.shape, lambda x: A[x][8:0] + A[x][16:8])
+        return hcl.compute(A.shape, lambda x: A[x][0:8] + A[x][8:16])
 
     A = hcl.placeholder((10,))
     s = hcl.create_schedule(A, kernel)

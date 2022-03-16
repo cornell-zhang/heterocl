@@ -25,7 +25,7 @@ def test_set_bit():
     harness.test_set_bit(target, "[4] = 1")
 
 def test_set_slice():
-    harness.test_set_slice(target, "A[0](4, 1) = 1")
+    harness.test_set_slice(target, "(4, 1) = 1")
 
 def test_pack():
 
