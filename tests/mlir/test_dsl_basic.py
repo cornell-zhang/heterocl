@@ -419,14 +419,11 @@ def test_set_bit_expr():
         with hcl.for_(0, 10) as i:
             (B[i]+1)[0] = A[i]
 
-    A = hcl.placeholder((10,))
+    A = hcl.placeholder((10,), dtype=hcl.Int(1))
     B = hcl.placeholder((10,))
-    try:
-        s = hcl.create_schedule([A, B], kernel)
-    except hcl.debug.APIError:
-        pass
-    else:
-        assert False
+    s = hcl.create_schedule([A, B], kernel)
+    f = hcl.lower(s)
+    assert "set_bit" in str(f)
 
 def test_set_bit_tensor():
 
@@ -436,7 +433,7 @@ def test_set_bit_tensor():
         with hcl.for_(0, 10) as i:
             B[i][0] = A[i]
 
-    A = hcl.placeholder((10,))
+    A = hcl.placeholder((10,), dtype=hcl.Int(1))
     B = hcl.placeholder((10,))
     s = hcl.create_schedule([A, B], kernel)
     f = hcl.build(s)
@@ -535,12 +532,9 @@ def test_set_slice_expr():
 
     A = hcl.placeholder((10,))
     B = hcl.placeholder((10,))
-    try:
-        s = hcl.create_schedule([A, B], kernel)
-    except hcl.debug.APIError:
-        pass
-    else:
-        assert False
+    s = hcl.create_schedule([A, B], kernel)
+    f = hcl.lower(s)
+    assert "set_slice" in str(f)
 
 def test_set_slice_tensor():
 
