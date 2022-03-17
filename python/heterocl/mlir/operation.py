@@ -109,6 +109,35 @@ def pack(tensor, axis=0, factor=None, name=None, dtype=None):
     return compute(tuple(new_shape), assign_val, name, new_type)
 
 
+def unpack(tensor, axis=0, factor=None, name=None, dtype=None):
+    """Unpack a tensor with larger bitwidth to a tensor with smaller bitwidth.
+    """
+    if factor is None or not isinstance(factor, int):
+        raise RuntimeError("Should specify factor")
+    if not isinstance(tensor.dtype, (Int, UInt)):
+        raise RuntimeError("Only support integer packing")
+    if name == None or name == "":
+        name = UniqueName.get("tensor")
+    bitwidth = tensor.dtype.bits
+    if isinstance(tensor.dtype, Int):
+        new_type = Int(bitwidth // factor)
+    else:
+        new_type = UInt(bitwidth // factor)
+    new_shape = [size // factor if i == axis else size for i,
+                 size in enumerate(tensor.shape)]
+
+    def assign_val(*indices):
+        result = scalar(0, name="unpacked_"+name, dtype=new_type)
+        new_indices = [index if j == axis else (
+            index//factor) for j, index in enumerate(indices)]
+        lower = (indices[axis] % factor) * (bitwidth//factor)
+        upper = lower + bitwidth//factor
+        result[0][0:bitwidth//factor] = tensor[tuple(new_indices)][lower:upper]
+        return result[0]
+
+    return compute(tuple(new_shape), assign_val, name, new_type)
+
+
 def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
     """
     This function call does not directly build IR, it only creates a node
