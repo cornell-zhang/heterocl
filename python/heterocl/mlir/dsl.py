@@ -6,8 +6,8 @@ from hcl_mlir.dialects import scf, std
 from hcl_mlir.ir import *
 
 from .. import config
-from .context import (ImperativeLoopDepth, ImperativeLoopNestCount, StageName,
-                      UniqueName)
+from .context import (ImperativeLoopDepth, ImperativeLoopNestCount,
+                      NestedCompute, StageName, UniqueName)
 from .schedule import Schedule, Stage
 from .utils import get_extra_type_hints, hcl_dtype_to_mlir
 
@@ -77,8 +77,9 @@ def for_(begin, end, step=1, tag=""):
     else:
         stage_name = tag
     if depth == 0:
-        Schedule._CurrentStage = Stage(stage_name)
-        Schedule._TopFunction.__setattr__(stage_name, Schedule._CurrentStage)
+        Schedule._CurrentStage.append(Stage(stage_name))
+        Schedule._TopFunction.__setattr__(
+            stage_name, Schedule._CurrentStage[-1])
         ImperativeLoopNestCount.set(count + 1)
     ImperativeLoopDepth.set(depth + 1)
 
@@ -90,7 +91,7 @@ def for_(begin, end, step=1, tag=""):
             loop_name), ip=hcl_mlir.GlobalInsertionPoint.ip_stack[-depth-1])
         loop = hcl_mlir.make_affine_for(
             begin, end, step, name=loop_name, stage=stage_name, ip=hcl_mlir.GlobalInsertionPoint.get())
-        Schedule._CurrentStage.add_axis(loop_handle)
+        Schedule._CurrentStage[-1].add_axis(loop_handle)
     else:
         raise RuntimeError("Not implemented")
     iter_var = hcl_mlir.IterVar(loop.induction_variable, name=stage_name)
@@ -203,6 +204,7 @@ def while_(cond):
 
     return WithScope(None, _exit_cb)
 
+DEF_FUNC = False
 
 def def_(shapes, dtypes=None, ret_dtype=None, name=None, arg_names=None):
     """
@@ -276,6 +278,8 @@ def def_(shapes, dtypes=None, ret_dtype=None, name=None, arg_names=None):
         stage_func_op.add_entry_block()
 
         def wrapped_func(*inputs):
+            global DEF_FUNC
+            DEF_FUNC = True
             hcl_mlir.enable_build_inplace()
             # call this function in the top function
             call_arglist = []
@@ -345,6 +349,7 @@ def def_(shapes, dtypes=None, ret_dtype=None, name=None, arg_names=None):
                 # call_op.built_op.attributes["outputs"] = StringAttr.get(
                 #     Schedule._DefFuncReturn[0].name)
 
+            DEF_FUNC = False
             return call_op
 
         return wrapped_func
@@ -355,13 +360,13 @@ def def_(shapes, dtypes=None, ret_dtype=None, name=None, arg_names=None):
 def return_(expr=None):
     hcl_mlir.enable_build_inplace()
     if expr is not None:
-        if isinstance(expr, (int, float, hcl_mlir.IterVar)) or expr.built_op == None:  # declarative
+        if isinstance(expr, (int, float, hcl_mlir.IterVar)) or expr.built_op == None or not DEF_FUNC:  # declarative
             expr = hcl_mlir.get_hcl_op(expr)
             builder = hcl_mlir.ASTVisitor("build")
             builder.visit(expr)
-            hcl_mlir.StoreOp(expr, Schedule._CurrentStage.op.op,
-                             Schedule._CurrentStage.op.iter_var)
-            ret_op = Schedule._CurrentStage.op
+            hcl_mlir.StoreOp(expr, Schedule._CurrentStage[-1].op.op,
+                             Schedule._CurrentStage[-1].op.iter_var)
+            ret_op = Schedule._CurrentStage[-1].op
         else:  # imperative
             Schedule._DefFuncReturn.append(expr)
             ret_op = std.ReturnOp(

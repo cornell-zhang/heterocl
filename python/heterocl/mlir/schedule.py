@@ -6,8 +6,9 @@ from hcl_mlir.dialects import std
 from hcl_mlir.ir import *
 
 from ..devices import Device, DevMemoryPair
-from .context import (ImperativeLoopDepth, ImperativeLoopNestCount, StageName,
-                      UniqueName, get_context, get_location, set_context)
+from .context import (ImperativeLoopDepth, ImperativeLoopNestCount,
+                      NestedCompute, StageName, UniqueName, get_context,
+                      get_location, set_context)
 from .dfg import DataflowGraph
 from .utils import get_extra_type_hints
 
@@ -144,6 +145,7 @@ def create_schedule(inputs, func=None, name=""):
         raise e
     finally:
         hcl_mlir.reset_build_inplace()
+        NestedCompute.set(0)
 
 
 class Partition(object):
@@ -158,7 +160,7 @@ class Schedule(object):
     _IfElseStack = []
     _DefFuncReturn = []
     _CurrentSchedule = None
-    _CurrentStage = None
+    _CurrentStage = []
     _TopFunction = None
 
     def __init__(self, name, inputs, func=None):
@@ -183,7 +185,7 @@ class Schedule(object):
         # Other facilities
         Stage._mapping = []  # operation->stage
         Schedule._CurrentSchedule = self
-        Schedule._CurrentStage = None
+        Schedule._CurrentStage = []
         Schedule._TopFunction = func
         Schedule._IfElseStack = []
         Schedule._DefFuncReturn = []

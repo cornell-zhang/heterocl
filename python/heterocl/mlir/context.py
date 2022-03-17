@@ -6,7 +6,7 @@ from hcl_mlir.ir import *
 ImperativeLoopNestCount = ContextVar("ImperativeLoopNestCount", default=1)
 ImperativeLoopDepth = ContextVar("ImperativeLoopDepth", default=0)
 StageName = ContextVar("StageName", default="")
-
+NestedCompute = ContextVar("NestedCompute", default=0)
 
 class UniqueName(object):
     scalar_idx = 0

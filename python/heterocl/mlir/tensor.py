@@ -10,7 +10,7 @@ from hcl_mlir.dialects import memref, std
 from hcl_mlir.ir import *
 
 from ..types import dtype_to_str, Int, UInt, Float, Fixed, UFixed
-from .context import get_context, get_location
+from .context import get_context, get_location, NestedCompute
 from .schedule import Schedule, Stage
 from .utils import get_extra_type_hints, hcl_dtype_to_mlir
 
@@ -34,7 +34,7 @@ class Tensor(object):
         self.uses = []
         self.name = name
 
-        if hcl_mlir.is_build_inplace():
+        if hcl_mlir.is_build_inplace() or NestedCompute.get() > 0:
             self.build()
 
     def init(self):
@@ -138,21 +138,22 @@ class ComputeOp(object):
         self.inputs: List[Tensor] = inputs
         self.stage = Stage(self.name)
         if output == None:
-            if dtype == None: # mutate
-                self.update = True
+            if dtype == None:  # mutate
+                self.kind = "mutate"
                 self.output = None
             else:
-                self.update = False
+                self.kind = "compute"
                 self.output = Tensor(self.shape, self.dtype,
-                                    name=self.name, impl="tensor")  # placeholder
-        else: # update
-            self.update = True
+                                     name=self.name, impl="tensor")  # placeholder
+        else:  # update
+            self.kind = "update"
             self.output = output
         self.stage.set_output(self.output)
         self.arg_names = arg_names
 
     def build(self):
-        Schedule._CurrentStage = self.stage
+        Schedule._CurrentStage.append(self.stage)
+        NestedCompute.set(NestedCompute.get() + 1)
         input_types = []
         for in_tensor in self.inputs:  # hcl.Tensor -> hcl_mlir.TensorOp
             input_types.append(in_tensor.memref_type)
@@ -172,7 +173,7 @@ class ComputeOp(object):
             if self.output is not None:
                 self.stage.op.set_axis(loop_handles)
             # build output tensor
-            if not self.update and Schedule._TopFunction == None and self.output is not None:
+            if self.kind == "compute" and Schedule._TopFunction == None:
                 self.output.build()
             # main computation part
             if hcl_mlir.EXTRACT_FUNCTION:
@@ -253,7 +254,7 @@ class ComputeOp(object):
             # at the same time build up MLIR nodes;
             # the Python builtin operators are overloaded in our custom class,
             # thus fcompute can be directly called and run
-            if self.update == True and self.output is None: # mutate
+            if self.kind == "mutate":
                 hcl_mlir.enable_build_inplace()
             result_expr = self.fcompute(*iter_var)
             if self.output is not None and result_expr is not None:
@@ -293,7 +294,7 @@ class ComputeOp(object):
                     ip=GlobalInsertionPoint.get(),
                 )
                 ret_val.attributes["to"] = StringAttr.get(self.output.op.name)
-            else: # update
+            else:  # update
                 pass
 
             # remember to add affine.yield after each for loop
@@ -316,6 +317,8 @@ class ComputeOp(object):
             Schedule._CurrentSchedule.DataflowGraph.add_edges(
                 self.inputs, self.output)
 
+        NestedCompute.set(NestedCompute.get() - 1)
+        Schedule._CurrentStage.pop()
         return self.output
 
 

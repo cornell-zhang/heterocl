@@ -8,7 +8,7 @@ from hcl_mlir.execution_engine import *
 from hcl_mlir.ir import *
 
 from ..devices import Platform
-from .context import get_context, get_location
+from .context import get_context, get_location, NestedCompute
 from .module import HCLModule
 from .operation import placeholder
 from .runtime import copy_build_files
@@ -42,6 +42,7 @@ def build(schedule, target=None, name="top", stmt=None):
         raise e
     finally:
         hcl_mlir.reset_build_inplace()
+        NestedCompute.set(0)
 
 
 def separate_host_device(schedule):
