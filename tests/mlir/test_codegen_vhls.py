@@ -35,7 +35,7 @@ def test_pack():
     A = hcl.placeholder((40,), "A", dtype = hcl.UInt(3))
     s = hcl.create_schedule([A], pack)
     code = hcl.build(s, target="vhls")
-    slice_range = "(((i * 3) + 2), (i * 3))"
+    slice_range = "< 5"
     assert slice_range in code
 
 def test_index_split():

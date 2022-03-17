@@ -1,15 +1,15 @@
 from collections import OrderedDict
 
 import hcl_mlir
-from hcl_mlir.dialects import memref
 from hcl_mlir.ir import *
 
 from .. import config, types
-from ..types import Type, dtype_to_hcl
+from ..types import Type, Int, UInt, dtype_to_hcl
 from .context import UniqueName
 from .schedule import Schedule
 from .tensor import Array, Tensor
 from .utils import get_dtype_str, hcl_dtype_to_mlir
+from .dsl import for_
 
 
 def init(init_dtype=types.Int(32), raise_assert_exception=True):
@@ -42,14 +42,15 @@ def scalar(init, name=None, dtype=None):
     """Syntactic sugar: single-value tensor 
     - init: int, float, or expr
     """
+    hcl_mlir.enable_build_inplace()
     if name is None:
         name = UniqueName.get("scalar")
     ret_tensor = placeholder((1,), name=name, dtype=dtype)
     index = hcl_mlir.ConstantOp("index", 0)
-    if not hcl_mlir.is_hcl_mlir_type(dtype):
-        dtype = get_dtype_str(dtype)
+    dtype = hcl_dtype_to_mlir(dtype)
     if isinstance(init, int) or isinstance(init, float):
         init = hcl_mlir.ConstantOp(dtype, init)
+    ret_tensor.init()  # init hcl_mlir type
     hcl_mlir.StoreOp(init, ret_tensor.op, [index])
     return ret_tensor
 
@@ -68,33 +69,6 @@ def select(cond, true_val, false_val):
     return hcl_mlir.SelectOp(cond, true_val, false_val)
 
 
-def any(*args):
-    """Create a new experssion of the union of all conditions in the arguments
-    """
-    if not args:
-        raise ValueError("Any must take at least 1 argument")
-    if len(args) == 1:
-        return args[0]
-    ret = hcl_mlir.OrOp(args[0], args[1])
-    for i in range(2, len(args)):
-        ret = hcl_mlir.OrOp(ret, args[i])
-    return ret
-
-
-def all(*args):
-    """Create a new experssion of the intersection of all conditions in the
-      arguments
-    """
-    if not args:
-        raise ValueError("Any must take at least 1 argument")
-    if len(args) == 1:
-        return args[0]
-    ret = hcl_mlir.AndOp(args[0], args[1])
-    for i in range(2, len(args)):
-        ret = hcl_mlir.AndOp(ret, args[i])
-    return ret
-
-
 def sum(data, axis=None, dtype=None, name=""):
     return hcl_mlir.SumOp(data, axis, get_dtype_str(dtype))
 
@@ -105,6 +79,34 @@ def max(data, axis=None, dtype=None, name=""):
 
 def min(data, axis=None, dtype=None, name=""):
     return hcl_mlir.MinOp(data, axis, get_dtype_str(dtype))
+
+
+def pack(tensor, axis=0, factor=None, name=None, dtype=None):
+    """Pack a tensor with smaller bitwidth to a tensor with larger bitwidth.
+    """
+    if factor is None or not isinstance(factor, int):
+        raise RuntimeError("Should specify factor")
+    if not isinstance(tensor.dtype, (Int, UInt)):
+        raise RuntimeError("Only support integer packing")
+    if name == None or name == "":
+        name = UniqueName.get("tensor")
+    bitwidth = tensor.dtype.bits
+    if isinstance(tensor.dtype, Int):
+        new_type = Int(bitwidth * factor)
+    else:
+        new_type = UInt(bitwidth * factor)
+    new_shape = [size // factor if i == axis else size for i,
+                 size in enumerate(tensor.shape)]
+
+    def assign_val(*indices):
+        result = scalar(0, name="packed_"+name, dtype=new_type)
+        with for_(0, factor) as i:
+            new_indices = [index if j == axis else (
+                index*factor+i) for j, index in enumerate(indices)]
+            result[0][bitwidth*i:bitwidth*(i+1)] = tensor[tuple(new_indices)]
+        return result[0]
+
+    return compute(tuple(new_shape), assign_val, name, new_type)
 
 
 def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):

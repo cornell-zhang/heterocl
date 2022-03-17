@@ -8,7 +8,6 @@ from hcl_mlir.ir import *
 from .. import config
 from .context import (ImperativeLoopDepth, ImperativeLoopNestCount, StageName,
                       UniqueName)
-from .operation import all, any
 from .schedule import Schedule, Stage
 from .utils import get_extra_type_hints, hcl_dtype_to_mlir
 
@@ -25,6 +24,33 @@ class WithScope(object):
 
     def __exit__(self, ptype, value, trace):
         self._exit_cb()
+
+
+def any(*args):
+    """Create a new experssion of the union of all conditions in the arguments
+    """
+    if not args:
+        raise ValueError("Any must take at least 1 argument")
+    if len(args) == 1:
+        return args[0]
+    ret = hcl_mlir.OrOp(args[0], args[1])
+    for i in range(2, len(args)):
+        ret = hcl_mlir.OrOp(ret, args[i])
+    return ret
+
+
+def all(*args):
+    """Create a new experssion of the intersection of all conditions in the
+      arguments
+    """
+    if not args:
+        raise ValueError("Any must take at least 1 argument")
+    if len(args) == 1:
+        return args[0]
+    ret = hcl_mlir.AndOp(args[0], args[1])
+    for i in range(2, len(args)):
+        ret = hcl_mlir.AndOp(ret, args[i])
+    return ret
 
 
 def and_(*args):
