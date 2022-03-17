@@ -360,17 +360,21 @@ def def_(shapes, dtypes=None, ret_dtype=None, name=None, arg_names=None):
 def return_(expr=None):
     hcl_mlir.enable_build_inplace()
     if expr is not None:
-        if isinstance(expr, (int, float, hcl_mlir.IterVar)) or expr.built_op == None or not DEF_FUNC:  # declarative
+        if DEF_FUNC:  # imperative
+            expr = hcl_mlir.get_hcl_op(expr)
+            Schedule._DefFuncReturn.append(expr)
+            ret_op = std.ReturnOp(
+                [expr.result], ip=hcl_mlir.GlobalInsertionPoint.get())
+            hcl_mlir.GlobalInsertionPoint.ip_stack[-1] = InsertionPoint(ret_op)
+        elif isinstance(expr, (int, float, hcl_mlir.IterVar)) or expr.built_op == None:  # declarative
             expr = hcl_mlir.get_hcl_op(expr)
             builder = hcl_mlir.ASTVisitor("build")
             builder.visit(expr)
             hcl_mlir.StoreOp(expr, Schedule._CurrentStage[-1].op.op,
                              Schedule._CurrentStage[-1].op.iter_var)
             ret_op = Schedule._CurrentStage[-1].op
-        else:  # imperative
-            Schedule._DefFuncReturn.append(expr)
-            ret_op = std.ReturnOp(
-                [expr.result], ip=hcl_mlir.GlobalInsertionPoint.get())
+        else:
+            raise RuntimeError("Not recognized return value")
     else:
         Schedule._DefFuncReturn.append(None)
         ret_op = std.ReturnOp(
