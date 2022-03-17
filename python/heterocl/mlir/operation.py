@@ -175,7 +175,7 @@ def update(tensor: Tensor, fcompute, name=None):
     Schedule._CurrentSchedule.DataflowGraph.add_edges(tensor, new_tensor)
 
 
-def mutate(domain, fcompute, name):
+def mutate(domain, fcompute, name=None):
     """
     For now, assume no return value
     """
@@ -183,9 +183,10 @@ def mutate(domain, fcompute, name):
     if not isinstance(domain, tuple):
         raise RuntimeError("The domain of mutate API must be a tuple")
     if name is None:
-        name = UniqueName.get("stage")
-    compute_body(domain, fcompute, None, name)
-    return
+        name = UniqueName.get("tensor")
+    ret_tensor = Tensor(domain, None, name=name,
+                        fcompute=fcompute, impl="compute")
+    return ret_tensor
 
 
 def bitcast(tensor, dst_dtype, name=None):

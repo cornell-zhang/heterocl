@@ -132,7 +132,8 @@ def build_schedule(inputs, func=None, name=""):
     # let each stage's output be an attribute of the function
     if func != None:
         for op, stage in Stage._mapping:
-            func.__setattr__(op.name, op)
+            if op is not None:
+                func.__setattr__(op.name, op)
     return sch
 
 

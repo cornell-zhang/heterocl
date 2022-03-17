@@ -41,7 +41,8 @@ class Tensor(object):
         self.op.dtype = hcl_dtype_to_mlir(self.dtype)
 
     def build(self):
-        self.init()
+        if self.dtype is not None:
+            self.init()
         self.op.build()
 
     def add_use(self, use):
@@ -137,10 +138,14 @@ class ComputeOp(object):
         self.inputs: List[Tensor] = inputs
         self.stage = Stage(self.name)
         if output == None:
-            self.update = False
-            self.output = Tensor(self.shape, self.dtype,
-                                 name=self.name, impl="tensor")  # placeholder
-        else:
+            if dtype == None: # mutate
+                self.update = True
+                self.output = None
+            else:
+                self.update = False
+                self.output = Tensor(self.shape, self.dtype,
+                                    name=self.name, impl="tensor")  # placeholder
+        else: # update
             self.update = True
             self.output = output
         self.stage.set_output(self.output)
@@ -167,7 +172,7 @@ class ComputeOp(object):
             if self.output is not None:
                 self.stage.op.set_axis(loop_handles)
             # build output tensor
-            if not self.update and Schedule._TopFunction == None:
+            if not self.update and Schedule._TopFunction == None and self.output is not None:
                 self.output.build()
             # main computation part
             if hcl_mlir.EXTRACT_FUNCTION:
@@ -248,6 +253,8 @@ class ComputeOp(object):
             # at the same time build up MLIR nodes;
             # the Python builtin operators are overloaded in our custom class,
             # thus fcompute can be directly called and run
+            if self.update == True and self.output is None: # mutate
+                hcl_mlir.enable_build_inplace()
             result_expr = self.fcompute(*iter_var)
             if self.output is not None and result_expr is not None:
                 builder = ASTVisitor()
