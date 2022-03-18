@@ -355,7 +355,7 @@ def test_reshape():
     s = hcl.create_schedule([A, C])
     s.reshape(B, (2, 5, 2, 5))
     ir = str(hcl.lower(s))
-    assert "allocate B[int32 * 2 * 5 * 2 * 5]" in ir
+    assert "memref<2x5x2x5xi32>" in ir
 
 def test_conv2D_lb_wb_schedule():
     hcl.init()

@@ -56,7 +56,7 @@ def test_index_split_reshape():
     s[B].split(B.axis[0], 5)
     s.reshape(B, (2, 5, 10))
     code = hcl.build(s, target="vhls")
-    assert "B[y_outer][y_inner][x]" in code
+    assert "[2][5][10]" in code
 
 def test_index_fuse():
     hcl.init()
