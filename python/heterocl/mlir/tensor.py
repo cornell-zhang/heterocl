@@ -314,8 +314,11 @@ class ComputeOp(object):
         if Schedule._TopFunction != None:
             hcl_mlir.enable_build_inplace()
         if self.output is not None:
-            Schedule._CurrentSchedule.DataflowGraph.add_edges(
-                self.inputs, self.output)
+            if len(self.inputs) != 0:
+                Schedule._CurrentSchedule.DataflowGraph.add_edges(
+                    self.inputs, self.output)
+            else:  # const_tensor
+                Schedule._CurrentSchedule.DataflowGraph.create_node(self.output)
 
         NestedCompute.set(NestedCompute.get() - 1)
         Schedule._CurrentStage.pop()

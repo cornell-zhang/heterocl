@@ -65,6 +65,14 @@ def cast(dtype, expr):
     return hcl_mlir.CastOp(expr, hcl_dtype_to_mlir(dtype))
 
 
+def const_tensor(values, name=None, dtype=None):
+    """Create a constant tensor
+    """
+    dtype = config.init_dtype if dtype == None else dtype
+    cst = hcl_mlir.ConstantOp(hcl_dtype_to_mlir(dtype), values)
+    return cst.tensor
+
+
 def select(cond, true_val, false_val):
     return hcl_mlir.SelectOp(cond, true_val, false_val)
 
