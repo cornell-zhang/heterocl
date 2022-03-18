@@ -73,6 +73,14 @@ def const_tensor(values, name=None, dtype=None):
     return cst.tensor
 
 
+def copy(values, name=None, dtype=None):
+    """A syntactic sugar for copying an existing tensor.
+    """
+    dtype = config.init_dtype if dtype == None else dtype
+    cst = hcl_mlir.ConstantOp(hcl_dtype_to_mlir(dtype), values)
+    return cst.tensor
+
+
 def select(cond, true_val, false_val):
     return hcl_mlir.SelectOp(cond, true_val, false_val)
 
