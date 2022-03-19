@@ -11,7 +11,7 @@ from .context import (ImperativeLoopDepth, ImperativeLoopNestCount,
                       get_location, set_context)
 from .dfg import DataflowGraph
 from .utils import get_extra_type_hints
-
+import functools
 
 def build_schedule(inputs, func=None, name=""):
     """Create a schedule for compute optimizations.
@@ -83,7 +83,8 @@ def build_schedule(inputs, func=None, name=""):
             # Unwrap the stage's output tensor
             # The Tensor wrapping around ComputeOp/TensorOp acts as a container
             # The ComputeOp's output Tensor is the actual returned result
-            ret = [t.op.output for t in ret if not isinstance(t.op, hcl_mlir.TensorOp)]
+            ret = [t.op.output for t in ret if not isinstance(
+                t.op, hcl_mlir.TensorOp)]
             for tensor in order:
                 if tensor not in inputs:
                     tensor.build()
@@ -323,6 +324,23 @@ class Schedule(object):
             dim = IntegerAttr.get(i32, dim)
             res = hcl_d.PartitionOp(
                 target.result, partition_type, dim, factor, ip=GlobalInsertionPoint.get())
+
+    def reshape(self, target, shape):
+        """Reshape a Tensor to a specified new shape
+        """
+        try:
+            target = target.tensor
+        except (AttributeError, ValueError):
+            try:
+                target = target._op
+            except AttributeError:
+                pass
+        ori_size = functools.reduce(lambda a, b: a*b, target.shape, 1)
+        new_size = functools.reduce(lambda a, b: a*b, shape, 1)
+        if ori_size != new_size:
+            raise RuntimeError("The reshaped tensor should have the same total size with the original tensor")
+        with get_context() as ctx, get_location():
+            res = hcl_d.ReshapeOp(MemRefType.get(shape, target.op.dtype), target.result, ip=GlobalInsertionPoint.get())
 
     def reuse_at(self, target, parent, axis, name=None):
         """Create a reuse buffer reusing the output of current stage
