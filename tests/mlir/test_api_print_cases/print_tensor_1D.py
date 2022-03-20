@@ -7,22 +7,20 @@ A = hcl.placeholder((10,))
 
 
 def kernel(A):
-    hcl.print(A)
+    hcl.print(A, "%.0f \0")
 
 
 s = hcl.create_schedule([A], kernel)
 f = hcl.build(s)
-print(hcl.lower(s))
 
 np_A = np.random.randint(0, 10, size=(10,))
 hcl_A = hcl.asarray(np_A)
 
 f(hcl_A)
 
-s = "["
+s = ""
 for i in range(0, 10):
     s += str(np_A[i])
-    if i < 9:
-        s += ", "
-s += "]"
+    s += " "
+s += ""
 print(s)

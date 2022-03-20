@@ -7,8 +7,10 @@ hcl.init()
 
 A = hcl.placeholder((10,))
 
+
 def kernel(A):
     hcl.print(A[5])
+
 
 s = hcl.create_schedule([A], kernel)
 f = hcl.build(s)
@@ -26,8 +28,10 @@ hcl.init(hcl.UInt(4))
 
 A = hcl.placeholder((10,))
 
+
 def kernel(A):
     hcl.print(A[5])
+
 
 s = hcl.create_schedule([A], kernel)
 f = hcl.build(s)
@@ -45,8 +49,10 @@ hcl.init(hcl.Float())
 
 A = hcl.placeholder((10,))
 
+
 def kernel(A):
     hcl.print(A[5], "%.4f\n")
+
 
 s = hcl.create_schedule([A], kernel)
 f = hcl.build(s)
@@ -64,8 +70,10 @@ hcl.init(hcl.UFixed(6, 4))
 
 A = hcl.placeholder((10,))
 
+
 def kernel(A):
     hcl.print(A[5], "%.4f\n")
+
 
 s = hcl.create_schedule([A], kernel)
 f = hcl.build(s)
@@ -83,8 +91,10 @@ hcl.init()
 
 A = hcl.placeholder((10,))
 
+
 def kernel(A):
     hcl.print((A[5], A[6]), "%d %d\n")
+
 
 s = hcl.create_schedule([A], kernel)
 f = hcl.build(s)

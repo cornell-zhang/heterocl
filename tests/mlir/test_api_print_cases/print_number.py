@@ -5,9 +5,11 @@ A = hcl.placeholder((10,))
 
 hcl.init()
 
+
 def kernel(A):
     hcl.print(5)
     hcl.print(2.5)
+
 
 s = hcl.create_schedule([A], kernel)
 f = hcl.build(s)
