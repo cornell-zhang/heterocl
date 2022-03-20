@@ -23,7 +23,11 @@ def placeholder(shape, name=None, dtype=None):
     """Construct a HeteroCL placeholder for inputs/outputs."""
     if name is None:
         name = UniqueName.get("tensor")
-    if not dtype == None and not isinstance(dtype, (Type, str)):
+    if (
+        not dtype == None
+        and not isinstance(dtype, (Type, str))
+        and not hcl_mlir.is_hcl_mlir_type(dtype)
+    ):
         raise RuntimeError("Type error")
     if isinstance(dtype, str):
         dtype = dtype_to_hcl(dtype)
@@ -263,12 +267,9 @@ def print(vals, format_str=""):
         c_tensor = const_tensor(vals, dtype)
         printOp = hcl_mlir.PrintOp(c_tensor, get_dtype_str(dtype))
     elif isinstance(vals, hcl_mlir.build_ir.ExprOp):
-        import ipdb
-
-        ipdb.set_trace()
         # When vals is an expression
         single_tensor = placeholder(
-            (1,), name=UniqueName.get("scalar"), dtype=vals.dtype
+            (1,), name=UniqueName.get("scalar"), dtype=get_dtype_str(vals.dtype)
         )
         index = hcl_mlir.ConstantOp("index", 0)
         hcl_mlir.StoreOp(vals, single_tensor.op, [index])
@@ -278,5 +279,5 @@ def print(vals, format_str=""):
         pass
     # Attach format string as an attribute
     if format_str != "":
-        printOp.attributes["format"] = StringAttr.get(format_str)
+        printOp.built_op.attributes["format"] = StringAttr.get(format_str)
     return printOp
