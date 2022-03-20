@@ -112,7 +112,6 @@ def for_(begin, end, step=1, tag=""):
             # itself
             Schedule._CurrentStage[-1].set_output(Schedule._CurrentStage[-1])
             Schedule._CurrentStage[-1].done()
-            Schedule._CurrentSchedule.device_module.dump()
         ImperativeLoopDepth.set(ImperativeLoopDepth.get() - 1)
 
     return WithScope(iter_var, _exit_cb)
