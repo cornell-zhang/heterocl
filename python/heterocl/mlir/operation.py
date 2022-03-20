@@ -4,7 +4,7 @@ import hcl_mlir
 from hcl_mlir.ir import *
 
 from .. import config, types
-from ..types import Type, Int, UInt, dtype_to_hcl
+from ..types import Type, Int, UInt, Float, dtype_to_hcl
 from .context import UniqueName
 from .schedule import Schedule
 from .tensor import Array, Tensor
@@ -64,16 +64,14 @@ def cast(dtype, expr):
 
 
 def const_tensor(values, name=None, dtype=None):
-    """Create a constant tensor
-    """
+    """Create a constant tensor"""
     dtype = config.init_dtype if dtype == None else dtype
     cst = hcl_mlir.ConstantOp(hcl_dtype_to_mlir(dtype), values)
     return cst.tensor
 
 
 def copy(values, name=None, dtype=None):
-    """A syntactic sugar for copying an existing tensor.
-    """
+    """A syntactic sugar for copying an existing tensor."""
     dtype = config.init_dtype if dtype == None else dtype
     cst = hcl_mlir.ConstantOp(hcl_dtype_to_mlir(dtype), values)
     return cst.tensor
@@ -256,6 +254,29 @@ def bitcast(tensor, dst_dtype, name=None):
         return bitcast
 
 
-def print(vals, format=""):
-    printOp = hcl_mlir.PrintOp(vals, get_dtype_str(vals.dtype))
+def print(vals, format_str=""):
+    if isinstance(vals, Tensor):
+        printOp = hcl_mlir.PrintOp(vals, get_dtype_str(vals.dtype))
+    elif isinstance(vals, int) or isinstance(vals, float):
+        # create a memref and store the number in it
+        dtype = Int(64) if isinstance(vals, int) else Float(64)
+        c_tensor = const_tensor(vals, dtype)
+        printOp = hcl_mlir.PrintOp(c_tensor, get_dtype_str(dtype))
+    elif isinstance(vals, hcl_mlir.build_ir.ExprOp):
+        import ipdb
+
+        ipdb.set_trace()
+        # When vals is an expression
+        single_tensor = placeholder(
+            (1,), name=UniqueName.get("scalar"), dtype=vals.dtype
+        )
+        index = hcl_mlir.ConstantOp("index", 0)
+        hcl_mlir.StoreOp(vals, single_tensor.op, [index])
+        printOp = hcl_mlir.PrintOp(single_tensor, get_dtype_str(vals.dtype))
+    elif isinstance(vals, tuple):
+        # When vals is an tuple
+        pass
+    # Attach format string as an attribute
+    if format_str != "":
+        printOp.attributes["format"] = StringAttr.get(format_str)
     return printOp
