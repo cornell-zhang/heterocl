@@ -444,7 +444,7 @@ class Stage(object):
         return self._axis
 
     def set_output(self, output):
-        # output: TensorOp
+        # output: TensorOp or imperative stage
         self.op = output
         Stage._mapping.append((self.op, self))
 

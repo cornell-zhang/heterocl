@@ -246,7 +246,7 @@ def test_project():
         return C
     
     target = hcl.Platform.xilinx_zc706
-    target.config(compiler="vivado_hls", mode="csyn", project="gemm")
+    target.config(compiler="vivado_hls", mode="csyn", project="gemm.prj")
 
     def make_schedule(opt=False):
         s = hcl.create_schedule([A, B], kernel, name=("s2" if opt else "s1"))
@@ -272,9 +272,9 @@ def test_project():
         return f
 
     f1 = make_schedule(opt=False)
-    assert os.path.isdir("gemm-s1/out.prj")
+    assert os.path.isdir("gemm-s1.prj/out.prj")
     f2 = make_schedule(opt=True)
-    assert os.path.isdir("gemm-s2/out.prj")
+    assert os.path.isdir("gemm-s2.prj/out.prj")
 
 if __name__ == '__main__':
     test_debug_mode()

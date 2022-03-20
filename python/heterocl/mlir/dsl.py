@@ -108,6 +108,10 @@ def for_(begin, end, step=1, tag=""):
         else:
             scf.YieldOp([], ip=hcl_mlir.GlobalInsertionPoint.get())
         hcl_mlir.GlobalInsertionPoint.restore()
+        if depth == 0:
+            # itself
+            Schedule._CurrentStage[-1].set_output(Schedule._CurrentStage[-1])
+            Schedule._CurrentStage[-1].done()
         ImperativeLoopDepth.set(ImperativeLoopDepth.get() - 1)
 
     return WithScope(iter_var, _exit_cb)
@@ -204,7 +208,9 @@ def while_(cond):
 
     return WithScope(None, _exit_cb)
 
+
 DEF_FUNC = False
+
 
 def def_(shapes, dtypes=None, ret_dtype=None, name=None, arg_names=None):
     """

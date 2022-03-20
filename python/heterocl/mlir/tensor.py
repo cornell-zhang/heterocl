@@ -54,6 +54,14 @@ class Tensor(object):
         return isinstance(self.op, hcl_mlir.TensorOp)
 
     @property
+    def v(self):
+        return self.op.v
+
+    @v.setter
+    def v(self, value):
+        self.op.v = value
+
+    @property
     def is_compute(self):
         return isinstance(self.op, ComputeOp)
 
@@ -259,6 +267,8 @@ class ComputeOp(object):
             result_expr = self.fcompute(*iter_var)
             if self.output is not None and result_expr is not None:
                 builder = ASTVisitor()
+                if isinstance(result_expr, (int, float)):
+                    result_expr = hcl_mlir.ConstantOp(hcl_dtype_to_mlir(self.dtype), result_expr)
                 true_result = builder.visit(result_expr)
                 result_expr.built_op = true_result
 

@@ -50,6 +50,7 @@ def scalar(init, name=None, dtype=None):
         name = UniqueName.get("scalar")
     ret_tensor = placeholder((1,), name=name, dtype=dtype)
     index = hcl_mlir.ConstantOp("index", 0)
+    dtype = config.init_dtype if dtype == None else dtype
     dtype = hcl_dtype_to_mlir(dtype)
     if isinstance(init, int) or isinstance(init, float):
         init = hcl_mlir.ConstantOp(dtype, init)
