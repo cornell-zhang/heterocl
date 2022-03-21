@@ -289,16 +289,20 @@ class ComputeOp(object):
                     write_back = self.output.op.result
                 elt = MemRefType(write_back.type).element_type
                 write_back_elt = hcl_mlir.get_concrete_type(elt)
-                if value.result.type != write_back_elt:
-                    print(
-                        "Warning: store operation has different input types. Cast from {} to {}.".format(
-                            value.result.type, write_back_elt
+                if not isinstance(value, hcl_mlir.BlockArgument):
+                    if value.result.type != write_back_elt:
+                        print(
+                            "Warning: store operation has different input types. Cast from {} to {}.".format(
+                                value.result.type, write_back_elt
+                            )
                         )
-                    )
-                    value = hcl_mlir.CastOp(result_expr, write_back_elt)
-                    value.build()
+                        value = hcl_mlir.CastOp(result_expr, write_back_elt)
+                        value.build()
+                    result = value.result
+                else:
+                    result = value
                 ret_val = affine.AffineStoreOp(
-                    value.result,
+                    result,
                     write_back,
                     [loop.induction_variable for loop in loops],
                     ip=GlobalInsertionPoint.get(),

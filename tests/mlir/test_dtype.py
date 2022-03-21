@@ -416,7 +416,7 @@ def test_dtype_const_long_int():
     r = np.random.randint(0, 10, size=(1,))
 
     def kernel():
-        A = hcl.compute((1,), lambda x: r[0], dtype=hcl.Int(128))
+        A = hcl.compute((1,), lambda x: int(r[0]), dtype=hcl.Int(128))
         B = hcl.compute((1,), lambda x: A[x])
         return B
 
