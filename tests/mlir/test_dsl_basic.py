@@ -583,9 +583,6 @@ def test_set_slice_tensor():
     assert np.array_equal(golden, ret)
 
 
-# test_set_slice_tensor()
-
-
 def test_set_slice_tensor_reverse():
 
     hcl.init(hcl.UInt(8))
