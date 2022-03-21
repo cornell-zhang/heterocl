@@ -5,8 +5,10 @@ hcl.init()
 
 A = hcl.placeholder((5, 10))
 
+
 def kernel(A):
-    hcl.print(A)
+    hcl.print(A, "%.0f \0")
+
 
 s = hcl.create_schedule([A], kernel)
 f = hcl.build(s)
@@ -16,15 +18,11 @@ hcl_A = hcl.asarray(np_A)
 
 f(hcl_A)
 
-s = "["
+s = ""
 for i in range(0, 5):
-    s += "["
     for j in range(0, 10):
         s += str(np_A[i][j])
-        if j < 9:
-            s += ", "
-    s += "]"
+        s += " "
     if i < 4:
-        s += ",\n"
-s += "]"
+        s += "\n"
 print(s)
