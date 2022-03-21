@@ -16,6 +16,7 @@ if ir_name == "mlir":
     from .mlir.runtime import *
     from .mlir.dsl import *
     from .mlir.intrin import *
+    from .mlir.debug import *
     from .types import *
     from .platforms import *
 else:

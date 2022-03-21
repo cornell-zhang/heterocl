@@ -4,12 +4,11 @@ import hcl_mlir
 from hcl_mlir.ir import *
 
 from .. import config, types
-from ..types import Type, Int, UInt, Float, dtype_to_hcl
+from ..types import Type, Int, UInt, dtype_to_hcl
 from .context import UniqueName
 from .schedule import Schedule
 from .tensor import Array, Tensor
 from .utils import get_dtype_str, hcl_dtype_to_mlir
-from hcl_mlir.dialects import hcl as hcl_d
 from .dsl import for_
 
 
@@ -122,7 +121,8 @@ def pack(tensor, axis=0, factor=None, name=None, dtype=None):
                 index if j == axis else (index * factor + i)
                 for j, index in enumerate(indices)
             ]
-            result[0][bitwidth * i : bitwidth * (i + 1)] = tensor[tuple(new_indices)]
+            result[0][bitwidth * i: bitwidth *
+                      (i + 1)] = tensor[tuple(new_indices)]
         return result[0]
 
     return compute(tuple(new_shape), assign_val, name, new_type)
@@ -152,7 +152,8 @@ def unpack(tensor, axis=0, factor=None, name=None, dtype=None):
         ]
         lower = (indices[axis] % factor) * (bitwidth // factor)
         upper = lower + bitwidth // factor
-        result[0][0 : bitwidth // factor] = tensor[tuple(new_indices)][lower:upper]
+        result[0][0: bitwidth //
+                  factor] = tensor[tuple(new_indices)][lower:upper]
         return result[0]
 
     return compute(tuple(new_shape), assign_val, name, new_type)
@@ -171,7 +172,8 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
     if not dtype == None and not isinstance(dtype, (Type, str)):
         raise RuntimeError("Type error")
     dtype = config.init_dtype if dtype == None else dtype
-    ret_tensor = Tensor(shape, dtype, name=name, fcompute=fcompute, impl="compute")
+    ret_tensor = Tensor(shape, dtype, name=name,
+                        fcompute=fcompute, impl="compute")
     for tensor in ret_tensor.op.inputs:
         tensor.add_use(ret_tensor)
     return ret_tensor
@@ -213,7 +215,8 @@ def mutate(domain, fcompute, name=None):
         raise RuntimeError("The domain of mutate API must be a tuple")
     if name is None:
         name = UniqueName.get("tensor")
-    ret_tensor = Tensor(domain, None, name=name, fcompute=fcompute, impl="compute")
+    ret_tensor = Tensor(domain, None, name=name,
+                        fcompute=fcompute, impl="compute")
     return ret_tensor
 
 
@@ -257,31 +260,3 @@ def bitcast(tensor, dst_dtype, name=None):
         builder.visit(bitcast)
         # return an expression
         return bitcast
-
-
-def print(vals, format_str=""):
-    if isinstance(vals, Tensor):
-        printOp = hcl_mlir.PrintOp(vals, get_dtype_str(vals.dtype))
-    elif isinstance(vals, int) or isinstance(vals, float):
-        # create a memref and store the number in it
-        dtype = Int(64) if isinstance(vals, int) else Float(64)
-        single_tensor = placeholder((1,), name=UniqueName.get("scalar"), dtype=dtype)
-        index = hcl_mlir.ConstantOp("index", 0)
-        value = hcl_mlir.ConstantOp(get_dtype_str(dtype), vals)
-        hcl_mlir.StoreOp(value, single_tensor.op, [index])
-        printOp = hcl_mlir.PrintOp(single_tensor, get_dtype_str(dtype))
-    elif isinstance(vals, hcl_mlir.build_ir.ExprOp):
-        # When vals is an expression
-        single_tensor = placeholder(
-            (1,), name=UniqueName.get("scalar"), dtype=get_dtype_str(vals.dtype)
-        )
-        index = hcl_mlir.ConstantOp("index", 0)
-        hcl_mlir.StoreOp(vals, single_tensor.op, [index])
-        printOp = hcl_mlir.PrintOp(single_tensor, get_dtype_str(vals.dtype))
-    elif isinstance(vals, tuple):
-        # When vals is an tuple
-        pass
-    # Attach format string as an attribute
-    if format_str != "":
-        printOp.built_op.attributes["format"] = StringAttr.get(format_str)
-    return printOp
