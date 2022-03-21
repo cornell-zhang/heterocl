@@ -374,7 +374,7 @@ def return_(expr=None):
             ret_op = std.ReturnOp(
                 [expr.result], ip=hcl_mlir.GlobalInsertionPoint.get())
             hcl_mlir.GlobalInsertionPoint.ip_stack[-1] = InsertionPoint(ret_op)
-        elif isinstance(expr, (int, float, hcl_mlir.IterVar)) or expr.built_op == None:  # declarative
+        elif isinstance(expr, (int, float, hcl_mlir.ExprOp)) or expr.built_op == None:  # declarative
             expr = hcl_mlir.get_hcl_op(expr)
             builder = hcl_mlir.ASTVisitor("build")
             builder.visit(expr)
