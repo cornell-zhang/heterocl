@@ -222,6 +222,8 @@ def def_(shapes, dtypes=None, ret_dtype=None, name=None, arg_names=None):
 
     def decorator(fmodule):
         fname = name if name is not None else fmodule.__name__
+        if Schedule._TopFunction != None:
+            Schedule._TopFunction.__setattr__(fname, fmodule)
         code = fmodule.__code__
         names = code.co_varnames
         if arg_names is not None:
