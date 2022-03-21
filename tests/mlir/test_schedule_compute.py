@@ -404,12 +404,16 @@ def test_compute_at_complex():
     s[B].compute_at(s[C], C.axis[1])
     s[C].compute_at(s[D], D.axis[2])
     ir = hcl.lower(s)
-    assert "allocate B[int32 * 1 * 1 * 30]" in str(ir)
-    assert "allocate C[int32 * 1 * 1 * 1]" in str(ir)
+    loop_nests = hcl_mlir.get_affine_loop_nests(s.device_top)
+    assert len(loop_nests) == 1
+    loops = loop_nests[0]
+    assert "jjj" in str(loops[1]["name"])
+    assert "mmm" in str(loops[2]["name"])
+    assert "m" in str(loops[3]["name"])
     f = hcl.build(s)
     a_np = np.random.randint(low=0, high=100, size=A.shape)
-    a_hcl = hcl.asarray(a_np)
-    d_hcl = hcl.asarray(np.zeros(D.shape), dtype="int32")
+    a_hcl = hcl.asarray(a_np, dtype=hcl.Int(32))
+    d_hcl = hcl.asarray(np.zeros(D.shape, dtype=np.int32), dtype=hcl.Int(32))
     f(a_hcl, d_hcl)
     d_np = (a_np * 2 + 1) % 3
     np.testing.assert_allclose(d_np, d_hcl.asnumpy())
@@ -424,12 +428,16 @@ def test_compute_at_complex_num_axis():
     s[B].compute_at(s[C], 1)
     s[C].compute_at(s[D], 2)
     ir = hcl.lower(s)
-    assert "allocate B[int32 * 1 * 1 * 30]" in str(ir)
-    assert "allocate C[int32 * 1 * 1 * 1]" in str(ir)
+    loop_nests = hcl_mlir.get_affine_loop_nests(s.device_top)
+    assert len(loop_nests) == 1
+    loops = loop_nests[0]
+    assert "jjj" in str(loops[1]["name"])
+    assert "mmm" in str(loops[2]["name"])
+    assert "m" in str(loops[3]["name"])
     f = hcl.build(s)
     a_np = np.random.randint(low=0, high=100, size=A.shape)
-    a_hcl = hcl.asarray(a_np)
-    d_hcl = hcl.asarray(np.zeros(D.shape), dtype="int32")
+    a_hcl = hcl.asarray(a_np, dtype=hcl.Int(32))
+    d_hcl = hcl.asarray(np.zeros(D.shape, dtype=np.int32), dtype=hcl.Int(32))
     f(a_hcl, d_hcl)
     d_np = (a_np * 2 + 1) % 3
     np.testing.assert_allclose(d_np, d_hcl.asnumpy())

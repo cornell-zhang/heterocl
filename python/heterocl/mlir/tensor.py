@@ -378,6 +378,10 @@ class Array(object):
                 np_array = np_array * (2**dtype.fracs)
                 np_array = np.fix(np_array) % sb
                 np_array = np_array.astype(np.int64)
+            else:
+                raise RuntimeError("Unrecognized type")
+        else:
+            raise RuntimeError("Should provide type info")
         self.np_array = np_array
 
     def asnumpy(self):
