@@ -19,10 +19,10 @@ num = int(sys.argv[1])
 def top(target=None):
 
     def knn(test_image, train_images):
-        def popcount(num):
+        def popcount(x,y,num):
             out = hcl.scalar(0, "out")
-            with hcl.for_(0, train_images.type.bits) as i:
-                out.v += num[i]
+            with hcl.for_(0, train_images.dtype.bits) as i:
+                out.v += num[x][y][i]
             return out.v
 
         def update_knn(dist, knn_mat, i, j):
@@ -34,11 +34,11 @@ def top(target=None):
                 knn_mat[i][max_id.v] = dist[i][j]
 
         diff = hcl.compute(train_images.shape,
-                           lambda x, y: train_images[x][y] ^ test_image,
+                           lambda x, y: train_images[x][y] ^ test_image[0],
                            "diff")
 
         dist = hcl.compute(diff.shape,
-                           lambda x, y: popcount(diff[x][y]),
+                           lambda x, y: popcount(x,y,diff),
                            "dist")
 
 
@@ -61,21 +61,19 @@ def top(target=None):
         def avg(x, y):
             final = hcl.scalar(0, "value")
             for i in range(num):
-                final += train_images_arr[i][x, y]
-            return final
+                final.v += train_images_arr[i][x, y]
+            return final.v
         return hcl.compute((10,3), lambda x, y: avg(x,y), name="final")
 
 
-    test_image = hcl.placeholder((), "test_image")    
+    test_image = hcl.placeholder((1,), "test_image")    
     arr = list()
     for i in range(num):
         train_images = hcl.placeholder(data_size, "train_images" + str(i))
         arr.append(train_images)
 
     args = [test_image] + arr
-    scheme = hcl.create_scheme(args, many_kernels)
-    # scheme.downsize([knn.dist, knn.dist.out, knn.knn_mat], dtype_knnmat)
-    s = hcl.create_schedule_from_scheme(scheme)
+    s = hcl.create_schedule(args, many_kernels)
 
     # Move data to and from device
     if isinstance(target, hcl.Platform):
@@ -83,7 +81,7 @@ def top(target=None):
         s.to(knn_update.knn_mat, target.host, burst_len=16)
 
     # At the end, we build the whole offloaded function.
-    print(hcl.lower(s))
+    # print(hcl.lower(s))
 
     start = time.time()
     f = hcl.build(s, target=target)
@@ -91,7 +89,7 @@ def top(target=None):
     return f, total_time
 
 
-offload, build_time = top()
+offload, build_time = top("vhls")
 
 def knn_vote(knn_mat):
     knn_mat.sort(axis = 1)
@@ -116,14 +114,15 @@ if __name__ == "__main__":
         hcl_train_images_list.append(hcl_train_images)
 
     hcl_knn_mat = hcl.asarray(np.zeros((10, 3)), dtype_knnmat)
-    start = time.time()
-    offload(test_images[0], *hcl_train_images_list, hcl_knn_mat)
-    total_time = total_time + (time.time() - start)
+    # start = time.time()
+    # offload(test_images[0], *hcl_train_images_list, hcl_knn_mat)
+    # total_time = total_time + (time.time() - start)
+    total_time = 0.
 
     # Convert back to a numpy array
     knn_mat = hcl_knn_mat.asnumpy()
 
-    print("[build, execution] {:.2f} {:.2f}".format(build_time, total_time))
+    print("[build, execution] {:.4f} {:.4f}".format(build_time, total_time))
 
     with open("time.txt", "a+") as fp:
         fp.write(f"{num},{build_time},{total_time}\n")
