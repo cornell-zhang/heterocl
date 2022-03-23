@@ -120,11 +120,10 @@ def pack(tensor, axis=0, factor=None, name=None, dtype=None):
         result = scalar(0, name="packed_" + name, dtype=new_type)
         with for_(0, factor) as i:
             new_indices = [
-                index if j == axis else (index * factor + i)
+                (index * factor + i) if j == axis else index
                 for j, index in enumerate(indices)
             ]
-            result[0][bitwidth * i: bitwidth *
-                      (i + 1)] = tensor[tuple(new_indices)]
+            result[0][bitwidth * i : bitwidth * (i + 1)] = tensor[tuple(new_indices)]
         return result[0]
 
     return compute(tuple(new_shape), assign_val, name, new_type)
@@ -150,12 +149,11 @@ def unpack(tensor, axis=0, factor=None, name=None, dtype=None):
     def assign_val(*indices):
         result = scalar(0, name="unpacked_" + name, dtype=new_type)
         new_indices = [
-            index if j == axis else (index // factor) for j, index in enumerate(indices)
+            (index // factor) if j == axis else index for j, index in enumerate(indices)
         ]
         lower = (indices[axis] % factor) * (bitwidth // factor)
         upper = lower + bitwidth // factor
-        result[0][0: bitwidth //
-                  factor] = tensor[tuple(new_indices)][lower:upper]
+        result[0][0 : bitwidth // factor] = tensor[tuple(new_indices)][lower:upper]
         return result[0]
 
     return compute(tuple(new_shape), assign_val, name, new_type)
@@ -174,8 +172,7 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
     if not dtype == None and not isinstance(dtype, (Type, str)):
         raise RuntimeError("Type error")
     dtype = config.init_dtype if dtype == None else dtype
-    ret_tensor = Tensor(shape, dtype, name=name,
-                        fcompute=fcompute, impl="compute")
+    ret_tensor = Tensor(shape, dtype, name=name, fcompute=fcompute, impl="compute")
     for tensor in ret_tensor.op.inputs:
         tensor.add_use(ret_tensor)
     return ret_tensor
@@ -217,8 +214,7 @@ def mutate(domain, fcompute, name=None):
         raise RuntimeError("The domain of mutate API must be a tuple")
     if name is None:
         name = UniqueName.get("tensor")
-    ret_tensor = Tensor(domain, None, name=name,
-                        fcompute=fcompute, impl="compute")
+    ret_tensor = Tensor(domain, None, name=name, fcompute=fcompute, impl="compute")
     return ret_tensor
 
 
