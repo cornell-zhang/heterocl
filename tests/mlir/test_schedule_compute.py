@@ -159,7 +159,7 @@ def test_split():
         assert "j.outer" in str(loops[1]["name"])
         assert "0 to 7" in str(loops[1]["body"])
         assert "j.inner" in str(loops[2]["name"])
-        assert "0 to min affine_map<(d0, d1) -> (3, -d0 + 20)>" in str(loops[2]["body"])
+        assert "0 to min affine_map<(d0) -> (3, d0 * -3 + 20)>" in str(loops[2]["body"])
 
     # def test_annotate_mode():
     #     split_factor = 3
@@ -216,21 +216,17 @@ def test_split_reorder():
         s = hcl.create_schedule([a, b, c])
         xo, xi = s[c].split(c.axis[0], factor=3, mode="transform")
         yo, yi = s[c].split(c.axis[1], factor=3, mode="transform")
-        s[c].reorder(yi, xi, yo, xo)
+        s[c].reorder(yo, yi, xo, xi)
         ir = hcl.lower(s)
         loops = hcl_mlir.get_affine_loop_nests(s.device_top)[0]
-        assert "j.inner" in str(loops[0]["name"])
-        assert "0 to 3" in str(loops[0]["body"])
-        assert "i.inner" in str(loops[1]["name"])
-        assert "0 to 3" in str(loops[1]["body"])
-        assert "j.outer" in str(loops[2]["name"])
-        assert "0 to 7" in str(loops[2]["body"])
-        assert "i.outer" in str(loops[3]["name"])
-        assert "0 to 4" in str(loops[3]["body"])
-        # assert str(ir.body.body.body.body.body.body).startswith(
-        #     "if ((j.inner < (20 - (j.outer*3))))")
-        # assert str(ir.body.body.body.body.body.body.then_case).startswith(
-        #     "if ((i.inner < (10 - (i.outer*3)))")
+        assert "j.outer" in str(loops[0]["name"])
+        assert "0 to 7" in str(loops[0]["body"])
+        assert "j.inner" in str(loops[1]["name"])
+        assert "0 to min affine_map<(d0) -> (3, d0 * -3 + 20)>" in str(loops[1]["body"])
+        assert "i.outer" in str(loops[2]["name"])
+        assert "0 to 4" in str(loops[2]["body"])
+        assert "i.inner" in str(loops[3]["name"])
+        assert "0 to min affine_map<(d0) -> (3, d0 * -3 + 10)>" in str(loops[3]["body"])
 
     test_case_1()
     test_case_2()
@@ -269,7 +265,7 @@ def test_compute_at():
         f = hcl.build(sch)
         a_np = np.random.randint(low=0, high=100, size=(10, 20, 30))
         a_hcl = hcl.asarray(a_np)
-        c_hcl = hcl.asarray(np.zeros(a_np.shape), dtype="int32")
+        c_hcl = hcl.asarray(np.zeros(a_np.shape), dtype=hcl.Int(32))
         f(a_hcl, c_hcl)
         c_np = a_np * 2 + 1
         np.testing.assert_allclose(c_np, c_hcl.asnumpy())
