@@ -55,6 +55,10 @@ def scalar(init, name=None, dtype=None):
     dtype = hcl_dtype_to_mlir(dtype)
     if isinstance(init, int) or isinstance(init, float):
         init = hcl_mlir.ConstantOp(dtype, init)
+    elif isinstance(init, Tensor):
+        # TODO(Niansong): support initialize scalar with 
+        # single-element tensor
+        pass
     ret_tensor.init()  # init hcl_mlir type
     hcl_mlir.StoreOp(init, ret_tensor.op, [index])
     return ret_tensor
