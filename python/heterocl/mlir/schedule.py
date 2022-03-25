@@ -13,6 +13,7 @@ from .dfg import DataflowGraph
 from .utils import get_extra_type_hints
 import functools
 
+
 def build_schedule(inputs, func=None, name=""):
     """Create a schedule for compute optimizations.
     inputs: list of Tensor
@@ -338,9 +339,11 @@ class Schedule(object):
         ori_size = functools.reduce(lambda a, b: a*b, target.shape, 1)
         new_size = functools.reduce(lambda a, b: a*b, shape, 1)
         if ori_size != new_size:
-            raise RuntimeError("The reshaped tensor should have the same total size with the original tensor")
+            raise RuntimeError(
+                "The reshaped tensor should have the same total size with the original tensor")
         with get_context() as ctx, get_location():
-            res = hcl_d.ReshapeOp(MemRefType.get(shape, target.op.dtype), target.result, ip=GlobalInsertionPoint.get())
+            res = hcl_d.ReshapeOp(MemRefType.get(
+                shape, target.op.dtype), target.result, ip=GlobalInsertionPoint.get())
 
     def reuse_at(self, target, parent, axis, name=None):
         """Create a reuse buffer reusing the output of current stage
@@ -471,23 +474,31 @@ class Stage(object):
             raise RuntimeError("Not supported")
         if isinstance(parent, int):
             parent = self.op.axis[parent]
+        idx = self.op.axis.index(parent)
         var = parent
         with get_context() as ctx, get_location():
             i32 = IntegerType.get_unsigned(32)
             factor = IntegerAttr.get(i32, factor)
             split_op = hcl_d.SplitOp(
                 self.stage_handle.result, var.result, factor, ip=GlobalInsertionPoint.get())
+        self.op.axis[idx] = split_op.results[0]
+        self.op.axis.insert(idx+1, split_op.results[1])
         return split_op.results[0], split_op.results[1]
 
     def tile(self, x_parent, y_parent, x_factor, y_factor):
         """ Perform tiling on two dimensions
         """
+        idx = self.op.axis.index(x_parent)
         with get_context() as ctx, get_location():
             i32 = IntegerType.get_unsigned(32)
             x_factor = IntegerAttr.get(i32, x_factor)
             y_factor = IntegerAttr.get(i32, y_factor)
             tile_op = hcl_d.TileOp(self.stage_handle.result, x_parent.result,
                                    y_parent.result, x_factor, y_factor, ip=GlobalInsertionPoint.get())
+        self.op.axis[idx] = tile_op.results[0]
+        self.op.axis.insert(idx+1, tile_op.results[1])
+        self.op.axis.insert(idx+2, tile_op.results[2])
+        self.op.axis.insert(idx+3, tile_op.results[3])
         return tile_op.results[0], tile_op.results[1], tile_op.results[2], tile_op.results[3]
 
     def pipeline(self, var, initiation_interval=1):
