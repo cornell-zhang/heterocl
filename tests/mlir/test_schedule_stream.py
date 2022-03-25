@@ -702,7 +702,7 @@ def test_one_stage_on_dev():
         return C
     
     target = hcl.Platform.xilinx_zc706
-    target.config(compiler="vivado_hls", mode="csyn", project="gemm")
+    target.config(compiler="vivado_hls", mode="csyn", project="gemm.prj")
 
     s = hcl.create_schedule([A, B], kernel)
     s.to([A, B],target.xcel)
@@ -719,7 +719,7 @@ def test_auto_move_to_dev():
         return D
 
     target = hcl.Platform.aws_f1
-    target.config(compiler="vivado_hls", mode="debug", project="gemm")
+    target.config(compiler="vivado_hls", mode="debug", project="gemm.prj")
     s = hcl.create_schedule([A, B], kernel)
 
     code = str(hcl.build(s, target))

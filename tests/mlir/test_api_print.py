@@ -21,9 +21,6 @@ def test_print_number():
     assert golden in str(output)
 
 
-test_print_number()
-
-
 def test_print_expr():
 
     outputs = get_stdout("print_expr").split("\n")
