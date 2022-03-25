@@ -22,10 +22,9 @@ def build_schedule(inputs, func=None, name=""):
         inputs = [inputs]
     new_inputs = []
     for tensor in inputs:
-        if not isinstance(tensor.op, hcl_mlir.TensorOp):
-            print("Warning: Only placeholder inputs will be considered!")
-        else:
-            new_inputs.append(tensor)
+        if not isinstance(tensor.op, hcl_mlir.TensorOp) and len(tensor.op.inputs) != 0:
+            raise RuntimeError("Inputs are not roots!")
+        new_inputs.append(tensor)
     inputs = new_inputs
     # initialization
     GlobalInsertionPoint.clear()
@@ -87,7 +86,7 @@ def build_schedule(inputs, func=None, name=""):
             ret = [t.op.output for t in ret if not isinstance(
                 t.op, hcl_mlir.TensorOp)]
             for tensor in order:
-                if tensor not in inputs:
+                if not isinstance(tensor.op, hcl_mlir.TensorOp):
                     tensor.build()
         if hcl_mlir.flags.BIT_OP:
             sch.device_top.attributes["bit"] = UnitAttr.get()
@@ -199,7 +198,8 @@ class Schedule(object):
             input_types = []
             for tensor in inputs:
                 if not isinstance(tensor.op, hcl_mlir.TensorOp):
-                    raise RuntimeError("Inputs should be hcl_mlir.TensorOp")
+                    continue
+                    # raise RuntimeError("Inputs should be hcl_mlir.TensorOp")
                 tensor.init()
                 input_types.append(tensor.op.memref_type)
                 extra_itypes += get_extra_type_hints(tensor.op.dtype)
