@@ -504,7 +504,6 @@ def test_get_slice_tensor():
     assert np.array_equal(golden, ret)
 
 
-@pytest.mark.skip(reason="crashes pytest")
 def test_get_slice_tensor_reverse():
 
     hcl.init()
