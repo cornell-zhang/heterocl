@@ -184,7 +184,7 @@ class ComputeOp(object):
             if self.kind == "compute" and Schedule._TopFunction == None:
                 self.output.build()
             # main computation part
-            if hcl_mlir.EXTRACT_FUNCTION:
+            if hcl_mlir.is_extract_function():
                 if self.output is not None:
                     return_types = [self.output.op.memref_type]
                 else:
@@ -277,7 +277,7 @@ class ComputeOp(object):
                 # we have to read the ssa value out first, then store back to tensor
                 value = result_expr.built_op
 
-                if hcl_mlir.EXTRACT_FUNCTION:
+                if hcl_mlir.is_extract_function():
                     write_back = list(stage_func_op.entry_block.arguments)[-1]
                     # recover as top function op
                     for i, tensor in enumerate(self.inputs):
@@ -319,7 +319,7 @@ class ComputeOp(object):
             # recover insertion point from inner-most loop body
             GlobalInsertionPoint.restore()
 
-            if hcl_mlir.EXTRACT_FUNCTION:
+            if hcl_mlir.is_extract_function():
                 # recover from the subfunction
                 ret_op = std.ReturnOp([], ip=GlobalInsertionPoint.get())
                 GlobalInsertionPoint.restore()

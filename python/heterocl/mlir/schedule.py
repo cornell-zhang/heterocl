@@ -209,7 +209,7 @@ class Schedule(object):
                 extra_itypes)
             device_top.attributes["extra_otypes"] = StringAttr.get("")
             device_top.add_entry_block()
-            if hcl_mlir.EXTRACT_FUNCTION:
+            if hcl_mlir.is_extract_function():
                 device_top.attributes["top"] = UnitAttr.get()
         GlobalInsertionPoint.save(InsertionPoint(self._device_module.body))
         GlobalInsertionPoint.save(InsertionPoint(device_top.entry_block))
