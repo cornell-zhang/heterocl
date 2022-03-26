@@ -199,7 +199,7 @@ def test_split_reorder():
     def test_case_1():
         s = hcl.create_schedule([a, b])
         xo, xi = s[c].split(c.axis[0], factor=2, mode="transform")
-        yo, yi = s[c].split(c.axis[1], factor=5, mode="transform")
+        yo, yi = s[c].split(c.axis[2], factor=5, mode="transform")
         s[c].reorder(yo, xo, yi, xi)
         ir = hcl.lower(s)
         loops = hcl_mlir.get_affine_loop_nests(s.device_top)[0]
@@ -215,7 +215,7 @@ def test_split_reorder():
     def test_case_2():
         s = hcl.create_schedule([a, b])
         xo, xi = s[c].split(c.axis[0], factor=3, mode="transform")
-        yo, yi = s[c].split(c.axis[1], factor=3, mode="transform")
+        yo, yi = s[c].split(c.axis[2], factor=3, mode="transform")
         s[c].reorder(yo, yi, xo, xi)
         ir = hcl.lower(s)
         loops = hcl_mlir.get_affine_loop_nests(s.device_top)[0]
@@ -486,16 +486,21 @@ def test_compute_at_with_reuse_2D():
     f(b_hcl)
     np.testing.assert_array_equal(c_np, b_hcl.asnumpy())
 
-@pytest.mark.skip(reason="crashes pytest")
 def test_compute_at_with_reuse_2D_complex():
     hcl.init()
-    A = hcl.compute((10, 10), lambda y, x: x + y, "A")
+    A = hcl.compute((10, 10), lambda y0, x0: x0 + y0, "A")
     B = hcl.compute((8, 8), lambda y, x: A[y, x] + A[y+1, x+1] + A[y+2, x+2], "B")
     s = hcl.create_schedule([A])
     s[A].compute_at(s[B], B.axis[1])
     s[B].split(B.axis[1], 4)
     ir = hcl.lower(s)
-    assert "allocate A[int32 * 3 * 3]" in str(ir)
+    loops = hcl_mlir.get_affine_loop_nests(s.device_top)[0]
+    assert "y" in str(loops[0]["name"])
+    assert "0 to 8" in str(loops[0]["body"])
+    assert "x.outer" in str(loops[1]["name"])
+    assert "0 to 2" in str(loops[1]["body"])
+    assert "x.inner" in str(loops[2]["name"])
+    assert "0 to 4" in str(loops[2]["body"])
     f = hcl.build(s)
     a_np = np.fromfunction(lambda i, j: i + j, A.shape, dtype="int")
     b_np = np.zeros(B.shape, dtype="int")
