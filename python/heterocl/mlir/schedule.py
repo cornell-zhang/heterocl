@@ -475,12 +475,15 @@ class Stage(object):
         if isinstance(parent, int):
             parent = self.op.axis[parent]
         idx = self.op.axis.index(parent)
-        var = parent
+        if isinstance(parent, hcl_d.CreateLoopHandleOp):
+            var = parent.result
+        else:
+            var = parent
         with get_context() as ctx, get_location():
             i32 = IntegerType.get_unsigned(32)
             factor = IntegerAttr.get(i32, factor)
             split_op = hcl_d.SplitOp(
-                self.stage_handle.result, var.result, factor, ip=GlobalInsertionPoint.get())
+                self.stage_handle.result, var, factor, ip=GlobalInsertionPoint.get())
         self.op.axis[idx] = split_op.results[0]
         self.op.axis.insert(idx+1, split_op.results[1])
         return split_op.results[0], split_op.results[1]
@@ -493,8 +496,12 @@ class Stage(object):
             i32 = IntegerType.get_unsigned(32)
             x_factor = IntegerAttr.get(i32, x_factor)
             y_factor = IntegerAttr.get(i32, y_factor)
-            tile_op = hcl_d.TileOp(self.stage_handle.result, x_parent.result,
-                                   y_parent.result, x_factor, y_factor, ip=GlobalInsertionPoint.get())
+            if isinstance(x_parent, hcl_d.CreateLoopHandleOp):
+                x_parent = x_parent.result
+            if isinstance(y_parent, hcl_d.CreateLoopHandleOp):
+                y_parent = y_parent.result
+            tile_op = hcl_d.TileOp(self.stage_handle.result, x_parent,
+                                   y_parent, x_factor, y_factor, ip=GlobalInsertionPoint.get())
         self.op.axis[idx] = tile_op.results[0]
         self.op.axis.insert(idx+1, tile_op.results[1])
         self.op.axis.insert(idx+2, tile_op.results[2])
