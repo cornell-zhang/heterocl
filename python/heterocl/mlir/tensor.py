@@ -268,7 +268,8 @@ class ComputeOp(object):
             if self.output is not None and result_expr is not None:
                 builder = ASTVisitor()
                 if isinstance(result_expr, (int, float)):
-                    result_expr = hcl_mlir.ConstantOp(hcl_dtype_to_mlir(self.dtype), result_expr)
+                    result_expr = hcl_mlir.ConstantOp(
+                        hcl_dtype_to_mlir(self.dtype), result_expr)
                 true_result = builder.visit(result_expr)
                 result_expr.built_op = true_result
 
@@ -290,14 +291,15 @@ class ComputeOp(object):
                 elt = MemRefType(write_back.type).element_type
                 write_back_elt = hcl_mlir.get_concrete_type(elt)
                 if not isinstance(value, hcl_mlir.BlockArgument):
-                    if value.result.type != write_back_elt:
-                        print(
-                            "Warning: store operation has different input types. Cast from {} to {}.".format(
-                                value.result.type, write_back_elt
-                            )
+                    value = value.result
+                if value.type != write_back_elt:
+                    print(
+                        "Warning: store operation has different input types. Cast from {} to {}.".format(
+                            value.type, write_back_elt
                         )
-                        value = hcl_mlir.CastOp(result_expr, write_back_elt)
-                        value.build()
+                    )
+                    value = hcl_mlir.CastOp(result_expr, write_back_elt)
+                    value.build()
                     result = value.result
                 else:
                     result = value
@@ -332,7 +334,8 @@ class ComputeOp(object):
                 Schedule._CurrentSchedule.DataflowGraph.add_edges(
                     self.inputs, self.output)
             else:  # const_tensor
-                Schedule._CurrentSchedule.DataflowGraph.create_node(self.output)
+                Schedule._CurrentSchedule.DataflowGraph.create_node(
+                    self.output)
 
         NestedCompute.set(NestedCompute.get() - 1)
         Schedule._CurrentStage.pop()
