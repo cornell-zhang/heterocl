@@ -128,22 +128,25 @@ class ComputeOp(object):
         ), "Keyword arguments are not supported in fcompute"
         # Get input tensors to fcompute
 
-        def get_inputs(compute_func, inputs):
+        def get_inputs(compute_func):
             # tackle nested function problem
             closure_var = inspect.getclosurevars(compute_func).nonlocals
             for _, var in closure_var.items():
                 if isinstance(var, Tensor):
-                    inputs.append(var)
+                    self.inputs.append(var)
+                elif isinstance(var, hcl_mlir.ReduceVar):
+                    self.reduce_var.append(var)
                 elif isinstance(var, Callable):
-                    get_inputs(var, inputs)
-        inputs = []
-        get_inputs(fcompute, inputs)
+                    get_inputs(var)
+
+        self.inputs: List[Tensor] = []
+        self.reduce_var = []
+        get_inputs(fcompute)
 
         self.shape = shape
         self.fcompute = fcompute
         self.dtype = dtype
         self.name = name
-        self.inputs: List[Tensor] = inputs
         self.stage = Stage(self.name)
         if output == None:
             if dtype == None:  # mutate
@@ -177,6 +180,9 @@ class ComputeOp(object):
                     loop_handles.append(
                         hcl_d.CreateLoopHandleOp(StringAttr.get(loop_name))
                     )
+                for var in self.reduce_var:
+                    loop_handles.append(
+                        hcl_d.CreateLoopHandleOp(StringAttr.get(var.name)))
             # set loop handles
             if self.output is not None:
                 self.stage.op.set_axis(loop_handles)
