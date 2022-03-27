@@ -4,12 +4,12 @@ import hcl_mlir
 from hcl_mlir.ir import *
 
 from .. import config, types
-from ..types import Type, Int, UInt, dtype_to_hcl
+from ..types import Int, Type, UInt, dtype_to_hcl
 from .context import UniqueName
-from .schedule import Schedule
+from .dsl import for_
+from .schedule import Schedule, Stage
 from .tensor import Array, Tensor
 from .utils import get_dtype_str, hcl_dtype_to_mlir
-from .dsl import for_
 
 
 def init(init_dtype=types.Int(32), raise_assert_exception=True):
@@ -30,6 +30,8 @@ def placeholder(shape, name=None, dtype=None):
         raise RuntimeError("Type error")
     if isinstance(dtype, str):
         dtype = dtype_to_hcl(dtype)
+    if shape == ():
+        shape = (1,)
     dtype = config.init_dtype if dtype == None else dtype
     tensor = Tensor(shape, dtype, name=name, impl="tensor")
     return tensor
@@ -55,6 +57,8 @@ def scalar(init, name=None, dtype=None):
     dtype = hcl_dtype_to_mlir(dtype)
     if isinstance(init, int) or isinstance(init, float):
         init = hcl_mlir.ConstantOp(dtype, init)
+    elif isinstance(init, Tensor):
+        init = init.op
     ret_tensor.init()  # init hcl_mlir type
     hcl_mlir.StoreOp(init, ret_tensor.op, [index])
     return ret_tensor
@@ -123,7 +127,8 @@ def pack(tensor, axis=0, factor=None, name=None, dtype=None):
                 (index * factor + i) if j == axis else index
                 for j, index in enumerate(indices)
             ]
-            result[0][bitwidth * i : bitwidth * (i + 1)] = tensor[tuple(new_indices)]
+            result[0][bitwidth * i: bitwidth *
+                      (i + 1)] = tensor[tuple(new_indices)]
         return result[0]
 
     return compute(tuple(new_shape), assign_val, name, new_type)
@@ -153,7 +158,8 @@ def unpack(tensor, axis=0, factor=None, name=None, dtype=None):
         ]
         lower = (indices[axis] % factor) * (bitwidth // factor)
         upper = lower + bitwidth // factor
-        result[0][0 : bitwidth // factor] = tensor[tuple(new_indices)][lower:upper]
+        result[0][0: bitwidth //
+                  factor] = tensor[tuple(new_indices)][lower:upper]
         return result[0]
 
     return compute(tuple(new_shape), assign_val, name, new_type)
@@ -172,7 +178,8 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
     if not dtype == None and not isinstance(dtype, (Type, str)):
         raise RuntimeError("Type error")
     dtype = config.init_dtype if dtype == None else dtype
-    ret_tensor = Tensor(shape, dtype, name=name, fcompute=fcompute, impl="compute")
+    ret_tensor = Tensor(shape, dtype, name=name,
+                        fcompute=fcompute, impl="compute")
     for tensor in ret_tensor.op.inputs:
         tensor.add_use(ret_tensor)
     return ret_tensor
@@ -199,10 +206,16 @@ def update(tensor: Tensor, fcompute, name=None):
         fcompute=fcompute,
         name=name,
         impl="compute",
-        output=tensor,
+        output=tensor if isinstance(
+            tensor.op, hcl_mlir.TensorOp) else tensor.op.output,
     )
     tensor.add_use(new_tensor)
     Schedule._CurrentSchedule.DataflowGraph.add_edges(tensor, new_tensor)
+    if Schedule._TopFunction != None:
+        stage = Stage(name)
+        Schedule._CurrentStage.append(stage)
+        Schedule._TopFunction.__setattr__(name, stage)
+        stage.__setattr__(tensor.name, tensor)
 
 
 def mutate(domain, fcompute, name=None):
@@ -214,7 +227,8 @@ def mutate(domain, fcompute, name=None):
         raise RuntimeError("The domain of mutate API must be a tuple")
     if name is None:
         name = UniqueName.get("tensor")
-    ret_tensor = Tensor(domain, None, name=name, fcompute=fcompute, impl="compute")
+    ret_tensor = Tensor(domain, None, name=name,
+                        fcompute=fcompute, impl="compute")
     return ret_tensor
 
 

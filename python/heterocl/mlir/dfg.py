@@ -26,6 +26,7 @@ class DataflowGraph(object):
     def __init__(self, name="", inputs=[]):
         self.name = name
         self.roots = []
+        self.leaves = []
         self.node_map = {}
         self.device_map = {}
         for tensor in inputs:
@@ -42,7 +43,6 @@ class DataflowGraph(object):
         return node
 
     def set_leaves(self, outputs):
-        self.leaves = []
         for output in outputs:
             if output.name not in self.node_map:
                 raise RuntimeError("Output not in DFG node map")
@@ -51,6 +51,8 @@ class DataflowGraph(object):
             self.leaves.append(self.node_map[output.name])
 
     def add_edge(self, src, dst):
+        if src.name == dst.name:
+            return
         src_node = self.create_node(src)
         dst_node = self.create_node(dst)
         src_node.add_child(dst_node)
