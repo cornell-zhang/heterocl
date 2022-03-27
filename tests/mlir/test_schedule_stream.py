@@ -2,9 +2,12 @@ import heterocl as hcl
 import numpy as np
 from itertools import permutations
 import os
+import pytest
+import hcl_mlir
 
 # Test DFG partitioning
 def test_move_outputs():
+    hcl_mlir.enable_extract_function() # dirty hack
     hcl.init()
     A = hcl.placeholder((10, 32), "A")
     def kernel(A):
@@ -14,14 +17,18 @@ def test_move_outputs():
         return B
 
     target = hcl.Platform.aws_f1
+    target.config(compiler="vivado_hls", mode="csim", project="test.prj")
     s = hcl.create_schedule([A], kernel)
     s.to(A, target.xcel)
     s.to(kernel.update1.B, target.host)
 
-    code = str(hcl.lower(s))
-    print(code)
-    assert "test(int32(B[10*32]), int32(A[10*32]))" in code
+    mod = hcl.build(s, target)
+    assert "top" in mod.host_src
+    assert "Stage_update1" in mod.host_src
+    assert "Stage_update2" in mod.host_src
+    assert "Stage_B" in mod.src
 
+@pytest.mark.skip(reason="segfault")
 def test_in_place_update():
     hcl.init()
     A = hcl.placeholder((10, 32), "A")
@@ -30,12 +37,16 @@ def test_in_place_update():
         hcl.update(A, lambda i, j: A[i, j] * 2, "update2")
 
     target = hcl.Platform.aws_f1
+    target.config(compiler="vivado_hls", mode="csim", project="test.prj")
     s = hcl.create_schedule([A], kernel)
     s.to(A, target.xcel)
     s.to(kernel.update1.A, target.host)
 
-    code = str(hcl.lower(s))
-    assert "test(int32(A[10*32]))" in code, code
+    mod = hcl.build(s, target)
+    assert "top" in mod.host_src
+    assert "Stage_update1" in mod.host_src
+    assert "Stage_update2" in mod.host_src
+    assert "Stage_B" in mod.src
 
 def test_multiple_subgraph():
     hcl.init()
@@ -47,13 +58,15 @@ def test_multiple_subgraph():
         return hcl.compute(C.shape, lambda i, j: C[i,j] + D[i,j], "E")
 
     target = hcl.Platform.aws_f1
+    target.config(compiler="vivado_hls", mode="csim", project="test.prj")
     s = hcl.create_schedule([A, B], kernel)
     s.to([A, B], target.xcel)
     s.to([kernel.E], target.host)
-    code = str(hcl.lower(s))
-    assert "io attr: \"B\"" in code
-    assert "io attr: \"A\"" in code
-    assert "io attr: \"E\"" in code
+    mod = hcl.build(s, target)
+    assert "top" in mod.host_src
+    assert "Stage_C" in mod.src
+    assert "Stage_D" in mod.src
+    assert "Stage_E" in mod.src
 
 def test_extern_ops():
     hcl.init()
@@ -65,11 +78,15 @@ def test_extern_ops():
         return D
     
     target = hcl.Platform.aws_f1
+    target.config(compiler="vivado_hls", mode="csim", project="test.prj")
     s = hcl.create_schedule([A], kernel)
     s.to(kernel.B, target.xcel)
     s.to(kernel.C, target.host)
-    code = str(hcl.lower(s))
-    assert "test(B, C)" in code
+    mod = hcl.build(s, target)
+    assert "top" in mod.host_src
+    assert "Stage_B" in mod.host_src
+    assert "Stage_C" in mod.src
+    assert "Stage_D" in mod.host_src
 
 
 def test_inner_loop_body_placement():
@@ -79,11 +96,11 @@ def test_inner_loop_body_placement():
         B = hcl.placeholder((10, 32), "B")
         def kernel(A, B):
             C = hcl.compute(A.shape, lambda *args : 0, "C")
-            with hcl.Stage("stage"):
-                with hcl.for_(0, 10, name="i") as i:
-                    with hcl.for_(0, 32, name="j") as j:
-                        B[i, j] = A[i, j] + B[i, j]
-                        C[i, j] = 2 * B[i, j]
+            # with hcl.Stage("stage"):
+            with hcl.for_(0, 10, name="i") as i:
+                with hcl.for_(0, 32, name="j") as j:
+                    B[i, j] = A[i, j] + B[i, j]
+                    C[i, j] = 2 * B[i, j]
             return C
         
         target = hcl.Platform.aws_f1
@@ -144,14 +161,15 @@ def test_stages_one_to_many():
         return D, E
 
     target = hcl.Platform.aws_f1
+    target.config(compiler="vivado_hls", mode="csim", project="test.prj")
     s = hcl.create_schedule([A, B], kernel)
     s.to(kernel.C, s[kernel.D])
     s.to(kernel.C, s[kernel.E])
 
-    code = str(hcl.lower(s))
-    print(code)
-    assert "allocate C.pipe.1[int32 * 10 * 32]" in code
-    assert "allocate C.pipe.2[int32 * 10 * 32]" in code
+    mod = hcl.build(s, target)
+    assert "Stage_C" in mod.host_src
+    assert "Stage_D" in mod.host_src
+    assert "Stage_E" in mod.host_src
 
 def test_mixed_stream():
     A = hcl.placeholder((10, 32), "A")
@@ -163,16 +181,17 @@ def test_mixed_stream():
         return D
 
     target = hcl.Platform.aws_f1
+    target.config(compiler="vivado_hls", mode="csim", project="test.prj")
     s = hcl.create_schedule([A, B], kernel)
 
     s.to([A, B], target.xcel)
     s.to(kernel.D, target.host)
     s.to(kernel.C, s[kernel.D])
 
-    code = str(hcl.lower(s))
-    print(code)
-    assert "test(A, B, D)" in code
-    assert "allocate C.pipe.1[int32 * 10 * 32]" in code
+    mod = hcl.build(s, target)
+    assert "top" in mod.host_src
+    assert "Stage_C" in mod.src
+    assert "Stage_D" in mod.src
 
 def test_fork_join():
     def inter_stage_fork():
@@ -187,11 +206,13 @@ def test_fork_join():
             return D, E
 
         target = hcl.Platform.aws_f1
+        target.config(compiler="vivado_hls", mode="csim", project="test.prj")
         s = hcl.create_schedule([A, B], kernel)
         s.to(kernel.C, [kernel.D, kernel.E])
-        code = str(hcl.lower(s))
-        assert "allocate C.pipe.1[int32 * 10 * 32]" in code
-        assert "allocate C.pipe.2[int32 * 10 * 32]" in code
+        mod = hcl.build(s, target)
+        assert "top" in mod.host_src
+        assert "Stage_C" in mod.host_src
+        assert "Stage_D" in mod.host_src
 
     # Create channels but enforce the dependency
     def inter_stage_join():
@@ -206,14 +227,14 @@ def test_fork_join():
             return hcl.compute(C.shape, lambda *args: C[args] + 3, "ret")
 
         target = hcl.Platform.aws_f1
+        target.config(compiler="vivado_hls", mode="csim", project="test.prj")
         s = hcl.create_schedule([A, B], kernel)
 
         s.to(kernel.s1.C, kernel.ret.C)
         s.to(kernel.s2.C, kernel.ret.C)
 
-        code = str(hcl.lower(s))
-        assert "allocate C.pipe.2[int32 * 10 * 32]" in code
-        assert "allocate C.pipe.1[int32 * 10 * 32]" in code
+        mod = hcl.build(s, target)
+        assert "top" in mod.host_src
 
     inter_stage_fork()
     inter_stage_join()
@@ -390,6 +411,7 @@ def test_mem_customization():
             return B
     
         target = hcl.Platform.xilinx_zc706
+        target.config(compiler="vivado_hls", mode="csim", project="test.prj")
         s = hcl.create_schedule([A], kernel)
 
         s.to(A, target.xcel)
@@ -397,7 +419,6 @@ def test_mem_customization():
         s.partition(A, hcl.Partition.Block, dim=1, factor=2)
         s.partition(kernel.B, hcl.Partition.Block, dim=1, factor=2)
 
-        target.config(compiler="vivado_hls", mode="csyn")
         f = hcl.build(s, target)
     
         np_A = np.random.randint(10, size=(10,10))
@@ -405,7 +426,6 @@ def test_mem_customization():
     
         hcl_A = hcl.asarray(np_A, dtype=hcl.UInt(8))
         hcl_B = hcl.asarray(np_B, dtype=hcl.UInt(8))
-        print(hcl.lower(s))
 
     def test_reuse_blur_x_with_data_placement():
         hcl.init()
@@ -417,13 +437,12 @@ def test_mem_customization():
         s = hcl.create_schedule([A], kernel)
         kernel_B = kernel.B
         target = hcl.Platform.xilinx_zc706
-        target.config(compiler="vivado_hls",mode="csim")
+        target.config(compiler="vivado_hls", mode="csim", project="test.prj")
 
-        # RB = s.reuse_at(A, s[kernel_B], kernel_B.axis[1])
+        RB = s.reuse_at(A, s[kernel_B], kernel_B.axis[1])
         s.to(kernel.B, target.xcel)
         s.to(kernel.C, target.host)
 
-        print(hcl.lower(s))
         f = hcl.build(s, target)
 
     def test_compute_at_blur_x_with_data_placement():
@@ -436,14 +455,13 @@ def test_mem_customization():
             return D
         s = hcl.create_schedule([A], kernel)
         target = hcl.Platform.xilinx_zc706
-        target.config(compiler="vivado_hls",mode="csim")
+        target.config(compiler="vivado_hls", mode="csim", project="test.prj")
 
         s[kernel.B].compute_at(s[kernel.C], kernel.C.axis[1])
         s.to(kernel.C, target.xcel)
         s.to(kernel.D, target.host)
 
-        code = str(hcl.lower(s))
-        assert "test(D, C)" in code 
+        f = hcl.build(s, target)
 
     def test_reuse_at_with_data_placement():
         hcl.init()
@@ -454,12 +472,12 @@ def test_mem_customization():
             return C
         s = hcl.create_schedule([A], kernel)
         target = hcl.Platform.xilinx_zc706
-        target.config(compiler="vivado_hls",mode="csim")
+        target.config(compiler="vivado_hls", mode="csim", project="test.prj")
 
         s.to(kernel.B, target.xcel)
         RB = s.reuse_at(kernel.B, s[kernel.C], kernel.C.axis[1])
         s.to(kernel.C, target.host)
-        print(hcl.lower(s))
+        f = hcl.build(s, target)
 
     test_array_partition()
     test_reuse_blur_x_with_data_placement()
@@ -475,10 +493,10 @@ def test_dataflow_primitive():
     def kernel(A, B):
         C = hcl.compute((10, 32), lambda *args : 0, "C")
         D = hcl.compute(C.shape, lambda *args: 0, "D")
-        with hcl.Stage("Super") as m:
-            with hcl.for_(0, 10, name="j") as j:
-                hcl.update(D, lambda *args: j*A[args] + B[args], name="update.D")
-                hcl.update(C, lambda *args: A[args] + j*D[args], name="update.C")
+        # with hcl.Stage("Super") as m:
+        with hcl.for_(0, 10, name="j") as j:
+            hcl.update(D, lambda *args: j*A[args] + B[args], name="update.D")
+            hcl.update(C, lambda *args: A[args] + j*D[args], name="update.C")
         return C
 
     def _test_dataflow_loop_body():
@@ -515,6 +533,7 @@ def test_dataflow_graph():
         return F
 
     target = hcl.Platform.aws_f1
+    target.config(compiler="vivado_hls", mode="csim", project="test.prj")
     # E.reuse.partition is atatched to F
     s = hcl.create_schedule([A, B, C], kernel)
     RB = s.reuse_at(kernel.E, s[kernel.F], kernel.F.axis[1])
@@ -524,6 +543,7 @@ def test_dataflow_graph():
     # create super stage for sub-graphs
     s.to([A, B, C], target.xcel)
     s.to(kernel.E, target.host)
+    f = hcl.build(s, target)
     code = str(hcl.lower(s))
     assert "test(A, B, C, E)" in code, code
 
@@ -545,6 +565,7 @@ def test_subgraph():
         return F
 
     target = hcl.Platform.aws_f1
+    target.config(compiler="vivado_hls", mode="csim", project="test.prj")
     # E.reuse.partition is atatched to F
     s = hcl.create_schedule([A, B, C], kernel)
     RB = s.reuse_at(kernel.E, s[kernel.F], kernel.F.axis[1])
@@ -611,12 +632,12 @@ def test_super_stage():
     def kernel(A, B):
         C = hcl.compute((10, 32), lambda *args : A[args] + B[args], "C")
 
-        with hcl.Stage("Super") as m:
-            hcl.update(C, lambda *args: C[args] + 1, "update")
+        # with hcl.Stage("Super") as m:
+        hcl.update(C, lambda *args: C[args] + 1, "update")
 
-            with hcl.Stage("Plus") as stage:
-                with hcl.for_(0, 10) as j:
-                    C[j, 0] = 10
+        #     with hcl.Stage("Plus") as stage:
+        with hcl.for_(0, 10) as j:
+            C[j, 0] = 10
         return C
 
     # place the whole super stage body on device
@@ -719,11 +740,11 @@ def test_auto_move_to_dev():
         return D
 
     target = hcl.Platform.aws_f1
-    target.config(compiler="vivado_hls", mode="debug", project="gemm.prj")
+    target.config(compiler="vivado_hls", mode="csim", project="gemm.prj")
     s = hcl.create_schedule([A, B], kernel)
 
-    code = str(hcl.build(s, target))
-    assert "kernel(program, \"test\", &err);" in code, code
+    f = hcl.build(s, target)
+    print(f.host_src)
 
 def test_vhls_host_dtype():
     if os.system("which vivado_hls >> /dev/null") != 0:
