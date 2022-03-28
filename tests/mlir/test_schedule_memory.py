@@ -6,7 +6,7 @@ def test_reuse_blur_x():
     hcl.init()
     A = hcl.placeholder((10, 10))
     B = hcl.compute((10, 8), lambda y, x: A[y, x] + A[y, x+1] + A[y, x+2])
-    s = hcl.create_schedule([A, B])
+    s = hcl.create_schedule([A])
     RB = s.reuse_at(A, s[B], B.axis[1])
     f = hcl.build(s)
 
@@ -32,7 +32,7 @@ def test_reuse_blur_x_tensor():
     A = hcl.placeholder((10, 10))
     X = hcl.compute((10, 10), lambda y, x: A[y, x])
     B = hcl.compute((10, 8), lambda y, x: X[y, x] + X[y, x+1] + X[y, x+2])
-    s = hcl.create_schedule([A, B])
+    s = hcl.create_schedule([A])
     RB = s.reuse_at(X, s[B], B.axis[1])
     f = hcl.build(s)
 
@@ -57,7 +57,7 @@ def test_reuse_blur_y():
     hcl.init()
     A = hcl.placeholder((10, 10))
     B = hcl.compute((8, 10), lambda y, x: A[y, x] + A[y+1, x] + A[y+2, x])
-    s = hcl.create_schedule([A, B])
+    s = hcl.create_schedule([A])
     RB = s.reuse_at(A, s[B], B.axis[0])
     f = hcl.build(s)
 
@@ -82,7 +82,7 @@ def test_reuse_blur_x_y():
     hcl.init()
     A = hcl.placeholder((10, 10), "A")
     B = hcl.compute((8, 8), lambda y, x: A[y, x] + A[y+1, x+1] + A[y+2, x+2], "B")
-    s = hcl.create_schedule([A, B])
+    s = hcl.create_schedule([A])
     RB_y = s.reuse_at(A, s[B], B.axis[0], "RB_y")
     RB_x = s.reuse_at(RB_y, s[B], B.axis[1], "RB_x")
     f = hcl.build(s)
@@ -109,7 +109,7 @@ def test_reuse_blur_x_3D():
     hcl.init()
     A = hcl.placeholder((10, 10, 2))
     B = hcl.compute((10, 8, 2), lambda y, x, c: A[y, x, c] + A[y, x+1, c] + A[y, x+2, c])
-    s = hcl.create_schedule([A, B])
+    s = hcl.create_schedule([A])
     RB = s.reuse_at(A, s[B], B.axis[1])
     f = hcl.build(s)
 
@@ -135,7 +135,7 @@ def test_reuse_blur_y_3D():
     hcl.init()
     A = hcl.placeholder((10, 10, 2))
     B = hcl.compute((8, 10, 2), lambda y, x, c: A[y, x, c] + A[y+1, x, c] + A[y+2, x, c])
-    s = hcl.create_schedule([A, B])
+    s = hcl.create_schedule([A])
     RB = s.reuse_at(A, s[B], B.axis[0])
     f = hcl.build(s)
 
@@ -161,7 +161,7 @@ def test_reuse_blur_x_y_3D():
     hcl.init()
     A = hcl.placeholder((10, 10, 2), "A")
     B = hcl.compute((8, 8, 2), lambda y, x, c: A[y, x, c] + A[y+1, x+1, c] + A[y+2, x+2, c], "B")
-    s = hcl.create_schedule([A, B])
+    s = hcl.create_schedule([A])
     RB_y = s.reuse_at(A, s[B], B.axis[0], "RB_y")
     RB_x = s.reuse_at(RB_y, s[B], B.axis[1], "RB_x")
     f = hcl.build(s)
@@ -188,7 +188,7 @@ def test_reuse_blur_x_y_z_3D():
     hcl.init()
     A = hcl.placeholder((10, 8, 6), "A")
     B = hcl.compute((8, 6, 4), lambda y, x, z: A[y, x, z] + A[y+1, x+1, z+1] + A[y+2, x+2, z+2], "B")
-    s = hcl.create_schedule([A, B])
+    s = hcl.create_schedule([A])
     RB_y = s.reuse_at(A, s[B], B.axis[0], "RB_y")
     RB_x = s.reuse_at(RB_y, s[B], B.axis[1], "RB_x")
     RB_z = s.reuse_at(RB_x, s[B], B.axis[2], "RB_z")
@@ -218,7 +218,7 @@ def test_conv2D_lb():
     r = hcl.reduce_axis(0, 3)
     c = hcl.reduce_axis(0, 3)
     B = hcl.compute((8, 8), lambda y, x: hcl.sum(A[y+r, x+c], axis=[r, c]))
-    s = hcl.create_schedule([A, B])
+    s = hcl.create_schedule([A])
     LB = s.reuse_at(A, s[B], B.axis[0])
     f = hcl.build(s)
 
@@ -247,7 +247,7 @@ def test_conv2D_wb():
     r = hcl.reduce_axis(0, 3)
     c = hcl.reduce_axis(0, 3)
     B = hcl.compute((8, 8), lambda y, x: hcl.sum(A[y+r, x+c], axis=[r, c]))
-    s = hcl.create_schedule([A, B])
+    s = hcl.create_schedule([A])
     WB = s.reuse_at(A, s[B], B.axis[1])
     f = hcl.build(s)
 
@@ -276,7 +276,7 @@ def test_conv2D_lb_wb():
     r = hcl.reduce_axis(0, 3)
     c = hcl.reduce_axis(0, 3)
     B = hcl.compute((8, 8), lambda y, x: hcl.sum(A[y+r, x+c], axis=[r, c]))
-    s = hcl.create_schedule([A, B])
+    s = hcl.create_schedule([A])
     LB = s.reuse_at(A, s[B], B.axis[0])
     WB = s.reuse_at(LB, s[B], B.axis[1])
     f = hcl.build(s)
@@ -304,7 +304,7 @@ def test_partition_basic():
     hcl.init()
     A = hcl.placeholder((10, 10), "A")
     B = hcl.compute(A.shape, lambda x, y: A[x, y], "B")
-    s = hcl.create_schedule([A, B])
+    s = hcl.create_schedule([A])
     s.partition(A)
     ir = str(hcl.lower(s))
     assert "affine_map<(d0, d1) -> (d0, d1, 0, 0)>" in ir
@@ -313,7 +313,7 @@ def test_partition_type():
     def test_1():
         A = hcl.placeholder((10, 10), "A")
         B = hcl.compute(A.shape, lambda x, y: A[x, y], "B")
-        s1 = hcl.create_schedule([A, B])
+        s1 = hcl.create_schedule([A])
         s1.partition(A)
         ir = str(hcl.lower(s1))
         assert "affine_map<(d0, d1) -> (d0, d1, 0, 0)>" in ir
@@ -321,7 +321,7 @@ def test_partition_type():
     def test_2():
         A = hcl.placeholder((10, 10), "A")
         B = hcl.compute(A.shape, lambda x, y: A[x, y], "B")
-        s1 = hcl.create_schedule([A, B])
+        s1 = hcl.create_schedule([A])
         s1.partition(A, hcl.Partition.Block, dim=0, factor=2)
         ir = str(hcl.lower(s1))
         assert "affine_map<(d0, d1) -> (d0 floordiv 5, d1 floordiv 5, d0 mod 5, d1 mod 5)>" in ir
@@ -329,7 +329,7 @@ def test_partition_type():
     def test_3():
         A = hcl.placeholder((10, 10), "A")
         B = hcl.compute(A.shape, lambda x, y: A[x, y], "B")
-        s1 = hcl.create_schedule([A, B])
+        s1 = hcl.create_schedule([A])
         s1.partition(A, hcl.Partition.Cyclic)
         ir = str(hcl.lower(s1))
         assert "affine_map<(d0, d1) -> (d0 mod 0, d1 mod 0, d0 floordiv 0, d1 floordiv 0)>" in ir
@@ -342,7 +342,7 @@ def test_partition_dim_factor():
     hcl.init()
     A = hcl.placeholder((10, 10), "A")
     B = hcl.compute(A.shape, lambda x, y: A[x, y], "B")
-    s = hcl.create_schedule([A, B])
+    s = hcl.create_schedule([A])
     s.partition(A, dim=1, factor=2)
     ir = str(hcl.lower(s))
     assert "affine_map<(d0, d1) -> (d0, 0, 0, d1)>" in ir
@@ -352,7 +352,7 @@ def test_reshape():
     A = hcl.placeholder((10, 10), "A")
     B = hcl.compute(A.shape, lambda x, y: A[x, y], "B")
     C = hcl.compute(A.shape, lambda x, y: B[x, y], "C")
-    s = hcl.create_schedule([A, C])
+    s = hcl.create_schedule([A])
     s.reshape(B, (2, 5, 2, 5))
     ir = str(hcl.lower(s))
     assert "memref<2x5x2x5xi32>" in ir
@@ -363,7 +363,7 @@ def test_conv2D_lb_wb_schedule():
     r = hcl.reduce_axis(0, 3)
     c = hcl.reduce_axis(0, 3)
     B = hcl.compute((8, 8), lambda y, x: hcl.sum(A[y+r, x+c], axis=[r, c]))
-    s = hcl.create_schedule([A, B])
+    s = hcl.create_schedule([A])
     xo, xi = s[B].split(B.axis[1], 4)
     s[B].reorder(xo, B.axis[0], xi)
     LB = s.reuse_at(A, s[B], B.axis[0])

@@ -13,6 +13,7 @@ from .dfg import DataflowGraph
 from .utils import get_extra_type_hints
 import functools
 
+
 def build_schedule(inputs, func=None, name=""):
     """Create a schedule for compute optimizations.
     inputs: list of Tensor
@@ -21,10 +22,9 @@ def build_schedule(inputs, func=None, name=""):
         inputs = [inputs]
     new_inputs = []
     for tensor in inputs:
-        if not isinstance(tensor.op, hcl_mlir.TensorOp):
-            print("Warning: Only placeholder inputs will be considered!")
-        else:
-            new_inputs.append(tensor)
+        if not isinstance(tensor.op, hcl_mlir.TensorOp) and len(tensor.op.inputs) != 0:
+            raise RuntimeError("Inputs are not roots!")
+        new_inputs.append(tensor)
     inputs = new_inputs
     # initialization
     GlobalInsertionPoint.clear()
@@ -86,7 +86,7 @@ def build_schedule(inputs, func=None, name=""):
             ret = [t.op.output for t in ret if not isinstance(
                 t.op, hcl_mlir.TensorOp)]
             for tensor in order:
-                if tensor not in inputs:
+                if not isinstance(tensor.op, hcl_mlir.TensorOp):
                     tensor.build()
         if hcl_mlir.flags.BIT_OP:
             sch.device_top.attributes["bit"] = UnitAttr.get()
@@ -110,7 +110,10 @@ def build_schedule(inputs, func=None, name=""):
             new_outputs = []
             for output in outputs:
                 new_outputs.append(output.result)
-            sch.DataflowGraph.set_leaves(outputs)
+            try:
+                sch.DataflowGraph.set_leaves(outputs)
+            except:
+                pass
             assert len(new_outputs) == len(outputs)
             ret_op = std.ReturnOp(new_outputs, ip=GlobalInsertionPoint.get())
             GlobalInsertionPoint.restore()
@@ -198,7 +201,8 @@ class Schedule(object):
             input_types = []
             for tensor in inputs:
                 if not isinstance(tensor.op, hcl_mlir.TensorOp):
-                    raise RuntimeError("Inputs should be hcl_mlir.TensorOp")
+                    continue
+                    # raise RuntimeError("Inputs should be hcl_mlir.TensorOp")
                 tensor.init()
                 input_types.append(tensor.op.memref_type)
                 extra_itypes += get_extra_type_hints(tensor.op.dtype)
@@ -208,7 +212,7 @@ class Schedule(object):
                 extra_itypes)
             device_top.attributes["extra_otypes"] = StringAttr.get("")
             device_top.add_entry_block()
-            if hcl_mlir.EXTRACT_FUNCTION:
+            if hcl_mlir.is_extract_function():
                 device_top.attributes["top"] = UnitAttr.get()
         GlobalInsertionPoint.save(InsertionPoint(self._device_module.body))
         GlobalInsertionPoint.save(InsertionPoint(device_top.entry_block))
@@ -338,9 +342,11 @@ class Schedule(object):
         ori_size = functools.reduce(lambda a, b: a*b, target.shape, 1)
         new_size = functools.reduce(lambda a, b: a*b, shape, 1)
         if ori_size != new_size:
-            raise RuntimeError("The reshaped tensor should have the same total size with the original tensor")
+            raise RuntimeError(
+                "The reshaped tensor should have the same total size with the original tensor")
         with get_context() as ctx, get_location():
-            res = hcl_d.ReshapeOp(MemRefType.get(shape, target.op.dtype), target.result, ip=GlobalInsertionPoint.get())
+            res = hcl_d.ReshapeOp(MemRefType.get(
+                shape, target.op.dtype), target.result, ip=GlobalInsertionPoint.get())
 
     def reuse_at(self, target, parent, axis, name=None):
         """Create a reuse buffer reusing the output of current stage
@@ -471,23 +477,38 @@ class Stage(object):
             raise RuntimeError("Not supported")
         if isinstance(parent, int):
             parent = self.op.axis[parent]
-        var = parent
+        idx = self.op.axis.index(parent)
+        if isinstance(parent, hcl_d.CreateLoopHandleOp):
+            var = parent.result
+        else:
+            var = parent
         with get_context() as ctx, get_location():
             i32 = IntegerType.get_unsigned(32)
             factor = IntegerAttr.get(i32, factor)
             split_op = hcl_d.SplitOp(
-                self.stage_handle.result, var.result, factor, ip=GlobalInsertionPoint.get())
+                self.stage_handle.result, var, factor, ip=GlobalInsertionPoint.get())
+        self.op.axis[idx] = split_op.results[0]
+        self.op.axis.insert(idx+1, split_op.results[1])
         return split_op.results[0], split_op.results[1]
 
     def tile(self, x_parent, y_parent, x_factor, y_factor):
         """ Perform tiling on two dimensions
         """
+        idx = self.op.axis.index(x_parent)
         with get_context() as ctx, get_location():
             i32 = IntegerType.get_unsigned(32)
             x_factor = IntegerAttr.get(i32, x_factor)
             y_factor = IntegerAttr.get(i32, y_factor)
-            tile_op = hcl_d.TileOp(self.stage_handle.result, x_parent.result,
-                                   y_parent.result, x_factor, y_factor, ip=GlobalInsertionPoint.get())
+            if isinstance(x_parent, hcl_d.CreateLoopHandleOp):
+                x_parent = x_parent.result
+            if isinstance(y_parent, hcl_d.CreateLoopHandleOp):
+                y_parent = y_parent.result
+            tile_op = hcl_d.TileOp(self.stage_handle.result, x_parent,
+                                   y_parent, x_factor, y_factor, ip=GlobalInsertionPoint.get())
+        self.op.axis[idx] = tile_op.results[0]
+        self.op.axis.insert(idx+1, tile_op.results[1])
+        self.op.axis.insert(idx+2, tile_op.results[2])
+        self.op.axis.insert(idx+3, tile_op.results[3])
         return tile_op.results[0], tile_op.results[1], tile_op.results[2], tile_op.results[3]
 
     def pipeline(self, var, initiation_interval=1):

@@ -18,7 +18,6 @@ def test_if():
     s = hcl.create_schedule([A, B], absolute)
     C = absolute.C
     o, i = s[C].split(C.axis[0], factor=3)
-    s[C].reorder(i, o)
     # test lower
     ir = hcl.lower(s)
     loops = hcl_mlir.get_affine_loop_nests(s.device_top)[0]
@@ -26,8 +25,8 @@ def test_if():
     # test build
     f = hcl.build(s)
     a_np = np.random.random((A.shape))
-    a_hcl = hcl.asarray(a_np, dtype="float32")
-    b_hcl = hcl.asarray(np.zeros(B.shape), dtype="float32")
+    a_hcl = hcl.asarray(a_np, dtype=hcl.Float(32))
+    b_hcl = hcl.asarray(np.zeros(B.shape), dtype=hcl.Float(32))
     f(a_hcl, b_hcl)
     b_np = np.abs(a_np)
     np.testing.assert_allclose(b_np, b_hcl.asnumpy())
@@ -77,7 +76,7 @@ def test_schedule_intra_stage():
         ir = hcl.lower(s)
         loops = hcl_mlir.get_affine_loop_nests(s.device_top)[0]
         assert "0 to 4" in str(loops[0]["body"])
-        assert "0 to min affine_map<(d0, d1) -> (3, -d0 + 10)>" in str(loops[1]["body"])
+        assert "0 to min affine_map<(d0) -> (3, d0 * -3 + 10)>" in str(loops[1]["body"])
         assert "0 to 20" in str(loops[2]["body"])
 
     test_unroll()
@@ -102,7 +101,6 @@ def test_schedule_inter_stage():
 
     def test_compute_at():
         s = hcl.create_schedule([A, B], popcount)
-        print(s.device_module)
         Out = popcount.Out
         s[popcount.C].compute_at(s[Out], Out.axis[1])
         ir = hcl.lower(s)

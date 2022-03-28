@@ -7,7 +7,7 @@ def test_int():
     a = hcl.placeholder((10,))
     b = hcl.compute(a.shape, lambda x: hcl.power(2, a[x]))
 
-    s = hcl.create_schedule([a, b])
+    s = hcl.create_schedule([a])
     f = hcl.build(s)
 
     np_a = np.random.randint(1, 10, (10,))
@@ -28,7 +28,7 @@ def test_large_int():
     b = hcl.placeholder((10,))
     c = hcl.compute(a.shape, lambda x: hcl.power(a[x], b[x]))
 
-    s = hcl.create_schedule([a, b, c])
+    s = hcl.create_schedule([a, b])
     f = hcl.build(s)
 
     np_a = np.random.randint(1, 10, (10,))
@@ -50,7 +50,7 @@ def test_float():
     a = hcl.placeholder((10,))
     b = hcl.compute(a.shape, lambda x: hcl.power(2.0, a[x]))
 
-    s = hcl.create_schedule([a, b])
+    s = hcl.create_schedule([a])
     f = hcl.build(s)
 
     np_a = np.random.rand(10)
@@ -71,7 +71,7 @@ def test_var():
     b = hcl.placeholder((10,))
     c = hcl.compute(a.shape, lambda x: hcl.power(a[x], b[x]))
 
-    s = hcl.create_schedule([a, b, c])
+    s = hcl.create_schedule([a, b])
     f = hcl.build(s)
 
     np_a = np.random.rand(10)

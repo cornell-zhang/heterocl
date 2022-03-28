@@ -42,7 +42,7 @@ def test_index_split():
     hcl.init()
     A = hcl.placeholder((10, 10), "A")
     B = hcl.compute(A.shape, lambda y, x: A[y][x], "B")
-    s = hcl.create_schedule([A, B])
+    s = hcl.create_schedule([A])
     s[B].split(B.axis[0], 5)
     code = hcl.build(s, target="vhls")
     assert "(y_outer * 5)" in code
@@ -52,7 +52,7 @@ def test_index_split_reshape():
     hcl.init()
     A = hcl.placeholder((10, 10), "A")
     B = hcl.compute(A.shape, lambda y, x: A[y][x], "B")
-    s = hcl.create_schedule([A, B])
+    s = hcl.create_schedule([A])
     s[B].split(B.axis[0], 5)
     s.reshape(B, (2, 5, 10))
     code = hcl.build(s, target="vhls")
@@ -62,7 +62,7 @@ def test_index_fuse():
     hcl.init()
     A = hcl.placeholder((10, 10), "A")
     B = hcl.compute(A.shape, lambda y, x: A[y][x], "B")
-    s = hcl.create_schedule([A, B])
+    s = hcl.create_schedule([A])
     s[B].fuse(B.axis[0], B.axis[1])
     code = hcl.build(s, target="vhls")
     assert "(y_x_fused % 10)" in code
@@ -80,7 +80,7 @@ def test_binary_conv():
         lambda nn, ff, yy, xx: hcl.sum(
             A[nn, rc, yy + ry, xx + rx] * B[ff, rc, ry, rx], axis=[rc, ry, rx], dtype=hcl.UInt(8)),
         dtype=hcl.UInt(8), name="C")
-    s = hcl.create_schedule([A, B, C])
+    s = hcl.create_schedule([A, B])
     s[C].split(C.axis[1], factor=5)
     code = hcl.build(s, target='vhls')
     assert "for (int ff_outer = 0; ff_outer < 13; ff_outer += 1)" in code
@@ -91,7 +91,7 @@ def test_legacy_interface():
     hcl.init()
     A = hcl.placeholder((10, 10), "A")
     B = hcl.compute(A.shape, lambda y, x: A[y][x], "B")
-    s = hcl.create_schedule([A, B])
+    s = hcl.create_schedule([A])
     s[B].fuse(B.axis[0], B.axis[1])
     code = hcl.build(s, target="vhls")
     assert "v0[10][10]" in code
