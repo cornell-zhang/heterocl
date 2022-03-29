@@ -6,6 +6,9 @@ HeteroCL: A Multi-Paradigm Programming Infrastructure for Software-Defined Recon
 
 [Website](http://heterocl.csl.cornell.edu/web/index.html) | [Installation](http://heterocl.csl.cornell.edu/doc/installation.html) | [Tutorials](http://heterocl.csl.cornell.edu/doc/tutorials/index.html) | [Samples](http://heterocl.csl.cornell.edu/doc/samples/index.html) | [Documentation](http://heterocl.csl.cornell.edu/doc/index.html)
 
+## HCL-MLIR
+For installing and using the HeteroCL MLIR dialect, please refer to the guide in the [HCL-MLIR](https://github.com/cornell-zhang/hcl-dialect-prototype) repository.
+
 ## Introduction
 
 With the pursuit of improving compute performance under strict power constraints, there is an increasing need for deploying applications to heterogeneous hardware architectures with accelerators, such as GPUs and FPGAs. However, although these heterogeneous computing platforms are becoming widely available, they are very difficult to program especially with FPGAs. As a result, the use of such platforms has been limited to a small subset of programmers with specialized hardware knowledge.
