@@ -157,7 +157,7 @@ void top("""
 def build_fpga_kernel(schedule, target=None, name="top", stmt=None):
     if target == "vhls":
         buf = io.StringIO()
-        hcl_d.emit_hlscpp(schedule.device_module, buf)
+        hcl_d.emit_vhls(schedule.device_module, buf)
         buf.seek(0)
         hls_code = buf.read()
         return hls_code
