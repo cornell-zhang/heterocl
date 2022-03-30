@@ -162,7 +162,7 @@ void CodeGenLLVM::AddFunctionInternal(const LoweredFunc& f, bool ret_void) {
   llvm::GlobalVariable* assert_flag_global = new llvm::GlobalVariable(
       *module_, llvm::Type::getInt32Ty(*ctx_), false,
       llvm::GlobalValue::PrivateLinkage, 0, "assert_flag");
-  assert_flag_global->setAlignment(16);
+  assert_flag_global->setAlignment(4);
   assert_flag_global->setInitializer(ConstInt32(1));
   assert_global_ptr_ =
       module_->getOrInsertGlobal("assert_flag", llvm::Type::getInt32Ty(*ctx_));
@@ -486,12 +486,15 @@ void CodeGenLLVM::CreateSerialFor(llvm::Value* begin, llvm::Value* end,
   break_bbs_.pop_back();
 }
 
-// cast operatpr
+// cast operator
 llvm::Value* CodeGenLLVM::CreateCast(Type from, Type to, llvm::Value* value) {
   llvm::Type* target = LLVMType(to);
   if (value->getType() == target) return value;
   if (to.is_handle()) {
     return builder_->CreateBitCast(value, target);
+  } else if ((from.is_int() || from.is_uint()) &&
+             (to.is_int() || to.is_uint())) {
+    return builder_->CreateIntCast(value, target, from.is_int());
   } else if ((from.is_fixed() || from.is_ufixed()) &&
              (to.is_fixed() || to.is_ufixed())) {
     if (from.bits() > to.bits()) {
@@ -578,7 +581,7 @@ llvm::Value* CodeGenLLVM::GetConstString(const std::string& str) {
   llvm::Type* type = llvm::ArrayType::get(t_char_, str.length() + 1);
   llvm::GlobalVariable* global = new llvm::GlobalVariable(
       *module_, type, true, llvm::GlobalValue::PrivateLinkage, 0, ".str");
-  global->setAlignment(16);
+  global->setAlignment(4);
   global->setInitializer(llvm::ConstantDataArray::getString(*ctx_, str));
   llvm::Constant* zero = ConstInt32(0);
   llvm::Constant* indices[] = {zero, zero};
