@@ -63,24 +63,31 @@ def test_gemm_fpga(m=32, n=32, k=32, dtype=hcl.Int(), target=None):
     report = mod.report()
     report.display()
 
-def test_gemm_ihls(m=32, n=32, k=32, dtype=hcl.Int(), target=None):
-    matrix_1 = hcl.placeholder((m, k), dtype=dtype, name="matrix1")
-    matrix_2 = hcl.placeholder((k, n), dtype=dtype, name="matrix2")
+def test_gemm_ihls(M=32, N=32, K=32, dtype=hcl.Int(), target=None):
 
-    def kernel(matrix_1, matrix_2):
-        r = hcl.reduce_axis(0, k, 'k')
-        return hcl.compute((m, n),
-                lambda y, x: hcl.sum(matrix_1[y, r] * matrix_2[r, x],
-                                     axis=r, dtype=dtype),
-                dtype=dtype,
-                name="out_matrix")
+    hcl.init(hcl.Int())
+    A = hcl.placeholder((M, K), name="A")
+    B = hcl.placeholder((K, N), name="B")
 
-    s = hcl.create_schedule([matrix_1, matrix_2], kernel)
-    out_matrix = kernel.out_matrix
+    def gemm(A, B):
+        k = hcl.reduce_axis(0, K, name="k")
+        C = hcl.compute((32, 32), lambda i, j:
+                hcl.sum(A[i, k] * B[k, j], axis=k), "C")
+        return C
 
-    mod = hcl.build(s, target="ihls")
-    print(s.device_module)
-    print(mod)
+    s = hcl.create_schedule([A, B], gemm)
+
+    # optimization
+    s_C = gemm.C
+    i0, i1 = s[s_C].split(s_C.axis[0], 8)
+    j0, j1 = s[s_C].split(s_C.axis[1], 8)
+    s[s_C].reorder(i0, j0, i1, j1)
+    s[s_C].unroll(j1)
+    s[s_C].pipeline(i1)
+    print(hcl.lower(s))
+
+    f = hcl.build(s, "ihls")
+    print(f)
 
 if __name__ == "__main__":
     # test_gemm_cpu()
