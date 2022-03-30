@@ -162,7 +162,7 @@ void CodeGenLLVM::AddFunctionInternal(const LoweredFunc& f, bool ret_void) {
   llvm::GlobalVariable* assert_flag_global = new llvm::GlobalVariable(
       *module_, llvm::Type::getInt32Ty(*ctx_), false,
       llvm::GlobalValue::PrivateLinkage, 0, "assert_flag");
-  assert_flag_global->setAlignment(1);
+  assert_flag_global->setAlignment(16);
   assert_flag_global->setInitializer(ConstInt32(1));
   assert_global_ptr_ =
       module_->getOrInsertGlobal("assert_flag", llvm::Type::getInt32Ty(*ctx_));
@@ -578,7 +578,7 @@ llvm::Value* CodeGenLLVM::GetConstString(const std::string& str) {
   llvm::Type* type = llvm::ArrayType::get(t_char_, str.length() + 1);
   llvm::GlobalVariable* global = new llvm::GlobalVariable(
       *module_, type, true, llvm::GlobalValue::PrivateLinkage, 0, ".str");
-  global->setAlignment(1);
+  global->setAlignment(16);
   global->setInitializer(llvm::ConstantDataArray::getString(*ctx_, str));
   llvm::Constant* zero = ConstInt32(0);
   llvm::Constant* indices[] = {zero, zero};
@@ -975,8 +975,7 @@ llvm::Value* CodeGenLLVM::VisitExpr_(const Load* op) {
     int alignment, native_bits;
     GetAlignment(t, op->buffer_var.get(), op->index, &alignment, &native_bits);
     llvm::Value* ptr = CreateBufferPtr(t, buffer, index);
-    llvm::LoadInst* load =
-        builder_->CreateAlignedLoad(ptr, alignment, is_volatile);
+    llvm::LoadInst* load = builder_->CreateLoad(ptr, is_volatile);
     AddAliasInfo(load, op->buffer_var.get(), op->index, t);
     return load;
   } else {
@@ -993,8 +992,7 @@ llvm::Value* CodeGenLLVM::VisitExpr_(const Load* op) {
             CreateBufferPtr(t.element_of(), buffer, MakeValue(ramp->base));
         ptr = builder_->CreatePointerCast(ptr,
                                           LLVMType(t)->getPointerTo(addrspace));
-        llvm::LoadInst* load =
-            builder_->CreateAlignedLoad(ptr, alignment, is_volatile);
+        llvm::LoadInst* load = builder_->CreateLoad(ptr, is_volatile);
         AddAliasInfo(load, op->buffer_var.get(), op->index, t);
         return load;
       }
@@ -1005,8 +1003,7 @@ llvm::Value* CodeGenLLVM::VisitExpr_(const Load* op) {
   llvm::Value* ret = llvm::UndefValue::get(LLVMType(t));
   auto f = [&](int i, llvm::Value* index) {
     llvm::Value* ptr = CreateBufferPtr(t.element_of(), buffer, index);
-    llvm::LoadInst* load =
-        builder_->CreateAlignedLoad(ptr, basic_align, is_volatile);
+    llvm::LoadInst* load = builder_->CreateLoad(ptr, is_volatile);
     ret = builder_->CreateInsertElement(ret, load, ConstInt32(i));
     AddAliasInfo(load, op->buffer_var.get(), Expr(), t);
   };
@@ -1261,8 +1258,7 @@ void CodeGenLLVM::VisitStmt_(const Store* op) {
     int alignment, native_bits;
     GetAlignment(t, op->buffer_var.get(), op->index, &alignment, &native_bits);
     llvm::Value* ptr = CreateBufferPtr(t, buffer, index);
-    llvm::StoreInst* store =
-        builder_->CreateAlignedStore(value, ptr, alignment, is_volatile);
+    llvm::StoreInst* store = builder_->CreateStore(value, ptr, is_volatile);
     AddAliasInfo(store, op->buffer_var.get(), op->index, op->value.type());
     return;
   } else {
@@ -1279,8 +1275,7 @@ void CodeGenLLVM::VisitStmt_(const Store* op) {
             CreateBufferPtr(t.element_of(), buffer, MakeValue(ramp->base));
         ptr = builder_->CreatePointerCast(ptr,
                                           LLVMType(t)->getPointerTo(addrspace));
-        llvm::StoreInst* store =
-            builder_->CreateAlignedStore(value, ptr, alignment, is_volatile);
+        llvm::StoreInst* store = builder_->CreateStore(value, ptr, is_volatile);
         AddAliasInfo(store, op->buffer_var.get(), op->index, op->value.type());
         return;
       }
@@ -1291,9 +1286,8 @@ void CodeGenLLVM::VisitStmt_(const Store* op) {
   int basic_align = t.bits() / 8;
   auto f = [&](int i, llvm::Value* index) {
     llvm::Value* ptr = CreateBufferPtr(t.element_of(), buffer, index);
-    llvm::StoreInst* store =
-        builder_->CreateAlignedStore(builder_->CreateExtractElement(value, i),
-                                     ptr, basic_align, is_volatile);
+    llvm::StoreInst* store = builder_->CreateStore(
+        builder_->CreateExtractElement(value, i), ptr, is_volatile);
     AddAliasInfo(store, op->buffer_var.get(), Expr(), op->value.type());
   };
   this->Scalarize(op->index, f);
@@ -1403,8 +1397,7 @@ void CodeGenLLVM::VisitStmt_(const Allocate* op) {
       Expr index = UIntImm::make(UInt(32), i);
       GetAlignment(dtype, op->buffer_var.get(), index, &alignment,
                    &native_bits);
-      llvm::StoreInst* store =
-          builder_->CreateAlignedStore(value, ptr, alignment, is_volatile);
+      llvm::StoreInst* store = builder_->CreateStore(value, ptr, is_volatile);
       AddAliasInfo(store, op->buffer_var.get(), index, dtype);
     }
   }
@@ -1588,14 +1581,14 @@ void CodeGenLLVM::VisitStmt_(const Break* op) {
 
 void CodeGenLLVM::VisitStmt_(const While* op) {
   using llvm::BasicBlock;
-  llvm::Value* cond = MakeValue(op->condition);
+  llvm::Value* cond = CreateCast(Int(32), Int(1), MakeValue(op->condition));
   BasicBlock* while_body = BasicBlock::Create(*ctx_, "while_body", function_);
   BasicBlock* while_end = BasicBlock::Create(*ctx_, "while_end", function_);
   break_bbs_.push_back(while_end);
   builder_->CreateCondBr(cond, while_body, while_end);
   builder_->SetInsertPoint(while_body);
   this->VisitStmt(op->body);
-  cond = MakeValue(op->condition);
+  cond = CreateCast(Int(32), Int(1), MakeValue(op->condition));
   builder_->CreateCondBr(cond, while_body, while_end);
   builder_->SetInsertPoint(while_end);
   break_bbs_.pop_back();
