@@ -487,8 +487,8 @@ class Stage(object):
             factor = IntegerAttr.get(i32, factor)
             split_op = hcl_d.SplitOp(
                 self.stage_handle.result, var, factor, ip=GlobalInsertionPoint.get())
-        self.op.axis[idx] = split_op.results[0]
-        self.op.axis.insert(idx+1, split_op.results[1])
+        # self.op.axis[idx] = split_op.results[0]
+        # self.op.axis.insert(idx+1, split_op.results[1])
         return split_op.results[0], split_op.results[1]
 
     def tile(self, x_parent, y_parent, x_factor, y_factor):
@@ -505,10 +505,10 @@ class Stage(object):
                 y_parent = y_parent.result
             tile_op = hcl_d.TileOp(self.stage_handle.result, x_parent,
                                    y_parent, x_factor, y_factor, ip=GlobalInsertionPoint.get())
-        self.op.axis[idx] = tile_op.results[0]
-        self.op.axis.insert(idx+1, tile_op.results[1])
-        self.op.axis.insert(idx+2, tile_op.results[2])
-        self.op.axis.insert(idx+3, tile_op.results[3])
+        # self.op.axis[idx] = tile_op.results[0]
+        # self.op.axis.insert(idx+1, tile_op.results[1])
+        # self.op.axis.insert(idx+2, tile_op.results[2])
+        # self.op.axis.insert(idx+3, tile_op.results[3])
         return tile_op.results[0], tile_op.results[1], tile_op.results[2], tile_op.results[3]
 
     def pipeline(self, var, initiation_interval=1):
@@ -516,21 +516,25 @@ class Stage(object):
         """
         if isinstance(var, int):
             var = self.op.axis[var]
+        if isinstance(var, hcl_d.CreateLoopHandleOp):
+            var = var.result
         with get_context(), get_location():
             i32 = IntegerType.get_unsigned(32)
             ii = IntegerAttr.get(i32, initiation_interval)
             hcl_d.PipelineOp(self.stage_handle.result,
-                             var.result, ii, ip=GlobalInsertionPoint.get())
+                             var, ii, ip=GlobalInsertionPoint.get())
 
     def unroll(self, var, factor=0):
         """Unroll the iteration.
         """
         if isinstance(var, int):
             var = self.op.axis[var]
+        if isinstance(var, hcl_d.CreateLoopHandleOp):
+            var = var.result
         with get_context(), get_location():
             i32 = IntegerType.get_unsigned(32)
             factor = IntegerAttr.get(i32, factor)
-            hcl_d.UnrollOp(self.stage_handle.result, var.result,
+            hcl_d.UnrollOp(self.stage_handle.result, var,
                            factor, ip=GlobalInsertionPoint.get())
 
     def parallel(self, var):
