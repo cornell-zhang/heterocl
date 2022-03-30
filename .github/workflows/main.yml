@@ -28,3 +28,4 @@ jobs:
           source /opt/xilinx/xrt/setup.sh
           export LOCAL_CI_TEST=1
           python tests/test_cont_integration.py
+          pip uninstall heterocl hlib -y

@@ -1486,6 +1486,7 @@ void CodeGenLLVM::VisitStmt_(const KernelDef* op) {
       arg_types.push_back(LLVMType(t));
     }
   }
+
   llvm::FunctionType* ftype = llvm::FunctionType::get(
       is_void->value ? t_void_ : LLVMType(op->ret_type), arg_types, false);
   CHECK(module_->getFunction(op->name) == nullptr)
@@ -1528,7 +1529,21 @@ llvm::Value* CodeGenLLVM::VisitExpr_(const KernelExpr* op) {
     arg_types.push_back(LLVMType(arg.type()));
   }
   llvm::Function* f = module_->getFunction(op->name);
+
+  llvm::PointerType* PTy = llvm::cast<llvm::PointerType>(f->getType());
+  llvm::FunctionType* FTy =
+      llvm::cast<llvm::FunctionType>(PTy->getElementType());
+  for (unsigned i = 0; i != arg_value.size(); ++i) {
+    if (FTy->getParamType(i) != arg_value[i]->getType()) {
+      if (op->args[i].type().is_handle()) {
+        arg_value[i] = CreateCast(op->args[i].type(), op->args[i].type(),
+                                  MakeValue(op->args[i]));
+      }
+    }
+  }
+
   llvm::Value* ret_val = builder_->CreateCall(f, arg_value);
+
   if (kernel_has_assert_[op->name]) {
     llvm::BasicBlock* assert_true_kernel =
         llvm::BasicBlock::Create(*ctx_, "assert_true_kernel", function_);
