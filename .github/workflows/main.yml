@@ -23,8 +23,8 @@ jobs:
           unset LM_LICENSE_FILE
           export XILINXD_LICENSE_FILE=2100@flex.ece.cornell.edu
           export VITIS=/opt/xilinx/Xilinx_Vivado_vitis_2019.2/Vitis/2019.2
+          export XDEVICE=/opt/xilinx/platforms/xilinx_u280_xdma_201920_3/xilinx_u280_xdma_201920_3.xpfm
           source $VITIS/settings64.sh
           source /opt/xilinx/xrt/setup.sh
           export LOCAL_CI_TEST=1
-          which vivado_hls
           python tests/test_cont_integration.py
