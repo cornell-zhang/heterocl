@@ -163,8 +163,7 @@ void CodeGenLLVM::AddFunctionInternal(const LoweredFunc& f, bool ret_void) {
       *module_, llvm::Type::getInt32Ty(*ctx_), false,
       llvm::GlobalValue::PrivateLinkage, 0, "assert_flag");
   assert_flag_global->setAlignment(1);
-  assert_flag_global->setInitializer(
-      llvm::ConstantDataArray::getString(*ctx_, "assert global flag"));
+  assert_flag_global->setInitializer(ConstInt32(1));
   assert_global_ptr_ =
       module_->getOrInsertGlobal("assert_flag", llvm::Type::getInt32Ty(*ctx_));
 
@@ -1687,7 +1686,7 @@ void CodeGenLLVM::VisitStmt_(const Assert* op) {
   using llvm::BasicBlock;
   std::string if_then_name = "if_then_";
   std::string if_end_name = "if_end_";
-  llvm::Value* cond = MakeValue(op->condition);
+  llvm::Value* cond = CreateCast(Int(32), Int(1), MakeValue(op->condition));
   BasicBlock* assertstmt_true =
       BasicBlock::Create(*ctx_, "assertstmt_true", function_);
   BasicBlock* assertstmt_false =
