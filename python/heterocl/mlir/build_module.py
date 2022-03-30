@@ -124,9 +124,9 @@ def separate_host_device(schedule):
     roots = [node.name for node in schedule.DataflowGraph.roots]
     hcl_d.host_device_separation(
         host_module, xcel_module, extern_module, device_map, roots, subgraph_name)
-    host_module.dump()
-    xcel_module.dump()
-    extern_module.dump()
+    # host_module.dump()
+    # xcel_module.dump()
+    # extern_module.dump()
 
 
 def generate_kernel_header(schedule):
@@ -158,6 +158,12 @@ def build_fpga_kernel(schedule, target=None, name="top", stmt=None):
     if target == "vhls":
         buf = io.StringIO()
         hcl_d.emit_hlscpp(schedule.device_module, buf)
+        buf.seek(0)
+        hls_code = buf.read()
+        return hls_code
+    elif target == "ihls":
+        buf = io.StringIO()
+        hcl_d.emit_ihls(schedule.device_module, buf)
         buf.seek(0)
         hls_code = buf.read()
         return hls_code

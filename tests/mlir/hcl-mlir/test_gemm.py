@@ -63,6 +63,26 @@ def test_gemm_fpga(m=32, n=32, k=32, dtype=hcl.Int(), target=None):
     report = mod.report()
     report.display()
 
+def test_gemm_ihls(m=32, n=32, k=32, dtype=hcl.Int(), target=None):
+    matrix_1 = hcl.placeholder((m, k), dtype=dtype, name="matrix1")
+    matrix_2 = hcl.placeholder((k, n), dtype=dtype, name="matrix2")
+
+    def kernel(matrix_1, matrix_2):
+        r = hcl.reduce_axis(0, k, 'k')
+        return hcl.compute((m, n),
+                lambda y, x: hcl.sum(matrix_1[y, r] * matrix_2[r, x],
+                                     axis=r, dtype=dtype),
+                dtype=dtype,
+                name="out_matrix")
+
+    s = hcl.create_schedule([matrix_1, matrix_2], kernel)
+    out_matrix = kernel.out_matrix
+
+    mod = hcl.build(s, target="ihls")
+    print(s.device_module)
+    print(mod)
+
 if __name__ == "__main__":
-    test_gemm_cpu()
-    test_gemm_fpga()
+    # test_gemm_cpu()
+    # test_gemm_fpga()
+    test_gemm_ihls()
