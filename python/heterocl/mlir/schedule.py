@@ -324,8 +324,9 @@ class Schedule(object):
                 partition_type = IntegerAttr.get(i32, 2)
             else:
                 raise RuntimeError("Not supported partition type")
-            factor = IntegerAttr.get(i32, factor)
-            dim = IntegerAttr.get(i32, dim)
+            ui32 = IntegerType.get_unsigned(32)
+            factor = IntegerAttr.get(ui32, factor)
+            dim = IntegerAttr.get(ui32, dim)
             res = hcl_d.PartitionOp(
                 target.result, partition_type, dim, factor, ip=GlobalInsertionPoint.get())
 
