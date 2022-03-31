@@ -181,7 +181,7 @@ def build_fpga_kernel(schedule, target=None, name="top", stmt=None):
 
     # generate xcel code
     buf = io.StringIO()
-    hcl_d.emit_hlscpp(schedule.xcel_module, buf)
+    hcl_d.emit_vhls(schedule.xcel_module, buf)
     buf.seek(0)
     hls_code = buf.read()
     with open("{}/kernel.cpp".format(target.project), "w") as outfile:
@@ -189,7 +189,7 @@ def build_fpga_kernel(schedule, target=None, name="top", stmt=None):
 
     # generate host code
     host_buf = io.StringIO()
-    hcl_d.emit_hlscpp(schedule.host_module, host_buf)
+    hcl_d.emit_vhls(schedule.host_module, host_buf)
     host_buf.seek(0)
     host_code = host_buf.read()
     with open("{}/host.cpp".format(target.project), "w") as outfile:
@@ -197,7 +197,7 @@ def build_fpga_kernel(schedule, target=None, name="top", stmt=None):
 
     # generate extern code
     extern_buf = io.StringIO()
-    hcl_d.emit_hlscpp(schedule.extern_module, extern_buf)
+    hcl_d.emit_vhls(schedule.extern_module, extern_buf)
     extern_buf.seek(0)
     extern_code = extern_buf.read()
     with open("{}/extern.cpp".format(target.project), "w") as outfile:
