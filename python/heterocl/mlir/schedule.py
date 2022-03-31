@@ -366,6 +366,7 @@ class Schedule(object):
             memref_type = MemRefType.get(target.shape, f32, loc=loc)
             res = hcl_d.ReuseAtOp(memref_type, parent.stage_handle.result,
                                   target.result, axis.result, ip=GlobalInsertionPoint.get())
+        return res
 
     def buffer_at(self, target, parent, axis, name=None):
         """Create a write buffer reusing the output of current stage"""
