@@ -8,12 +8,14 @@ ImperativeLoopDepth = ContextVar("ImperativeLoopDepth", default=0)
 StageName = ContextVar("StageName", default="")
 NestedCompute = ContextVar("NestedCompute", default=0)
 
+
 class UniqueName(object):
     scalar_idx = 0
     loop_idx = 0
     tensor_idx = 0
     stage_idx = 0
     schedule_idx = 0
+    reduction_axis_idx = 0
 
     def __init__(self):
         pass
@@ -36,6 +38,9 @@ class UniqueName(object):
         elif case == "schedule":
             name = "schedule_" + str(cls.schedule_idx)
             cls.schedule_idx += 1
+        elif case == "reduction_axis":
+            name = "reduction_axis_" + str(cls.loop_idx)
+            cls.reduction_axis_idx += 1
         else:
             raise RuntimeError(f"Unrecognized case in get_unique_name: {case}")
         return name

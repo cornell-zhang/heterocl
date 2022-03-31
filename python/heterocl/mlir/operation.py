@@ -66,6 +66,8 @@ def scalar(init, name=None, dtype=None):
 
 def reduce_axis(lower, upper, name=None):
     """Create a reduction axis for reduction operations."""
+    if name is None:
+        name = UniqueName.get("reduction_axis")
     return hcl_mlir.ReduceVar(None, bound=(lower, upper), name=name)
 
 

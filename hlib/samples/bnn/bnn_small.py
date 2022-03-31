@@ -61,7 +61,64 @@ def build_bnn_inf(batch_size, target):
     return hcl.build(s, target=target)
 
 
+def build_bnn_inf_opt(batch_size=batch_size, target=target):
+    hcl_ph = []
+    input_image = hcl.placeholder(
+        (batch_size, 1, 16, 16), "input_image", qtype_bit)
+    hcl_ph.append(hcl.placeholder((16, 1, 3, 3), "w_conv1", qtype_bit))
+    hcl_ph.append(hcl.placeholder((16, 16, 16), "bn_t1", qtype_float))
+    hcl_ph.append(hcl.placeholder((32, 16, 3, 3), "w_conv2", qtype_bit))
+    hcl_ph.append(hcl.placeholder((32, 8, 8), "bn_t2", qtype_float))
+    hcl_ph.append(hcl.placeholder((256, 512), "w_fc1", qtype_bit))
+    hcl_ph.append(hcl.placeholder((256,), "b_fc1", qtype_float))
+    hcl_ph.append(hcl.placeholder((10, 256), "w_fc2", qtype_bit))
+    hcl_ph.append(hcl.placeholder((10,), "b_fc2", qtype_float))
+    # for name in params:
+    #     dtype = qtype_bit if ("conv" in name or "w_" in name) else qtype_float
+    #     hcl_ph.append(hcl.placeholder(params[name].shape,name,dtype=dtype))
+
+    # build the network
+    s = hcl.create_schedule([input_image] + hcl_ph, build_bnn)
+
+    # compute optimization
+    layer_names = build_bnn.__dict__.keys()
+    for layer in layer_names:
+        s_layer = getattr(build_bnn, layer)
+        if "bn" in layer:  # fuse conv
+            s_conv = getattr(build_bnn, "conv" + layer[-1])
+            s[s_conv].compute_at(s[s_layer], s_layer.axis[3])
+            if layer == "bn1":
+                s[s_layer].pipeline(s_layer.axis[3])  # will be refreshed
+            else:
+                s[s_conv].pipeline(s_conv.axis[4])
+        elif "pool" in layer:
+            s[s_layer].pipeline(s_layer.axis[2])
+        elif "fc" in layer:
+            s[s_layer].pipeline(s_layer.axis[1])
+        elif "flatten" in layer:
+            s[s_layer].pipeline(s_layer.axis[1])
+        elif "dense_relu" in layer:
+            s_fc = getattr(build_bnn, "fc1")
+            s[s_fc].compute_at(s[s_layer], s_layer.axis[1])
+            s[s_fc].pipeline(s_fc.axis[2])
+
+    if isinstance(target, hcl.Platform):
+        s.to([input_image] + hcl_ph, target.xcel)
+        s.to(build_bnn.fc2, target.host)
+
+    # memory optimization
+    s.partition(input_image, hcl.Partition.Block, dim=1, factor=8)
+    for ph in reversed(hcl_ph):
+        if ph.name in ["b_fc2", "fc2"]:
+            s.partition(ph, hcl.Partition.Complete, dim=1)
+        else:
+            s.partition(ph, hcl.Partition.Block, dim=1, factor=8)
+
+    return hcl.build(s, target=target)
+
+
 if __name__ == '__main__':
 
-    f = build_bnn_inf(batch_size, target)
+    # f = build_bnn_inf(batch_size, target)
+    f = build_bnn_inf_opt(batch_size, target)
     f()
