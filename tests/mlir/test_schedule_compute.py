@@ -199,7 +199,7 @@ def test_split_reorder():
     def test_case_1():
         s = hcl.create_schedule([a, b])
         xo, xi = s[c].split(c.axis[0], factor=2, mode="transform")
-        yo, yi = s[c].split(c.axis[2], factor=5, mode="transform")
+        yo, yi = s[c].split(c.axis[1], factor=5, mode="transform")
         s[c].reorder(yo, xo, yi, xi)
         ir = hcl.lower(s)
         loops = hcl_mlir.get_affine_loop_nests(s.device_top)[0]
@@ -215,7 +215,7 @@ def test_split_reorder():
     def test_case_2():
         s = hcl.create_schedule([a, b])
         xo, xi = s[c].split(c.axis[0], factor=3, mode="transform")
-        yo, yi = s[c].split(c.axis[2], factor=3, mode="transform")
+        yo, yi = s[c].split(c.axis[1], factor=3, mode="transform")
         s[c].reorder(yo, yi, xo, xi)
         ir = hcl.lower(s)
         loops = hcl_mlir.get_affine_loop_nests(s.device_top)[0]
@@ -240,8 +240,8 @@ def test_split_reorder_num_axis():
 
     s = hcl.create_schedule([a, b])
     xo, xi = s[c].split(0, factor=2, mode="transform")
-    yo, yi = s[c].split(2, factor=5, mode="transform")
-    s[c].reorder(2, 0, 3, 1)
+    yo, yi = s[c].split(1, factor=5, mode="transform")
+    s[c].reorder(yo, xo, yi, xi)
     ir = hcl.lower(s)
     loops = hcl_mlir.get_affine_loop_nests(s.device_top)[0]
     assert "j.outer" in str(loops[0]["name"])
@@ -319,7 +319,7 @@ def test_compute_at():
         s = hcl.create_schedule([A])
         s[B].compute_at(s[C], C.axis[2])
         s[C].split(C.axis[0], factor=3)
-        s[C].split(C.axis[2], factor=3)
+        s[C].split(C.axis[1], factor=3)
         ir = hcl.lower(s)
         loops = hcl_mlir.get_affine_loop_nests(s.device_top)[0]
         assert "ii.outer" in str(loops[0]["name"])
@@ -375,7 +375,7 @@ def test_compute_at():
         s = hcl.create_schedule([A])
         s[B].compute_at(s[C], C.axis[2])
         yo, yi = s[C].split(C.axis[0], factor=3)
-        xo, xi = s[C].split(C.axis[2], factor=3)
+        xo, xi = s[C].split(C.axis[1], factor=3)
         s[C].reorder(yo, xo, yi, xi)
         ir = hcl.lower(s)
         loops = hcl_mlir.get_affine_loop_nests(s.device_top)[0]
