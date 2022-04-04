@@ -150,7 +150,7 @@ def unpack(tensor, axis=0, factor=None, name=None, dtype=None):
     else:
         new_type = UInt(bitwidth // factor)
     new_shape = [
-        size // factor if i == axis else size for i, size in enumerate(tensor.shape)
+        size * factor if i == axis else size for i, size in enumerate(tensor.shape)
     ]
 
     def assign_val(*indices):
