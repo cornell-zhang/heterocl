@@ -27,6 +27,9 @@ The speedup is over a single-core single-thread CPU execution on AWS F1.
 | :-------- | :----------------: | :----: | :----:| :-----: | :----: | :------------: | :------:| :------: |
 | **[KNN Digit Recognition](samples/digitrec/)**<br/>K=3 #images=1800<br/>`uint49` | 4.1k (0.42%) | 5.5k (0.26%) | 38 (2.0%) | 0 (0.0%) | 250 | 0.73 | 0.07 | 10.4 |
 | **[K-Means](samples/kmeans)**<br/>K=16 #elem=320 x 32<br/>`int32` | 168.2k (16.6%) | 212.1k (10.0%) | 54 (2.8%) | 1.5k (22.5%) | 187 | 65.6 | 0.79 | 83.0 | 
+| **[Jacobi(Stencil)](samples/jacobi)**<br/>480x640<br/>`fp32` | 15.2k (1.5%) | 26.5k (1.24%) | 30 (1.54%) | 99 (1.29%) | 250 | 16.27 | 2.21 | 7.36 | 
+| **[Gaussian(Stencil)](samples/gaussian)**<br/>480x640<br/>`fp32` | 28.9k (2.8%) | 49.9k (2.4%) | 30 (1.54%) | 344 (5.1%) | 250 | 20.31 | 1.6 | 13.2 | 
+| **[Siedel(Stencil)](samples/seidel)**<br/>480x640<br/>`fp32` | 10.2k (0.99%) | 19.1k (0.89%) | 23 (1.18%) | 56 (0.82%) | 250 | 23.86 | 1.42 | 16.8 | 
 
 ## Related Publications
 
