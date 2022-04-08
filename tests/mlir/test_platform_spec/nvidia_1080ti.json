@@ -1,0 +1,96 @@
+{
+    "type": "platform/nvidia_gtx_1080ti",
+    "interfaces": [
+        {
+            "type": "bus/ETH",
+            "name": "ethernet",
+            "role": "master|slave"
+        }
+    ],
+    "interconnects": [
+        {
+            "type": "bus/PCIe",
+            "name": "pcie_bus"
+        }
+    ],
+    "components": [
+        {
+            "type": "compute/CPU",
+            "part": "intel-xeon-silver-4214",
+            "interfaces": [
+                {
+                    "type": "port/pcie",
+                    "bus": "pcie_bus",
+                    "role": "master|slave"
+                }
+            ],
+            "components": [
+                {
+                    "type": "component/core",
+                    "count": 48,
+                    "frequency": "2.2GHz"
+                }
+            ]
+        },
+        {
+            "type": "storage/NVMe-SSD",
+            "part": "samsung-983-DCT",
+            "capacity": "1.92TB",
+            "interfaces": [
+                {
+                    "type": "port/pcie",
+                    "bus": "pcie_bus",
+                    "role": "master|slave"
+                }
+            ]
+        },
+        {
+            "type": "compute/GPU",
+            "part": "gtx-1080-ti",
+            "architecture": "pascal",
+            "interfaces": [
+                {
+                    "type": "port/pcie",
+                    "bus": "pcie_bus",
+                    "role": "master|slave"
+                }
+            ],
+            "components": [
+                {
+                    "type": "memory/GDDR5X",
+                    "capacity": "11GB",
+                    "frequency": "1376MHz",
+                    "interfaces": [
+                        {
+                            "type": "bus/PCIe",
+                            "name": "axi_smart_connect",
+                            "role": "slave"
+                        }
+                    ]
+                },
+                {
+                    "type": "components/SM",
+                    "count": 25,
+                    "components": [
+                        {
+                            "type": "components/SP",
+                            "count": 128
+                        },
+                        {
+                            "type": "memory/L1-Cache",
+                            "capacity": "48KB"
+                        },
+                        {
+                            "type": "memory/Shared-Memory",
+                            "capacity": "48KB"
+                        }
+                    ]
+                },
+                {
+                    "type": "memory/L2-cache",
+                    "capacity": "2.5MB"
+                }
+            ]
+        }
+    ]
+}
