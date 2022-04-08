@@ -167,7 +167,6 @@ class DevMemoryPair(object):
         return f"({self.xcel}, {self.memory}"
 
 class CPU(Device):
-    """cpu device with different models"""
     def __init__(self, vendor, model, **kwargs):
         if vendor not in model_table["cpu"]: 
             raise DeviceError(vendor + " not supported yet")
@@ -181,7 +180,6 @@ class CPU(Device):
         return f"CPU({self.vendor}, {self.model}, {self.backend}, {self.dev_id})"
 
 class FPGA(Device):
-    """fpga device with different models"""
     def __init__(self, vendor, model, **kwargs):
         if vendor not in model_table["fpga"]: 
             raise DeviceError(vendor + " not supported yet")
@@ -193,8 +191,13 @@ class FPGA(Device):
     def __repr__(self):
         return f"FPGA({self.vendor}, {self.model}, {self.backend}, {self.dev_id})"
 
+class GPU(Device):
+    def __init__(self, vendor, model, **kwargs):
+        super(GPU, self).__init__("GPU", vendor, model, **kwargs)
+    def __repr__(self):
+        return f"GPU({self.vendor}, {self.model}, {self.backend}, {self.dev_id})"
+
 class PIM(Device):
-    """cpu device with different models"""
     def __init__(self, vendor, model, **kwargs):
         if model not in ["ppac"]: 
             raise DeviceError(model + " not supported yet")

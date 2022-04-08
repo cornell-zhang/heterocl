@@ -37,6 +37,17 @@ class Tool(object):
       assert mode in self.suported_modes, f"{mode} not supported {self.suported_modes}"
       self.mode = mode
 
+class NVCC(Tool):
+    def __init__(self):
+        name = "nvcc"
+        mode = "impl"
+        options = {
+            "Version":  "10.1.243"
+        }
+        super(NVCC, self).__init__(name, mode, options)
+        self.suported_modes = ["impl"]
+
+
 class VivadoHLS(Tool):
     def __init__(self):
         name = "vivado_hls"
@@ -220,3 +231,4 @@ Tool.vivado_hls = VivadoHLS()
 Tool.vitis = Vitis()
 Tool.aocl = AOCL()
 Tool.sdaccel = SDAccel()
+Tool.nvcc = NVCC()

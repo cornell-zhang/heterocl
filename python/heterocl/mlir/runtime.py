@@ -27,6 +27,8 @@ def copy_build_files(target, script=None):
     project = target.project
     platform = str(target.tool.name)
     mode = str(target.tool.mode)
+
+    # TODO: implement these steps & commands as methods of Tool objects
     if platform == "vivado_hls":
         os.system("cp " + path + "vivado/* " + project)
         os.system("cp " + path + "harness.mk " + project)
@@ -55,8 +57,10 @@ def copy_build_files(target, script=None):
         with open(os.path.join(project, "run.tcl"), "w") as tcl_file:
             tcl_file.write(new_tcl)
         return "success"
+    elif platform == "nvcc":
+        pass
     else:
-        raise RuntimeError("Not implemented")
+        raise RuntimeError(f"compilation flow for {platform} target is not implemented")
 
 
 def execute_fpga_backend(target):
