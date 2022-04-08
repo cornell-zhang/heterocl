@@ -1,0 +1,171 @@
+{
+    "type": "platform/xilinx_u280",
+    "interfaces": [
+        {
+            "type": "bus/ETH",
+            "name": "ethernet",
+            "role": "master|slave"
+        }
+    ],
+    "interconnects": [
+        {
+            "type": "bus/PCIe",
+            "name": "pcie_bus"
+        }
+    ],
+    "components": [
+        {
+            "type": "compute/CPU",
+            "part": "intel-xeon-silver-4214",
+            "interfaces": [
+                {
+                    "type": "port/pcie",
+                    "bus": "pcie_bus",
+                    "role": "master|slave"
+                }
+            ],
+            "components": [
+                {
+                    "type": "component/core",
+                    "count": 48,
+                    "frequency": "2.2GHz"
+                }
+            ]
+        },
+        {
+            "type": "storage/NVMe-SSD",
+            "part": "samsung-983-DCT",
+            "capacity": "1.92TB",
+            "interfaces": [
+                {
+                    "type": "port/pcie",
+                    "bus": "pcie_bus",
+                    "role": "master|slave"
+                }
+            ]
+        },
+        {
+            "type": "compute/FPGA",
+            "part": "xcu280-fsvh2892-2L-e",
+            "platform": "/opt/xilinx/platforms/xilinx_u280_xdma_201920_3/xilinx_u280_xdma_201920_3.xpfm",
+            "interfaces": [
+                {
+                    "type": "port/pcie",
+                    "bus": "pcie_bus",
+                    "role": "master|slave"
+                }
+            ],
+            "interconnects": [
+                {
+                    "type": "bus/axi",
+                    "name": "axi_smart_connect"
+                },
+                {
+                    "type": "bus/interposer",
+                    "name": "slr0_slr1"
+                },
+                {
+                    "type": "bus/interposer",
+                    "name": "slr1_slr2"
+                }
+            ],
+            "components": [
+                {
+                    "type": "memory/DDR",
+                    "count": 2,
+                    "capacity": "16GB",
+                    "interfaces": [
+                        {
+                            "type": "bus/axi",
+                            "name": "axi_smart_connect",
+                            "role": "slave"
+                        },
+                        {
+                            "type": "bus/pcie",
+                            "name": "pcie_bus",
+                            "role": "slave"
+                        }
+                    ]
+                },
+                {
+                    "type": "memory/HBM",
+                    "count": 32,
+                    "capacity": "256MB",
+                    "interfaces": [
+                        {
+                            "type": "bus/axi",
+                            "name": "axi_smart_connect",
+                            "role": "slave"
+                        },
+                        {
+                            "type": "bus/pcie",
+                            "name": "pcie_bus",
+                            "role": "slave"
+                        }
+                    ]
+                },
+                {
+                    "type": "region/SLR",
+                    "name": "SLR0",
+                    "resource": {
+                        "LUTs": 369271,
+                        "FFs": 745997,
+                        "BRAMs": 507,
+                        "DSPs": 2733
+                    },
+                    "interfaces": [
+                        {
+                            "type": "port/axi",
+                            "bus": "axi_smart_connect",
+                            "role": "master"
+                        },
+                        {
+                            "type": "port/interposer",
+                            "bus": "slr0_slr1",
+                            "role": "master|slave"
+                        }
+                    ]
+                },
+                {
+                    "type": "region/SLR",
+                    "name": "SLR1",
+                    "resource": {
+                        "LUTs": 333382,
+                        "FFs": 675395,
+                        "BRAMs": 468,
+                        "DSPs": 2877
+                    },
+                    "interfaces": [
+                        {
+                            "type": "port/interposer",
+                            "bus": "slr0_slr1",
+                            "role": "master|slave"
+                        },
+                        {
+                            "type": "port/interposer",
+                            "bus": "slr1_slr2",
+                            "role": "master|slave"
+                        }
+                    ]
+                },
+                {
+                    "type": "region/SLR",
+                    "name": "SLR2",
+                    "resource": {
+                        "LUTs": 367555,
+                        "FFs": 729417,
+                        "BRAMs": 512,
+                        "DSPs": 2880
+                    },
+                    "interfaces": [
+                        {
+                            "type": "port/interposer",
+                            "bus": "slr1_slr2",
+                            "role": "master|slave"
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}
