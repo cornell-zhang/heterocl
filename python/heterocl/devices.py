@@ -8,14 +8,14 @@ if IR == "tvm":
 
 model_table = {
   "fpga"   : {
-    "xilinx" : ["xc7z045", "xcvu19p"],
+    "xilinx" : ["xc7z045", "xcvu19p", "xcu280-fsvh2892-2L-e"],
     "intel"  : ["stratix10_gx", "stratix10_dx", "stratix10_mx", "arria10"],
   },
 
   "cpu"    : {
     "arm"    : ["a7", "a9", "a53"],
     "riscv"  : ["riscv"],
-    "intel"  : ["e5", "i7"],
+    "intel"  : ["e5", "i7", "intel-xeon-silver-4214"],
   },
 }
 

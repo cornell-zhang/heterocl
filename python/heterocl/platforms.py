@@ -1,46 +1,66 @@
 import os, subprocess, json, time, sys, json
 from .devices import Platform, CPU, FPGA, PIM, Project
-from .devices import HBM, PLRAM, LUTRAM, BRAM, URAM
+from .devices import *
 from .tools import *
-
-# Traverse JSON tree in recursive DFS
-def traverse_json_tree(node):
-    assert "type" in node, "invalid device (JSON) object missing 'type'"
-    for key, v in node.items():
-
-        if isinstance(v, str) or isinstance(v, int) or isinstance(v, float):
-            # Attributes in a device node
-            if key == "type":
-                # Compute device that can take compute offloading
-                if "compute" in v:
-                    print(f"[+] device node {v} ({node['part']})")
-
-
-        elif isinstance(v, list):
-            if key == "interfaces":
-                # Connect to other super nodes at same level
-                pass
-            elif key == "interconnects":
-                # Instantiate edges for connection between children nodes
-                pass
-            elif key == "components":
-                # Do nothing
-                pass
-
-            for elem in v:
-                traverse_json_tree(elem)
-        else:
-            assert isinstance(v, dict), f"illegal dict value found {v}"
-            # Stop traversing if the node does not have any sub-nodes
-            if "interconnects" in v and "components" in v:
-                traverse_json_tree(v)
-            
 
 def import_json_platform(json_file):
     assert os.path.exists(json_file), f"{json_file} does not exist"
+    graph = dict()
+    compute_devices = list()
+
+    # Traverse JSON tree in recursive DFS
+    def traverse_json_tree(node):
+        assert "type" in node, "invalid device (JSON) object missing 'type'"
+        for key, v in node.items():
+
+            if isinstance(v, str) or isinstance(v, int) or isinstance(v, float):
+                # Attributes in a device node
+                if key == "type":
+                    # Compute device that can take compute offloading
+                    if "compute" in v:
+                        print(f"[+] device node {v} ({node['part']})")
+                        compute_devices.append(node)
+
+            elif isinstance(v, list):
+                if key == "interfaces":
+                    # Connect to other super nodes at same level
+                    pass
+                elif key == "interconnects":
+                    # Instantiate edges for connection between children nodes
+                    pass
+                elif key == "components":
+                    # Do nothing
+                    pass
+
+                for elem in v:
+                    traverse_json_tree(elem)
+            else:
+                assert isinstance(v, dict), f"illegal dict value found {v}"
+                # Stop traversing if the node does not have any sub-nodes
+                if "interconnects" in v and "components" in v:
+                    traverse_json_tree(v)
+
     with open(json_file, "r+") as f:
         json_spec = json.load(f)
         traverse_json_tree(json_spec) 
+    
+    # Construct a platform object from JSON
+    # TODO: support for multiple xcel and host devices
+
+    is_host_device = lambda node: True if "CPU" in node['type'] else False
+    host_device_json = [_ for _ in compute_devices if is_host_device(_)][0]
+    host_device_object = CPU("intel", host_device_json['part'])
+
+    xcel_device_json = [_ for _ in compute_devices if not is_host_device(_)][0]
+    xcel_device_object = FPGA('xilinx', xcel_device_json['part'])
+
+    return Platform(
+        name = json_file,
+        devs = [host_device_object, xcel_device_object],
+        host = host_device_object,
+        xcel = xcel_device_object,
+        tool = None
+    )
 
 
 class AWS_F1(Platform):
