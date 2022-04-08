@@ -890,7 +890,7 @@ llvm::Value* CodeGenLLVM::VisitExpr_(const Load* op) {
   int alignment, native_bits;
   GetAlignment(t, op->buffer_var.get(), op->index, &alignment, &native_bits);
   llvm::Value* ptr = CreateBufferPtr(t, buffer, index);
-  llvm::LoadInst* load = builder_->CreateAlignedLoad(ptr->getType(), 
+  llvm::LoadInst* load = builder_->CreateAlignedLoad(ptr->getType(),
       ptr, llvm::MaybeAlign(alignment), is_volatile);
   AddAliasInfo(load, op->buffer_var.get(), op->index, t);
   return load;
