@@ -315,7 +315,6 @@ class Schedule(object):
 
         with get_context() as ctx, get_location():
             i32 = IntegerType.get_signless(32)
-            # TODO: Change to enum type
             if partition_type == Partition.Complete:
                 partition_type = IntegerAttr.get(i32, 0)
             elif partition_type == Partition.Block:
