@@ -129,6 +129,7 @@ def pack(tensor, axis=0, factor=None, name=None, dtype=None):
                 (index * factor + i) if j == axis else index
                 for j, index in enumerate(indices)
             ]
+            val = tensor[tuple(new_indices)]
             result[0][bitwidth * i: bitwidth *
                       (i + 1)] = tensor[tuple(new_indices)]
         return result[0]
@@ -160,8 +161,11 @@ def unpack(tensor, axis=0, factor=None, name=None, dtype=None):
         ]
         lower = (indices[axis] % factor) * (bitwidth // factor)
         upper = lower + bitwidth // factor
-        result[0][0: bitwidth //
-                  factor] = tensor[tuple(new_indices)][lower:upper]
+        val = tensor[tuple(new_indices)][lower:upper]
+        if val.dtype.width != bitwidth // factor:
+            # cast val to the same width as bitwidth // factor
+            val = hcl_mlir.CastOp(val, hcl_dtype_to_mlir(new_type))
+        result[0][0: bitwidth // factor] = val
         return result[0]
 
     return compute(tuple(new_shape), assign_val, name, new_type)
