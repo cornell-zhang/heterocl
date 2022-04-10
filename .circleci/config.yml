@@ -2,57 +2,63 @@
 #
 # Check https://circleci.com/docs/2.0/language-python/ for more details
 
-test: &test
-  steps:
-    - checkout
-    - restore_cache:
-        key: v1.04-heterocl-{{ checksum "Makefile" }}-{{ checksum "Makefile.config" }}
-    - restore_cache:
-        key: v1.04-libhcl-
-    - run: make build-python
-    - run: source .circleci/install_tvm.sh
-    - run: pip install --user pytest imageio tabulate xmltodict pandas networkx sodac
-    - run: python -m pytest tests
-    - run: pip install --user mxnet==1.7.0.post2
-    - run: python -m pytest samples
-    - run: python -m pytest tutorials
-    - run: python -m pytest hlib/tests
 version: 2
 jobs:
-  build-hcl:
+  build:
+    working_directory: ~/heterocl
     docker:
-      - image: circleci/python:3.7
+      - image: circleci/python:3.7  # primary container for the build job
+    resource_class: large
     steps:
-      - checkout
+      - checkout  # checkout source code to working directory
+      - run:
+          name: Install dependency
+          command: |
+            sudo apt-get update && sudo apt-get install -y build-essential cmake
       - restore_cache:
-          key: v1.04-heterocl-{{ checksum "Makefile" }}-{{ checksum "Makefile.config" }}
-      - run: make -j4
+          key: llvm-14.0.0
+      - run:
+          name: Build LLVM
+          command: | # /home/circleci/heterocl
+            if test -d llvm-project; then echo "LLVM exists"; \
+              else git clone https://github.com/llvm/llvm-project.git; fi
+            cd llvm-project
+            git checkout tags/llvmorg-14.0.0
+            python3 -m pip install --upgrade pip
+            python3 -m pip install -r mlir/python/requirements.txt
+            mkdir -p build && cd build
+            if test -d bin; \
+              then echo "Build completed"; \
+            else cmake -G "Unix Makefiles" ../llvm -DLLVM_ENABLE_PROJECTS=mlir \
+                -DLLVM_BUILD_EXAMPLES=ON -DLLVM_TARGETS_TO_BUILD="X86" \
+                -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_ASSERTIONS=ON \
+                -DLLVM_INSTALL_UTILS=ON -DMLIR_ENABLE_BINDINGS_PYTHON=ON \
+                -DPython3_EXECUTABLE=`which python3` && \
+              make -j4;
+            fi;
+            export PYTHONPATH=$(pwd)/tools/mlir/python_packages/mlir_core:${PYTHONPATH}
+            cd ../..
       - save_cache:
-          key: v1.04-heterocl-{{ checksum "Makefile" }}-{{ checksum "Makefile.config" }}
+          key: llvm-14.0.0
           paths:
-            - ~/project/build
-      - save_cache:
-          key: v1.04-libhcl-{{ checksum "src/lib/libhcl.so" }}-{{ checksum "src/lib/libhcl_runtime.so" }}
-          paths:
-            - ~/project/src/lib
-  test-python-3:
-    docker:
-      - image: circleci/python:3.7
-    <<: *test
-  test-cpplint:
-    docker:
-      - image: circleci/python:3.7
-    steps:
-      - checkout
-      - run: pip install --user cpplint
-      - run: python -m cpplint --recursive include
-      - run: cd src; python -m cpplint --recursive .
-workflows:
-  version: 2
-  build-pythons:
-    jobs:
-      - test-cpplint
-      - build-hcl
-      - test-python-3:
-          requires: 
-            - build-hcl
+            - llvm-project
+      - run:
+          name: Build HCL-MLIR
+          command: |
+            export BUILD_DIR=$(pwd)/llvm-project/build
+            export PREFIX=$(pwd)/llvm-project/build
+            git clone https://github.com/cornell-zhang/hcl-dialect-prototype.git
+            cd hcl-dialect-prototype
+            mkdir -p build && cd build
+            cmake -G "Unix Makefiles" .. \
+                -DMLIR_DIR=$PREFIX/lib/cmake/mlir \
+                -DLLVM_EXTERNAL_LIT=$BUILD_DIR/bin/llvm-lit \
+                -DPYTHON_BINDING=ON \
+                -DPython3_EXECUTABLE=`which python3`
+            make -j4
+            export PYTHONPATH=$(pwd)/tools/hcl/python_packages/hcl_core:${PYTHONPATH}
+      - run:
+          name: Test
+          command: |
+            cd hcl-dialect-prototype/build
+            cmake --build . --target check-hcl

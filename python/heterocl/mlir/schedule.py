@@ -315,7 +315,6 @@ class Schedule(object):
 
         with get_context() as ctx, get_location():
             i32 = IntegerType.get_signless(32)
-            # TODO: Change to enum type
             if partition_type == Partition.Complete:
                 partition_type = IntegerAttr.get(i32, 0)
             elif partition_type == Partition.Block:
@@ -324,8 +323,9 @@ class Schedule(object):
                 partition_type = IntegerAttr.get(i32, 2)
             else:
                 raise RuntimeError("Not supported partition type")
-            factor = IntegerAttr.get(i32, factor)
-            dim = IntegerAttr.get(i32, dim)
+            ui32 = IntegerType.get_unsigned(32)
+            factor = IntegerAttr.get(ui32, factor)
+            dim = IntegerAttr.get(ui32, dim)
             res = hcl_d.PartitionOp(
                 target.result, partition_type, dim, factor, ip=GlobalInsertionPoint.get())
 
