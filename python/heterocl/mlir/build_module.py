@@ -228,7 +228,7 @@ def build_llvm(schedule, target=None, name="top", stmt=None):
         hcl_d.lower_hcl_to_llvm(module, ctx)
         # num_results = len(func.type.results)
         num_results = 0
-        execution_engine = ExecutionEngine(module)
+        execution_engine = ExecutionEngine(module, opt_level=0)
         hcl_module = HCLModule(name, execution_engine,
                                "llvm", ctx, return_num=num_results)
         return hcl_module
