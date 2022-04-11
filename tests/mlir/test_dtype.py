@@ -142,7 +142,6 @@ def test_dtype_basic_float():
     np_A2 = hcl_A.asnumpy()
     assert np.allclose(np_A, np_A2)
 
-@pytest.mark.skip(reason="segfault")
 def test_dtype_compute_fixed():
 
     def _test_dtype(dtype):
