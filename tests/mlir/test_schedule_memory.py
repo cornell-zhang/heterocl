@@ -211,7 +211,6 @@ def test_reuse_blur_x_y_z_3D():
 
     assert np.array_equal(np_B, np_C)
 
-@pytest.mark.skip(reason='aborted')
 def test_conv2D_lb():
     hcl.init()
     A = hcl.placeholder((10, 10))
@@ -241,7 +240,6 @@ def test_conv2D_lb():
 
     assert np.array_equal(np_B, np_C)
 
-@pytest.mark.skip(reason='aborted')
 def test_conv2D_wb():
     hcl.init()
     A = hcl.placeholder((10, 10))
