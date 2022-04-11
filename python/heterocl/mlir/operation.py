@@ -1,4 +1,5 @@
 from collections import OrderedDict
+import numpy as np
 
 import hcl_mlir
 from hcl_mlir.ir import *
@@ -284,3 +285,14 @@ def bitcast(tensor, dst_dtype, name=None):
         builder.visit(bitcast)
         # return an expression
         return bitcast
+
+
+def cast_np(np_array, dtype):
+    """
+    Cast a numpy array to a HeteroCL data type.
+    """
+    if not isinstance(np_array, np.ndarray):
+        raise RuntimeError("cast_np input must be numpy array.")
+    if not isinstance(dtype, Type):
+        raise RuntimeError("dtype should be HeteroCL data type.")
+    return asarray(np_array, dtype).asnumpy()
