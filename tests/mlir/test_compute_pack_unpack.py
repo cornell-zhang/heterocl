@@ -7,7 +7,6 @@ Testing API: unpack
 """
 
 
-@pytest.mark.skip(reason="crashes pytest")
 def test_unpack():
     def unpack(A):
         return hcl.unpack(A, factor=4, name="B")
@@ -62,7 +61,6 @@ def test_unpack_dtype():
                 assert numB == golden
 
 
-@pytest.mark.skip(reason="crashes pytest")
 def test_unpack_multi_dimension():
     def unpack(A):
         return hcl.unpack(A, axis=1, factor=4, name="B")
@@ -95,7 +93,6 @@ Testing API: pack
 """
 
 
-@pytest.mark.skip(reason="segfault")
 def test_pack():
     def pack(A):
         return hcl.pack(A, factor=4)
@@ -125,7 +122,7 @@ def test_pack():
 
 def test_pack_dtype():
     def pack(A):
-        return hcl.pack(A, dtype=hcl.UInt(A.type.bits * 4))
+        return hcl.pack(A, dtype=hcl.UInt(A.dtype.bits * 4))
 
     for i in range(4, 36, 4):
         A = hcl.placeholder((40,), "A", dtype=hcl.UInt(i // 4))
@@ -150,7 +147,6 @@ def test_pack_dtype():
             assert numB == golden
 
 
-@pytest.mark.skip(reason="segfault")
 def test_pack_multi_dimension():
     def pack(A):
         return hcl.pack(A, axis=1, factor=4)
@@ -179,7 +175,6 @@ def test_pack_multi_dimension():
                 assert numB == golden
 
 
-@pytest.mark.skip(reason="crashes pytest")
 def test_pack_unpack():
     def pack_unpack(A):
         C = hcl.pack(A, factor=4)

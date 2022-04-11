@@ -107,6 +107,8 @@ def min(data, axis=None, dtype=None, name=""):
 
 def pack(tensor, axis=0, factor=None, name=None, dtype=None):
     """Pack a tensor with smaller bitwidth to a tensor with larger bitwidth."""
+    if factor is None and dtype is not None:
+        factor = dtype.bits // tensor.dtype.bits
     if factor is None or not isinstance(factor, int):
         raise RuntimeError("Should specify factor")
     if not isinstance(tensor.dtype, (Int, UInt)):
@@ -129,6 +131,7 @@ def pack(tensor, axis=0, factor=None, name=None, dtype=None):
                 (index * factor + i) if j == axis else index
                 for j, index in enumerate(indices)
             ]
+            val = tensor[tuple(new_indices)]
             result[0][bitwidth * i: bitwidth *
                       (i + 1)] = tensor[tuple(new_indices)]
         return result[0]
@@ -138,6 +141,8 @@ def pack(tensor, axis=0, factor=None, name=None, dtype=None):
 
 def unpack(tensor, axis=0, factor=None, name=None, dtype=None):
     """Unpack a tensor with larger bitwidth to a tensor with smaller bitwidth."""
+    if factor is None and dtype is not None:
+        factor = tensor.dtype.bits // dtype.bits
     if factor is None or not isinstance(factor, int):
         raise RuntimeError("Should specify factor")
     if not isinstance(tensor.dtype, (Int, UInt)):
@@ -160,8 +165,11 @@ def unpack(tensor, axis=0, factor=None, name=None, dtype=None):
         ]
         lower = (indices[axis] % factor) * (bitwidth // factor)
         upper = lower + bitwidth // factor
-        result[0][0: bitwidth //
-                  factor] = tensor[tuple(new_indices)][lower:upper]
+        val = tensor[tuple(new_indices)][lower:upper]
+        if val.dtype.width != bitwidth // factor:
+            # cast val to the same width as bitwidth // factor
+            val = hcl_mlir.CastOp(val, hcl_dtype_to_mlir(new_type))
+        result[0][0: bitwidth // factor] = val
         return result[0]
 
     return compute(tuple(new_shape), assign_val, name, new_type)
@@ -180,6 +188,8 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
     if not dtype == None and not isinstance(dtype, (Type, str)):
         raise RuntimeError("Type error")
     dtype = config.init_dtype if dtype == None else dtype
+    if isinstance(dtype, str):
+        dtype = dtype_to_hcl(dtype)
     ret_tensor = Tensor(shape, dtype, name=name,
                         fcompute=fcompute, impl="compute")
     for tensor in ret_tensor.op.inputs:
