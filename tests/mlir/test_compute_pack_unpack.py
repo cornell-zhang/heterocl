@@ -122,7 +122,7 @@ def test_pack():
 
 def test_pack_dtype():
     def pack(A):
-        return hcl.pack(A, dtype=hcl.UInt(A.type.bits * 4))
+        return hcl.pack(A, dtype=hcl.UInt(A.dtype.bits * 4))
 
     for i in range(4, 36, 4):
         A = hcl.placeholder((40,), "A", dtype=hcl.UInt(i // 4))
