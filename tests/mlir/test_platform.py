@@ -1,10 +1,12 @@
 import heterocl as hcl
 from heterocl.platforms import import_json_platform
-
+import hcl_mlir
+import numpy as np
 
 def test_print_platform_hierarchy():
     target = import_json_platform("test_platform_spec/xilinx_u280.json")
 
+    hcl_mlir.enable_extract_function()
     hcl.init()
     A = hcl.placeholder((10, 32), "A")
 
@@ -17,7 +19,7 @@ def test_print_platform_hierarchy():
     s.to(A, target.xcel)
     s.to(kernel.C, target.host)
 
-    target.config(compiler="vivado_hls", mode="csyn")
+    target.config(compiler="vivado_hls", mode="csyn", project="hlscode.prj")
     f = hcl.build(s, target)
 
     np_A = np.random.randint(10, size=(10,32))
