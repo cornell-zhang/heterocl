@@ -47,8 +47,6 @@ jobs:
           command: |
             export BUILD_DIR=$(pwd)/llvm-project/build
             export PREFIX=$(pwd)/llvm-project/build
-            eval `ssh-agent -s`
-            ssh-add - <<< '${{ secrets.PRIVATE_SSH_KEY }}'
             git clone https://github.com/cornell-zhang/hcl-dialect-prototype.git
             cd hcl-dialect-prototype
             mkdir -p build && cd build
