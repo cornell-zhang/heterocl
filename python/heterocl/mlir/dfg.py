@@ -153,7 +153,7 @@ class DataflowGraph(object):
             flag = True
         return flag
 
-    def graph_partition(self):
+    def graph_partition(self, show_partition=False):
         # first check if the requested data placement is valid
         for node in self.roots:
             if node.device == None:
@@ -176,4 +176,5 @@ class DataflowGraph(object):
         for output in self.leaves:
             if output.device in ["device", "FPGA"]:
                 self.subgraph["outputs"].append(output)
-        self.visualize()
+        if show_partition:
+            self.visualize()
