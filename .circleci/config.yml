@@ -7,7 +7,7 @@ jobs:
   build:
     working_directory: ~/heterocl
     docker:
-      - image: circleci/python:3.7  # primary container for the build job
+      - image: cimg/python:3.7  # primary container for the build job
     resource_class: large
     steps:
       - checkout  # checkout source code to working directory
