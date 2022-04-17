@@ -358,15 +358,17 @@ class Schedule(object):
                 target = target._op
             except AttributeError:
                 pass
+        if not isinstance(target, OpResult):
+            target = target.result
 
         with get_context() as ctx, get_location() as loc:
             i32 = IntegerType.get_signless(32)
             f32 = F32Type.get(ctx)
             # TODO: Need to do shape inference
-            memref_type = MemRefType.get(target.shape, f32, loc=loc)
+            memref_type = MemRefType.get((1,), f32, loc=loc)
             res = hcl_d.ReuseAtOp(memref_type, parent.stage_handle.result,
-                                  target.result, axis.result, ip=GlobalInsertionPoint.get())
-        return res
+                                  target, axis.result, ip=GlobalInsertionPoint.get())
+        return res.result
 
     def buffer_at(self, target, parent, axis, name=None):
         """Create a write buffer reusing the output of current stage"""
