@@ -312,6 +312,8 @@ class Schedule(object):
                 target = target._op
             except AttributeError:
                 pass
+        if not isinstance(target, OpResult):
+            target = target.result
 
         with get_context() as ctx, get_location():
             i32 = IntegerType.get_signless(32)
@@ -327,7 +329,7 @@ class Schedule(object):
             factor = IntegerAttr.get(ui32, factor)
             dim = IntegerAttr.get(ui32, dim)
             res = hcl_d.PartitionOp(
-                target.result, partition_type, dim, factor, ip=GlobalInsertionPoint.get())
+                target, partition_type, dim, factor, ip=GlobalInsertionPoint.get())
 
     def reshape(self, target, shape):
         """Reshape a Tensor to a specified new shape
@@ -360,6 +362,8 @@ class Schedule(object):
                 pass
         if not isinstance(target, OpResult):
             target = target.result
+        if not isinstance(axis, OpResult):
+            axis = axis.result
 
         with get_context() as ctx, get_location() as loc:
             i32 = IntegerType.get_signless(32)
@@ -367,7 +371,7 @@ class Schedule(object):
             # TODO: Need to do shape inference
             memref_type = MemRefType.get((1,), f32, loc=loc)
             res = hcl_d.ReuseAtOp(memref_type, parent.stage_handle.result,
-                                  target, axis.result, ip=GlobalInsertionPoint.get())
+                                  target, axis, ip=GlobalInsertionPoint.get())
         return res.result
 
     def buffer_at(self, target, parent, axis, name=None):
