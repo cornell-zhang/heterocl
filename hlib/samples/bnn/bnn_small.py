@@ -89,8 +89,8 @@ def build_bnn_inf_opt(batch_size=batch_size, target=target):
             s[s_conv].compute_at(s[s_layer], s_layer.axis[3])
             if layer == "bn1":
                 s[s_layer].pipeline(s_layer.axis[3])  # will be refreshed
-            else:
-                s[s_conv].pipeline(s_conv.axis[4])
+            # else:
+            #     s[s_conv].pipeline(s_conv.axis[4])
         elif "pool" in layer:
             s[s_layer].pipeline(s_layer.axis[2])
         elif "fc" in layer:
@@ -114,11 +114,15 @@ def build_bnn_inf_opt(batch_size=batch_size, target=target):
         else:
             s.partition(ph, hcl.Partition.Block, dim=1, factor=8)
 
-    return hcl.build(s, target=target)
+    # print(hcl.lower(s))
+    return hcl.build(s, target="vhls")
 
 
 if __name__ == '__main__':
 
     # f = build_bnn_inf(batch_size, target)
     f = build_bnn_inf_opt(batch_size, target)
-    f()
+    with open("bnn.prj/kernel.cpp", "w") as outfile:
+        outfile.write(f)
+    hcl.execute_fpga_backend(target)
+    # f()
