@@ -70,6 +70,17 @@ class VivadoHLS(Tool):
           mode = "|".join(mode)
         self.mode = mode
 
+class StratusHLS(Tool):
+    def __init__(self):
+        name = "stratus_hls"
+        mode = "debug"
+        options = {
+            "Version": "20.23"
+        }
+        super(StratusHLS, self).__init__(name, mode, options)
+        self.supported_modes = ["debug", "csim", "cosim", "power"]
+
+
 class Vitis(Tool):
     def __init__(self):
         name = "vitis"
@@ -221,3 +232,4 @@ Tool.vivado_hls = VivadoHLS()
 Tool.vitis = Vitis()
 Tool.aocl = AOCL()
 Tool.sdaccel = SDAccel()
+Tool.stratus_hls = StratusHLS()
