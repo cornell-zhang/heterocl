@@ -44,6 +44,7 @@ enum TargetTool : int {
   Vitis = 2,
   VivadoHLS = 3,
   IntelHLS = 4,
+  StratusHLS = 5
 };
 
 }  // namespace codegen
