@@ -44,8 +44,16 @@ Type ExtractDType(Expr expr, bool& flag) {
   } else if (auto v = expr.as<Cast>()) {
     flag = false;
     return v->type;
+  } else if (auto v = expr.as<Select>()) {
+    // When the condition variable itself is a Select node
+    // we must first check its true and false values
+    // they should have the same data type
+    return v->type;
+  } else if (auto v = expr.as<Call>()) {
+    // case for a Call node
+    return v->type;
   }
-  LOG(FATAL) << "unknown type of " << expr;
+  LOG(FATAL) << "unknown type of " << expr->type_key();
   return Type(Type::UInt, 32, 0);
 }
 
