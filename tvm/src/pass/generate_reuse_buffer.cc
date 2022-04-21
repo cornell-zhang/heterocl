@@ -55,6 +55,99 @@ class ModulusRemover final : public IRMutator {
   std::map<const Variable*, Expr>& range_;
 };
 
+class CastRemover final : public IRMutator {
+ public:
+  CastRemover() {}
+
+  Expr Mutate_(const Cast* op, const Expr& e) {
+    return op->value;
+  }
+
+  Expr Mutate_(const Add* op, const Expr& e) {
+    Expr a = this->Mutate(op->a);
+    Expr b = this->Mutate(op->b);
+    if (const Cast* ca = a.as<Cast>()) {
+      a = ca->value;
+    }
+    if (const Cast* cb = b.as<Cast>()) {
+      b = cb->value;
+    }
+    return Add::make(a, b);
+  }
+
+  Expr Mutate_(const Sub* op, const Expr& e) {
+    Expr a = this->Mutate(op->a);
+    Expr b = this->Mutate(op->b);
+    if (const Cast* ca = a.as<Cast>()) {
+      a = ca->value;
+    }
+    if (const Cast* cb = b.as<Cast>()) {
+      b = cb->value;
+    }
+    return Sub::make(a, b);
+  }
+
+  Expr Mutate_(const Mul* op, const Expr& e) {
+    Expr a = this->Mutate(op->a);
+    Expr b = this->Mutate(op->b);
+    if (const Cast* ca = a.as<Cast>()) {
+      a = ca->value;
+    }
+    if (const Cast* cb = b.as<Cast>()) {
+      b = cb->value;
+    }
+    return Mul::make(a, b);
+  }
+
+  Expr Mutate_(const Div* op, const Expr& e) {
+    Expr a = this->Mutate(op->a);
+    Expr b = this->Mutate(op->b);
+    if (const Cast* ca = a.as<Cast>()) {
+      a = ca->value;
+    }
+    if (const Cast* cb = b.as<Cast>()) {
+      b = cb->value;
+    }
+    return Div::make(a, b);
+  }
+
+  Expr Mutate_(const Mod* op, const Expr& e) {
+    Expr a = this->Mutate(op->a);
+    Expr b = this->Mutate(op->b);
+    if (const Cast* ca = a.as<Cast>()) {
+      a = ca->value;
+    }
+    if (const Cast* cb = b.as<Cast>()) {
+      b = cb->value;
+    }
+    return Mod::make(a, b);
+  }
+
+  Expr Mutate_(const Min* op, const Expr& e) {
+    Expr a = this->Mutate(op->a);
+    Expr b = this->Mutate(op->b);
+    if (const Cast* ca = a.as<Cast>()) {
+      a = ca->value;
+    }
+    if (const Cast* cb = b.as<Cast>()) {
+      b = cb->value;
+    }
+    return Min::make(a, b);
+  }
+
+  Expr Mutate_(const Max* op, const Expr& e) {
+    Expr a = this->Mutate(op->a);
+    Expr b = this->Mutate(op->b);
+    if (const Cast* ca = a.as<Cast>()) {
+      a = ca->value;
+    }
+    if (const Cast* cb = b.as<Cast>()) {
+      b = cb->value;
+    }
+    return Max::make(a, b);
+  }
+};
+
 // recover a 1D index back to multi-dimensional index
 std::vector<Expr> recover_index(Expr index, const Array<Expr>& shape,
                                 std::map<const Variable*, Expr>& range) {
@@ -222,7 +315,8 @@ class ReuseBufferInserter final : public IRMutator {
         // check if the bounde is constant
         // e.g. x+r => diff_expr = 10
         // e.g. y+c => diff_expr = 3
-        Expr diff_expr = Simplify(max_expr - min_expr + 1);
+        CastRemover castRemover;
+        Expr diff_expr = Simplify(castRemover.Mutate(max_expr - min_expr) + 1);
         if (!is_const(diff_expr))  // e.g. y*(y+c) would be illegal
           LOG(FATAL) << "Irregular access pattern is not yet supported";
         // check if the specified axis is reused by running the next iteration
@@ -231,7 +325,7 @@ class ReuseBufferInserter final : public IRMutator {
         // first check if the axis is the specified reuse axis
         // e.g. y => y+1
         Expr next_min = substitute(next_subst, min_expr);
-        Expr next_diff = Simplify(next_min - min_expr);
+        Expr next_diff = Simplify(castRemover.Mutate(next_min - min_expr));
         if (!is_const(next_diff))  // e.g. y*y+c would be illegal
           LOG(FATAL) << "Irregular access pattern is not yet supported";
         // then check if we there is reuse in this axis
@@ -262,7 +356,10 @@ class ReuseBufferInserter final : public IRMutator {
       std::vector<VarExpr> reuse_loop_vars;
       for (size_t dim = 0; dim < ndim; dim++) {
         Expr index = min_list[dim];
+        CastRemover castRemover;
+        index = castRemover.Mutate(index);
         Expr reuse_index = Simplify(substitute(null_axis_subst_, index));
+
         // create a new variable if the shape is not one
         if (!is_one(reuse_shape[dim])) {
           // TODO(Sean): fix the name
@@ -280,7 +377,9 @@ class ReuseBufferInserter final : public IRMutator {
               }
             }
           }
+
           Expr rhs = substitute(reuse_index, new_loop_var, index);
+
           // special case when the reuse index is 0
           if (is_zero(reuse_index) && dim == static_cast<size_t>(reuse))
             rhs = rhs + new_loop_var;
