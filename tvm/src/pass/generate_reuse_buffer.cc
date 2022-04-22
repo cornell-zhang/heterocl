@@ -55,6 +55,10 @@ class ModulusRemover final : public IRMutator {
   std::map<const Variable*, Expr>& range_;
 };
 
+// Remove cast in binary expressions
+// Example: (cast(x) + cast(y)) -> (x + y)
+// Usage: CastRemover castRemover;
+//        Expr expr = castRemover.Mutate(expr);
 class CastRemover final : public IRMutator {
  public:
   CastRemover() {}
@@ -72,6 +76,9 @@ class CastRemover final : public IRMutator {
     if (const Cast* cb = b.as<Cast>()) {
       b = cb->value;
     }
+    if (a.type() != b.type())
+      LOG(FATAL) << "CastRemover: type mismatch "
+        << a.type() << " vs " << b.type();
     return Add::make(a, b);
   }
 
@@ -84,6 +91,9 @@ class CastRemover final : public IRMutator {
     if (const Cast* cb = b.as<Cast>()) {
       b = cb->value;
     }
+    if (a.type() != b.type())
+      LOG(FATAL) << "CastRemover: type mismatch "
+        << a.type() << " vs " << b.type();
     return Sub::make(a, b);
   }
 
@@ -96,6 +106,9 @@ class CastRemover final : public IRMutator {
     if (const Cast* cb = b.as<Cast>()) {
       b = cb->value;
     }
+    if (a.type() != b.type())
+      LOG(FATAL) << "CastRemover: type mismatch "
+        << a.type() << " vs " << b.type();
     return Mul::make(a, b);
   }
 
@@ -108,6 +121,9 @@ class CastRemover final : public IRMutator {
     if (const Cast* cb = b.as<Cast>()) {
       b = cb->value;
     }
+    if (a.type() != b.type())
+      LOG(FATAL) << "CastRemover: type mismatch "
+        << a.type() << " vs " << b.type();
     return Div::make(a, b);
   }
 
@@ -120,6 +136,9 @@ class CastRemover final : public IRMutator {
     if (const Cast* cb = b.as<Cast>()) {
       b = cb->value;
     }
+    if (a.type() != b.type())
+      LOG(FATAL) << "CastRemover: type mismatch "
+        << a.type() << " vs " << b.type();
     return Mod::make(a, b);
   }
 
@@ -132,6 +151,9 @@ class CastRemover final : public IRMutator {
     if (const Cast* cb = b.as<Cast>()) {
       b = cb->value;
     }
+    if (a.type() != b.type())
+      LOG(FATAL) << "CastRemover: type mismatch "
+        << a.type() << " vs " << b.type();
     return Min::make(a, b);
   }
 
@@ -144,6 +166,9 @@ class CastRemover final : public IRMutator {
     if (const Cast* cb = b.as<Cast>()) {
       b = cb->value;
     }
+    if (a.type() != b.type())
+      LOG(FATAL) << "CastRemover: type mismatch "
+        << a.type() << " vs " << b.type();
     return Max::make(a, b);
   }
 };
