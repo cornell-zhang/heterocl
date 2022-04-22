@@ -19,7 +19,8 @@ def test_complex_select():
                     hcl.select(dst <= src, a[i], src),
                     (-1 * src))
     s = hcl.create_schedule([a, b, c, d], kernel_select)
-    hcl.build(s, target="vhls")
+    code = hcl.build(s, target="vhls")
+    assert code.count("?") == 6
 
 if __name__ == "__main__":
     test_complex_select()
