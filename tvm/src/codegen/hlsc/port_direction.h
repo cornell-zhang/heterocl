@@ -9,11 +9,11 @@
 #include <tvm/ir.h>
 #include <tvm/ir_pass.h>
 #include <tvm/ir_visitor.h>
+#include "../build_common.h"
 
 namespace TVM {
 namespace ir {
 
-void canonicalize_string(std::string& s);
 enum class PortType { ChannelIn, ChannelOut, Memory, OffChipMemory, Default };
 
 class PortDirection : public IRVisitor {
@@ -24,7 +24,7 @@ class PortDirection : public IRVisitor {
 
   void Visit_(const Load* op) final {
     std::string var_name = op->buffer_var.get()->name_hint;
-    canonicalize_string(var_name);
+    TVM::codegen::canonicalize_string(var_name);
     auto it = std::find(_ports.begin(), _ports.end(), var_name);
     if (it != _ports.end()) {
       _in_ports.push_back(var_name);
@@ -34,7 +34,7 @@ class PortDirection : public IRVisitor {
 
   void Visit_(const Store* op) final {
     std::string var_name = op->buffer_var.get()->name_hint;
-    canonicalize_string(var_name);
+    TVM::codegen::canonicalize_string(var_name);
     auto it = std::find(_ports.begin(), _ports.end(), var_name);
     if (it != _ports.end()) {
       _out_ports.push_back(var_name);
@@ -45,7 +45,7 @@ class PortDirection : public IRVisitor {
   void Visit_(const Cast* op) final {
     if (const Variable* v = op->value.as<Variable>()) {
       std::string var_name = v->name_hint;
-      canonicalize_string(var_name);
+      TVM::codegen::canonicalize_string(var_name);
       auto it = std::find(_ports.begin(), _ports.end(), var_name);
       if (it != _ports.end()) {
         _in_ports.push_back(var_name);
@@ -96,10 +96,6 @@ class PortDirection : public IRVisitor {
   std::vector<std::string> _ports;
   std::vector<std::string> _scalars;
 };
-
-void canonicalize_string(std::string& s) {
-  std::replace(s.begin(), s.end(), '.', '_');
-}
 
 }  // namespace ir
 }  // namespace TVM

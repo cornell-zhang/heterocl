@@ -178,6 +178,12 @@ Module CreateSimModule(LoweredFunc func, std::string host_code,
 }  // namespace runtime
 
 namespace codegen {
+// Remove space, `.`, `/` from string.
+void canonicalize_string(std::string& s) {
+  std::replace(s.begin(), s.end(), '.', '_');
+  std::replace(s.begin(), s.end(), ' ', '_');
+  std::replace(s.begin(), s.end(), '/', '_');
+}
 
 // unified simulation function for diff platforms
 template <class CodeGenHost, class CodeGenXcel>
