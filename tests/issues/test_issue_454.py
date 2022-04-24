@@ -34,18 +34,9 @@ def test(target="vhls"):
         assert "B-B" not in code
         assert "B_B" in code
 
-    def test_dot():
-        s = kernel("A.A", "B.B")
-        code = hcl.build(s, target=target)
-        assert "A.A" not in code
-        assert "A_A" in code
-        assert "B.B" not in code
-        assert "B_B" in code
-
     test_space()
     test_slash()
     test_hyphen()
-    test_dot()
 
 if __name__ == "__main__":
     test()
