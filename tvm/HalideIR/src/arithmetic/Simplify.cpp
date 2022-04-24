@@ -3231,12 +3231,14 @@ class Simplify : public IRMutator {
       Expr next = stack.back();
       stack.pop_back();
 
-      if (!or_chain) {
-        then_case = substitute(next, const_true(), then_case);
-      }
-      if (!and_chain) {
-        else_case = substitute(next, const_false(), else_case);
-      }
+      // TODO (hecmay): avoid substituting the expression directly 
+      //    since the value may have been updated before the condition
+      // if (!or_chain) {
+      //   then_case = substitute(next, const_true(), then_case);
+      // }
+      // if (!and_chain) {
+      //   else_case = substitute(next, const_false(), else_case);
+      // }
 
       if (const And *a = next.as<And>()) {
         if (!or_chain) {
