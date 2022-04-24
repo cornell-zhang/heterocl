@@ -3231,7 +3231,7 @@ class Simplify : public IRMutator {
       Expr next = stack.back();
       stack.pop_back();
 
-      // TODO (hecmay): avoid substituting the expression directly 
+      // TODO(hecmay): avoid substituting the expression directly
       //    since the value may have been updated before the condition
       // if (!or_chain) {
       //   then_case = substitute(next, const_true(), then_case);
