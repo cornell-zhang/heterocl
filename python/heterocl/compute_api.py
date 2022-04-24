@@ -13,6 +13,7 @@ from .debug import APIError
 from .dsl import if_, for_
 from .mutator import Mutator
 from .module import Module
+from . import util
 
 ##############################################################################
 # Helper classes and functions
@@ -111,6 +112,7 @@ def compute_body(name,
     -------
     Tensor or None
     """
+    name = util.legalize_name(name)
     var_list = [i.var for i in lambda_ivs]
     return_tensor = True if tensor is None else False
 
@@ -697,12 +699,14 @@ def reduce_axis(lower, upper, name=None):
         raise APIError("The upper-bound should be greater then the lower-bound")
 
     name = get_name("ra", name)
+    name = util.legalize_name(name)
     return _IterVar((lower, upper), name, 2)
 
 def const_tensor(values, name=None, dtype=None):
     """Create a constant tensor
     """
     name = get_name("const", name)
+    name = util.legalize_name(name)
 
     if not isinstance(values, np.ndarray):
         values = np.array(values)
@@ -917,7 +921,7 @@ def reducer(init, freduce, dtype="int32", name=None):
               --------
               reducer
               """
-
+    name = util.legalize_name(name)
     make_reduce.__doc__ = doc_str.format(name)
     return make_reduce
 
@@ -961,6 +965,7 @@ def bitcast(tensor, dst_dtype, name=None):
                         f"source bitwidth: {src_bitwidth} , destination bitwidth {dst_bitwidth}.") 
 
     # set up name, shape, and fcompute
+    name = util.legalize_name(name)
     dst_dtype_str = dtype_to_str(dst_dtype)
     if isinstance(tensor, Tensor):
         name = tensor.name + '_' + dst_dtype_str if name is None else name

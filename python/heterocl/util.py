@@ -141,3 +141,15 @@ class CastRemover(Mutator):
 
     def mutate_Cast(self, node):
         return self.mutate(node.value)
+
+def legalize_name(name):
+    if name is None:
+        return None
+    if not isinstance(name, str):
+        raise ValueError("Illegal name: " + str(name))
+    orig_name = name
+    name = name.replace(".", "_").replace("-", "_")
+    name = name.replace(' ', '_').replace("/", "_")
+    if name != orig_name:
+        print("Warning: illegal name '%s' is changed to '%s'" % (orig_name, name))
+    return name
