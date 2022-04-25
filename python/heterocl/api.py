@@ -93,6 +93,7 @@ def placeholder(shape, name=None, dtype=None):
         A = hcl.placeholder((1,), "A")
     """
     name = util.get_name("placeholder", name)
+    name = util.legalize_name(name)
     dtype = util.get_dtype(dtype)
     tvm_dtype = types.dtype_to_str(dtype)
 
@@ -204,6 +205,7 @@ def create_schedule(inputs, func=None, name=""):
         s = hcl.create_schedule(A)
         s[B].unroll(B.axis[0])
     """
+    name = util.legalize_name(name)
     outputs = [ ]
     if not isinstance(inputs, list):
         inputs = [inputs]
@@ -257,6 +259,7 @@ def create_schedule_from_scheme(scheme, name=""):
         sm = hcl.create_scheme(A, algo)
         sl = hcl.create_schedule_from_scheme(sm)
     """
+    name = util.legalize_name(name)
     Scheme.current = scheme
     # reset the values of each tensor
     for i in scheme.inputs:
@@ -311,6 +314,7 @@ def build(schedule, target=None, name="default_function", stmt=None):
     -------
     tvm.module.Module
     """
+    name = util.legalize_name(name)
     new_inputs = []
     for i in schedule.inputs:
         if isinstance(i, Tensor):

@@ -14,6 +14,7 @@ jobs:
         run: |
           ls ${{ github.workspace }}
           export CXX=/usr/bin/g++
+          sed 's/install/develop/g' Makefile
           make -j`nproc`
           cp tvm/lib/* .
       - run: echo "This job's status is ${{ job.status }}."
@@ -28,4 +29,3 @@ jobs:
           source /opt/xilinx/xrt/setup.sh
           export LOCAL_CI_TEST=1
           python tests/test_cont_integration.py
-          pip uninstall heterocl hlib -y
