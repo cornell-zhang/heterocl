@@ -147,6 +147,7 @@ def build_schedule(inputs, func=None, name=""):
     return sch
 
 def build_schedule_file(file,inputs, name=None):
+  
     s = ""
     outputs = []
     with open(file, 'r') as f:
@@ -158,6 +159,7 @@ def build_schedule_file(file,inputs, name=None):
         if str(op.name) == "\"top\"":
             sch._device_top = op
     ret_op = sch.device_module.body.operations[len(sch.device_module.body.operations)-1]
+    
     #parsing the attribute type
     att_type = str(sch._device_top.attributes["type"]).split("-")[1][8:].split("x")
     att_type[0] = att_type[0][1:]
@@ -175,7 +177,6 @@ def build_schedule_file(file,inputs, name=None):
         fr = sdtype[11].split(", ")[1][:-1]
         dtype = Fixed(int(itg), int(fr))
     
-
     with get_context(), get_location():
         out = hcl_mlir.TensorOp(
                     shape, memref.AllocOp, dtype, name=str(ret_op.attributes["outputs"]))
