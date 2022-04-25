@@ -185,7 +185,6 @@ def build_schedule_file(file,inputs, name=None):
         outputs.append(out)
         sch.DataflowGraph.create_node(out)
         sch.DataflowGraph.set_leaves(outputs)
-        
         hcl_mlir.disable_build_inplace()
     return sch
 
