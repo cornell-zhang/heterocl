@@ -8,6 +8,7 @@
 #include <tvm/ir_pass.h>
 #include <tvm/ir_visitor.h>
 #include <tvm/operation.h>
+#include "ir_util.h"
 
 namespace TVM {
 namespace ir {
@@ -53,124 +54,6 @@ class ModulusRemover final : public IRMutator {
  private:
   Expr mod_;
   std::map<const Variable*, Expr>& range_;
-};
-
-// Remove cast in binary expressions
-// Example: (cast(x) + cast(y)) -> (x + y)
-// Usage: CastRemover castRemover;
-//        Expr expr = castRemover.Mutate(expr);
-class CastRemover final : public IRMutator {
- public:
-  CastRemover() {}
-
-  Expr Mutate_(const Cast* op, const Expr& e) {
-    return op->value;
-  }
-
-  Expr Mutate_(const Add* op, const Expr& e) {
-    Expr a = this->Mutate(op->a);
-    Expr b = this->Mutate(op->b);
-    if (const Cast* ca = a.as<Cast>()) {
-      a = ca->value;
-    }
-    if (const Cast* cb = b.as<Cast>()) {
-      b = cb->value;
-    }
-    if (a.type() != b.type())
-      LOG(FATAL) << "CastRemover: type mismatch "
-        << a.type() << " vs " << b.type();
-    return Add::make(a, b);
-  }
-
-  Expr Mutate_(const Sub* op, const Expr& e) {
-    Expr a = this->Mutate(op->a);
-    Expr b = this->Mutate(op->b);
-    if (const Cast* ca = a.as<Cast>()) {
-      a = ca->value;
-    }
-    if (const Cast* cb = b.as<Cast>()) {
-      b = cb->value;
-    }
-    if (a.type() != b.type())
-      LOG(FATAL) << "CastRemover: type mismatch "
-        << a.type() << " vs " << b.type();
-    return Sub::make(a, b);
-  }
-
-  Expr Mutate_(const Mul* op, const Expr& e) {
-    Expr a = this->Mutate(op->a);
-    Expr b = this->Mutate(op->b);
-    if (const Cast* ca = a.as<Cast>()) {
-      a = ca->value;
-    }
-    if (const Cast* cb = b.as<Cast>()) {
-      b = cb->value;
-    }
-    if (a.type() != b.type())
-      LOG(FATAL) << "CastRemover: type mismatch "
-        << a.type() << " vs " << b.type();
-    return Mul::make(a, b);
-  }
-
-  Expr Mutate_(const Div* op, const Expr& e) {
-    Expr a = this->Mutate(op->a);
-    Expr b = this->Mutate(op->b);
-    if (const Cast* ca = a.as<Cast>()) {
-      a = ca->value;
-    }
-    if (const Cast* cb = b.as<Cast>()) {
-      b = cb->value;
-    }
-    if (a.type() != b.type())
-      LOG(FATAL) << "CastRemover: type mismatch "
-        << a.type() << " vs " << b.type();
-    return Div::make(a, b);
-  }
-
-  Expr Mutate_(const Mod* op, const Expr& e) {
-    Expr a = this->Mutate(op->a);
-    Expr b = this->Mutate(op->b);
-    if (const Cast* ca = a.as<Cast>()) {
-      a = ca->value;
-    }
-    if (const Cast* cb = b.as<Cast>()) {
-      b = cb->value;
-    }
-    if (a.type() != b.type())
-      LOG(FATAL) << "CastRemover: type mismatch "
-        << a.type() << " vs " << b.type();
-    return Mod::make(a, b);
-  }
-
-  Expr Mutate_(const Min* op, const Expr& e) {
-    Expr a = this->Mutate(op->a);
-    Expr b = this->Mutate(op->b);
-    if (const Cast* ca = a.as<Cast>()) {
-      a = ca->value;
-    }
-    if (const Cast* cb = b.as<Cast>()) {
-      b = cb->value;
-    }
-    if (a.type() != b.type())
-      LOG(FATAL) << "CastRemover: type mismatch "
-        << a.type() << " vs " << b.type();
-    return Min::make(a, b);
-  }
-
-  Expr Mutate_(const Max* op, const Expr& e) {
-    Expr a = this->Mutate(op->a);
-    Expr b = this->Mutate(op->b);
-    if (const Cast* ca = a.as<Cast>()) {
-      a = ca->value;
-    }
-    if (const Cast* cb = b.as<Cast>()) {
-      b = cb->value;
-    }
-    if (a.type() != b.type())
-      LOG(FATAL) << "CastRemover: type mismatch "
-        << a.type() << " vs " << b.type();
-    return Max::make(a, b);
-  }
 };
 
 // recover a 1D index back to multi-dimensional index
