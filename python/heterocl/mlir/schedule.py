@@ -157,6 +157,15 @@ class Partition(object):
     Block = 1
     Cyclic = 2
 
+class BlockIdx(object):
+    x = 0
+    y = 1
+    z = 2
+
+class ThreadIdx(object):
+    x = 3
+    y = 4
+    z = 5
 
 class Schedule(object):
     """Create a compute schedule
@@ -517,6 +526,18 @@ class Stage(object):
         # self.op.axis.insert(idx+2, tile_op.results[2])
         # self.op.axis.insert(idx+3, tile_op.results[3])
         return tile_op.results[0], tile_op.results[1], tile_op.results[2], tile_op.results[3]
+    
+    def bind(self, var, thread_axis):
+        assert thread_axis < 5, "cannot support NDrange with dim > 3"
+        if isinstance(var, int):
+            var = self.op.axis[var]
+        if isinstance(var, hcl_d.CreateLoopHandleOp):
+            var = var.result
+        with get_context(), get_location():
+            i32 = IntegerType.get_unsigned(32)
+            thread_binding_type = IntegerAttr.get(i32, thread_axis)
+            hcl_d.ThreadBindOp(self.stage_handle.result,
+                             var, ii, ip=GlobalInsertionPoint.get())
 
     def pipeline(self, var, initiation_interval=1):
         """Pipeline the iteration.
