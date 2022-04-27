@@ -152,41 +152,61 @@ def build_schedule_file(file,inputs, name=None):
     outputs = []
     with open(file, 'r') as f:
         s = f.read()
+    print(type(s))
     sch = Schedule(name,inputs)
     sch._device_module = Module.parse(s, get_context())
     for op in sch.device_module.body.operations:
-        print("")
         if str(op.name) == "\"top\"":
             sch._device_top = op
-    ret_op = sch.device_module.body.operations[len(sch.device_module.body.operations)-1]
-    
-    #parsing the attribute type
-    att_type = str(sch._device_top.attributes["type"]).split("-")[1][8:].split("x")
-    att_type[0] = att_type[0][1:]
-    att_type[-1] = att_type[-1][:-1]
-    
-    sdtype = output_type[-1]
-    shape = [int(i) for i in output_type[:-1]]
-    dtype = None
-    if sdtype[0] == "i":
-        dtype = Int(int(sdtype[1:]))
-    elif sdtype[0] == "f":
-        dtype = Float(int(sdtype[1:]))
-    elif sdtype[0:10] == "!hcl.Fixed":
-        itg = sdtype[11].split(", ")[0]
-        fr = sdtype[11].split(", ")[1][:-1]
-        dtype = Fixed(int(itg), int(fr))
-    
+    hcl_mlir.enable_build_inplace()
     with get_context(), get_location():
-        out = hcl_mlir.TensorOp(
-                    shape, memref.AllocOp, dtype, name=str(ret_op.attributes["outputs"]))
-        hcl_mlir.enable_build_inplace()
-        out.dtype = hcl_dtype_to_mlir(dtype)
-        out.build()
-        outputs.append(out)
-        sch.DataflowGraph.create_node(out)
-        sch.DataflowGraph.set_leaves(outputs)
-        hcl_mlir.disable_build_inplace()
+        for op in sch.device_module.body.operations:
+            if str(op.name) != "\"top\"":
+                ar = str(op.attributes["type"]).split(" -")[0]
+                l = ar.split(", m")
+                l[0] = l[0][2:]
+                l[-1] = l[-1][:-1]
+                tl = [e[6:-1].split("x") for e in l]
+                inp = tl[:-1]
+                inp_n = str(op.attributes["inputs"])[1:-1].split(",")
+                opt = tl[-1]
+                opt_n = str(op.attributes["outputs"])[1:-1]
+                for i in range(len(inp)+1):
+                    typ = []
+                    name = ""
+                    if i == len(inp):
+                        shape = opt
+                        name = str(opt_n)
+                    else:
+                        shape = tl[i]
+                        name = inp_n[i]
+                    if name not in sch.DataflowGraph.node_map.keys():
+                        sdtype = shape[-1]
+                        if shape[-2] == "!hcl.Fi":
+                            typ = [int(i) for i in shape[:-2]]
+                        else:
+                            typ = [int(i) for i in shape[:-1]]
+                        dtype = None
+                        if sdtype[0] == "i":
+                            dtype = Int(int(sdtype[1:]))
+                        elif sdtype[0] == "f":
+                            dtype = Float(int(sdtype[1:]))
+                        elif sdtype[0:2] == "ed":
+                            itg = sdtype[3:].split(", ")[0]
+                            fr = sdtype[3:].split(", ")[1][:-1]
+                            dtype = Fixed(int(itg), int(fr))
+                        tns = hcl_mlir.TensorOp(typ, memref.AllocOp, dtype, name=name)
+                        tns.dtype = hcl_dtype_to_mlir(dtype)
+                        tns.build()
+                        #TODO : encapsulate tns in Tensor object
+                        sch.DataflowGraph.create_node(tns)
+                for i in range(len(inp)):
+                    sch.DataflowGraph.add_edge(sch.DataflowGraph.node_map[inp_n[i]],sch.DataflowGraph.node_map[str(opt_n)])
+    
+    outputs.append(sch.DataflowGraph.node_map[str(sch.device_module.body.operations[len(sch.device_module.body.operations)-1].attributes["outputs"])[1:-1]])
+    sch.DataflowGraph.set_leaves(outputs)
+    sch.DataflowGraph.dump()
+    hcl_mlir.disable_build_inplace()
     return sch
 
 def create_schedule(inputs, func=None, name=""):
