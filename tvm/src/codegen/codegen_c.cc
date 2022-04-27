@@ -44,8 +44,12 @@ Type ExtractDType(Expr expr, bool& flag) {
   } else if (auto v = expr.as<Cast>()) {
     flag = false;
     return v->type;
+  } else if (auto v = expr.as<Select>()) {
+    return v->type;
+  } else if (auto v = expr.as<Call>()) {
+    return v->type;
   }
-  LOG(FATAL) << "unknown type of " << expr;
+  LOG(FATAL) << "unknown type of " << expr->type_key();
   return Type(Type::UInt, 32, 0);
 }
 
