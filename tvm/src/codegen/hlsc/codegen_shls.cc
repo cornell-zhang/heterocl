@@ -13,10 +13,9 @@
 #include <vector>
 #include "../../pass/stencil.h"
 #include "../build_common.h"
+#include "../../pass/ir_util.h"
 #include "../build_soda.h"
 #include "../codegen_soda.h"
-#include "./hierarchy.h"
-#include "./port_direction.h"
 #include "codegen_shls.h"
 
 namespace TVM {
@@ -445,7 +444,7 @@ void CodeGenStratusHLS::GenerateModule(
   }
 
   // Infer port direction
-  PortDirection port_visitor(_port_names[level_], scalars);
+  TVM::ir::PortDirectionFinder port_visitor(_port_names[level_], scalars);
   port_visitor.Visit(body);
 
   // Generate port definitions
@@ -559,7 +558,7 @@ void CodeGenStratusHLS::GenerateModule(
   // find KernelDef nodes in LoweredFunc's body,
   // to avoid printing the redundant allocations.
   // this->sub_names will be checked in Allocate node.
-  Hierarchy hierarchy;
+  TVM::ir::HierarchyVisitor hierarchy;
   hierarchy.Visit(body);
   std::list<std::string> submodule_def = hierarchy.get_submodule_def();
   for (std::string sub_name : submodule_def)
