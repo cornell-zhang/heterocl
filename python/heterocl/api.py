@@ -323,7 +323,10 @@ def build(schedule, target=None, name="default_function", stmt=None):
             new_inputs.append(i.var)
 
     # auto data moving to dev
-    if len(schedule.placement) == 0 and (target is not None):
+    if hasattr(target, "name") and target.name == "cadence_stratus":
+        # Cadence stratus does not support auto data moving
+        pass
+    elif len(schedule.placement) == 0 and (target is not None):
         if not isinstance(target, str):
             # TODO: print clean info for auto placement
             # import builtins as __builtin__

@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 #include "../build_common.h"
+#include "../codegen_common.h"
 
 namespace TVM {
 namespace codegen {
@@ -89,11 +90,14 @@ void CodeGenHLSC::GenForStmt(const For* op, std::string pragma, bool before) {
     if (auto str = op->annotate_keys[i].as<StringImm>()) {
       if (str->value == "stage_name") {
         loop_stage_name = true;
-        auto label = op->annotate_values[i].as<StringImm>();
-        if (label->value == "")
+        std::string label = op->annotate_values[i].as<StringImm>()->value;
+        // canonicalize the label and vid
+        canonicalize_string(vid);
+        canonicalize_string(label);
+        if (label == "")
           stream << vid;
         else
-          stream << label->value << "_" << vid;
+          stream << label << "_" << vid;
         stream << ": ";
         break;
       }

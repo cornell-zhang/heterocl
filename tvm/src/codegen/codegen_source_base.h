@@ -81,6 +81,15 @@ class CodeGenSourceBase {
    */
   void EndScope(int scope_id);
   /*!
+   * \brief set indent_ to a specifc value.
+   * \param indent The value to be set for indent_
+   */
+  void SetIndent(int indent);
+  /*!
+   * \brief get indent_ value.
+   */
+  int GetIndent();
+  /*!
    * \brief Print assignment of src to the id in ssa entry.
    * \param target id of target variable.
    * \param src The source expression.

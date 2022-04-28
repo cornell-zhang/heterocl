@@ -71,5 +71,42 @@ Stmt MergeSeq(const std::vector<Stmt>& seq) {
   return body;
 }
 
+bool PortDirectionFinder::isOffChip(std::string name) {
+  const std::string targets[1] = {"DRAM"};
+    bool offchip = false;
+    for (const std::string target : targets) {
+      std::string name_upper = name;
+      std::transform(name_upper.begin(), name_upper.end(), name_upper.begin(),
+                     ::toupper);
+      offchip = name_upper.find(target) != std::string::npos;
+    }
+    return offchip;
+}
+
+PortType PortDirectionFinder::get_direction(std::string var_name) {
+    auto it_in = std::find(_in_ports.begin(), _in_ports.end(), var_name);
+    auto it_out = std::find(_out_ports.begin(), _out_ports.end(), var_name);
+    auto it_scl = std::find(_scalars.begin(), _scalars.end(), var_name);
+    bool is_scalar = it_scl != _scalars.end();
+    bool is_in = it_in != _in_ports.end();
+    bool is_out = it_out != _out_ports.end();
+    if (is_in && is_out) {
+      bool offchip = isOffChip(var_name);
+      return offchip ? PortType::OffChipMemory : PortType::Memory;
+    } else if (is_in) {
+      return PortType::ChannelIn;
+    } else if (is_out) {
+      return PortType::ChannelOut;
+    } else if (is_scalar) {
+      return PortType::ChannelIn;
+    } else {
+      LOG(FATAL) << "[SystemC Backend][PortDirectionInfer]"
+                 << " cannot infer the port type and direction for port: "
+                 << var_name;
+    }
+    return PortType::Default;
+  }
+
+
 }  // namespace ir
 }  // namespace TVM

@@ -13,6 +13,9 @@
 
 namespace TVM {
 namespace codegen {
+// Remove space, `.`, `/` from string.
+void canonicalize_string(std::string& s);
+
 // Extract function information from device function.
 inline std::unordered_map<std::string, runtime::FunctionInfo> ExtractFuncInfo(
     const Array<LoweredFunc>& funcs) {
@@ -44,6 +47,7 @@ enum TargetTool : int {
   Vitis = 2,
   VivadoHLS = 3,
   IntelHLS = 4,
+  StratusHLS = 5
 };
 
 }  // namespace codegen

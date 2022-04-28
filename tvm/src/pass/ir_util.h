@@ -7,9 +7,12 @@
 #define PASS_IR_UTIL_H_
 
 #include <tvm/ir.h>
-#include <tvm/runtime/device_api.h>
 #include <tvm/ir_mutator.h>
+#include <tvm/ir_pass.h>
+#include <tvm/ir_visitor.h>
+#include <tvm/runtime/device_api.h>
 #include <vector>
+#include "../codegen/build_common.h"
 
 namespace TVM {
 namespace ir {
@@ -156,6 +159,126 @@ inline int GetTempAllocaAlignment(Type type, int32_t const_size) {
   return align;
 }
 
+// Collect function call arguments names and types.
+// Visit KernelExpr and KernelDef nodes in the IR.
+// Example:
+//  HierarchyVisitor hierarchy_visitor;
+//  hierarchy_visitor.Visit(stmt);
+//  std::list<std::string> defs = hierarchy_visitor.get_submodule_def();
+//  std::list<std::string> calls = hierarchy_visitor.get_submodules();
+//  std::map<std::string, std::vector<Expr>> submodule_args =
+//      hierarchy_visitor.get_submodule_args();
+//  std::map<std::string, std::vector<Expr>> submodule_arg_types =
+//      hierarchy_visitor.get_arg_types();
+//  std::map<std::string, std::vector<std::string>> submodule_arg_names =
+//      hierarchy_visitor.get_arg_names();
+class HierarchyVisitor : public IRVisitor {
+ public:
+  HierarchyVisitor() : _args{}, _arg_types{}, _arg_names{} {}
+
+  void Visit_(const KernelExpr* op) final {
+    _call_stack.push_back(op->name);
+    // collect args info
+    for (Expr arg : op->args) {
+      _args[op->name].push_back(arg);
+    }
+    IRVisitor::Visit_(op);
+  }
+
+  void Visit_(const KernelDef* op) final {
+    _def_list.push_back(op->name);
+    for (unsigned int i = 0; i < op->args.size(); i++) {
+      auto e = op->arg_types[i];
+      _arg_types[op->name].push_back(e);
+      VarExpr arg = op->args[i];
+      std::string n = arg.as<Variable>()->name_hint;
+      _arg_names[op->name].push_back(n);
+    }
+  }
+
+  std::list<std::string> get_submodule_def() { return _def_list; }
+
+  std::list<std::string> get_submodules() { return _call_stack; }
+
+  std::map<std::string, std::vector<Expr> > get_submodule_args() {
+    return _args;
+  }
+
+  std::map<std::string, std::vector<Expr> > get_arg_types() {
+    return _arg_types;
+  }
+
+  std::map<std::string, std::vector<std::string> > get_arg_names() {
+    return _arg_names;
+  }
+
+ private:
+  std::list<std::string> _call_stack;
+  std::list<std::string> _def_list;
+  // from KernelExpr
+  std::map<std::string, std::vector<Expr> > _args;
+  // from KernelDef
+  std::map<std::string, std::vector<Expr> > _arg_types;
+  std::map<std::string, std::vector<std::string> > _arg_names;
+};
+
+enum class PortType { ChannelIn, ChannelOut, Memory, OffChipMemory, Default };
+
+// Get port direction for function arguments
+// StratusHLS backend requires port direction for function arguments
+// to be specified.
+// Example:
+//  PortDirectionFinder port_visitor(ports, scalars);
+//  port_visitor.Visit(Stmt);
+//  PortType port_type = port_visitor.get_direction(arg_name);
+class PortDirectionFinder : public IRVisitor {
+ public:
+  explicit PortDirectionFinder(const std::vector<std::string>& ports,
+                               const std::vector<std::string>& scalars)
+      : _ports(ports), _scalars(scalars) {}
+
+  void Visit_(const Load* op) final {
+    std::string var_name = op->buffer_var.get()->name_hint;
+    TVM::codegen::canonicalize_string(var_name);
+    auto it = std::find(_ports.begin(), _ports.end(), var_name);
+    if (it != _ports.end()) {
+      _in_ports.push_back(var_name);
+    }
+    IRVisitor::Visit_(op);
+  }
+
+  void Visit_(const Store* op) final {
+    std::string var_name = op->buffer_var.get()->name_hint;
+    TVM::codegen::canonicalize_string(var_name);
+    auto it = std::find(_ports.begin(), _ports.end(), var_name);
+    if (it != _ports.end()) {
+      _out_ports.push_back(var_name);
+    }
+    IRVisitor::Visit_(op);
+  }
+
+  void Visit_(const Cast* op) final {
+    if (const Variable* v = op->value.as<Variable>()) {
+      std::string var_name = v->name_hint;
+      TVM::codegen::canonicalize_string(var_name);
+      auto it = std::find(_ports.begin(), _ports.end(), var_name);
+      if (it != _ports.end()) {
+        _in_ports.push_back(var_name);
+      }
+    }
+    IRVisitor::Visit_(op);
+  }
+
+  bool isOffChip(std::string name);
+  PortType get_direction(std::string var_name);
+
+ private:
+  std::list<std::string> _in_ports;
+  std::list<std::string> _out_ports;
+  std::vector<std::string> _ports;
+  std::vector<std::string> _scalars;
+};
+
 // Remove cast in binary expressions
 // Example: (cast(x) + cast(y)) -> (x + y)
 // Usage: CastRemover castRemover;
@@ -164,9 +287,7 @@ class CastRemover final : public IRMutator {
  public:
   CastRemover() {}
 
-  Expr Mutate_(const Cast* op, const Expr& e) {
-    return op->value;
-  }
+  Expr Mutate_(const Cast* op, const Expr& e) { return op->value; }
 
   Expr Mutate_(const Add* op, const Expr& e) {
     Expr a = this->Mutate(op->a);
@@ -178,8 +299,8 @@ class CastRemover final : public IRMutator {
       b = cb->value;
     }
     if (a.type() != b.type())
-      LOG(FATAL) << "CastRemover: type mismatch "
-        << a.type() << " vs " << b.type();
+      LOG(FATAL) << "CastRemover: type mismatch " << a.type() << " vs "
+                 << b.type();
     return Add::make(a, b);
   }
 
@@ -193,8 +314,8 @@ class CastRemover final : public IRMutator {
       b = cb->value;
     }
     if (a.type() != b.type())
-      LOG(FATAL) << "CastRemover: type mismatch "
-        << a.type() << " vs " << b.type();
+      LOG(FATAL) << "CastRemover: type mismatch " << a.type() << " vs "
+                 << b.type();
     return Sub::make(a, b);
   }
 
@@ -208,8 +329,8 @@ class CastRemover final : public IRMutator {
       b = cb->value;
     }
     if (a.type() != b.type())
-      LOG(FATAL) << "CastRemover: type mismatch "
-        << a.type() << " vs " << b.type();
+      LOG(FATAL) << "CastRemover: type mismatch " << a.type() << " vs "
+                 << b.type();
     return Mul::make(a, b);
   }
 
@@ -223,8 +344,8 @@ class CastRemover final : public IRMutator {
       b = cb->value;
     }
     if (a.type() != b.type())
-      LOG(FATAL) << "CastRemover: type mismatch "
-        << a.type() << " vs " << b.type();
+      LOG(FATAL) << "CastRemover: type mismatch " << a.type() << " vs "
+                 << b.type();
     return Div::make(a, b);
   }
 
@@ -238,8 +359,8 @@ class CastRemover final : public IRMutator {
       b = cb->value;
     }
     if (a.type() != b.type())
-      LOG(FATAL) << "CastRemover: type mismatch "
-        << a.type() << " vs " << b.type();
+      LOG(FATAL) << "CastRemover: type mismatch " << a.type() << " vs "
+                 << b.type();
     return Mod::make(a, b);
   }
 
@@ -253,8 +374,8 @@ class CastRemover final : public IRMutator {
       b = cb->value;
     }
     if (a.type() != b.type())
-      LOG(FATAL) << "CastRemover: type mismatch "
-        << a.type() << " vs " << b.type();
+      LOG(FATAL) << "CastRemover: type mismatch " << a.type() << " vs "
+                 << b.type();
     return Min::make(a, b);
   }
 
@@ -268,8 +389,8 @@ class CastRemover final : public IRMutator {
       b = cb->value;
     }
     if (a.type() != b.type())
-      LOG(FATAL) << "CastRemover: type mismatch "
-        << a.type() << " vs " << b.type();
+      LOG(FATAL) << "CastRemover: type mismatch " << a.type() << " vs "
+                 << b.type();
     return Max::make(a, b);
   }
 };

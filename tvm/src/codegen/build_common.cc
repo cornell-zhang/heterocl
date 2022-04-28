@@ -21,6 +21,7 @@
 #include "./code_analysis.h"
 #include "hlsc/codegen_ihls.h"
 #include "hlsc/codegen_vhls.h"
+#include "hlsc/codegen_shls.h"
 #include "opencl/codegen_aocl.h"
 #include "opencl/codegen_aocl_host.h"
 #include "opencl/codegen_xocl.h"
@@ -92,7 +93,7 @@ class SimModuleNode final : public ModuleNode {
               (*f)(hash, platform_, options_["mode"]).operator bool();
           if (pre_compiled) {
             // TODO(hecmay): check execution modes (sw/hw)
-            LOG(CLEAN) << "Hash macthed. Found pre-compiled bitstream";
+            LOG(CLEAN) << "Hash matched. Found pre-compiled bitstream";
           }
         }
 
@@ -104,7 +105,7 @@ class SimModuleNode final : public ModuleNode {
           // Copy files and compile tp binary
           LOG(CLEAN) << "Compiling the program ...";
           if (const auto* f = Registry::Get("copy_and_compile")) {
-            CHECK(options_.count("mode")) << "mode mot set";
+            CHECK(options_.count("mode")) << "mode not set";
             auto mode = options_["mode"];
             auto backend = options_["backend"];
             auto tcl = options_["tcl"];
@@ -177,6 +178,12 @@ Module CreateSimModule(LoweredFunc func, std::string host_code,
 }  // namespace runtime
 
 namespace codegen {
+// Remove space, `.`, `/` from string.
+void canonicalize_string(std::string& s) {
+  std::replace(s.begin(), s.end(), '.', '_');
+  std::replace(s.begin(), s.end(), ' ', '_');
+  std::replace(s.begin(), s.end(), '/', '_');
+}
 
 // unified simulation function for diff platforms
 template <class CodeGenHost, class CodeGenXcel>
@@ -259,7 +266,9 @@ TVM_REGISTER_API("codegen.build_sim")
         } else {
           LOG(FATAL) << "aocl does not support " << lang << " backend";
         }
-
+      } else if (type == "stratus_hls") {
+        *rv = BuildSimModule<CodeGenStratusHLS, CodeGenStratusHLS>(
+          args[0], args[1], args[2]);
       } else {
         LOG(FATAL) << "unrecognized platform " << type;
       }
