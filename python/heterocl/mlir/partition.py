@@ -22,7 +22,7 @@ def topological_sort(roots):
                 working_set.append(use)
     return lst, output_tensor
 
-def LB1(n, mst, i, vc, vf):
+def LB1(mst, i):
     return mst[i]
 
 def LB2(n, mst, i, vc, vf):
@@ -77,7 +77,7 @@ def BnB(l, mst, i, vc, vf, cm,mi,ord):
         else:
             return None
     v1 = 0
-    if mi < LB1(len(l),mst,i,vc,vf):
+    if mi < LB2(len(l),mst,i,vc,vf):
         v1 = np.Infinity
     elif len(l[i].children) == 0:
         v1 = mst[i] + vc[i]
@@ -96,7 +96,7 @@ def BnB(l, mst, i, vc, vf, cm,mi,ord):
             return None
             
     v2 = 0
-    if mi < LB1(len(l),mst,i,vc,vf):
+    if mi < LB2(len(l),mst,i,vc,vf):
         v2 = np.Infinity
     elif len(l[i].children) == 0:
         v2 = mst[i] + vf[i]
