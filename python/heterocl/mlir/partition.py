@@ -64,10 +64,12 @@ def possible_branching(l,i,tab,lim=0):
 
 
 def BnB(l, mst, i, vc, vf, cm,mi,ord):
+    #Not considering memory constraints : latency on communication computed without care for available space
 
     fass, cass, tab =  [],[],[]
     ##CPU
     mst[i]=0
+    # can't start until data is available
     l[i].device = "CPU"
     for k in l[i].parents:
         if k.device == "CPU":
@@ -76,6 +78,13 @@ def BnB(l, mst, i, vc, vf, cm,mi,ord):
             mst[i] = max(mst[i],mst[ord[k]] + vf[ord[k]] + cm[ord[k]][i])
         else:
             return None
+
+    # can't start until the last task on CPU finishes
+    for k in range(i-1,-1,-1):
+        if l[k].device == "CPU":
+            mst[i] = max(mst[i],mst[k] + vc[k])
+            break
+
     v1 = 0
     if mi < LB2(len(l),mst,i,vc,vf):
         v1 = np.Infinity
@@ -86,6 +95,7 @@ def BnB(l, mst, i, vc, vf, cm,mi,ord):
 
     ##FPGA
     mst[i]=0
+    # can't start until data is available
     l[i].device = "FPGA"
     for k in l[i].parents:
         if k.device == "CPU":
@@ -94,7 +104,13 @@ def BnB(l, mst, i, vc, vf, cm,mi,ord):
             mst[i] = max(mst[i],mst[ord[k]] + vf[ord[k]])
         else:
             return None
-            
+
+    # can't start until the last task on FPGA finishes
+    for k in range(i-1,-1,-1):
+        if l[k].device == "FPGA":
+            mst[i] = max(mst[i],mst[k] + vf[k])
+            break   
+
     v2 = 0
     if mi < LB2(len(l),mst,i,vc,vf):
         v2 = np.Infinity
