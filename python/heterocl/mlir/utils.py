@@ -3,7 +3,7 @@ from hcl_mlir.dialects import hcl as hcl_d
 from hcl_mlir.ir import *
 
 from ..config import init_dtype
-from ..types import Fixed, Float, Int, Type, UFixed, UInt, dtype_to_str
+from ..types import Fixed, Float, Int, Type, UFixed, UInt, Struct, dtype_to_str
 
 
 def hcl_dtype_to_mlir(dtype):
@@ -24,6 +24,9 @@ def hcl_dtype_to_mlir(dtype):
             return F32Type.get()
         elif dtype.bits == 64:
             return F64Type.get()
+    elif isinstance(dtype, Struct):
+        types = [hcl_dtype_to_mlir(t) for t in dtype.dtype_dict.values()]
+        return hcl_d.StructType.get(types)
     else:
         raise RuntimeError("Not supported type")
 
