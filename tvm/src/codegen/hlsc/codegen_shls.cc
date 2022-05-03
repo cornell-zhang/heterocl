@@ -800,7 +800,6 @@ void CodeGenStratusHLS::PrintType(Type t, std::ostream& os) {
 
 void CodeGenStratusHLS::PrintType(Type t, std::ostream& os, bool is_index) {
   bool big = t.bits() > 64;
-  LOG(INFO) << "PrintType: " << t << " " << t.bits() << ", big=" << big;
   if (big && is_index) {
     LOG(FATAL)
         << "Stratus HLS doesn't support index expression bitwidth wider than "
