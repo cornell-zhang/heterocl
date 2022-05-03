@@ -278,7 +278,7 @@ class ComputeOp(object):
                         hcl_dtype_to_mlir(self.dtype), result_expr)
                 value = builder.visit(result_expr)
                 if hasattr(result_expr, 'built_op'):
-                    result_expr.buildt_op = value
+                    result_expr.built_op = value
 
                 # store the result back to tensor
                 # we have to read the ssa value out first, then store back to tensor
