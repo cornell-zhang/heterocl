@@ -11,9 +11,9 @@
 #include <fstream>
 #include <string>
 #include <vector>
+#include "../../pass/ir_util.h"
 #include "../../pass/stencil.h"
 #include "../build_common.h"
-#include "../../pass/ir_util.h"
 #include "../build_soda.h"
 #include "../codegen_soda.h"
 #include "codegen_shls.h"
@@ -795,14 +795,16 @@ void CodeGenStratusHLS::AddFunction(
 }
 
 void CodeGenStratusHLS::PrintType(Type t, std::ostream& os) {
-  PrintType(t, os, true);
+  PrintType(t, os, false);
 }
 
 void CodeGenStratusHLS::PrintType(Type t, std::ostream& os, bool is_index) {
   bool big = t.bits() > 64;
+  LOG(INFO) << "PrintType: " << t << " " << t.bits() << ", big=" << big;
   if (big && is_index) {
-    LOG(WARNING) << "index expression doesn't support bitwidth wider than "
-                 << " 64 bit.";
+    LOG(FATAL)
+        << "Stratus HLS doesn't support index expression bitwidth wider than "
+        << " 64 bit.";
     return;
   }
   if (t.is_uint() || t.is_int() || t.is_fixed() || t.is_ufixed()) {
