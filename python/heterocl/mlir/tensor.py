@@ -276,12 +276,13 @@ class ComputeOp(object):
                 if isinstance(result_expr, (int, float)):
                     result_expr = hcl_mlir.ConstantOp(
                         hcl_dtype_to_mlir(self.dtype), result_expr)
-                true_result = builder.visit(result_expr)
-                result_expr.built_op = true_result
+                value = builder.visit(result_expr)
+                if hasattr(result_expr, 'built_op'):
+                    result_expr.buildt_op = value
 
                 # store the result back to tensor
                 # we have to read the ssa value out first, then store back to tensor
-                value = result_expr.built_op
+                # value = result_expr.built_op
 
                 if hcl_mlir.is_extract_function():
                     write_back = list(stage_func_op.entry_block.arguments)[-1]
