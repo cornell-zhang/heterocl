@@ -264,26 +264,29 @@ class ComputeOp(object):
             if self.output is not None:
                 self.output.iter_var = iter_var
 
-            # calculate the lambda funtion,
+            # Calculate the lambda funtion,
             # at the same time build up MLIR nodes;
             # the Python builtin operators are overloaded in our custom class,
             # thus fcompute can be directly called and run
             if self.kind == "mutate":
                 hcl_mlir.enable_build_inplace()
+            # If build-in-place is enabled, generate IR as fcompute is called
+            # otherwise, just build AST but do not generate IR
             result_expr = self.fcompute(*iter_var)
             if self.output is not None and result_expr is not None:
                 builder = ASTVisitor()
                 if isinstance(result_expr, (int, float)):
                     result_expr = hcl_mlir.ConstantOp(
                         hcl_dtype_to_mlir(self.dtype), result_expr)
+                # Build IR by traversing the AST tree (from leaf to root)
                 value = builder.visit(result_expr)
-                if hasattr(result_expr, 'built_op'):
-                    result_expr.buildt_op = value
 
-                # store the result back to tensor
-                # we have to read the ssa value out first, then store back to tensor
-                # value = result_expr.built_op
+                # Tuple is for struct construction, in this case
+                # we won't need to cast the result since it's a struct. 
+                if not isinstance(result_expr, tuple):
+                    result_expr.built_op = value
 
+                # Store the result to output tensor
                 if hcl_mlir.is_extract_function():
                     write_back = list(stage_func_op.entry_block.arguments)[-1]
                     # recover as top function op
@@ -317,8 +320,6 @@ class ComputeOp(object):
                     ip=GlobalInsertionPoint.get(),
                 )
                 ret_val.attributes["to"] = StringAttr.get(self.output.op.name)
-            else:  # update
-                pass
 
             # remember to add affine.yield after each for loop
             affine.AffineYieldOp([], ip=GlobalInsertionPoint.get())
