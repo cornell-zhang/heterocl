@@ -794,15 +794,21 @@ void CodeGenStratusHLS::AddFunction(
   printTclFile();
 }
 
+/// Override the PrintType function inherited from CodeGenVHLS
+/// And re-direct to StratusHLS's PrintType function.
 void CodeGenStratusHLS::PrintType(Type t, std::ostream& os) {
-  PrintType(t, os, true);
+  // False here means that this function does not print type
+  // of array index expression. Array index expression type is
+  // handled by PrintType(Type t, std::ostream& os, bool is_index)
+  PrintType(t, os, false);
 }
 
 void CodeGenStratusHLS::PrintType(Type t, std::ostream& os, bool is_index) {
   bool big = t.bits() > 64;
   if (big && is_index) {
-    LOG(WARNING) << "index expression doesn't support bitwidth wider than "
-                 << " 64 bit.";
+    LOG(FATAL)
+        << "Stratus HLS doesn't support index expression bitwidth wider than "
+        << " 64 bit.";
     return;
   }
   if (t.is_uint() || t.is_int() || t.is_fixed() || t.is_ufixed()) {
