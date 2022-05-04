@@ -794,7 +794,12 @@ void CodeGenStratusHLS::AddFunction(
   printTclFile();
 }
 
+/// Override the PrintType function inherited from CodeGenVHLS
+/// And re-direct to StratusHLS's PrintType function.
 void CodeGenStratusHLS::PrintType(Type t, std::ostream& os) {
+  // False here means that this function does not print type
+  // of array index expression. Array index expression type is
+  // handled by PrintType(Type t, std::ostream& os, bool is_index)
   PrintType(t, os, false);
 }
 
