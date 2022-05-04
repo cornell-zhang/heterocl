@@ -13,7 +13,6 @@ jobs:
       - name: Compile the source code to lib
         run: |
           ls ${{ github.workspace }}
-          export CXX=/usr/bin/g++
           sed 's/install/develop/g' Makefile
           make -j`nproc`
           cp tvm/lib/* .
