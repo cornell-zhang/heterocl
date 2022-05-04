@@ -134,6 +134,7 @@ class CodeAnalysis : public ExprFunctor<void(const Expr&, std::ostream&)>,
   void VisitStmt_(const ExternModule* op) override;
   void VisitStmt_(const StreamStmt* op) override;
   void VisitStmt_(const Print* op) override;
+  void VisitStmt_(const Assert* op) override;
   /*!
    * Print Type represetnation of type t.
    * \param t The type representation.

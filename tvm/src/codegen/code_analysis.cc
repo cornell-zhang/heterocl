@@ -977,5 +977,7 @@ void CodeAnalysis::VisitStmt_(const ExternModule* op) {
 
 void CodeAnalysis::VisitStmt_(const Print* op) {}
 
+void CodeAnalysis::VisitStmt_(const Assert* op) {}
+
 }  // namespace codegen
 }  // namespace TVM

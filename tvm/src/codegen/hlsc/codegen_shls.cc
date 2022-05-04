@@ -11,9 +11,9 @@
 #include <fstream>
 #include <string>
 #include <vector>
+#include "../../pass/ir_util.h"
 #include "../../pass/stencil.h"
 #include "../build_common.h"
-#include "../../pass/ir_util.h"
 #include "../build_soda.h"
 #include "../codegen_soda.h"
 #include "codegen_shls.h"
@@ -1277,7 +1277,9 @@ void CodeGenStratusHLS::VisitStmt_(const Return* op) {
 
 void CodeGenStratusHLS::VisitStmt_(const Assert* op) {
   PrintIndent();
-  this->stream << "assert " << op->condition << ";\n";
+  this->stream << "SC_ASSERT ";
+  PrintExpr(op->condition, stream);
+  this->stream << ";\n";
 }
 
 void CodeGenStratusHLS::VisitExpr_(const SetSlice* op, std::ostream& os) {
