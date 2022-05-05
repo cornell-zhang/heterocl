@@ -196,6 +196,41 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
       p->print(op->value);
       p->stream << ')';
     })
+    .set_dispatch<CastStr>([](const CastStr *op, IRPrinter *p) {
+      p->stream << op->type << '(';
+      auto &stream = p->stream;
+      stream << '"';
+      for (size_t i = 0; i < op->value.size(); i++) {
+        unsigned char c = op->value[i];
+        if (c >= ' ' && c <= '~' && c != '\\' && c != '"') {
+          stream << c;
+        } else {
+          stream << '\\';
+          switch (c) {
+            case '"':
+              stream << '"';
+              break;
+            case '\\':
+              stream << '\\';
+              break;
+            case '\t':
+              stream << 't';
+              break;
+            case '\r':
+              stream << 'r';
+              break;
+            case '\n':
+              stream << 'n';
+              break;
+            default:
+              string hex_digits = "0123456789ABCDEF";
+              stream << 'x' << hex_digits[c >> 4] << hex_digits[c & 0xf];
+          }
+        }
+      }
+      stream << '"';
+      p->stream << ')';
+    })
     .set_dispatch<Variable>([](const Variable *op, IRPrinter *p) {
       // omit the type
       // stream << op->name << "." << op->type;

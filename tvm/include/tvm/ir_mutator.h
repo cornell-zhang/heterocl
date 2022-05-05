@@ -104,6 +104,7 @@ class TVM_DLL IRMutator {
   virtual Expr Mutate_(const Or* op, const Expr& e);
   virtual Expr Mutate_(const Reduce* op, const Expr& e);
   virtual Expr Mutate_(const Cast* op, const Expr& e);
+  virtual Expr Mutate_(const CastStr* op, const Expr& e);
   virtual Expr Mutate_(const Not* op, const Expr& e);
   virtual Expr Mutate_(const Select* op, const Expr& e);
   virtual Expr Mutate_(const Ramp* op, const Expr& e);

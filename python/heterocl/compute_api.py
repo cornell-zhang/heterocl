@@ -167,6 +167,11 @@ def compute_body(name,
             index, _, _ = get_index(shape, indices, 0)
             stage.emit(_make.Store(buffer_var, _make.Cast(dtype, ret), index))
             stmt = make_for(indices, stage.pop_stmt(), 0, name)
+        elif isinstance(ret, str):
+            indices = lambda_ivs
+            index, _, _ = get_index(shape, indices, 0)
+            stage.emit(_make.Store(buffer_var, _make.CastStr(dtype, ret), index))
+            stmt = make_for(indices, stage.pop_stmt(), 0, name)
         elif isinstance(ret, Tensor): # reduction
             ret_ivs = [_IterVar((0, ret.shape[i]), ret.name+"_i" + str(i), 0)
                        for i in range(0, len(ret.shape))]

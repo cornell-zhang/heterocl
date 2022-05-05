@@ -483,6 +483,7 @@ using Halide::Internal::Break;
 using Halide::Internal::Broadcast;
 using Halide::Internal::Call;
 using Halide::Internal::Cast;
+using Halide::Internal::CastStr;
 using Halide::Internal::Div;
 using Halide::Internal::EQ;
 using Halide::Internal::Evaluate;

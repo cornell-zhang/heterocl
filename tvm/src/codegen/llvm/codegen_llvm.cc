@@ -575,6 +575,25 @@ llvm::Value* CodeGenLLVM::CreateCast(Type from, Type to, llvm::Value* value) {
   }
 }
 
+llvm::Value* CodeGenLLVM::CreateCastStr(Type to, const std::string& str) {
+  llvm::Type* target = LLVMType(to);
+  llvm::StringRef radix_str = llvm::StringRef(str).substr(0, 2);
+  llvm::StringRef value_str = llvm::StringRef(str).substr(2);
+
+  if (to.is_int()) {
+    unsigned numBits = to.bits();
+    llvm::APInt apint = llvm::APInt(numBits, value_str, 16);
+    llvm::ConstantInt* cont = builder_->getInt(apint);
+    llvm::Value* ret = builder_->CreateTruncOrBitCast(cont, target);
+    return cont;
+  } else if (to.is_uint()) {
+    unsigned numBits = to.bits();
+    llvm::APInt apint = llvm::APInt(numBits, value_str, 16);
+    llvm::ConstantInt* cont = builder_->getInt(apint);
+    return cont;
+  }
+}
+
 llvm::Value* CodeGenLLVM::GetConstString(const std::string& str) {
   auto it = str_map_.find(str);
   if (it != str_map_.end()) return it->second;
@@ -789,6 +808,11 @@ llvm::Value* CodeGenLLVM::VisitExpr_(const Variable* op) {
 llvm::Value* CodeGenLLVM::VisitExpr_(const Cast* op) {
   llvm::Value* val =
       CreateCast(op->value.type(), op->type, MakeValue(op->value));
+  return val;
+}
+llvm::Value* CodeGenLLVM::VisitExpr_(const CastStr* op) {
+  llvm::Value* val =
+      CreateCastStr(op->type, op->value);
   return val;
 }
 llvm::Value* CodeGenLLVM::VisitExpr_(const IntImm* op) {

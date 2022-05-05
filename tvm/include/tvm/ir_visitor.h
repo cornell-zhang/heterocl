@@ -109,6 +109,7 @@ class TVM_DLL IRVisitor {
   virtual void Visit_(const Or* op);
   virtual void Visit_(const Reduce* op);
   virtual void Visit_(const Cast* op);
+  virtual void Visit_(const CastStr* op);
   virtual void Visit_(const Not* op);
   virtual void Visit_(const Select* op);
   virtual void Visit_(const Ramp* op);

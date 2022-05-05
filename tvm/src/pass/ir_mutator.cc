@@ -541,6 +541,15 @@ Expr IRMutator::Mutate_(const Cast* op, const Expr& e) {
   }
 }
 
+Expr IRMutator::Mutate_(const CastStr* op, const Expr& e) {
+  std::string value = op->value;
+  if (value == op->value) {
+    return e;
+  } else {
+    return CastStr::make(op->type, value);
+  }
+}
+
 Expr IRMutator::Mutate_(const Not* op, const Expr& e) {
   Expr a = this->Mutate(op->a);
   if (a.same_as(op->a)) {
@@ -686,6 +695,7 @@ TVM_STATIC_IR_FUNCTOR(IRMutator, vtable_expr)
     .DISPATCH_TO_MUTATE_EXPR(Or)
     .DISPATCH_TO_MUTATE_EXPR(Reduce)
     .DISPATCH_TO_MUTATE_EXPR(Cast)
+    .DISPATCH_TO_MUTATE_EXPR(CastStr)
     .DISPATCH_TO_MUTATE_EXPR(Not)
     .DISPATCH_TO_MUTATE_EXPR(Select)
     .DISPATCH_TO_MUTATE_EXPR(Ramp)

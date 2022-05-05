@@ -302,7 +302,6 @@ runtime::Module build(const Array<LoweredFunc>& funcs, const Target& target,
     func = ir::CombineContextCall(func);
     fhost.Set(i, func);
   }
-
   auto mhost = codegen::Build(fhost, target_host_val.str());
 
   if (fdevice.size() > 0) {

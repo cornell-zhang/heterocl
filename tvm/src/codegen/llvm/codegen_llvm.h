@@ -80,6 +80,7 @@ class CodeGenLLVM : public ExprFunctor<llvm::Value*(const Expr&)>,
   // override codegen
   llvm::Value* VisitExpr_(const Variable* op) override;
   llvm::Value* VisitExpr_(const Cast* op) override;
+  llvm::Value* VisitExpr_(const CastStr* op) override;
   llvm::Value* VisitExpr_(const IntImm* op) override;
   llvm::Value* VisitExpr_(const UIntImm* op) override;
   llvm::Value* VisitExpr_(const FloatImm* op) override;
@@ -192,6 +193,8 @@ class CodeGenLLVM : public ExprFunctor<llvm::Value*(const Expr&)>,
                                     const std::vector<llvm::Value*>& args);
   // cast operatpr
   llvm::Value* CreateCast(Type from, Type to, llvm::Value* value);
+  // caststr operator
+  llvm::Value* CreateCastStr(Type to, const std::string& str);
   // comparison op
   llvm::Value* GetVarValue(const Variable* v) const;
   llvm::Value* CreateLT(Type t, llvm::Value* a, llvm::Value* b);
