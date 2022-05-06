@@ -170,43 +170,59 @@ def build_fpga_kernel(schedule, target=None, name="top", stmt=None):
     elif not isinstance(target, Platform):
         raise RuntimeError("Not supported target")
 
-    # make the project folder and copy files
-    copy_build_files(target)
+    if str(target.tool.mode) == "debug":
+        target.tool.mode = "csyn"
+        # make the project folder and copy files
+        copy_build_files(target)
 
-    # data placement
-    if not hcl_mlir.is_extract_function():
-        raise RuntimeError("Should set hcl_mlir.EXTRACT_FUNCTION to True!")
-    schedule.DataflowGraph.graph_partition()
-    separate_host_device(schedule)
+        buf = io.StringIO()
+        hcl_d.emit_vhls(schedule.device_module, buf)
+        buf.seek(0)
+        hls_code = buf.read()
+        with open("{}/kernel.cpp".format(target.project), "w") as outfile:
+            outfile.write(hls_code)
+        host_code = None
+        with open("{}/host.cpp".format(target.project), "w") as outfile:
+            outfile.write("")
 
-    # generate xcel code
-    buf = io.StringIO()
-    hcl_d.emit_vhls(schedule.xcel_module, buf)
-    buf.seek(0)
-    hls_code = buf.read()
-    with open("{}/kernel.cpp".format(target.project), "w") as outfile:
-        outfile.write(hls_code)
+    else:
+        # make the project folder and copy files
+        copy_build_files(target)
 
-    # generate host code
-    host_buf = io.StringIO()
-    hcl_d.emit_vhls(schedule.host_module, host_buf)
-    host_buf.seek(0)
-    host_code = host_buf.read()
-    with open("{}/host.cpp".format(target.project), "w") as outfile:
-        outfile.write(host_code)
+        # data placement
+        if not hcl_mlir.is_extract_function():
+            raise RuntimeError("Should set hcl_mlir.EXTRACT_FUNCTION to True!")
+        schedule.DataflowGraph.graph_partition()
+        separate_host_device(schedule)
 
-    # generate extern code
-    extern_buf = io.StringIO()
-    hcl_d.emit_vhls(schedule.extern_module, extern_buf)
-    extern_buf.seek(0)
-    extern_code = extern_buf.read()
-    with open("{}/extern.cpp".format(target.project), "w") as outfile:
-        outfile.write(extern_code)
+        # generate xcel code
+        buf = io.StringIO()
+        hcl_d.emit_vhls(schedule.xcel_module, buf)
+        buf.seek(0)
+        hls_code = buf.read()
+        with open("{}/kernel.cpp".format(target.project), "w") as outfile:
+            outfile.write(hls_code)
 
-    # generate header
-    header = generate_kernel_header(schedule)
-    with open("{}/kernel.h".format(target.project), "w") as outfile:
-        outfile.write(header)
+        # generate host code
+        host_buf = io.StringIO()
+        hcl_d.emit_vhls(schedule.host_module, host_buf)
+        host_buf.seek(0)
+        host_code = host_buf.read()
+        with open("{}/host.cpp".format(target.project), "w") as outfile:
+            outfile.write(host_code)
+
+        # generate extern code
+        extern_buf = io.StringIO()
+        hcl_d.emit_vhls(schedule.extern_module, extern_buf)
+        extern_buf.seek(0)
+        extern_code = extern_buf.read()
+        with open("{}/extern.cpp".format(target.project), "w") as outfile:
+            outfile.write(extern_code)
+
+        # generate header
+        header = generate_kernel_header(schedule)
+        with open("{}/kernel.h".format(target.project), "w") as outfile:
+            outfile.write(header)
 
     hcl_module = HCLModule(name, hls_code, target, host_src=host_code)
     return hcl_module
@@ -222,7 +238,7 @@ def build_llvm(schedule, target=None, name="top", stmt=None):
         hcl_d.lower_composite_type(module)
         hcl_d.lower_fixed_to_int(module)
         hcl_d.lower_anywidth_int(module)
-        # Note: lower_any_width_int should precede 
+        # Note: lower_any_width_int should precede
         # move_return_to_input, because it uses input/output
         # type hints.
         hcl_d.move_return_to_input(module)

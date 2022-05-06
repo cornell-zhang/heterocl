@@ -39,7 +39,7 @@ class UniqueName(object):
             name = "schedule_" + str(cls.schedule_idx)
             cls.schedule_idx += 1
         elif case == "reduction_axis":
-            name = "reduction_axis_" + str(cls.loop_idx)
+            name = "rx_" + str(cls.reduction_axis_idx)
             cls.reduction_axis_idx += 1
         else:
             raise RuntimeError(f"Unrecognized case in get_unique_name: {case}")
