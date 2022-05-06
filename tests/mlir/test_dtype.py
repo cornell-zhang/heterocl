@@ -392,7 +392,6 @@ def test_dtye_struct_complex():
 
     assert np.allclose(hcl_O.asnumpy(), np_G)
 
-
 def test_dtype_bit_slice():
 
     hcl.init(hcl.Int())
