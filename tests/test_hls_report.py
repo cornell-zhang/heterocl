@@ -1,5 +1,6 @@
 import heterocl as hcl
 import numpy as np
+import os
 import re
 import json
 import xmltodict
@@ -92,6 +93,33 @@ def spam_filter():
     pass
 # END TODO
 
+def stages():
+
+    A = hcl.placeholder((32, 32), "A")
+    C = hcl.placeholder((32, 32), "C")
+    def kernel(A, C):
+        B = hcl.compute(A.shape, lambda i, j : A[i, j] + 1, "B")
+        D = hcl.compute(A.shape, lambda i, j : B[i, j] + 1, "D")
+        E = hcl.compute(A.shape, lambda i, j : C[i, j] + 1, "E")
+        F = hcl.compute(A.shape, lambda i, j : D[i, j] + E[i, j], "F")
+        return F
+
+    target = hcl.Platform.xilinx_zc706
+    target.config(compiler="vivado_hls", mode="csyn", project="stages-tvm.prj")
+    s = hcl.create_schedule([A, C], kernel)
+    s.to(kernel.B, s[kernel.D])
+    s.to(kernel.D, s[kernel.F])
+    s.to(kernel.E, s[kernel.F])
+    mod = hcl.build(s, target=target)
+    np_A = np.zeros((32, 32))
+    np_C = np.zeros((32, 32))
+    np_F = np.zeros((32, 32))
+    hcl_A = hcl.asarray(np_A)
+    hcl_C = hcl.asarray(np_C)
+    hcl_F = hcl.asarray(np_F)
+    mod(hcl_A, hcl_C, hcl_F)
+    return mod.report()
+
 def refine(res_tbl):
     lst = res_tbl.split("\n")
     pattern = re.compile(r'\s\s+') 
@@ -119,11 +147,33 @@ def get_rpt(config):
         with open(xml_file, "r") as xml:
             profile = xmltodict.parse(xml.read())["profile"]
         clock_unit = profile["PerformanceEstimates"]["SummaryOfOverallLatency"]["unit"]
-        summary = profile["PerformanceEstimates"]["SummaryOfLoopLatency"]
-  
+
         rpt = hcl.report.Displayer(clock_unit)
-        rpt.init_table(summary)
-        rpt.collect_data(summary)
+        try:
+            summary = profile["PerformanceEstimates"]["SummaryOfLoopLatency"]
+            rpt.init_table(summary)
+            rpt.collect_data(summary)
+        except:
+            pass
+
+        path = config['algorithm']['data_path']
+        if path:
+            other_rpt = []
+            path = str(pathlib.Path(__file__).parent.absolute()) + path
+            for file in os.listdir(path):
+                if file.endswith("_csynth.xml") and file != "test_csynth.xml":
+                    fpath = os.path.join(path, file)
+                    other_rpt.append(fpath)
+
+            for files in other_rpt:
+                with open(files, "r") as xml:
+                    profile = xmltodict.parse(xml.read())["profile"]
+                summary = profile["PerformanceEstimates"]["SummaryOfLoopLatency"]
+                rpt_inner = hcl.report.Displayer(clock_unit)
+                rpt_inner.init_table(summary)
+                rpt_inner.collect_data(summary)
+                res = vars(rpt_inner)
+                rpt.add_fields(res) 
     return rpt
 
 def _test_rpt(config):
@@ -212,6 +262,7 @@ def test_knn_digitrec(vhls):
         'has_algorithm' : 1,
         'algorithm' : {
             'report_path' : '/test_report_data/digitrec_report.xml',
+            'data_path' : '',
             'name' : 'knn_digitrec'
         },
         'get_max' : 'Latency',
@@ -253,6 +304,7 @@ def test_kmeans(vhls):
         'has_algorithm' : 1,
         'algorithm' : {
             'report_path' : '/test_report_data/kmeans_report.xml',
+            'data_path' : '',
             'name' : 'kmeans'
         },
         'get_max' : 'Absolute Time Latency',
@@ -294,6 +346,7 @@ def test_sobel(vhls):
         'has_algorithm' : 0,
         'algorithm' : {
             'report_path' : '/test_report_data/sobel_report.xml',
+            'data_path' : '',
             'name' : 'sobel'
         },
         'get_max' : 'Latency',
@@ -336,6 +389,7 @@ def test_sobel_partial(vhls):
         'has_algorithm' : 0,
         'algorithm' : {
             'report_path' : '/test_report_data/sobel_report_partial.xml',
+            'data_path' : '',
             'name' : 'sobel_partial'
         },
         'get_max' : 'Latency',
@@ -378,6 +432,7 @@ def test_canny(vhls):
         'has_algorithm' : 0,
         'algorithm' : {
             'report_path' : '/test_report_data/canny_report.xml',
+            'data_path' : '',
             'name' : 'canny'
         },
         'get_max' : 'Max Latency',
@@ -421,6 +476,7 @@ def test_spam_filter(vhls):
         'has_algorithm' : 0,
         'algorithm' : {
             'report_path' : '/test_report_data/spam_filter_report.xml',
+            'data_path' : '',
             'name' : 'spam_filter'
         },
         'get_max' : 'Latency',
@@ -457,6 +513,51 @@ def test_spam_filter(vhls):
     }
     _test_rpt(config)
 
+def test_multi_rpt(vhls):
+    # `report_path` can also be switched into 
+    # `/test_report_data/multi_report.xml`
+    config = {
+        'vhls' : vhls,
+        'has_algorithm' : 0,
+        'algorithm' : {
+            'report_path' : '/test_report_data/stages_report/test_csynth.xml',
+            'data_path' : '/test_report_data/stages_report/',
+            'name' : 'stages'
+        },
+        'get_max' : 'Latency',
+        'col' : 'Category',
+        'info' : 'NoQuery',
+        'loop_query' : {
+            'query' : ['B', 'F'],
+            'name' : 'LoopQuery'
+        },
+        'column_query' : {
+            'query' : ['Trip Count', 'Latency', 'Iteration Latency', 
+                        'Pipeline II', 'Pipeline Depth'],
+            'name' : 'ColumnQuery'
+        },
+        'level_query' : {
+            'val' : 0,
+            'name' : 'LevelQuery'
+        },
+        'level_out_of_bound' : {
+            'val' : [5, -2],
+            'name' : 'LevelQueryOOB'
+        },
+        'multi_query' : {
+            'row_query' : ['D'],
+            'level_query' : 1,
+            'name' : 'MultiQuery'
+        },
+        'all_query' : {
+            'row_query' : ['B', 'E'],
+            'col_query' : ['Latency'],
+            'level_query' : 0,
+            'name' : 'AllQuery'
+        }
+    }
+    _test_rpt(config)
+
 if __name__ == '__main__':
     test_knn_digitrec(False)
     test_kmeans(False)
@@ -464,3 +565,4 @@ if __name__ == '__main__':
     test_sobel_partial(False)
     test_canny(False)
     test_spam_filter(False) 
+    test_multi_rpt(False)
