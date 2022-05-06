@@ -219,6 +219,7 @@ def build_llvm(schedule, target=None, name="top", stmt=None):
         func.attributes['top'] = UnitAttr.get()
         module = Module.parse(str(schedule.device_module), ctx)
         hcl_d.loop_transformation(module)
+        hcl_d.lower_composite_type(module)
         hcl_d.lower_fixed_to_int(module)
         hcl_d.lower_anywidth_int(module)
         # Note: lower_any_width_int should precede 
