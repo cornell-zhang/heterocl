@@ -339,7 +339,7 @@ def test_dtype_struct():
     assert np.allclose(hcl_B.asnumpy(), hcl_F.asnumpy())
     assert np.allclose(hcl_C.asnumpy(), hcl_G.asnumpy())
 
-def test_dtye_strcut_complex():
+def test_dtye_struct_complex():
     hcl.init()
     A = hcl.placeholder((100,))
     B = hcl.placeholder((100,))
@@ -391,6 +391,7 @@ def test_dtye_strcut_complex():
     f(hcl_A, hcl_B, hcl_C, hcl_O)
 
     assert np.allclose(hcl_O.asnumpy(), np_G)
+
 
 def test_dtype_bit_slice():
 
