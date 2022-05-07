@@ -78,15 +78,19 @@ def cast(dtype, expr):
 
 def const_tensor(values, name=None, dtype=None):
     """Create a constant tensor"""
+    if name is None:
+        name = UniqueName.get("tensor")
     dtype = config.init_dtype if dtype == None else dtype
-    cst = hcl_mlir.ConstantOp(hcl_dtype_to_mlir(dtype), values)
+    cst = hcl_mlir.ConstantOp(hcl_dtype_to_mlir(dtype), values, name)
     return cst.tensor
 
 
 def copy(values, name=None, dtype=None):
     """A syntactic sugar for copying an existing tensor."""
+    if name is None:
+        name = UniqueName.get("tensor")
     dtype = config.init_dtype if dtype == None else dtype
-    cst = hcl_mlir.ConstantOp(hcl_dtype_to_mlir(dtype), values)
+    cst = hcl_mlir.ConstantOp(hcl_dtype_to_mlir(dtype), values, name)
     return cst.tensor
 
 
