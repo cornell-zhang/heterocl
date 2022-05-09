@@ -8,7 +8,7 @@ from hcl_mlir.execution_engine import *
 from hcl_mlir.ir import *
 
 from ..devices import Platform
-from .context import get_context, get_location, NestedCompute
+from .context import get_context, set_context, get_location, NestedCompute
 from .module import HCLModule
 from .operation import placeholder
 from .runtime import copy_build_files
@@ -52,6 +52,7 @@ def separate_host_device(schedule):
 
     # create basic components
     hcl_mlir.enable_build_inplace()
+    set_context()
     with get_context(), get_location():
         host_tensors = []
         host_nodes = schedule.DataflowGraph.roots + \

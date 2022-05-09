@@ -219,8 +219,9 @@ class Schedule(object):
         self._device_top = device_top
 
     def create_host_module(self):
-        self._host_module = Module.create(get_location())
+        set_context()
         with get_context() as ctx, get_location() as loc:
+            self._host_module = Module.create(loc)
             # create top-level function
             self._host_top = builtin.FuncOp(name="main", type=FunctionType.get(
                 inputs=[], results=[IntegerType.get_signless(32)]), ip=InsertionPoint(self._host_module.body))
@@ -246,8 +247,9 @@ class Schedule(object):
         return self._xcel_module
 
     def create_extern_module(self):
-        self._extern_module = Module.create(get_location())
+        set_context()
         with get_context() as ctx, get_location() as loc:
+            self._extern_module = Module.create(loc)
             # create top-level function
             self._extern_top = builtin.FuncOp(name="top", type=FunctionType.get(
                 inputs=[], results=[]), ip=InsertionPoint(self._extern_module.body))
