@@ -313,9 +313,12 @@ def test_dtype_struct():
         F = hcl.compute(A.shape, lambda x: D[x].fb, dtype=hcl.Fixed(13, 11))
         G = hcl.compute(A.shape, lambda x: D[x].fc, dtype=hcl.Float())
         # Check the data type
-        assert D[0].fa.dtype == "int8"
-        assert D[0].fb.dtype == "fixed13_11"
-        assert D[0].fc.dtype == "float32"
+        # Note: 
+        # After moving to MLIR, the datatype of StructGetOp
+        # has to be a MLIR type object, instead of a string
+        # assert D[0].fa.dtype == "int8"
+        # assert D[0].fb.dtype == "fixed13_11"
+        # assert D[0].fc.dtype == "float32"
         return E, F, G
 
     s = hcl.create_schedule([A, B, C], kernel)
@@ -362,10 +365,10 @@ def test_dtye_struct_complex():
                                             D[x].x * D[x].y,
                                             D[x].y * D[x].z,
                                             D[x].x * D[x].z), dtype=dtype_out)
-        with hcl.Stage():
-            with hcl.for_(0, 100) as i:
-                for j in range(0, 6):
-                    O[i][j] = E[i].__getattr__("v" + str(j))
+        # with hcl.Stage():
+        with hcl.for_(0, 100) as i:
+            for j in range(0, 6):
+                O[i][j] = E[i].__getattr__("v" + str(j))
 
     s = hcl.create_schedule([A, B, C, O], kernel)
     f = hcl.build(s)
