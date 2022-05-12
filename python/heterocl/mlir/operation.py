@@ -110,6 +110,10 @@ def min(data, axis=None, dtype=None, name=""):
     return hcl_mlir.MinOp(data, axis, get_dtype_str(dtype))
 
 
+def reduce(data, init_val, reduce_op, axis=None, dtype=None, name=""):
+    return hcl_mlir.ReduceOp(data, axis, get_dtype_str(dtype), prefix=name, init_val=init_val, reduce_op={"si": reduce_op})
+
+
 def pack(tensor, axis=0, factor=None, name=None, dtype=None):
     """Pack a tensor with smaller bitwidth to a tensor with larger bitwidth."""
     if factor is None and dtype is not None:
