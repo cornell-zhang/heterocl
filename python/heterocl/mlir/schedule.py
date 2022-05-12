@@ -585,3 +585,9 @@ class Stage(object):
         """
         with get_context() as ctx:
             self.ir_node.attributes["systolic"] = UnitAttr.get()
+
+    def __enter__(self):
+        raise DeprecationWarning("hcl.Stage() is deprecated, please remove it.")
+
+    def __exit__(self):
+        raise DeprecationWarning("hcl.Stage() is deprecated, please remove it.")
