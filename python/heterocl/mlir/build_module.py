@@ -71,7 +71,7 @@ def separate_host_device(schedule):
             loops = []
             body_ip = GlobalInsertionPoint.get()
             for i, (ub, loop_name) in enumerate(zip(shape, loop_names)):
-                loop = hcl_mlir.make_affine_for(
+                loop = hcl_mlir.make_for(
                     0,
                     ub,
                     step=1,

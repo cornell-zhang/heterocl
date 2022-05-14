@@ -88,7 +88,7 @@ def for_(begin, end, step=1, tag=""):
     loop_name = UniqueName.get("loop")
     loop_handle = hcl_d.CreateLoopHandleOp(StringAttr.get(
         loop_name), ip=hcl_mlir.GlobalInsertionPoint.ip_stack[-depth-1])
-    loop = hcl_mlir.make_affine_for(
+    loop = hcl_mlir.make_for(
         begin, end, step, name=loop_name, stage=stage_name, ip=hcl_mlir.GlobalInsertionPoint.get())
     Schedule._CurrentStage[-1].add_axis(loop_handle)
 

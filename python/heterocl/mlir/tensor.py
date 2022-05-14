@@ -243,7 +243,7 @@ class ComputeOp(object):
             loops = []
             body_ip = func_ip
             for i, (ub, loop_name) in enumerate(zip(self.shape, self.arg_names)):
-                loop = hcl_mlir.make_affine_for(
+                loop = hcl_mlir.make_for(
                     0,
                     ub,
                     step=1,
