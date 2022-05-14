@@ -73,6 +73,9 @@ def reduce_axis(lower, upper, name=None):
 
 
 def cast(dtype, expr):
+    if isinstance(expr, Tensor):
+        raise RuntimeError("Tensor is not supported in hcl.cast. " + 
+            "If you are try to cast a hcl.scalar, please use hcl.cast(scalar.v)")
     return hcl_mlir.CastOp(expr, hcl_dtype_to_mlir(dtype))
 
 
