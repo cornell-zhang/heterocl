@@ -2,7 +2,7 @@ import io
 
 import hcl_mlir
 from hcl_mlir import GlobalInsertionPoint
-from hcl_mlir.dialects import affine
+from hcl_mlir.dialects import affine, scf
 from hcl_mlir.dialects import hcl as hcl_d
 from hcl_mlir.execution_engine import *
 from hcl_mlir.ir import *
@@ -80,7 +80,10 @@ def separate_host_device(schedule):
                     ip=body_ip,
                 )
                 if i != 0:  # manually add terminator!
-                    affine.AffineYieldOp([], ip=body_ip)
+                    if isinstance(loop, affine.AffineForOp):
+                        affine.AffineYieldOp([], ip=body_ip)
+                    else:
+                        scf.YieldOp([], ip=body_ip)
                 loops.append(loop)
                 body_ip = InsertionPoint(loop.body)
             GlobalInsertionPoint.save(body_ip)

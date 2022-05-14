@@ -6,7 +6,7 @@ import numpy as np
 from hcl_mlir import ASTVisitor, GlobalInsertionPoint
 from hcl_mlir.dialects import affine, builtin
 from hcl_mlir.dialects import hcl as hcl_d
-from hcl_mlir.dialects import memref, std
+from hcl_mlir.dialects import memref, std, scf
 from hcl_mlir.ir import *
 
 from ..types import dtype_to_str, Int, UInt, Float, Fixed, UFixed
@@ -252,7 +252,10 @@ class ComputeOp(object):
                     ip=body_ip,
                 )
                 if i != 0:  # manually add terminator!
-                    affine.AffineYieldOp([], ip=body_ip)
+                    if isinstance(loop, affine.AffineForOp):
+                        affine.AffineYieldOp([], ip=body_ip)
+                    else:
+                        scf.YieldOp([], ip=body_ip)
                 loops.append(loop)
                 body_ip = InsertionPoint(loop.body)
 
@@ -322,7 +325,10 @@ class ComputeOp(object):
                 ret_val.attributes["to"] = StringAttr.get(self.output.op.name)
 
             # remember to add affine.yield after each for loop
-            affine.AffineYieldOp([], ip=GlobalInsertionPoint.get())
+            if isinstance(loop, affine.AffineForOp):
+                affine.AffineYieldOp([], ip=GlobalInsertionPoint.get())
+            else:
+                scf.YieldOp([], ip=GlobalInsertionPoint.get())
 
             # recover insertion point from inner-most loop body
             GlobalInsertionPoint.restore()
