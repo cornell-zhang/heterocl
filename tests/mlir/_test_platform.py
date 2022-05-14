@@ -24,6 +24,9 @@ def test_print_platform_hierarchy():
     target.config(compiler="vivado_hls", mode="csyn", project="hlscode.prj")
     f = hcl.build(s, target)
 
+    if os.system("which vivado_hls >> /dev/null") != 0:
+        return 
+
     np_A = np.random.randint(10, size=(10,32))
     np_B = np.zeros((10,32))
 

@@ -86,26 +86,13 @@ def for_(begin, end, step=1, tag=""):
     ImperativeLoopDepth.set(depth + 1)
 
     hcl_mlir.enable_build_inplace()
-    # TODO(Niansong): support loop bounds as expressions of itervar, e.g. k+1
-    if isinstance(
-        begin, (int, hcl_mlir.IterVar, hcl_mlir.build_ir.LoadOp)
-    ) and isinstance(end, (int, hcl_mlir.IterVar, hcl_mlir.build_ir.LoadOp)):
-        loop_name = UniqueName.get("loop")
-        loop_handle = hcl_d.CreateLoopHandleOp(
-            StringAttr.get(loop_name),
-            ip=hcl_mlir.GlobalInsertionPoint.ip_stack[-depth - 1],
-        )
-        loop = hcl_mlir.make_affine_for(
-            begin,
-            end,
-            step,
-            name=loop_name,
-            stage=stage_name,
-            ip=hcl_mlir.GlobalInsertionPoint.get(),
-        )
-        Schedule._CurrentStage[-1].add_axis(loop_handle)
-    else:
-        raise RuntimeError("Not implemented")
+    loop_name = UniqueName.get("loop")
+    loop_handle = hcl_d.CreateLoopHandleOp(StringAttr.get(
+        loop_name), ip=hcl_mlir.GlobalInsertionPoint.ip_stack[-depth-1])
+    loop = hcl_mlir.make_for(
+        begin, end, step, name=loop_name, stage=stage_name, ip=hcl_mlir.GlobalInsertionPoint.get())
+    Schedule._CurrentStage[-1].add_axis(loop_handle)
+
     iter_var = hcl_mlir.IterVar(loop.induction_variable, name=stage_name)
     if step < 0:
         hcl_mlir.GlobalInsertionPoint.save(loop.body)
