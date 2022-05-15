@@ -7,7 +7,57 @@ HeteroCL: A Multi-Paradigm Programming Infrastructure for Software-Defined Recon
 [Website](http://heterocl.csl.cornell.edu/web/index.html) | [Installation](http://heterocl.csl.cornell.edu/doc/installation.html) | [Tutorials](http://heterocl.csl.cornell.edu/doc/tutorials/index.html) | [Samples](http://heterocl.csl.cornell.edu/doc/samples/index.html) | [Documentation](http://heterocl.csl.cornell.edu/doc/index.html)
 
 ## HCL-MLIR
-For installing and using the HeteroCL MLIR dialect, please refer to the guide in the [HCL-MLIR](https://github.com/cornell-zhang/hcl-dialect-prototype) repository and build the dialect with Python binding.
+For installing and using the HeteroCL MLIR dialect, please refer to the guide in the [HCL-MLIR](https://github.com/cornell-zhang/hcl-dialect-prototype) repository and build the dialect with Python binding. Following shows the complete script to connect the frontend with the MLIR flow.
+
+```bash
+git clone --recursive https://github.com/cornell-zhang/heterocl.git heterocl-mlir
+cd heterocl-mlir
+git checkout hcl-mlir
+
+# export the library
+export HCL_HOME=$(pwd)
+export PYTHONPATH=$HCL_HOME/python:$HCL_HOME/hlib/python:${PYTHONPATH}
+
+# build LLVM 14.0.0
+cd hcl-dialect-prototype
+git clone https://github.com/llvm/llvm-project.git
+cd llvm-project
+git checkout tags/llvmorg-14.0.0
+python3 -m pip install --upgrade pip
+python3 -m pip install -r mlir/python/requirements.txt
+mkdir -p build && cd build
+cmake -G "Unix Makefiles" ../llvm \
+   -DLLVM_ENABLE_PROJECTS=mlir \
+   -DLLVM_BUILD_EXAMPLES=ON \
+   -DLLVM_TARGETS_TO_BUILD="host" \
+   -DCMAKE_BUILD_TYPE=Release \
+   -DLLVM_ENABLE_ASSERTIONS=ON \
+   -DLLVM_INSTALL_UTILS=ON \
+   -DMLIR_ENABLE_BINDINGS_PYTHON=ON \
+   -DPython3_EXECUTABLE=`which python3`
+make -j8
+export LLVM_BUILD_DIR=$(pwd)
+
+# build HeteroCL dialect
+cd ../..
+mkdir -p build && cd build
+cmake -G "Unix Makefiles" .. \
+   -DMLIR_DIR=$LLVM_BUILD_DIR/lib/cmake/mlir \
+   -DLLVM_EXTERNAL_LIT=$LLVM_BUILD_DIR/bin/llvm-lit \
+   -DPYTHON_BINDING=ON \
+   -DOPENSCOP=OFF \
+   -DPython3_EXECUTABLE=~/.venv/hcl-dev/bin/python3
+make -j8
+
+# Export the generated HCL-MLIR Python library
+export PYTHONPATH=$(pwd)/tools/hcl/python_packages/hcl_core:${PYTHONPATH}
+
+# run MLIR tests
+cmake --build . --target check-hcl
+# run frontend tests in the HeteroCL repository
+cd ..
+python3 tests/mlir/hcl-mlir/test_gemm.py
+```
 
 ## Introduction
 
