@@ -55,7 +55,7 @@ export PYTHONPATH=$(pwd)/tools/hcl/python_packages/hcl_core:${PYTHONPATH}
 # run MLIR tests
 cmake --build . --target check-hcl
 # run frontend tests in the HeteroCL repository
-cd ..
+cd ../..
 python3 tests/mlir/hcl-mlir/test_gemm.py
 ```
 
