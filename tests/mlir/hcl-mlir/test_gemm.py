@@ -90,6 +90,6 @@ def test_gemm_ihls(M=32, N=32, K=32, dtype=hcl.Int(), target=None):
     print(f)
 
 if __name__ == "__main__":
-    # test_gemm_cpu()
+    test_gemm_cpu()
     # test_gemm_fpga()
-    test_gemm_ihls()
+    # test_gemm_ihls()
