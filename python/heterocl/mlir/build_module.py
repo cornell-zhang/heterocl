@@ -108,14 +108,14 @@ def separate_host_device(schedule):
         func_op.attributes["type"] = TypeAttr.get(function_type)
         func_op.attributes["inputs"] = StringAttr.get(
             ",".join([node.tensor.name+"_xcel" for node in schedule.DataflowGraph.subgraph["inputs"]]))
-        extra_itypes = "".join([get_extra_type_hints(
+        itypes = "".join([get_extra_type_hints(
             node.tensor.op.dtype) for node in schedule.DataflowGraph.subgraph["inputs"]])
-        func_op.attributes["extra_itypes"] = StringAttr.get(extra_itypes)
+        func_op.attributes["itypes"] = StringAttr.get(itypes)
         func_op.attributes["outputs"] = StringAttr.get(
             ",".join([node.tensor.name+"_xcel" for node in schedule.DataflowGraph.subgraph["outputs"]]))
-        extra_otypes = "".join([get_extra_type_hints(
+        otypes = "".join([get_extra_type_hints(
             node.tensor.op.dtype) for node in schedule.DataflowGraph.subgraph["outputs"]])
-        func_op.attributes["extra_itypes"] = StringAttr.get(extra_otypes)
+        func_op.attributes["itypes"] = StringAttr.get(otypes)
     hcl_mlir.disable_build_inplace()
 
     # call C++ pass to further fix the references

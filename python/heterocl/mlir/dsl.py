@@ -278,7 +278,7 @@ def def_(shapes, dtypes=None, ret_dtype=None, name=None, arg_names=None):
         )
         # stage_func_op.attributes["inputs"] = StringAttr.get(
         #     ",".join([tensor.name for tensor in self.inputs]))
-        stage_func_op.attributes["extra_itypes"] = StringAttr.get(
+        stage_func_op.attributes["itypes"] = StringAttr.get(
             "".join(
                 [get_extra_type_hints(dtype) for dtype in input_elt]
                 + [get_extra_type_hints(dtype) for dtype in return_elt]

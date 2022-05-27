@@ -203,7 +203,7 @@ class ComputeOp(object):
                     inputs=input_types+return_types, results=[]), ip=GlobalInsertionPoint.ip_stack[0])
                 stage_func_op.attributes["inputs"] = StringAttr.get(
                     ",".join([tensor.name for tensor in self.inputs]))
-                stage_func_op.attributes["extra_itypes"] = StringAttr.get("".join([get_extra_type_hints(
+                stage_func_op.attributes["itypes"] = StringAttr.get("".join([get_extra_type_hints(
                     tensor.op.dtype) for tensor in self.inputs] + [get_extra_type_hints(self.output.op.dtype)]))  # inputs & outputs
                 if self.output is not None:
                     stage_func_op.attributes["outputs"] = StringAttr.get(
