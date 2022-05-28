@@ -20,6 +20,8 @@ class HCLModule(object):
         target = self.target
         if isinstance(target, Platform) and target.tool.name == "vivado_hls":
             execute_fpga_backend(self.target)
+            report = self.report()
+            report.display()
         elif target == "llvm":
             execute_llvm_backend(self.src, self.name, self.return_num, *argv)
         else:
