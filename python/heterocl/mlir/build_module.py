@@ -6,6 +6,7 @@ from hcl_mlir.dialects import affine, scf
 from hcl_mlir.dialects import hcl as hcl_d
 from hcl_mlir.execution_engine import *
 from hcl_mlir.ir import *
+from hcl_mlir.passmanager import PassManager
 
 from ..devices import Platform
 from .context import get_context, set_context, get_location, NestedCompute
@@ -26,6 +27,12 @@ def lower(schedule,
        by applying optimization pass
     """
     hcl_d.loop_transformation(schedule.device_module)
+    pipeline = (
+        f"builtin.func"
+        f"(affine-loop-normalize)"
+    )
+    with get_context():
+        PassManager.parse(pipeline).run(schedule.device_module)
     return schedule.device_module
 
 
