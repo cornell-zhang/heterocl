@@ -356,9 +356,9 @@ class Displayer(object):
                 # l = str(l[0]) + "_" + str(l[1])
 
             for k in self._loop_name_aux:
-                if l in k:
+                if l in k and l not in selected:
                     selected.append(k) 
-        
+
         rows = []
         if level > self._max_level:
             rows = selected
