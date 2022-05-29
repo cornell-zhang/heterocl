@@ -50,12 +50,14 @@ def all(*args):
     """
     if not args:
         raise ValueError("Any must take at least 1 argument")
-    if len(args) == 1:
-        return args[0]
-    ret = hcl_mlir.AndOp(args[0], args[1])
-    for i in range(2, len(args)):
-        ret = hcl_mlir.AndOp(ret, args[i])
+    ret = hcl_mlir.LogicalAndOp(*args)
     return ret
+    # if len(args) == 1:
+    #     return args[0]
+    # ret = hcl_mlir.AndOp(args[0], args[1])
+    # for i in range(2, len(args)):
+    #     ret = hcl_mlir.AndOp(ret, args[i])
+    # return ret
 
 
 def and_(*args):
