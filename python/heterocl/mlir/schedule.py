@@ -406,6 +406,15 @@ class Schedule(object):
                 self.DataflowGraph.propagate_annotation(t, dst.types)
         # inter-stage data movement
         elif isinstance(dst, Stage):
+            try:
+                tensor = tensor.tensor
+            except (AttributeError, ValueError):
+                try:
+                    tensor = tensor._op
+                except AttributeError:
+                    pass
+            if not isinstance(tensor, OpResult):
+                tensor = tensor.result
             with get_context() as ctx, get_location() as loc:
                 # automatically set dataflow pragma
                 self.device_top.attributes["dataflow"] = UnitAttr.get()
@@ -413,7 +422,7 @@ class Schedule(object):
                 fifo_depth = IntegerAttr.get(i32, fifo_depth)
                 # do .to() scheduling
                 to_op = hcl_d.InterKernelToOp(
-                    tensor.result, dst.stage_handle.result, fifo_depth, ip=GlobalInsertionPoint.get())
+                    tensor, dst.stage_handle.result, fifo_depth, ip=GlobalInsertionPoint.get())
 
 
 class Stage(object):
