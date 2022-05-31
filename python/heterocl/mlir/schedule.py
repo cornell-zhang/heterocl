@@ -1,3 +1,5 @@
+import warnings
+
 import hcl_mlir
 from hcl_mlir import GlobalInsertionPoint
 from hcl_mlir.dialects import builtin
@@ -13,6 +15,9 @@ from .dfg import DataflowGraph
 from .utils import get_extra_type_hints
 import functools
 
+# By default, Python ignores deprecation warnings.
+# we have to enable it to see the warning.
+warnings.simplefilter('always', DeprecationWarning)
 
 def build_schedule(inputs, func=None, name=""):
     """Create a schedule for compute optimizations.
@@ -597,7 +602,7 @@ class Stage(object):
             self.ir_node.attributes["systolic"] = UnitAttr.get()
 
     def __enter__(self):
-        raise DeprecationWarning("hcl.Stage() is deprecated, please remove it.")
+        warnings.warn("hcl.Stage() is deprecated, please remove it.", DeprecationWarning)
 
-    def __exit__(self):
-        raise DeprecationWarning("hcl.Stage() is deprecated, please remove it.")
+    def __exit__(self, ptype, value, trace):
+        pass
