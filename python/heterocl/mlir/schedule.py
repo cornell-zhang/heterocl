@@ -393,6 +393,7 @@ class Schedule(object):
             memref_type = MemRefType.get(target.shape, f32, loc=loc)
             res = hcl_d.BufferAtOp(memref_type, parent.stage_handle.result,
                                    target.result, axis.result, ip=GlobalInsertionPoint.get())
+        return res.result
 
     def to(self, tensor, dst=None, fifo_depth=-1):
         # host-device data movement
