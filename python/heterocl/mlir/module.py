@@ -36,7 +36,7 @@ class HCLModule(object):
             raise RuntimeError("No module name specified!")
         target = self.target
         if target.tool.name == "vivado_hls":
-            if "csyn" not in target.tool.mode:
+            if "csyn" not in target.tool.mode and target.tool.mode != "debug":
                 raise RuntimeError(
                     "Not supported mode {}. Use csyn mode to retrieve the report instead.".format(target.tool.mode))
         else:

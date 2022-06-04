@@ -30,6 +30,8 @@ def copy_build_files(target, script=None):
     if platform == "vivado_hls":
         os.system("cp " + path + "vivado/* " + project)
         os.system("cp " + path + "harness.mk " + project)
+        if mode == "debug":
+            mode = "csyn"
         if mode != "custom":
             removed_mode = ["csyn", "csim", "cosim", "impl"]
             selected_mode = mode.split("|")
@@ -83,7 +85,7 @@ def execute_fpga_backend(target):
                 )
             )
 
-        elif "csyn" in mode or mode == "custom":
+        elif "csyn" in mode or mode == "custom" or mode == "debug":
             cmd += "vivado_hls"
             print(
                 "[{}] Begin synthesizing project ...".format(
