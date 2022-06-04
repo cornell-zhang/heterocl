@@ -18,7 +18,7 @@ class HCLModule(object):
         if "name" not in self.__dict__.keys():
             raise RuntimeError("No module name specified!")
         target = self.target
-        if isinstance(target, Platform) and target.tool.name == "vivado_hls":
+        if isinstance(target, Platform) and target.tool.name in ["vivado_hls", "vitis_hls"]:
             execute_fpga_backend(self.target)
             report = self.report()
             report.display()

@@ -25,6 +25,10 @@ vivado_hls:
 	@echo "Run Vivado HLS"
 	vivado_hls -f run.tcl
 
+vitis_hls:
+	@echo "Run Vitis HLS"
+	vitis_hls -f run.tcl
+
 clean:
 	rm -rf out *.txt *.dat *.prj *.log *.json
 	rm -rf zedboard_project* xillydemo.bit

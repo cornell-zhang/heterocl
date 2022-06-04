@@ -27,8 +27,10 @@ def copy_build_files(target, script=None):
     project = target.project
     platform = str(target.tool.name)
     mode = str(target.tool.mode)
-    if platform == "vivado_hls":
+    if platform in ["vivado_hls", "vitis_hls"]:
         os.system("cp " + path + "vivado/* " + project)
+        if platform == "vitis_hls":
+            os.system("cp " + path + "vitis/run.tcl " + project)
         os.system("cp " + path + "harness.mk " + project)
         if mode == "debug":
             mode = "csyn"
@@ -65,10 +67,10 @@ def execute_fpga_backend(target):
     project = target.project
     platform = str(target.tool.name)
     mode = str(target.tool.mode)
-    if platform == "vivado_hls":
+    if platform in ["vivado_hls", "vitis_hls"]:
         assert (
-            os.system("which vivado_hls >> /dev/null") == 0
-        ), "cannot find vivado hls on system path"
+            os.system("which {} >> /dev/null".format(platform)) == 0
+        ), "cannot find {} on system path".format(platform)
         ver = run_process("g++ --version", "\d\.\d\.\d")[0].split(".")
         assert (
             int(ver[0]) * 10 + int(ver[1]) >= 48
@@ -86,7 +88,7 @@ def execute_fpga_backend(target):
             )
 
         elif "csyn" in mode or mode == "custom" or mode == "debug":
-            cmd += "vivado_hls"
+            cmd += platform
             print(
                 "[{}] Begin synthesizing project ...".format(
                     time.strftime("%H:%M:%S", time.gmtime())
