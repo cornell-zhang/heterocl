@@ -182,7 +182,6 @@ def build_fpga_kernel(schedule, target=None, name="top", stmt=None):
         raise RuntimeError("Not supported target")
 
     if str(target.tool.mode) == "debug":
-        target.tool.mode = "csyn"
         # make the project folder and copy files
         copy_build_files(target)
 

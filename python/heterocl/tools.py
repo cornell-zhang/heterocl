@@ -37,15 +37,20 @@ class Tool(object):
       assert mode in self.suported_modes, f"{mode} not supported {self.suported_modes}"
       self.mode = mode
 
-class VivadoHLS(Tool):
-    def __init__(self):
-        name = "vivado_hls"
+class HLS(Tool):
+    def __init__(self, name="vivado_hls"):
         mode = "sw_sim"
-        options = {
-            "Frequency": "300",
-            "Version":  "2019.2"
-        }
-        super(VivadoHLS, self).__init__(name, mode, options)
+        if name == "vivado_hls":
+            options = {
+                "Frequency": "100",
+                "Version":  "2019.2"
+            }
+        else: # vitis_hls
+            options = {
+                "Frequency": "300",
+                "Version":  "2020.2"
+            }
+        super(HLS, self).__init__(name, mode, options)
         self.suported_modes = ["debug", "custom", "csim", "csyn", "cosim", "impl"]
     
     def set_mode(self, mode):
@@ -216,7 +221,8 @@ option_table = {
   "aocl" : ("sw_sim", {"version" : "17.0", "clock" : "1.5"})
 }
 
-Tool.vivado_hls = VivadoHLS()
+Tool.vivado_hls = HLS("vivado_hls")
+Tool.vitis_hls = HLS("vitis_hls")
 Tool.vitis = Vitis()
 Tool.aocl = AOCL()
 Tool.sdaccel = SDAccel()
