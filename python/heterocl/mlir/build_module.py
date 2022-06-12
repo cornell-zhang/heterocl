@@ -252,6 +252,7 @@ def build_llvm(schedule, target=None, name="top", stmt=None):
         # move_return_to_input, because it uses input/output
         # type hints.
         hcl_d.move_return_to_input(module)
+        hcl_d.lower_bit_ops(module)
         hcl_d.lower_hcl_to_llvm(module, ctx)
         # num_results = len(func.type.results)
         num_results = 0

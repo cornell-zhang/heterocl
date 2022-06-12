@@ -506,7 +506,7 @@ def test_get_slice_tensor():
 
 def test_get_slice_tensor_reverse():
 
-    hcl.init()
+    hcl.init(hcl.UInt(8))
 
     def kernel(A):
         return hcl.compute(A.shape, lambda x: (A[x][0:8]).reverse())

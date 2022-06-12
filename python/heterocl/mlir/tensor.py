@@ -364,6 +364,8 @@ class Array(object):
 
     def __init__(self, np_array, dtype):
         self.dtype = dtype  # should specify the type of `dtype`
+        if isinstance(np_array, list):
+            np_array = np.array(np_array)
         if dtype != None:
             # Data type check
             if isinstance(dtype, Float):
