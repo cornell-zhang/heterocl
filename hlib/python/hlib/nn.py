@@ -69,7 +69,7 @@ def pad(data, pad_before, pad_after=None, pad_value=0.0, name="pad"):
                 not_zero.append(indices[i] < data.shape[i] + pad_before[i])
         if not_zero:
             not_zero = hcl.all(*not_zero)
-            return hcl.select(not_zero, data[tuple(index_tuple)], pad_value)
+            return hcl.select(not_zero, data[tuple(index_tuple)], hcl.cast(data.dtype, pad_value))
         return data[tuple(index_tuple)]
 
     return hcl.compute(out_shape, _pad, name=name, dtype=data.dtype)
@@ -270,7 +270,7 @@ def avg_pool2d_nchw(data, pooling, stride, padding, name='avg_pool2d', dtype=Non
                                          stride_h +
                                          dheight, w *
                                          stride_w +
-                                         dwidth], axis=[dheight, dwidth]) /
+                                         dwidth], axis=[dheight, dwidth], dtype=dtype) /
                             (pooling_w *
                              pooling_h)),
         name=name, dtype=dtype)
@@ -296,7 +296,7 @@ def flatten(data, name="flatten", dtype=None):
                        name=name, dtype=dtype)
 
 
-def dense(data, weight, units=None, out_dtype=None, bias=None, name="dense"):
+def dense(data, weight, bias=None, out_dtype=None, name="dense"):
     assert len(
         data.shape) == 2 and len(
         weight.shape) == 2, "only support 2-dim dense"
@@ -308,7 +308,7 @@ def dense(data, weight, units=None, out_dtype=None, bias=None, name="dense"):
     out_dim, _ = weight.shape
     k = hcl.reduce_axis(0, in_dim)
     matmul = hcl.compute((batch, out_dim), lambda i, j: hcl.sum(
-        data[i, k] * weight[j, k], axis=k), name=name+"_matmul", dtype=data.dtype)
+        data[i, k] * weight[j, k], axis=k, dtype=out_dtype), name=name+"_matmul", dtype=out_dtype)
     if bias is not None:
         matmul = hcl.compute(
             (batch, out_dim),
