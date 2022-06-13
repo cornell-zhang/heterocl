@@ -188,6 +188,37 @@ def test_dtype_compute_fixed():
             _test_dtype(hcl.UFixed(i, i-2))
             _test_dtype(hcl.Fixed(i, i-2))
 
+def test_fixed_division():
+
+    def _test_dtype(dtype):
+        hcl.init(dtype)
+        A = hcl.placeholder((100,))
+        B = hcl.placeholder((100,))
+
+        def kernel(A, B):
+            C = hcl.compute(A.shape, lambda x: A[x] / B[x])
+            return C
+
+        s = hcl.create_schedule([A, B], kernel)
+        f = hcl.build(s)
+
+        np_A = np.random.rand(*A.shape) + 0.1
+        np_B = np.random.rand(*B.shape) + 0.1
+        hcl_A = hcl.asarray(np_A)
+        hcl_B = hcl.asarray(np_B)
+        hcl_C = hcl.asarray(np.zeros(A.shape))
+        f(hcl_A, hcl_B, hcl_C)
+
+        np_C = hcl.cast_np(hcl_A.asnumpy() / hcl_B.asnumpy(), dtype)
+
+        assert np.allclose(np_C, hcl_C.asnumpy())
+
+    for j in range(0, 10):
+        for i in range(6, 66, 4):
+            # To avoid floating point exception during division
+            _test_dtype(hcl.UFixed(i, i-2))
+            _test_dtype(hcl.Fixed(i, i-2))
+
 def test_fixed_compute_basic():
 
     dtype = hcl.Fixed(32, 2)
