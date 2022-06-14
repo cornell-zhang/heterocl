@@ -132,7 +132,8 @@ class DataflowGraph(object):
         elif attr == "FPGA":
             node.set_device("CPU")
         # set next stage on device
-        self._dfs(node, set_annotation)
+        visited = set()
+        self._dfs(node, visited, set_annotation)
 
     def create_device_map(self):
         flag = True
