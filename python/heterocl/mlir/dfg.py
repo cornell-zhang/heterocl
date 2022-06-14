@@ -68,13 +68,17 @@ class DataflowGraph(object):
                 self.add_edge(src, dst)
 
     def visit(self, func):
+        visited = set()
         for node in self.roots:
-            self._dfs(node, func)
+            self._dfs(node, visited, func)
 
-    def _dfs(self, node, func=None):
+    def _dfs(self, node, visited, func=None):
+        if node.name in visited:
+            return
+        visited.add(node.name)
         for child in node.children:
             func(node, child)
-            self._dfs(child, func)
+            self._dfs(child, visited, func)
 
     def dump(self):
         print("Dataflow graph:")
@@ -87,6 +91,7 @@ class DataflowGraph(object):
         import networkx as nx
         import matplotlib.pyplot as plt
         from networkx.drawing.nx_agraph import write_dot, graphviz_layout
+        plt.figure(figsize=(8, 5), dpi=200)
 
         edges = []
 
