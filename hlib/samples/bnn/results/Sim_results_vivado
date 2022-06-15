@@ -1,0 +1,25 @@
+Init
+input_image : 29001(0.290 ms), 187.58MhZ
+w_conv1 : 273(2.730 us), 243.41 MhZ
+bn_t1 : 4641(46.410 us), 197.39 MhZ
+w_conv2 : 8769(87.690 us), 207.56MhZ
+bn_t2 : 2625(26.250 us), 202.70MhZ
+w_fc1 : 131585(1.316 ms), 185.52MhZ
+b_fc1 : 257(2.570 us), 307.31 MhZ
+w_fc2 : 2581(25.810 us), 208.29 MhZ
+b_ fc2 : 11(0.110 us), 430.66 MhZ
+fc2 : 1201(12.010 us), 204.37 MhZ
+
+Stage, Cycles, fmax
+conv1_pad : 68602 (0.686 ms) , 133.58MhZ 
+conv1 : 10704202(107 ms), 140.63 MhZ
+bn1 : 1283402(12.834 ms), 175.62 MhZ
+maxpool1 : 1462602(14.126 ms), 185.52 MhZ
+conv2_pad : 355402(3.554 ms), 133.58 MhZ
+conv2 : 85664202(857 ms), 139.76 MhZ
+bn2 : 672202(6.722 ms), 175.62 MhZ
+maxpool2 : 749002(7.490 ms), 186.54 MhZ
+flatten : 102601(1.026 ms), 153.66 MhZ
+fc1_matmul : 26675402 (266 ms), 115.34 MhZ
+fc1 : 77001(0.770 ms), 175.62 MhZ
+fc2 : 535202(5.352 ms), 115.34 MhZ

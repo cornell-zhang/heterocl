@@ -4,7 +4,7 @@ import hcl_mlir
 from hcl_mlir import GlobalInsertionPoint
 from hcl_mlir.dialects import builtin
 from hcl_mlir.dialects import hcl as hcl_d
-from hcl_mlir.dialects import std
+from hcl_mlir.dialects import std, memref
 from hcl_mlir.ir import *
 
 from ..devices import Device, DevMemoryPair
@@ -12,7 +12,8 @@ from .context import (ImperativeLoopDepth, ImperativeLoopNestCount,
                       NestedCompute, StageName, UniqueName, get_context,
                       get_location, set_context)
 from .dfg import DataflowGraph
-from .utils import get_extra_type_hints
+from .utils import get_extra_type_hints, hcl_dtype_to_mlir
+from ..types import *
 import functools
 
 # By default, Python ignores deprecation warnings.
@@ -144,8 +145,74 @@ def build_schedule(inputs, func=None, name=""):
         for op, stage in Stage._mapping:
             if op is not None:
                 func.__setattr__(op.name, op)
+                
+    with open('schedule.txt', 'w') as f:
+        f.write(str(sch.device_module))
+        
     return sch
 
+def build_schedule_file(file,inputs, name=None):
+  
+    s = ""
+    outputs = []
+    with open(file, 'r') as f:
+        s = f.read()
+    print(type(s))
+    sch = Schedule(name,inputs)
+    sch._device_module = Module.parse(s, get_context())
+    for op in sch.device_module.body.operations:
+        if str(op.name) == "\"top\"":
+            sch._device_top = op
+    hcl_mlir.enable_build_inplace()
+    with get_context(), get_location():
+        for op in sch.device_module.body.operations:
+            if str(op.name) != "\"top\"":
+                ar = str(op.attributes["type"]).split(" -")[0]
+                l = ar.split(", m")
+                l[0] = l[0][2:]
+                l[-1] = l[-1][:-1]
+                tl = [e[6:-1].split("x") for e in l]
+                inp = tl[:-1]
+                inp_n = str(op.attributes["inputs"])[1:-1].split(",")
+                opt = tl[-1]
+                opt_n = str(op.attributes["outputs"])[1:-1]
+                for i in range(len(inp)+1):
+                    typ = []
+                    name = ""
+                    if i == len(inp):
+                        shape = opt
+                        name = str(opt_n)
+                    else:
+                        shape = tl[i]
+                        name = inp_n[i]
+                    if name not in sch.DataflowGraph.node_map.keys():
+                        sdtype = shape[-1]
+                        if shape[-2] == "!hcl.Fi":
+                            typ = [int(i) for i in shape[:-2]]
+                        else:
+                            typ = [int(i) for i in shape[:-1]]
+                        dtype = None
+                        if sdtype[0] == "i":
+                            dtype = Int(int(sdtype[1:]))
+                        elif sdtype[0] == "f":
+                            dtype = Float(int(sdtype[1:]))
+                        elif sdtype[0:2] == "ed":
+                            itg = sdtype[3:].split(", ")[0]
+                            fr = sdtype[3:].split(", ")[1][:-1]
+                            dtype = Fixed(int(itg), int(fr))
+                        tns = hcl_mlir.TensorOp(typ, memref.AllocOp, dtype, name=name)
+                        tns.dtype = hcl_dtype_to_mlir(dtype)
+                        tns.build()
+                        #TODO : encapsulate tns in Tensor object
+                        sch.DataflowGraph.create_node(tns)
+                for i in range(len(inp)):
+                    sch.DataflowGraph.add_edge(sch.DataflowGraph.node_map[inp_n[i]],sch.DataflowGraph.node_map[str(opt_n)])
+    
+    outputs.append(sch.DataflowGraph.node_map[str(sch.device_module.body.operations[len(sch.device_module.body.operations)-1].attributes["outputs"])[1:-1]])
+    sch.DataflowGraph.set_leaves(outputs)
+    sch.DataflowGraph.dump()
+    hcl_mlir.disable_build_inplace()
+    return sch
 
 def create_schedule(inputs, func=None, name=""):
     try:
@@ -155,8 +222,7 @@ def create_schedule(inputs, func=None, name=""):
     finally:
         hcl_mlir.reset_build_inplace()
         NestedCompute.set(0)
-
-
+  
 class Partition(object):
     Complete = 0
     Block = 1
