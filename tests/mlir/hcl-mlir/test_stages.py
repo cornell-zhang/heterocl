@@ -18,7 +18,7 @@ def test_stages():
         return F
 
     target = hcl.Platform.xilinx_zc706
-    target.config(compiler="vivado_hls", mode="csim",
+    target.config(compiler="vivado_hls", mode="debug",
                   project="stages-depth-1-new.prj")
     s = hcl.create_schedule([A], kernel)
     s.to(A, target.xcel)
@@ -44,30 +44,25 @@ def test_stages():
 def test_outline():
 
     A = hcl.placeholder((32, 32), "A")
-    # C = hcl.placeholder((32, 32), "C")
 
     def kernel(A):
         B = hcl.compute(A.shape, lambda i, j: A[i, j] + 1, "B")
         C = hcl.compute(A.shape, lambda i, j: A[i, j] + 1, "C")
-        D = hcl.compute(A.shape, lambda i, j: B[i, j] + 1, "D")
-        E = hcl.compute(A.shape, lambda i, j: C[i, j] + 1, "E")
-        F = hcl.compute(A.shape, lambda i, j: D[i, j] + E[i, j], "F")
-        return F
+        D = hcl.compute(A.shape, lambda i, j: B[i, j] + C[i, j], "D")
+        return D
 
     target = hcl.Platform.xilinx_zc706
     target.config(compiler="vivado_hls", mode="debug",
                   project="stages-outline.prj")
     s = hcl.create_schedule([A], kernel)
-    s.partition(kernel.B, dim=1)
+    s[kernel.B].pipeline(kernel.B.axis[1])
+    s.partition(kernel.B, dim=2)
     func_B = s[kernel.B].outline()
     func_C = s[kernel.C].outline()
     func_D = s[kernel.D].outline()
-    func_E = s[kernel.E].outline()
-    func_F = s[kernel.F].outline()
     print(hcl.lower(s))
 
-    mod = hcl.build(s, top=[func_B, func_C, func_D,
-                    func_E, func_F], target=target)
+    mod = hcl.build(s, top=[func_B, func_C, func_D], target=target)
     mod()
 
 

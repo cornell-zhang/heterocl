@@ -89,7 +89,35 @@ def test_gemm_ihls(M=32, N=32, K=32, dtype=hcl.Int(), target=None):
     f = hcl.build(s, "ihls")
     print(f)
 
+def test_gemm_outline(M=32, N=32, K=32, dtype=hcl.Int(), target=None):
+
+    hcl.init(hcl.Int())
+    A = hcl.placeholder((M, K), name="A")
+    B = hcl.placeholder((K, N), name="B")
+
+    def gemm(A, B):
+        k = hcl.reduce_axis(0, K, name="k")
+        C = hcl.compute((32, 32), lambda i, j:
+                hcl.sum(A[i, k] * B[k, j], axis=k), "C")
+        return C
+
+    s = hcl.create_schedule([A, B], gemm)
+
+    # optimization
+    s_C = gemm.C
+    i0, i1 = s[s_C].split(s_C.axis[0], 8)
+    j0, j1 = s[s_C].split(s_C.axis[1], 8)
+    s[s_C].reorder(i0, j0, i1, j1)
+    s[s_C].unroll(j1)
+    s[s_C].pipeline(i1)
+    s.outline(s[s_C])
+    print(hcl.lower(s))
+
+    f = hcl.build(s, "vhls")
+    print(f)
+
 if __name__ == "__main__":
-    test_gemm_cpu()
+    # test_gemm_cpu()
     # test_gemm_fpga()
     # test_gemm_ihls()
+    test_gemm_outline()
