@@ -430,6 +430,13 @@ class Schedule(object):
                 to_op = hcl_d.InterKernelToOp(
                     tensor, dst.stage_handle.result, fifo_depth, ip=GlobalInsertionPoint.get())
 
+    def outline(self, stage):
+        """Outline a stage as a function
+        """
+
+        with get_context() as ctx, get_location() as loc:
+            hcl_d.OutlineOp(stage.stage_handle.result, ip=GlobalInsertionPoint.get())
+        return
 
 class Stage(object):
     """A Stage represents schedule for one operation.
