@@ -1,0 +1,29 @@
+Results of bnn on CPU (in microseconds) (100 iteration benchmark)
+
+init costs : 
+	input image : 30
+	w_conv1 : 0
+	bn_t1 : 221
+	w_conv2 : 5
+	bn_t2 : 101
+	w_fc1: 131
+	b_fc1 : 12
+	w_fc2: 1
+	b_fc2 : 0
+	fc2 : 48
+compute costs : 
+	conv1_pad : 178
+	conv1 : 445280
+	bn1 : 49789
+	maxpool1 : 1258
+	conv2_pad : 671
+	conv2 : 3497714
+	bn2 : 24493
+	maxpool2: 634
+	flatten : 96
+	fc1_matmul : 2677861
+	fc1 : 2675
+	fc2 : 50410
+
+
+
