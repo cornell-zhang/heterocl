@@ -183,6 +183,7 @@ def test_reuse_blur_x_y_3D():
 
     assert np.array_equal(np_B, np_C)
 
+@pytest.mark.skip(reason="crashes pytest")
 def test_reuse_blur_x_y_z_3D():
     hcl.init()
     A = hcl.placeholder((10, 8, 6), "A")
