@@ -214,7 +214,7 @@ def test_fixed_division():
         assert np.allclose(np_C, hcl_C.asnumpy())
 
     for j in range(0, 10):
-        for i in range(6, 66, 4):
+        for i in range(6, 32, 4):
             # To avoid floating point exception during division
             _test_dtype(hcl.UFixed(i, i-2))
             _test_dtype(hcl.Fixed(i, i-2))
