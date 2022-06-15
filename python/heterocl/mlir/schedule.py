@@ -438,7 +438,29 @@ class Schedule(object):
         with get_context() as ctx, get_location() as loc:
             hcl_d.OutlineOp(stage.stage_handle.result,
                             ip=GlobalInsertionPoint.get())
-        return
+        return StageFunction(stage.name)
+
+
+class StageFunction(object):
+
+    def __init__(self, name=None):
+        self.name = "Stage_" + name
+
+    def build(self, schedule):
+        set_context()
+        with get_context() as ctx, get_location() as loc:
+            new_module = Module.create(loc)
+            # just a placeholder for inserting the function
+            top = builtin.FuncOp(name="top", type=FunctionType.get(
+                    inputs=[], results=[]), ip=InsertionPoint(new_module.body))
+            for op in schedule.device_module.body.operations:
+                if str(op.name) == "\"{}\"".format(self.name):
+                    op.move_before(top)
+                    break
+            else:
+                raise RuntimeError("Stage {} not found".format(self.name))
+            top.operation.erase()
+        return new_module
 
 
 class Stage(object):
@@ -612,7 +634,7 @@ class Stage(object):
         with get_context() as ctx, get_location() as loc:
             hcl_d.OutlineOp(self.stage_handle.result,
                             ip=GlobalInsertionPoint.get())
-        return
+        return StageFunction(self.name)
 
     def systolic(self):
         """Wrap the current stage as a systolic array

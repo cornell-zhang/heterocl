@@ -19,7 +19,7 @@ def run_process(cmd, pattern=None, env=None):
     return out.decode("utf-8")
 
 
-def copy_build_files(target, script=None):
+def copy_build_files(target, top="top", script=None):
     # make the project folder and copy files
     os.makedirs(target.project, exist_ok=True)
     path = os.path.dirname(__file__)
@@ -43,6 +43,8 @@ def copy_build_files(target, script=None):
             new_tcl = ""
             with open(os.path.join(project, "run.tcl"), "r") as tcl_file:
                 for line in tcl_file:
+                    if "set_top" in line:
+                        line = "set_top " + top + "\n"
                     if (
                         ("csim_design" in line and "csim" in removed_mode)
                         or ("csynth_design" in line and "csyn" in removed_mode)

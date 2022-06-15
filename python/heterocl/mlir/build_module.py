@@ -36,12 +36,19 @@ def lower(schedule,
     return schedule.device_module
 
 
-def build(schedule, target=None, name="top", stmt=None):
+def build(schedule, target=None, name="top", stmt=None, function=None):
     """Build the executable according to the schedule and target.
     """
     try:
         lowered_module = lower(schedule)
-        if target != None:
+        if function is not None:
+            func_mod = function.build(schedule)
+            if target is None:
+                raise RuntimeError(
+                    "Stage function build can only support FPGA backend now")
+            else:
+                return build_fpga_kernel(func_mod, target, function.name, stmt)
+        if target is not None:
             return build_fpga_kernel(schedule, target, name, stmt)
         else:
             return build_llvm(schedule, target, name, stmt)
@@ -166,15 +173,19 @@ void top("""
 
 
 def build_fpga_kernel(schedule, target=None, name="top", stmt=None):
+    if isinstance(schedule, Schedule):
+        device_module = schedule.device_module
+    else:
+        device_module = schedule
     if target == "vhls":
         buf = io.StringIO()
-        hcl_d.emit_vhls(schedule.device_module, buf)
+        hcl_d.emit_vhls(device_module, buf)
         buf.seek(0)
         hls_code = buf.read()
         return hls_code
     elif target == "ihls":
         buf = io.StringIO()
-        hcl_d.emit_ihls(schedule.device_module, buf)
+        hcl_d.emit_ihls(device_module, buf)
         buf.seek(0)
         hls_code = buf.read()
         return hls_code
@@ -183,10 +194,10 @@ def build_fpga_kernel(schedule, target=None, name="top", stmt=None):
 
     if str(target.tool.mode) == "debug":
         # make the project folder and copy files
-        copy_build_files(target)
+        copy_build_files(target, top=name)
 
         buf = io.StringIO()
-        hcl_d.emit_vhls(schedule.device_module, buf)
+        hcl_d.emit_vhls(device_module, buf)
         buf.seek(0)
         hls_code = buf.read()
         with open("{}/kernel.cpp".format(target.project), "w") as outfile:
