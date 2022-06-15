@@ -216,7 +216,7 @@ class Platform(object):
 
     def config(self, compiler, mode=None,
                      backend=None, script=None,
-                     project=None):
+                     project=None, top="top"):
         """Configure the HCL runtime platform.
 
         Parameters
@@ -274,6 +274,7 @@ class Platform(object):
             Project.project_name = project
             Project.path = project
         self.project = Project.project_name
+        self.top = top
 
     def __getattr__(self, key):
         """ return tool options """

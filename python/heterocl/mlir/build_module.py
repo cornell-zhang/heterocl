@@ -36,7 +36,7 @@ def lower(schedule,
     return schedule.device_module
 
 
-def build(schedule, target=None, name="top", stmt=None, function=None):
+def build(schedule, target=None, stmt=None, function=None):
     """Build the executable according to the schedule and target.
     """
     try:
@@ -47,11 +47,12 @@ def build(schedule, target=None, name="top", stmt=None, function=None):
                 raise RuntimeError(
                     "Stage function build can only support FPGA backend now")
             else:
-                return build_fpga_kernel(func_mod, target, function.name, stmt)
+                target.top = function.name
+                return build_fpga_kernel(func_mod, target, stmt)
         if target is not None:
-            return build_fpga_kernel(schedule, target, name, stmt)
+            return build_fpga_kernel(schedule, target, stmt)
         else:
-            return build_llvm(schedule, target, name, stmt)
+            return build_llvm(schedule, target, stmt)
     except Exception as e:
         raise e
     finally:
@@ -172,7 +173,7 @@ void top("""
     return header
 
 
-def build_fpga_kernel(schedule, target=None, name="top", stmt=None):
+def build_fpga_kernel(schedule, target=None, stmt=None):
     if isinstance(schedule, Schedule):
         device_module = schedule.device_module
     else:
@@ -194,7 +195,7 @@ def build_fpga_kernel(schedule, target=None, name="top", stmt=None):
 
     if str(target.tool.mode) == "debug":
         # make the project folder and copy files
-        copy_build_files(target, top=name)
+        copy_build_files(target)
 
         buf = io.StringIO()
         hcl_d.emit_vhls(device_module, buf)
@@ -245,15 +246,16 @@ def build_fpga_kernel(schedule, target=None, name="top", stmt=None):
         with open("{}/kernel.h".format(target.project), "w") as outfile:
             outfile.write(header)
 
-    hcl_module = HCLModule(name, hls_code, target, host_src=host_code)
+    hcl_module = HCLModule(target.top, hls_code, target, host_src=host_code)
     return hcl_module
 
 
-def build_llvm(schedule, target=None, name="top", stmt=None):
+def build_llvm(schedule, target=None, stmt=None):
+    name = 'top'
     with get_context() as ctx, get_location():
         func = schedule.device_top
         func.attributes['llvm.emit_c_interface'] = UnitAttr.get()
-        func.attributes['top'] = UnitAttr.get()
+        func.attributes[name] = UnitAttr.get()
         module = Module.parse(str(schedule.device_module), ctx)
         hcl_d.loop_transformation(module)
         hcl_d.lower_composite_type(module)
