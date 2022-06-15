@@ -10,7 +10,7 @@ from hcl_mlir.passmanager import PassManager
 
 from ..devices import Platform
 from .context import get_context, set_context, get_location, NestedCompute
-from .module import HCLModule
+from .module import HCLModule, HCLSuperModule
 from .operation import placeholder
 from .runtime import copy_build_files
 from .schedule import Schedule
@@ -36,19 +36,28 @@ def lower(schedule,
     return schedule.device_module
 
 
-def build(schedule, target=None, stmt=None, function=None):
+def build(schedule, target=None, stmt=None, top=None):
     """Build the executable according to the schedule and target.
     """
     try:
         lowered_module = lower(schedule)
-        if function is not None:
-            func_mod = function.build(schedule)
-            if target is None:
-                raise RuntimeError(
-                    "Stage function build can only support FPGA backend now")
-            else:
-                target.top = function.name
-                return build_fpga_kernel(func_mod, target, stmt)
+        if top is not None:
+            if not isinstance(top, list):
+                top = [top]
+            modules = []
+            for func in top:
+                func_mod = func.build(schedule)
+                if target is None:
+                    raise RuntimeError(
+                        "Stage function build can only support FPGA backend now")
+                else:
+                    target.top = func.name
+                    original_name = target.project
+                    target.project = "{}/{}.prj".format(
+                        original_name, func.name)
+                    modules.append(build_fpga_kernel(func_mod, target, stmt))
+                    target.project = original_name
+            return HCLSuperModule(modules)
         if target is not None:
             return build_fpga_kernel(schedule, target, stmt)
         else:

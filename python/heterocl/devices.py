@@ -201,10 +201,6 @@ class PIM(Device):
         super(PIM, self).__init__("PIM", vendor, model, **kwargs)
     def __repr__(self):
         return f"PIM({self.model})"
-
-class Project():
-    project_name = "project"
-    path = "project"
     
 class Platform(object):
     def __init__(self, name, devs, host, xcel, tool):
@@ -270,21 +266,8 @@ class Platform(object):
         if self.host.backend == "":
             self.host.backend = "xocl"
 
-        if project != None:
-            Project.project_name = project
-            Project.path = project
-        self.project = Project.project_name
+        self.project = project
         self.top = top
-
-    def __getattr__(self, key):
-        """ return tool options """
-        return self.tool.__getattr__(key)
-   
-    def __call__(self, tooling=None):
-        if tooling: # check and update
-            assert isinstance(tooling, tool)
-            self.tool = tooling
-        return self
 
     def __str__(self):
         return f"{self.name}({self.host}, {self.xcel})"

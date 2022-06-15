@@ -66,7 +66,7 @@ def copy_build_files(target, script=None):
         raise RuntimeError("Not implemented")
 
 
-def execute_fpga_backend(target):
+def execute_fpga_backend(target, shell=True):
     project = target.project
     platform = str(target.tool.name)
     mode = str(target.tool.mode)
@@ -97,7 +97,10 @@ def execute_fpga_backend(target):
                     time.strftime("%H:%M:%S", time.gmtime())
                 )
             )
-            subprocess.Popen(cmd, shell=True).wait()
+            if shell:
+                subprocess.Popen(cmd, shell=True).wait()
+            else:
+                subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE).wait()
             if mode != "custom":
                 out = parse_xml(project, "Vivado HLS",
                                 top=target.top, print_flag=True)
