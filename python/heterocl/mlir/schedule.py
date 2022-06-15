@@ -19,6 +19,7 @@ import functools
 # we have to enable it to see the warning.
 warnings.simplefilter('always', DeprecationWarning)
 
+
 def build_schedule(inputs, func=None, name=""):
     """Create a schedule for compute optimizations.
     inputs: list of Tensor
@@ -435,8 +436,10 @@ class Schedule(object):
         """
 
         with get_context() as ctx, get_location() as loc:
-            hcl_d.OutlineOp(stage.stage_handle.result, ip=GlobalInsertionPoint.get())
+            hcl_d.OutlineOp(stage.stage_handle.result,
+                            ip=GlobalInsertionPoint.get())
         return
+
 
 class Stage(object):
     """A Stage represents schedule for one operation.
@@ -602,6 +605,15 @@ class Stage(object):
             compute_at = hcl_d.ComputeAtOp(
                 self.stage_handle.result, parent.stage_handle.result, scope.result, ip=GlobalInsertionPoint.get())
 
+    def outline(self):
+        """Outline a stage as a function
+        """
+
+        with get_context() as ctx, get_location() as loc:
+            hcl_d.OutlineOp(self.stage_handle.result,
+                            ip=GlobalInsertionPoint.get())
+        return
+
     def systolic(self):
         """Wrap the current stage as a systolic array
         """
@@ -609,7 +621,8 @@ class Stage(object):
             self.ir_node.attributes["systolic"] = UnitAttr.get()
 
     def __enter__(self):
-        warnings.warn("hcl.Stage() is deprecated, please remove it.", DeprecationWarning)
+        warnings.warn(
+            "hcl.Stage() is deprecated, please remove it.", DeprecationWarning)
 
     def __exit__(self, ptype, value, trace):
         pass
