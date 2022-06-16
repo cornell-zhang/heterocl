@@ -189,55 +189,8 @@ class ComputeOp(object):
             # build output tensor
             if self.kind == "compute" and Schedule._TopFunction == None:
                 self.output.build()
-            # main computation part
-            if hcl_mlir.is_extract_function():
-                if self.output is not None:
-                    return_types = [self.output.op.memref_type]
-                else:
-                    return_types = []
-                # create stage function
-                stage_func_name = "Stage_"+self.name
-                # here we also put the return in the input argument,
-                # since commonly in C++ we should pass the array by reference
-                stage_func_op = builtin.FuncOp(name=stage_func_name, type=FunctionType.get(
-                    inputs=input_types+return_types, results=[]), ip=GlobalInsertionPoint.ip_stack[0])
-                stage_func_op.attributes["inputs"] = StringAttr.get(
-                    ",".join([tensor.name for tensor in self.inputs]))
-                stage_func_op.attributes["itypes"] = StringAttr.get("".join([get_extra_type_hints(
-                    tensor.op.dtype) for tensor in self.inputs] + [get_extra_type_hints(self.output.op.dtype)]))  # inputs & outputs
-                if self.output is not None:
-                    stage_func_op.attributes["outputs"] = StringAttr.get(
-                        self.output.op.name)
-                stage_func_op.add_entry_block()
-                # attach the function to the stage
-                self.stage.set_ir_node(stage_func_op)
-                # call this function in the top function
-                call_arglist = []
-                for tensor in self.inputs:
-                    call_arglist.append(tensor.result)
-                if self.output is not None:
-                    call_arglist.append(self.output.result)
-                call_op = hcl_mlir.CallOp(None, stage_func_name, call_arglist)
-                call_op.build()
-                call_op.built_op.attributes["inputs"] = StringAttr.get(
-                    ",".join([tensor.name for tensor in self.inputs]))
-                if self.output is not None:
-                    call_op.built_op.attributes["outputs"] = StringAttr.get(
-                        self.output.op.name)
-                # update inner load/store references
-                # used for recovery
-                original_tensor_op = []
-                for tensor, arg in zip(self.inputs, stage_func_op.entry_block.arguments):
-                    if isinstance(tensor.op, hcl_mlir.TensorOp):
-                        original_tensor_op.append(tensor.op.built_op)
-                        tensor.op.update_op(arg)
-                    else:  # ComputeOp
-                        original_tensor_op.append(tensor.op.output.op.built_op)
-                        tensor.op.output.op.update_op(arg)
-                # insertion point become the stage function inside
-                GlobalInsertionPoint.save(
-                    InsertionPoint(stage_func_op.entry_block))
 
+            # main computation part
             func_ip = GlobalInsertionPoint.get()
             # Create for loops in the stage
             loops = []
@@ -290,17 +243,7 @@ class ComputeOp(object):
                     result_expr.built_op = value
 
                 # Store the result to output tensor
-                if hcl_mlir.is_extract_function():
-                    write_back = list(stage_func_op.entry_block.arguments)[-1]
-                    # recover as top function op
-                    for i, tensor in enumerate(self.inputs):
-                        if isinstance(tensor.op, hcl_mlir.TensorOp):
-                            tensor.op.update_op(original_tensor_op[i])
-                        else:  # ComputeOp
-                            tensor.op.output.op.update_op(
-                                original_tensor_op[i])
-                else:
-                    write_back = self.output.op.result
+                write_back = self.output.op.result
                 elt = MemRefType(write_back.type).element_type
                 write_back_elt = hcl_mlir.get_concrete_type(elt)
                 if not isinstance(value, hcl_mlir.BlockArgument):
@@ -333,12 +276,7 @@ class ComputeOp(object):
             # recover insertion point from inner-most loop body
             GlobalInsertionPoint.restore()
 
-            if hcl_mlir.is_extract_function():
-                # recover from the subfunction
-                ret_op = std.ReturnOp([], ip=GlobalInsertionPoint.get())
-                GlobalInsertionPoint.restore()
-            else:
-                self.stage.set_ir_node(loops[0])
+            self.stage.set_ir_node(loops[0])
 
         self.stage.done()
         if Schedule._TopFunction != None:

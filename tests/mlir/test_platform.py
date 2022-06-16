@@ -10,7 +10,6 @@ dir_path = os.path.dirname(os.path.realpath(__file__))
 def test_print_platform_hierarchy():
     target = import_json_platform(os.path.join(dir_path, "test_platform_spec/xilinx_u280.json"))
     target_mode = 'csyn'
-    hcl_mlir.enable_extract_function()
     hcl.init()
     A = hcl.placeholder((10, 32), "A")
 

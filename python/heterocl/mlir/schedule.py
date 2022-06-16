@@ -220,8 +220,6 @@ class Schedule(object):
                 itypes)
             device_top.attributes["otypes"] = StringAttr.get("")
             device_top.add_entry_block()
-            if hcl_mlir.is_extract_function():
-                device_top.attributes["top"] = UnitAttr.get()
         GlobalInsertionPoint.save(InsertionPoint(self._device_module.body))
         GlobalInsertionPoint.save(InsertionPoint(device_top.entry_block))
         self._device_top = device_top

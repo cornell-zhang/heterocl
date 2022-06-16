@@ -7,7 +7,6 @@ import hcl_mlir
 
 # Test DFG partitioning
 def test_move_outputs():
-    hcl_mlir.enable_extract_function() # dirty hack
     hcl.init()
     A = hcl.placeholder((10, 32), "A")
     def kernel(A):
