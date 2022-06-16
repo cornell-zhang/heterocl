@@ -17,7 +17,10 @@ def test_host_xcel():
 
     s.to([A], target.xcel)
     s.to([kernel.E], target.host)
+    s.to(kernel.C, s[kernel.D], fifo_depth=1)
     s.to(kernel.D, s[kernel.E], fifo_depth=1)
+    # s.to(kernel.C, target.xcel)
+    # s.to(kernel.D, target.host)
 
     target.config(compiler="vivado_hls", mode="csyn", project="host-xcel.prj")
     mod = hcl.build(s, target)

@@ -2,14 +2,15 @@ import io
 
 import hcl_mlir
 from hcl_mlir import GlobalInsertionPoint
-from hcl_mlir.dialects import affine, scf
+from hcl_mlir.dialects import affine
 from hcl_mlir.dialects import hcl as hcl_d
+from hcl_mlir.dialects import memref, scf, std
 from hcl_mlir.execution_engine import *
 from hcl_mlir.ir import *
 from hcl_mlir.passmanager import PassManager
 
 from ..devices import Platform
-from .context import get_context, set_context, get_location, NestedCompute
+from .context import NestedCompute, get_context, get_location, set_context
 from .module import HCLModule, HCLSuperModule
 from .operation import placeholder
 from .runtime import copy_build_files
@@ -83,6 +84,8 @@ def separate_host_device(schedule):
         host_tensors = []
         host_nodes = schedule.DataflowGraph.roots + \
             schedule.DataflowGraph.subgraph["outputs"]
+        op_map = {}
+        # initialization: create host tensors
         for node in host_nodes:
             tensor = node.tensor
             shape = tensor.shape
@@ -90,7 +93,7 @@ def separate_host_device(schedule):
             # create new tensors for host
             host_tensor = placeholder(
                 shape, name=tensor.op.name+"_host", dtype=tensor.dtype)
-            # host_tensor.build()
+            op_map[tensor.op.name] = {"alloc": host_tensor.op}
             if node in schedule.DataflowGraph.subgraph["inputs"] or node in schedule.DataflowGraph.subgraph["outputs"]:
                 host_tensors.append(host_tensor.op.result)
             # create initialization loops
@@ -118,18 +121,6 @@ def separate_host_device(schedule):
             store = hcl_mlir.StoreOp(
                 cst, host_tensor.op, [hcl_mlir.IterVar(loop.induction_variable, name=loop_name) for loop, loop_name in zip(loops, loop_names)])
             GlobalInsertionPoint.restore()
-        for node in host_nodes:
-            for op in schedule.device_module.body.operations:
-                if str(op.name) == "\"{}\"".format(node.name):
-                    op.move_before(schedule._host_ret)
-        # call device function
-        # host_tensors = [
-        #     node.tensor.result for node in schedule.DataflowGraph.subgraph["inputs"]] + host_tensors
-        call_op = hcl_mlir.CallOp(None, "top", host_tensors)
-        call_op.built_op.attributes["inputs"] = StringAttr.get(
-            ",".join([node.tensor.name for node in schedule.DataflowGraph.subgraph["inputs"]]))
-        call_op.built_op.attributes["outputs"] = StringAttr.get(
-            ",".join([node.tensor.name for node in schedule.DataflowGraph.subgraph["outputs"]]))
         # fix device top function signature
         func_op = schedule.xcel_top
         function_type = FunctionType.get(
@@ -147,21 +138,71 @@ def separate_host_device(schedule):
         otypes = "".join([get_extra_type_hints(
             node.tensor.op.dtype) for node in schedule.DataflowGraph.subgraph["outputs"]])
         func_op.attributes["itypes"] = StringAttr.get(otypes)
-    hcl_mlir.disable_build_inplace()
+        # preparation: create operation mapping
+        for op in schedule.xcel_module.body.operations:
+            if "Stage_" in str(op.name):
+                name = str(op.name)[1:-1].split("_")[1]  # omit quotation mark
+                if name not in op_map:
+                    op_map[name] = {"func": op}
+        for op in schedule.xcel_top.entry_block.operations:
+            if isinstance(op, memref.AllocOp):
+                name = str(op.attributes["name"])[1:-1]
+                if "alloc" not in op_map[name]:
+                    op_map[name]["alloc"] = op
+                else:
+                    op_map[name]["xcel"] = op
+            elif isinstance(op, std.CallOp):
+                name = str(op.attributes["callee"]).split("_")[1]
+                op_map[name]["call"] = op
+        for i, param in enumerate(func_op.arguments):
+            name = schedule.DataflowGraph.subgraph["inputs"][i].name
+            op_map[name]["xcel"] = param
+        # traverse the dfg (BFS) and move ops to host based on device_map
+        working_set = [node for node in schedule.DataflowGraph.roots]
+        flag = False
+        while len(working_set) > 0:
+            working_node = working_set.pop(0)
+            name = working_node.name
+            if working_node not in host_nodes and schedule.DataflowGraph.device_map[name] == "CPU":
+                op_map[name]["func"].move_before(schedule._host_top)
+                op_map[name]["alloc"].move_before(schedule._host_ret)
+                op_map[name]["call"].move_before(schedule._host_ret)
+                # update reference
+                for i, parent in enumerate(working_node.parents):
+                    op_map[name]["call"].operands[i] = op_map[parent.name]["alloc"].result
+            elif schedule.DataflowGraph.device_map[name] == "FPGA":
+                if not flag:
+                    flag = True
+                    # call device function
+                    for node in schedule.DataflowGraph.subgraph["inputs"]:
+                        if node not in schedule.DataflowGraph.roots:
+                            host_tensors.insert(
+                                0, op_map[node.name]["alloc"].result)
+                    call_op = hcl_mlir.CallOp(None, "top", host_tensors)
+                    call_op.built_op.attributes["inputs"] = StringAttr.get(
+                        ",".join([node.tensor.name for node in schedule.DataflowGraph.subgraph["inputs"]]))
+                    call_op.built_op.attributes["outputs"] = StringAttr.get(
+                        ",".join([node.tensor.name for node in schedule.DataflowGraph.subgraph["outputs"]]))
+                # update reference
+                for i, parent in enumerate(working_node.parents):
+                    if "xcel" in op_map[parent.name]:
+                        op_map[name]["call"].operands[i] = op_map[parent.name]["xcel"]
+                    else:
+                        op_map[name]["call"].operands[i] = op_map[parent.name]["alloc"].result
+                if working_node in schedule.DataflowGraph.subgraph["outputs"]:
+                    op_dict = op_map[working_node.name]
+                    if "xcel" in op_dict:
+                        if isinstance(op_dict["xcel"], hcl_mlir.BlockArgument):
+                            schedule._xcel_ret.operands[0] = op_dict["xcel"]
+                        else:
+                            schedule._xcel_ret.operands[0] = op_dict["xcel"].result
+                    else:
+                        schedule._xcel_ret.operands[0] = op_dict["alloc"].result
 
-    # call C++ pass to further fix the references
-    # device_map = schedule.DataflowGraph.device_map
-    # subgraph_name = {}
-    # subgraph_name["inputs"] = [
-    #     node.name for node in schedule.DataflowGraph.subgraph["inputs"]]
-    # subgraph_name["outputs"] = [
-    #     node.name for node in schedule.DataflowGraph.subgraph["outputs"]]
-    # roots = [node.name for node in schedule.DataflowGraph.roots]
-    # hcl_d.host_device_separation(
-    #     host_module, xcel_module, extern_module, device_map, roots, subgraph_name)
-    # host_module.dump()
-    # xcel_module.dump()
-    # extern_module.dump()
+            for child in working_node.children:
+                working_set.append(child)
+
+    hcl_mlir.disable_build_inplace()
 
 
 def generate_kernel_header(schedule):
@@ -228,9 +269,6 @@ def build_fpga_kernel(schedule, target=None, stmt=None):
         copy_build_files(target)
 
         # data placement
-        # if not hcl_mlir.is_extract_function():
-        #     raise RuntimeError("Should set hcl_mlir.EXTRACT_FUNCTION to True!")
-        # print(schedule.device_module)
         schedule.DataflowGraph.graph_partition()
         separate_host_device(schedule)
 

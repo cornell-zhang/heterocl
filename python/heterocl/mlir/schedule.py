@@ -256,7 +256,8 @@ class Schedule(object):
         for op in self._xcel_module.body.operations:
             if str(op.name) == "\"top\"":
                 self._xcel_top = op
-            elif str(op.name) == "\"return\"":
+        for op in self._xcel_top.entry_block.operations:
+            if isinstance(op, std.ReturnOp):
                 self._xcel_ret = op
         return self._xcel_module
 
