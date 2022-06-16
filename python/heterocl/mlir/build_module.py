@@ -13,7 +13,7 @@ from .context import get_context, set_context, get_location, NestedCompute
 from .module import HCLModule, HCLSuperModule
 from .operation import placeholder
 from .runtime import copy_build_files
-from .schedule import Schedule
+from .schedule import Schedule, Stage
 from .utils import get_extra_type_hints
 
 
@@ -40,6 +40,9 @@ def build(schedule, target=None, stmt=None, top=None):
     """Build the executable according to the schedule and target.
     """
     try:
+        if target is not None and str(target.tool.mode) != "debug":
+            for op, stage in Stage._mapping:
+                stage.outline()
         lowered_module = lower(schedule)
         if top is not None:
             if not isinstance(top, list):
@@ -72,7 +75,6 @@ def build(schedule, target=None, stmt=None, top=None):
 def separate_host_device(schedule):
     xcel_module = schedule.create_xcel_module()
     host_module = schedule.create_host_module()
-    extern_module = schedule.create_extern_module()
 
     # create basic components
     hcl_mlir.enable_build_inplace()
@@ -88,8 +90,8 @@ def separate_host_device(schedule):
             # create new tensors for host
             host_tensor = placeholder(
                 shape, name=tensor.op.name+"_host", dtype=tensor.dtype)
-            host_tensor.build()
-            if node in schedule.DataflowGraph.subgraph["outputs"]:
+            # host_tensor.build()
+            if node in schedule.DataflowGraph.subgraph["inputs"] or node in schedule.DataflowGraph.subgraph["outputs"]:
                 host_tensors.append(host_tensor.op.result)
             # create initialization loops
             loops = []
@@ -103,21 +105,26 @@ def separate_host_device(schedule):
                     stage=tensor.op.name+"_host" if i == 0 else "",
                     ip=body_ip,
                 )
-                if i != 0:  # manually add terminator!
-                    if isinstance(loop, affine.AffineForOp):
-                        affine.AffineYieldOp([], ip=body_ip)
-                    else:
-                        scf.YieldOp([], ip=body_ip)
                 loops.append(loop)
                 body_ip = InsertionPoint(loop.body)
-            GlobalInsertionPoint.save(body_ip)
+                # manually add terminator!
+                if isinstance(loop, affine.AffineForOp):
+                    yield_op = affine.AffineYieldOp([], ip=body_ip)
+                else:
+                    yield_op = scf.YieldOp([], ip=body_ip)
+                body_ip = InsertionPoint(yield_op)
+            GlobalInsertionPoint.save(yield_op)
             cst = hcl_mlir.ConstantOp(tensor.op.dtype, 0)
             store = hcl_mlir.StoreOp(
                 cst, host_tensor.op, [hcl_mlir.IterVar(loop.induction_variable, name=loop_name) for loop, loop_name in zip(loops, loop_names)])
             GlobalInsertionPoint.restore()
+        for node in host_nodes:
+            for op in schedule.device_module.body.operations:
+                if str(op.name) == "\"{}\"".format(node.name):
+                    op.move_before(schedule._host_ret)
         # call device function
-        host_tensors = [
-            node.tensor.result for node in schedule.DataflowGraph.subgraph["inputs"]] + host_tensors
+        # host_tensors = [
+        #     node.tensor.result for node in schedule.DataflowGraph.subgraph["inputs"]] + host_tensors
         call_op = hcl_mlir.CallOp(None, "top", host_tensors)
         call_op.built_op.attributes["inputs"] = StringAttr.get(
             ",".join([node.tensor.name for node in schedule.DataflowGraph.subgraph["inputs"]]))
@@ -143,15 +150,15 @@ def separate_host_device(schedule):
     hcl_mlir.disable_build_inplace()
 
     # call C++ pass to further fix the references
-    device_map = schedule.DataflowGraph.device_map
-    subgraph_name = {}
-    subgraph_name["inputs"] = [
-        node.name for node in schedule.DataflowGraph.subgraph["inputs"]]
-    subgraph_name["outputs"] = [
-        node.name for node in schedule.DataflowGraph.subgraph["outputs"]]
-    roots = [node.name for node in schedule.DataflowGraph.roots]
-    hcl_d.host_device_separation(
-        host_module, xcel_module, extern_module, device_map, roots, subgraph_name)
+    # device_map = schedule.DataflowGraph.device_map
+    # subgraph_name = {}
+    # subgraph_name["inputs"] = [
+    #     node.name for node in schedule.DataflowGraph.subgraph["inputs"]]
+    # subgraph_name["outputs"] = [
+    #     node.name for node in schedule.DataflowGraph.subgraph["outputs"]]
+    # roots = [node.name for node in schedule.DataflowGraph.roots]
+    # hcl_d.host_device_separation(
+    #     host_module, xcel_module, extern_module, device_map, roots, subgraph_name)
     # host_module.dump()
     # xcel_module.dump()
     # extern_module.dump()
@@ -221,8 +228,9 @@ def build_fpga_kernel(schedule, target=None, stmt=None):
         copy_build_files(target)
 
         # data placement
-        if not hcl_mlir.is_extract_function():
-            raise RuntimeError("Should set hcl_mlir.EXTRACT_FUNCTION to True!")
+        # if not hcl_mlir.is_extract_function():
+        #     raise RuntimeError("Should set hcl_mlir.EXTRACT_FUNCTION to True!")
+        # print(schedule.device_module)
         schedule.DataflowGraph.graph_partition()
         separate_host_device(schedule)
 
@@ -241,14 +249,6 @@ def build_fpga_kernel(schedule, target=None, stmt=None):
         host_code = host_buf.read()
         with open("{}/host.cpp".format(target.project), "w") as outfile:
             outfile.write(host_code)
-
-        # generate extern code
-        extern_buf = io.StringIO()
-        hcl_d.emit_vhls(schedule.extern_module, extern_buf)
-        extern_buf.seek(0)
-        extern_code = extern_buf.read()
-        with open("{}/extern.cpp".format(target.project), "w") as outfile:
-            outfile.write(extern_code)
 
         # generate header
         header = generate_kernel_header(schedule)

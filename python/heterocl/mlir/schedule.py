@@ -186,6 +186,8 @@ class Schedule(object):
         self._xcel_module = None
         self._host_top = None
         self._xcel_top = None
+        self._host_ret = None
+        self._xcel_ret = None
 
         # External module:
         # used for generating other backend codes
@@ -228,6 +230,7 @@ class Schedule(object):
         set_context()
         with get_context() as ctx, get_location() as loc:
             self._host_module = Module.create(loc)
+            self._host_module.operation.attributes["sym_name"] = StringAttr.get("host")
             # create top-level function
             self._host_top = builtin.FuncOp(name="main", type=FunctionType.get(
                 inputs=[], results=[IntegerType.get_signless(32)]), ip=InsertionPoint(self._host_module.body))
@@ -241,15 +244,20 @@ class Schedule(object):
             ret_op = std.ReturnOp(
                 [ret_zero.result], ip=GlobalInsertionPoint.get())
             GlobalInsertionPoint.save(InsertionPoint(ret_op))
+            self._host_ret = ret_op
         return self._host_module
 
     def create_xcel_module(self):
         # just a copy of the device module
         self._xcel_module = Module.parse(
             str(self._device_module), get_context())
+        with get_context() as ctx:
+            self._xcel_module.operation.attributes["sym_name"] = StringAttr.get("xcel")
         for op in self._xcel_module.body.operations:
             if str(op.name) == "\"top\"":
                 self._xcel_top = op
+            elif str(op.name) == "\"return\"":
+                self._xcel_ret = op
         return self._xcel_module
 
     def create_extern_module(self):
