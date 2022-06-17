@@ -9,7 +9,7 @@ from hcl_mlir.dialects import std
 from hcl_mlir.ir import *
 
 from ..devices import Device, DevMemoryPair
-from .context import (ImperativeLoopDepth, ImperativeLoopNestCount,
+from .context import (BreakFlag, ImperativeLoopDepth, ImperativeLoopNestCount,
                       NestedCompute, StageName, UniqueName, get_context,
                       get_location, set_context)
 from .dfg import DataflowGraph
@@ -501,6 +501,7 @@ class Stage(object):
         StageName.set(name)
         ImperativeLoopDepth.set(0)
         ImperativeLoopNestCount.set(0)
+        BreakFlag.set(False)
         # auxiliary attributes
         self.op = None
         self.ir_node = None

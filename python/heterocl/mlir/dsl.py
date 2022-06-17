@@ -6,7 +6,7 @@ from hcl_mlir.dialects import scf, std
 from hcl_mlir.ir import *
 
 from .. import config
-from .context import (ImperativeLoopDepth, ImperativeLoopNestCount,
+from .context import (BreakFlag, ImperativeLoopDepth, ImperativeLoopNestCount,
                       NestedCompute, StageName, UniqueName)
 from .schedule import Schedule, Stage
 from .tensor import Tensor
@@ -97,6 +97,9 @@ def for_(begin, end, step=1, tag=""):
         iter_var = begin - iter_var
 
     def _exit_cb():
+        if BreakFlag.get():
+            hcl_mlir.GlobalInsertionPoint.restore()
+            BreakFlag.set(False)
         hcl_mlir.GlobalInsertionPoint.restore()
         if depth == 0:
             # itself
@@ -118,7 +121,11 @@ def if_(cond):
     Schedule._IfElseStack.append(if_op)
 
     def _exit_cb():
-        hcl_mlir.GlobalInsertionPoint.restore()
+        if BreakFlag.get():
+            ip_stack = hcl_mlir.GlobalInsertionPoint.ip_stack
+            hcl_mlir.GlobalInsertionPoint.ip_stack = ip_stack[:-2] + [ip_stack[-1]]
+        else:
+            hcl_mlir.GlobalInsertionPoint.restore()
 
     return WithScope(None, _exit_cb)
 
@@ -385,3 +392,17 @@ def return_(expr=None):
         Schedule._DefFuncReturn.append(None)
         ret_op = std.ReturnOp([], ip=hcl_mlir.GlobalInsertionPoint.get())
     return ret_op
+
+
+def break_():
+    hcl_mlir.enable_build_inplace()
+    BreakFlag.set(True)
+    if len(Schedule._IfElseStack) == 0:
+        raise RuntimeError("There is no if_ before hcl.break_")
+    last_if_op = Schedule._IfElseStack.pop()
+    last_if_op.regions[1].blocks.append(*[])
+    if isinstance(last_if_op, affine.AffineIfOp):
+        affine.AffineYieldOp([], ip=InsertionPoint(last_if_op.else_block))
+    else:
+        scf.YieldOp([], ip=hcl_mlir.InsertionPoint(last_if_op.else_block))
+    hcl_mlir.GlobalInsertionPoint.save(last_if_op.else_block.operations[0])

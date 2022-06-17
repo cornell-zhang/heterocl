@@ -7,7 +7,7 @@ ImperativeLoopNestCount = ContextVar("ImperativeLoopNestCount", default=1)
 ImperativeLoopDepth = ContextVar("ImperativeLoopDepth", default=0)
 StageName = ContextVar("StageName", default="")
 NestedCompute = ContextVar("NestedCompute", default=0)
-
+BreakFlag = ContextVar("BreakFlag", default=False)
 
 class UniqueName(object):
     scalar_idx = 0
