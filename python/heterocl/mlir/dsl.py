@@ -33,14 +33,12 @@ class WithScope(object):
 
 
 def any(*args):
-    """Create a new experssion of the union of all conditions in the arguments"""
+    """Create a new experssion of the union of all conditions in the arguments
+    a | b = !(!a & !b)
+    """
     if not args:
         raise ValueError("Any must take at least 1 argument")
-    if len(args) == 1:
-        return args[0]
-    ret = hcl_mlir.OrOp(args[0], args[1])
-    for i in range(2, len(args)):
-        ret = hcl_mlir.OrOp(ret, args[i])
+    ret = hcl_mlir.LogicalOrOp(*args)
     return ret
 
 
@@ -52,12 +50,6 @@ def all(*args):
         raise ValueError("Any must take at least 1 argument")
     ret = hcl_mlir.LogicalAndOp(*args)
     return ret
-    # if len(args) == 1:
-    #     return args[0]
-    # ret = hcl_mlir.AndOp(args[0], args[1])
-    # for i in range(2, len(args)):
-    #     ret = hcl_mlir.AndOp(ret, args[i])
-    # return ret
 
 
 def and_(*args):
@@ -68,6 +60,12 @@ def and_(*args):
 def or_(*args):
     """Compute the logic OR between expressions."""
     return any(*args)
+
+
+def not_(arg):
+    """Compute the logic NOT operation.
+    """
+    return hcl_mlir.LogicalNotOp(arg)
 
 
 def for_(begin, end, step=1, tag=""):
@@ -83,7 +81,8 @@ def for_(begin, end, step=1, tag=""):
         stage_name = tag
     if depth == 0:
         Schedule._CurrentStage.append(Stage(stage_name))
-        Schedule._TopFunction.__setattr__(stage_name, Schedule._CurrentStage[-1])
+        Schedule._TopFunction.__setattr__(
+            stage_name, Schedule._CurrentStage[-1])
         ImperativeLoopNestCount.set(count + 1)
     ImperativeLoopDepth.set(depth + 1)
 
@@ -164,7 +163,8 @@ def elif_(cond):
     """Construct an ELIF branch."""
     hcl_mlir.enable_build_inplace()
     if len(Schedule._IfElseStack) == 0:
-        raise RuntimeError("There is no if_ or elif_ in front of the elif_ branch")
+        raise RuntimeError(
+            "There is no if_ or elif_ in front of the elif_ branch")
     last_if_op = Schedule._IfElseStack.pop()
     last_if_op.regions[1].blocks.append(*[])
     hcl_mlir.GlobalInsertionPoint.save(last_if_op.else_block)
@@ -195,7 +195,8 @@ def while_(cond):
     """Construct an IF branch."""
     hcl_mlir.enable_build_inplace()
     if isinstance(cond, hcl_mlir.ExprOp):
-        while_op = hcl_mlir.make_while(cond, ip=hcl_mlir.GlobalInsertionPoint.get())
+        while_op = hcl_mlir.make_while(
+            cond, ip=hcl_mlir.GlobalInsertionPoint.get())
     else:
         raise RuntimeError("Not implemented")
     hcl_mlir.GlobalInsertionPoint.save(while_op.after.blocks[0])
@@ -275,7 +276,8 @@ def def_(shapes, dtypes=None, ret_dtype=None, name=None, arg_names=None):
         # since commonly in C++ we should pass the array by reference
         stage_func_op = builtin.FuncOp(
             name=stage_func_name,
-            type=FunctionType.get(inputs=input_types + return_types, results=[]),
+            type=FunctionType.get(inputs=input_types +
+                                  return_types, results=[]),
             ip=GlobalInsertionPoint.ip_stack[0],
         )
         # stage_func_op.attributes["inputs"] = StringAttr.get(
@@ -301,7 +303,8 @@ def def_(shapes, dtypes=None, ret_dtype=None, name=None, arg_names=None):
                 call_arglist.append(tensor.result)
                 if isinstance(tensor, hcl_mlir.IterVar):
                     input_types[i] = IndexType.get()
-                    stage_func_op.entry_block.arguments[i].set_type(IndexType.get())
+                    stage_func_op.entry_block.arguments[i].set_type(
+                        IndexType.get())
             # update function type
             stage_func_op.attributes["type"] = TypeAttr.get(
                 FunctionType.get(inputs=input_types + return_types, results=[])
@@ -322,7 +325,8 @@ def def_(shapes, dtypes=None, ret_dtype=None, name=None, arg_names=None):
                     original_tensor_op.append(tensor.op.output.op.built_op)
                     tensor.op.output.op.update_op(arg)
             # insertion point become the stage function inside
-            GlobalInsertionPoint.save(InsertionPoint(stage_func_op.entry_block))
+            GlobalInsertionPoint.save(
+                InsertionPoint(stage_func_op.entry_block))
 
             # execute the original function
             fmodule(*inputs)
@@ -352,7 +356,8 @@ def def_(shapes, dtypes=None, ret_dtype=None, name=None, arg_names=None):
                 else:
                     new_return_types = []
                 stage_func_op.attributes["type"] = TypeAttr.get(
-                    FunctionType.get(inputs=input_types, results=new_return_types)
+                    FunctionType.get(inputs=input_types,
+                                     results=new_return_types)
                 )
                 GlobalInsertionPoint.restore()
                 # build call op
@@ -379,10 +384,12 @@ def return_(expr=None):
         if DEF_FUNC:  # imperative
             expr = hcl_mlir.get_hcl_op(expr)
             Schedule._DefFuncReturn.append(expr)
-            ret_op = std.ReturnOp([expr.result], ip=hcl_mlir.GlobalInsertionPoint.get())
+            ret_op = std.ReturnOp(
+                [expr.result], ip=hcl_mlir.GlobalInsertionPoint.get())
             hcl_mlir.GlobalInsertionPoint.ip_stack[-1] = InsertionPoint(ret_op)
         elif (
-            isinstance(expr, (int, float, hcl_mlir.ExprOp)) or expr.built_op == None
+            isinstance(expr, (int, float, hcl_mlir.ExprOp)
+                       ) or expr.built_op == None
         ):  # declarative
             expr = hcl_mlir.get_hcl_op(expr)
             builder = hcl_mlir.ASTVisitor("build")
