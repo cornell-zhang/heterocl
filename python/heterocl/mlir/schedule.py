@@ -171,6 +171,7 @@ class Schedule(object):
     _DefFuncReturn = []
     _CurrentSchedule = None
     _CurrentStage = []
+    _CurrentLoops = []  # only used in imperative DSL
     _TopFunction = None
 
     def __init__(self, name, inputs, func=None):
@@ -198,6 +199,7 @@ class Schedule(object):
         Stage._mapping = []  # operation->stage
         Schedule._CurrentSchedule = self
         Schedule._CurrentStage = []
+        Schedule._CurrentLoops = []
         Schedule._TopFunction = func
         Schedule._IfElseStack = []
         Schedule._DefFuncReturn = []

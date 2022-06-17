@@ -6,16 +6,11 @@ from hcl_mlir.dialects import scf, std
 from hcl_mlir.ir import *
 
 from .. import config
-from .context import (
-    ImperativeLoopDepth,
-    ImperativeLoopNestCount,
-    NestedCompute,
-    StageName,
-    UniqueName,
-)
+from .context import (ImperativeLoopDepth, ImperativeLoopNestCount,
+                      NestedCompute, StageName, UniqueName)
 from .schedule import Schedule, Stage
-from .utils import get_extra_type_hints, hcl_dtype_to_mlir
 from .tensor import Tensor
+from .utils import get_extra_type_hints, hcl_dtype_to_mlir
 
 
 class WithScope(object):
@@ -92,21 +87,16 @@ def for_(begin, end, step=1, tag=""):
         loop_name), ip=hcl_mlir.GlobalInsertionPoint.ip_stack[-depth-1])
     loop = hcl_mlir.make_for(
         begin, end, step, name=loop_name, stage=stage_name, ip=hcl_mlir.GlobalInsertionPoint.get())
+    Schedule._CurrentLoops.append(loop)
     Schedule._CurrentStage[-1].add_axis(loop_handle)
 
     iter_var = hcl_mlir.IterVar(loop.induction_variable, name=stage_name)
+    hcl_mlir.GlobalInsertionPoint.save(loop.body.operations[0])
     if step < 0:
-        hcl_mlir.GlobalInsertionPoint.save(loop.body)
         begin = hcl_mlir.ConstantOp("index", begin)
         iter_var = begin - iter_var
-        hcl_mlir.GlobalInsertionPoint.restore()
-    hcl_mlir.GlobalInsertionPoint.save(loop.body)
 
     def _exit_cb():
-        if isinstance(loop, affine.AffineForOp):
-            affine.AffineYieldOp([], ip=hcl_mlir.GlobalInsertionPoint.get())
-        else:
-            scf.YieldOp([], ip=hcl_mlir.GlobalInsertionPoint.get())
         hcl_mlir.GlobalInsertionPoint.restore()
         if depth == 0:
             # itself
@@ -123,18 +113,11 @@ def if_(cond):
     if isinstance(cond, hcl_mlir.ExprOp):
         if_op = hcl_mlir.make_if(cond, ip=hcl_mlir.GlobalInsertionPoint.get())
     else:
-        import ipdb
-
-        ipdb.set_trace()
         raise RuntimeError("Not implemented")
-    hcl_mlir.GlobalInsertionPoint.save(if_op.then_block)
+    hcl_mlir.GlobalInsertionPoint.save(if_op.then_block.operations[0])
     Schedule._IfElseStack.append(if_op)
 
     def _exit_cb():
-        if isinstance(if_op, affine.AffineIfOp):
-            affine.AffineYieldOp([], ip=hcl_mlir.GlobalInsertionPoint.get())
-        else:
-            scf.YieldOp([], ip=hcl_mlir.GlobalInsertionPoint.get())
         hcl_mlir.GlobalInsertionPoint.restore()
 
     return WithScope(None, _exit_cb)
@@ -147,13 +130,13 @@ def else_():
         raise RuntimeError("There is no if_ in front of the else_ branch")
     last_if_op = Schedule._IfElseStack.pop()
     last_if_op.regions[1].blocks.append(*[])
-    hcl_mlir.GlobalInsertionPoint.save(last_if_op.else_block)
+    if isinstance(last_if_op, affine.AffineIfOp):
+        affine.AffineYieldOp([], ip=InsertionPoint(last_if_op.else_block))
+    else:
+        scf.YieldOp([], ip=hcl_mlir.InsertionPoint(last_if_op.else_block))
+    hcl_mlir.GlobalInsertionPoint.save(last_if_op.else_block.operations[0])
 
     def _exit_cb():
-        if isinstance(last_if_op, affine.AffineIfOp):
-            affine.AffineYieldOp([], ip=hcl_mlir.GlobalInsertionPoint.get())
-        else:
-            scf.YieldOp([], ip=hcl_mlir.GlobalInsertionPoint.get())
         hcl_mlir.GlobalInsertionPoint.restore()
 
     return WithScope(None, _exit_cb)
@@ -167,25 +150,21 @@ def elif_(cond):
             "There is no if_ or elif_ in front of the elif_ branch")
     last_if_op = Schedule._IfElseStack.pop()
     last_if_op.regions[1].blocks.append(*[])
-    hcl_mlir.GlobalInsertionPoint.save(last_if_op.else_block)
+    if isinstance(last_if_op, affine.AffineIfOp):
+        affine.AffineYieldOp([], ip=InsertionPoint(last_if_op.else_block))
+    else:
+        scf.YieldOp([], ip=hcl_mlir.InsertionPoint(last_if_op.else_block))
+    hcl_mlir.GlobalInsertionPoint.save(last_if_op.else_block.operations[0])
 
     if isinstance(cond, hcl_mlir.ExprOp):
         if_op = hcl_mlir.make_if(cond, ip=hcl_mlir.GlobalInsertionPoint.get())
     else:
         raise RuntimeError("Not implemented")
-    hcl_mlir.GlobalInsertionPoint.save(if_op.then_block)
+    hcl_mlir.GlobalInsertionPoint.save(if_op.then_block.operations[0])
     Schedule._IfElseStack.append(if_op)
 
     def _exit_cb():
-        if isinstance(if_op, affine.AffineIfOp):
-            affine.AffineYieldOp([], ip=hcl_mlir.GlobalInsertionPoint.get())
-        else:
-            scf.YieldOp([], ip=hcl_mlir.GlobalInsertionPoint.get())
         hcl_mlir.GlobalInsertionPoint.restore()
-        if isinstance(last_if_op, affine.AffineIfOp):
-            affine.AffineYieldOp([], ip=hcl_mlir.GlobalInsertionPoint.get())
-        else:
-            scf.YieldOp([], ip=hcl_mlir.GlobalInsertionPoint.get())
         hcl_mlir.GlobalInsertionPoint.restore()
 
     return WithScope(None, _exit_cb)

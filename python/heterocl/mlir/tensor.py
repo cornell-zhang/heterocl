@@ -204,13 +204,8 @@ class ComputeOp(object):
                     stage=(self.name if i == 0 else ""),
                     ip=body_ip,
                 )
-                if i != 0:  # manually add terminator!
-                    if isinstance(loop, affine.AffineForOp):
-                        affine.AffineYieldOp([], ip=body_ip)
-                    else:
-                        scf.YieldOp([], ip=body_ip)
                 loops.append(loop)
-                body_ip = InsertionPoint(loop.body)
+                body_ip = InsertionPoint(loop.body.operations[0])
 
             # transform lambda function to MLIR
             GlobalInsertionPoint.save(body_ip)  # inner-most loop
@@ -266,12 +261,6 @@ class ComputeOp(object):
                     ip=GlobalInsertionPoint.get(),
                 )
                 ret_val.attributes["to"] = StringAttr.get(self.output.op.name)
-
-            # remember to add affine.yield after each for loop
-            if isinstance(loop, affine.AffineForOp):
-                affine.AffineYieldOp([], ip=GlobalInsertionPoint.get())
-            else:
-                scf.YieldOp([], ip=GlobalInsertionPoint.get())
 
             # recover insertion point from inner-most loop body
             GlobalInsertionPoint.restore()

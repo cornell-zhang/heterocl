@@ -109,14 +109,8 @@ def separate_host_device(schedule):
                     ip=body_ip,
                 )
                 loops.append(loop)
-                body_ip = InsertionPoint(loop.body)
-                # manually add terminator!
-                if isinstance(loop, affine.AffineForOp):
-                    yield_op = affine.AffineYieldOp([], ip=body_ip)
-                else:
-                    yield_op = scf.YieldOp([], ip=body_ip)
-                body_ip = InsertionPoint(yield_op)
-            GlobalInsertionPoint.save(yield_op)
+                body_ip = InsertionPoint(loop.body.operations[0])
+            GlobalInsertionPoint.save(body_ip)
             cst = hcl_mlir.ConstantOp(tensor.op.dtype, 0)
             store = hcl_mlir.StoreOp(
                 cst, host_tensor.op, [hcl_mlir.IterVar(loop.induction_variable, name=loop_name) for loop, loop_name in zip(loops, loop_names)])
