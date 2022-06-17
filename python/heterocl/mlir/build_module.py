@@ -2,18 +2,19 @@ import io
 
 import hcl_mlir
 from hcl_mlir import GlobalInsertionPoint
-from hcl_mlir.dialects import affine, scf
+from hcl_mlir.dialects import affine
 from hcl_mlir.dialects import hcl as hcl_d
+from hcl_mlir.dialects import memref, scf, std
 from hcl_mlir.execution_engine import *
 from hcl_mlir.ir import *
 from hcl_mlir.passmanager import PassManager
 
 from ..devices import Platform
-from .context import get_context, set_context, get_location, NestedCompute
-from .module import HCLModule
+from .context import NestedCompute, get_context, get_location, set_context
+from .module import HCLModule, HCLSuperModule
 from .operation import placeholder
 from .runtime import copy_build_files
-from .schedule import Schedule
+from .schedule import Schedule, Stage
 from .utils import get_extra_type_hints
 
 
@@ -36,15 +37,35 @@ def lower(schedule,
     return schedule.device_module
 
 
-def build(schedule, target=None, name="top", stmt=None):
+def build(schedule, target=None, stmt=None, top=None):
     """Build the executable according to the schedule and target.
     """
     try:
+        if target is not None and str(target.tool.mode) != "debug":
+            for op, stage in Stage._mapping:
+                stage.outline()
         lowered_module = lower(schedule)
-        if target != None:
-            return build_fpga_kernel(schedule, target, name, stmt)
+        if top is not None:
+            if not isinstance(top, list):
+                top = [top]
+            modules = []
+            for func in top:
+                func_mod = func.build(schedule)
+                if target is None:
+                    raise RuntimeError(
+                        "Stage function build can only support FPGA backend now")
+                else:
+                    target.top = func.name
+                    original_name = target.project
+                    target.project = "{}/{}.prj".format(
+                        original_name, func.name)
+                    modules.append(build_fpga_kernel(func_mod, target, stmt))
+                    target.project = original_name
+            return HCLSuperModule(modules)
+        if target is not None:
+            return build_fpga_kernel(schedule, target, stmt)
         else:
-            return build_llvm(schedule, target, name, stmt)
+            return build_llvm(schedule, target, stmt)
     except Exception as e:
         raise e
     finally:
@@ -55,7 +76,6 @@ def build(schedule, target=None, name="top", stmt=None):
 def separate_host_device(schedule):
     xcel_module = schedule.create_xcel_module()
     host_module = schedule.create_host_module()
-    extern_module = schedule.create_extern_module()
 
     # create basic components
     hcl_mlir.enable_build_inplace()
@@ -64,6 +84,8 @@ def separate_host_device(schedule):
         host_tensors = []
         host_nodes = schedule.DataflowGraph.roots + \
             schedule.DataflowGraph.subgraph["outputs"]
+        op_map = {}
+        # initialization: create host tensors
         for node in host_nodes:
             tensor = node.tensor
             shape = tensor.shape
@@ -71,8 +93,8 @@ def separate_host_device(schedule):
             # create new tensors for host
             host_tensor = placeholder(
                 shape, name=tensor.op.name+"_host", dtype=tensor.dtype)
-            host_tensor.build()
-            if node in schedule.DataflowGraph.subgraph["outputs"]:
+            op_map[tensor.op.name] = {"alloc": host_tensor.op}
+            if node in schedule.DataflowGraph.subgraph["inputs"] or node in schedule.DataflowGraph.subgraph["outputs"]:
                 host_tensors.append(host_tensor.op.result)
             # create initialization loops
             loops = []
@@ -86,26 +108,19 @@ def separate_host_device(schedule):
                     stage=tensor.op.name+"_host" if i == 0 else "",
                     ip=body_ip,
                 )
-                if i != 0:  # manually add terminator!
-                    if isinstance(loop, affine.AffineForOp):
-                        affine.AffineYieldOp([], ip=body_ip)
-                    else:
-                        scf.YieldOp([], ip=body_ip)
                 loops.append(loop)
                 body_ip = InsertionPoint(loop.body)
-            GlobalInsertionPoint.save(body_ip)
+                # manually add terminator!
+                if isinstance(loop, affine.AffineForOp):
+                    yield_op = affine.AffineYieldOp([], ip=body_ip)
+                else:
+                    yield_op = scf.YieldOp([], ip=body_ip)
+                body_ip = InsertionPoint(yield_op)
+            GlobalInsertionPoint.save(yield_op)
             cst = hcl_mlir.ConstantOp(tensor.op.dtype, 0)
             store = hcl_mlir.StoreOp(
                 cst, host_tensor.op, [hcl_mlir.IterVar(loop.induction_variable, name=loop_name) for loop, loop_name in zip(loops, loop_names)])
             GlobalInsertionPoint.restore()
-        # call device function
-        host_tensors = [
-            node.tensor.result for node in schedule.DataflowGraph.subgraph["inputs"]] + host_tensors
-        call_op = hcl_mlir.CallOp(None, "top", host_tensors)
-        call_op.built_op.attributes["inputs"] = StringAttr.get(
-            ",".join([node.tensor.name for node in schedule.DataflowGraph.subgraph["inputs"]]))
-        call_op.built_op.attributes["outputs"] = StringAttr.get(
-            ",".join([node.tensor.name for node in schedule.DataflowGraph.subgraph["outputs"]]))
         # fix device top function signature
         func_op = schedule.xcel_top
         function_type = FunctionType.get(
@@ -123,21 +138,71 @@ def separate_host_device(schedule):
         otypes = "".join([get_extra_type_hints(
             node.tensor.op.dtype) for node in schedule.DataflowGraph.subgraph["outputs"]])
         func_op.attributes["itypes"] = StringAttr.get(otypes)
-    hcl_mlir.disable_build_inplace()
+        # preparation: create operation mapping
+        for op in schedule.xcel_module.body.operations:
+            if "Stage_" in str(op.name):
+                name = str(op.name)[1:-1].split("_")[1]  # omit quotation mark
+                if name not in op_map:
+                    op_map[name] = {"func": op}
+        for op in schedule.xcel_top.entry_block.operations:
+            if isinstance(op, memref.AllocOp):
+                name = str(op.attributes["name"])[1:-1]
+                if "alloc" not in op_map[name]:
+                    op_map[name]["alloc"] = op
+                else:
+                    op_map[name]["xcel"] = op
+            elif isinstance(op, std.CallOp):
+                name = str(op.attributes["callee"]).split("_")[1]
+                op_map[name]["call"] = op
+        for i, param in enumerate(func_op.arguments):
+            name = schedule.DataflowGraph.subgraph["inputs"][i].name
+            op_map[name]["xcel"] = param
+        # traverse the dfg (BFS) and move ops to host based on device_map
+        working_set = [node for node in schedule.DataflowGraph.roots]
+        flag = False
+        while len(working_set) > 0:
+            working_node = working_set.pop(0)
+            name = working_node.name
+            if working_node not in host_nodes and schedule.DataflowGraph.device_map[name] == "CPU":
+                op_map[name]["func"].move_before(schedule._host_top)
+                op_map[name]["alloc"].move_before(schedule._host_ret)
+                op_map[name]["call"].move_before(schedule._host_ret)
+                # update reference
+                for i, parent in enumerate(working_node.parents):
+                    op_map[name]["call"].operands[i] = op_map[parent.name]["alloc"].result
+            elif schedule.DataflowGraph.device_map[name] == "FPGA":
+                if not flag:
+                    flag = True
+                    # call device function
+                    for node in schedule.DataflowGraph.subgraph["inputs"]:
+                        if node not in schedule.DataflowGraph.roots:
+                            host_tensors.insert(
+                                0, op_map[node.name]["alloc"].result)
+                    call_op = hcl_mlir.CallOp(None, "top", host_tensors)
+                    call_op.built_op.attributes["inputs"] = StringAttr.get(
+                        ",".join([node.tensor.name for node in schedule.DataflowGraph.subgraph["inputs"]]))
+                    call_op.built_op.attributes["outputs"] = StringAttr.get(
+                        ",".join([node.tensor.name for node in schedule.DataflowGraph.subgraph["outputs"]]))
+                # update reference
+                for i, parent in enumerate(working_node.parents):
+                    if "xcel" in op_map[parent.name]:
+                        op_map[name]["call"].operands[i] = op_map[parent.name]["xcel"]
+                    else:
+                        op_map[name]["call"].operands[i] = op_map[parent.name]["alloc"].result
+                if working_node in schedule.DataflowGraph.subgraph["outputs"]:
+                    op_dict = op_map[working_node.name]
+                    if "xcel" in op_dict:
+                        if isinstance(op_dict["xcel"], hcl_mlir.BlockArgument):
+                            schedule._xcel_ret.operands[0] = op_dict["xcel"]
+                        else:
+                            schedule._xcel_ret.operands[0] = op_dict["xcel"].result
+                    else:
+                        schedule._xcel_ret.operands[0] = op_dict["alloc"].result
 
-    # call C++ pass to further fix the references
-    device_map = schedule.DataflowGraph.device_map
-    subgraph_name = {}
-    subgraph_name["inputs"] = [
-        node.name for node in schedule.DataflowGraph.subgraph["inputs"]]
-    subgraph_name["outputs"] = [
-        node.name for node in schedule.DataflowGraph.subgraph["outputs"]]
-    roots = [node.name for node in schedule.DataflowGraph.roots]
-    hcl_d.host_device_separation(
-        host_module, xcel_module, extern_module, device_map, roots, subgraph_name)
-    # host_module.dump()
-    # xcel_module.dump()
-    # extern_module.dump()
+            for child in working_node.children:
+                working_set.append(child)
+
+    hcl_mlir.disable_build_inplace()
 
 
 def generate_kernel_header(schedule):
@@ -165,16 +230,20 @@ void top("""
     return header
 
 
-def build_fpga_kernel(schedule, target=None, name="top", stmt=None):
+def build_fpga_kernel(schedule, target=None, stmt=None):
+    if isinstance(schedule, Schedule):
+        device_module = schedule.device_module
+    else:
+        device_module = schedule
     if target == "vhls":
         buf = io.StringIO()
-        hcl_d.emit_vhls(schedule.device_module, buf)
+        hcl_d.emit_vhls(device_module, buf)
         buf.seek(0)
         hls_code = buf.read()
         return hls_code
     elif target == "ihls":
         buf = io.StringIO()
-        hcl_d.emit_ihls(schedule.device_module, buf)
+        hcl_d.emit_ihls(device_module, buf)
         buf.seek(0)
         hls_code = buf.read()
         return hls_code
@@ -186,7 +255,7 @@ def build_fpga_kernel(schedule, target=None, name="top", stmt=None):
         copy_build_files(target)
 
         buf = io.StringIO()
-        hcl_d.emit_vhls(schedule.device_module, buf)
+        hcl_d.emit_vhls(device_module, buf)
         buf.seek(0)
         hls_code = buf.read()
         with open("{}/kernel.cpp".format(target.project), "w") as outfile:
@@ -200,8 +269,6 @@ def build_fpga_kernel(schedule, target=None, name="top", stmt=None):
         copy_build_files(target)
 
         # data placement
-        if not hcl_mlir.is_extract_function():
-            raise RuntimeError("Should set hcl_mlir.EXTRACT_FUNCTION to True!")
         schedule.DataflowGraph.graph_partition()
         separate_host_device(schedule)
 
@@ -221,28 +288,21 @@ def build_fpga_kernel(schedule, target=None, name="top", stmt=None):
         with open("{}/host.cpp".format(target.project), "w") as outfile:
             outfile.write(host_code)
 
-        # generate extern code
-        extern_buf = io.StringIO()
-        hcl_d.emit_vhls(schedule.extern_module, extern_buf)
-        extern_buf.seek(0)
-        extern_code = extern_buf.read()
-        with open("{}/extern.cpp".format(target.project), "w") as outfile:
-            outfile.write(extern_code)
-
         # generate header
         header = generate_kernel_header(schedule)
         with open("{}/kernel.h".format(target.project), "w") as outfile:
             outfile.write(header)
 
-    hcl_module = HCLModule(name, hls_code, target, host_src=host_code)
+    hcl_module = HCLModule(target.top, hls_code, target, host_src=host_code)
     return hcl_module
 
 
-def build_llvm(schedule, target=None, name="top", stmt=None):
+def build_llvm(schedule, target=None, stmt=None):
+    name = 'top'
     with get_context() as ctx, get_location():
         func = schedule.device_top
         func.attributes['llvm.emit_c_interface'] = UnitAttr.get()
-        func.attributes['top'] = UnitAttr.get()
+        func.attributes[name] = UnitAttr.get()
         module = Module.parse(str(schedule.device_module), ctx)
         hcl_d.loop_transformation(module)
         hcl_d.lower_composite_type(module)

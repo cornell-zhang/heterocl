@@ -1,3 +1,4 @@
+import functools
 import warnings
 
 import hcl_mlir
@@ -13,11 +14,11 @@ from .context import (ImperativeLoopDepth, ImperativeLoopNestCount,
                       get_location, set_context)
 from .dfg import DataflowGraph
 from .utils import get_extra_type_hints
-import functools
 
 # By default, Python ignores deprecation warnings.
 # we have to enable it to see the warning.
 warnings.simplefilter('always', DeprecationWarning)
+
 
 def build_schedule(inputs, func=None, name=""):
     """Create a schedule for compute optimizations.
@@ -185,6 +186,8 @@ class Schedule(object):
         self._xcel_module = None
         self._host_top = None
         self._xcel_top = None
+        self._host_ret = None
+        self._xcel_ret = None
 
         # External module:
         # used for generating other backend codes
@@ -217,8 +220,6 @@ class Schedule(object):
                 itypes)
             device_top.attributes["otypes"] = StringAttr.get("")
             device_top.add_entry_block()
-            if hcl_mlir.is_extract_function():
-                device_top.attributes["top"] = UnitAttr.get()
         GlobalInsertionPoint.save(InsertionPoint(self._device_module.body))
         GlobalInsertionPoint.save(InsertionPoint(device_top.entry_block))
         self._device_top = device_top
@@ -227,6 +228,8 @@ class Schedule(object):
         set_context()
         with get_context() as ctx, get_location() as loc:
             self._host_module = Module.create(loc)
+            self._host_module.operation.attributes["sym_name"] = StringAttr.get(
+                "host")
             # create top-level function
             self._host_top = builtin.FuncOp(name="main", type=FunctionType.get(
                 inputs=[], results=[IntegerType.get_signless(32)]), ip=InsertionPoint(self._host_module.body))
@@ -240,15 +243,22 @@ class Schedule(object):
             ret_op = std.ReturnOp(
                 [ret_zero.result], ip=GlobalInsertionPoint.get())
             GlobalInsertionPoint.save(InsertionPoint(ret_op))
+            self._host_ret = ret_op
         return self._host_module
 
     def create_xcel_module(self):
         # just a copy of the device module
         self._xcel_module = Module.parse(
             str(self._device_module), get_context())
+        with get_context() as ctx:
+            self._xcel_module.operation.attributes["sym_name"] = StringAttr.get(
+                "xcel")
         for op in self._xcel_module.body.operations:
             if str(op.name) == "\"top\"":
                 self._xcel_top = op
+        for op in self._xcel_top.entry_block.operations:
+            if isinstance(op, std.ReturnOp):
+                self._xcel_ret = op
         return self._xcel_module
 
     def create_extern_module(self):
@@ -430,13 +440,47 @@ class Schedule(object):
                 to_op = hcl_d.InterKernelToOp(
                     tensor, dst.stage_handle.result, fifo_depth, ip=GlobalInsertionPoint.get())
 
-    def outline(self, stage):
-        """Outline a stage as a function
+    def outline(self, *stage_list):
+        """Outline stages as a function
+
+        e.g., s.outline([s0,s1], [s2], [s3,s4])
         """
 
+        results = []
+        for stages in stage_list:
+            handles = [stage.stage_handle.result for stage in stages]
+            with get_context() as ctx, get_location() as loc:
+                hcl_d.OutlineOp(handles,
+                                ip=GlobalInsertionPoint.get())
+            results.append(StageFunction([stage.name for stage in stages]))
+        return results
+
+
+class StageFunction(object):
+
+    def __init__(self, name=None):
+        if not isinstance(name, list):
+            name = [name]
+        self.name = "Stage"
+        for n in name:
+            self.name += "_" + n
+
+    def build(self, schedule):
+        set_context()
         with get_context() as ctx, get_location() as loc:
-            hcl_d.OutlineOp(stage.stage_handle.result, ip=GlobalInsertionPoint.get())
-        return
+            new_module = Module.create(loc)
+            # just a placeholder for inserting the function
+            top = builtin.FuncOp(name="top", type=FunctionType.get(
+                inputs=[], results=[]), ip=InsertionPoint(new_module.body))
+            for op in schedule.device_module.body.operations:
+                if str(op.name) == "\"{}\"".format(self.name):
+                    op.move_before(top)
+                    break
+            else:
+                raise RuntimeError("Stage {} not found".format(self.name))
+            top.operation.erase()
+        return new_module
+
 
 class Stage(object):
     """A Stage represents schedule for one operation.
@@ -602,6 +646,15 @@ class Stage(object):
             compute_at = hcl_d.ComputeAtOp(
                 self.stage_handle.result, parent.stage_handle.result, scope.result, ip=GlobalInsertionPoint.get())
 
+    def outline(self):
+        """Outline a stage as a function
+        """
+
+        with get_context() as ctx, get_location() as loc:
+            hcl_d.OutlineOp([self.stage_handle.result],
+                            ip=GlobalInsertionPoint.get())
+        return StageFunction(self.name)
+
     def systolic(self):
         """Wrap the current stage as a systolic array
         """
@@ -609,7 +662,8 @@ class Stage(object):
             self.ir_node.attributes["systolic"] = UnitAttr.get()
 
     def __enter__(self):
-        warnings.warn("hcl.Stage() is deprecated, please remove it.", DeprecationWarning)
+        warnings.warn(
+            "hcl.Stage() is deprecated, please remove it.", DeprecationWarning)
 
     def __exit__(self, ptype, value, trace):
         pass

@@ -405,8 +405,8 @@ def parse_js(path, print_flag=False):
         print("[--------] MLAB : {}".format(MLAB))
     
 
-def parse_xml(path, prod_name, print_flag=False):
-    xml_file = os.path.join(path, "out.prj", "solution1/syn/report/top_csynth.xml")
+def parse_xml(path, prod_name, top="top", print_flag=False):
+    xml_file = os.path.join(path, "out.prj", "solution1/syn/report/{}_csynth.xml".format(top))
     if not os.path.isfile(xml_file):
         raise RuntimeError("Cannot find {}, run csyn first".format(xml_file))
     json_file = os.path.join(path,"report.json")
@@ -467,7 +467,7 @@ def report_stats(target, folder):
     path = folder
     if target.tool.name == "vivado_hls":
         if os.path.isdir(os.path.join(path, "out.prj")):
-            return parse_xml(path, "Vivado HLS")
+            return parse_xml(path, "Vivado HLS", top=target.top)
         else:
             raise RuntimeError("Not found out.prj folder")
 
@@ -477,7 +477,7 @@ def report_stats(target, folder):
 
     elif target.tool.name == "vitis":
         if os.path.isdir(os.path.join(path, "out.prj")):
-            return parse_xml(path, "Vitis HLS", True)
+            return parse_xml(path, "Vitis HLS", top=target.top)
         else:
             raise RuntimeError("Not found out.prj folder")
 

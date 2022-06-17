@@ -1,5 +1,5 @@
 import os, subprocess, json, time, sys, json
-from .devices import Platform, CPU, FPGA, PIM, Project
+from .devices import Platform, CPU, FPGA, PIM
 from .devices import *
 from .tools import *
 

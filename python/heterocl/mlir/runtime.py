@@ -9,6 +9,7 @@ import numpy as np
 import ctypes
 from ..report import parse_xml
 
+
 def run_process(cmd, pattern=None, env=None):
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
     out, err = p.communicate()
@@ -43,6 +44,8 @@ def copy_build_files(target, script=None):
             new_tcl = ""
             with open(os.path.join(project, "run.tcl"), "r") as tcl_file:
                 for line in tcl_file:
+                    if "set_top" in line:
+                        line = "set_top " + target.top + "\n"
                     if (
                         ("csim_design" in line and "csim" in removed_mode)
                         or ("csynth_design" in line and "csyn" in removed_mode)
@@ -63,7 +66,7 @@ def copy_build_files(target, script=None):
         raise RuntimeError("Not implemented")
 
 
-def execute_fpga_backend(target):
+def execute_fpga_backend(target, shell=True):
     project = target.project
     platform = str(target.tool.name)
     mode = str(target.tool.mode)
@@ -94,14 +97,20 @@ def execute_fpga_backend(target):
                     time.strftime("%H:%M:%S", time.gmtime())
                 )
             )
-            subprocess.Popen(cmd, shell=True).wait()
+            if shell:
+                subprocess.Popen(cmd, shell=True).wait()
+            else:
+                subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE).wait()
             if mode != "custom":
-                out = parse_xml(project, "Vivado HLS", print_flag=True)
+                out = parse_xml(project, "Vivado HLS",
+                                top=target.top, print_flag=True)
 
         else:
-            raise RuntimeError("{} does not support {} mode".format(platform, mode))
+            raise RuntimeError(
+                "{} does not support {} mode".format(platform, mode))
     else:
         raise RuntimeError("Not implemented")
+
 
 def execute_llvm_backend(execution_engine, name, return_num, *argv):
     """
