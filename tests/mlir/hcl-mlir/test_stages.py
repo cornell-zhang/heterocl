@@ -18,7 +18,7 @@ def test_stages():
         return F
 
     target = hcl.Platform.xilinx_zc706
-    target.config(compiler="vivado_hls", mode="debug",
+    target.config(compiler="vivado_hls", mode="csyn",
                   project="stages-depth-1-new.prj")
     s = hcl.create_schedule([A], kernel)
     s.to(A, target.xcel)
@@ -57,15 +57,17 @@ def test_outline():
     s = hcl.create_schedule([A], kernel)
     s[kernel.B].pipeline(kernel.B.axis[1])
     s.partition(kernel.B, dim=2)
-    func_B = s[kernel.B].outline()
-    func_C = s[kernel.C].outline()
-    func_D = s[kernel.D].outline()
+    # func_B = s[kernel.B].outline()
+    # func_C = s[kernel.C].outline()
+    # func_D = s[kernel.D].outline()
+    func_B_C, func_D = s.outline([s[kernel.B], s[kernel.C]], [s[kernel.D]])
+    # func_B, func_C_D = s.outline([s[kernel.B]], [s[kernel.C], s[kernel.D]])
     print(hcl.lower(s))
 
-    mod = hcl.build(s, top=[func_B, func_C, func_D], target=target)
+    mod = hcl.build(s, top=[func_B_C, func_D], target=target)
     mod()
 
 
 if __name__ == "__main__":
-    # test_stages()
-    test_outline()
+    test_stages()
+    # test_outline()

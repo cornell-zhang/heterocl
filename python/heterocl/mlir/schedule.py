@@ -1,3 +1,4 @@
+import functools
 import warnings
 
 import hcl_mlir
@@ -13,7 +14,6 @@ from .context import (ImperativeLoopDepth, ImperativeLoopNestCount,
                       get_location, set_context)
 from .dfg import DataflowGraph
 from .utils import get_extra_type_hints
-import functools
 
 # By default, Python ignores deprecation warnings.
 # we have to enable it to see the warning.
@@ -228,7 +228,8 @@ class Schedule(object):
         set_context()
         with get_context() as ctx, get_location() as loc:
             self._host_module = Module.create(loc)
-            self._host_module.operation.attributes["sym_name"] = StringAttr.get("host")
+            self._host_module.operation.attributes["sym_name"] = StringAttr.get(
+                "host")
             # create top-level function
             self._host_top = builtin.FuncOp(name="main", type=FunctionType.get(
                 inputs=[], results=[IntegerType.get_signless(32)]), ip=InsertionPoint(self._host_module.body))
@@ -250,7 +251,8 @@ class Schedule(object):
         self._xcel_module = Module.parse(
             str(self._device_module), get_context())
         with get_context() as ctx:
-            self._xcel_module.operation.attributes["sym_name"] = StringAttr.get("xcel")
+            self._xcel_module.operation.attributes["sym_name"] = StringAttr.get(
+                "xcel")
         for op in self._xcel_module.body.operations:
             if str(op.name) == "\"top\"":
                 self._xcel_top = op
@@ -438,20 +440,30 @@ class Schedule(object):
                 to_op = hcl_d.InterKernelToOp(
                     tensor, dst.stage_handle.result, fifo_depth, ip=GlobalInsertionPoint.get())
 
-    def outline(self, stage):
-        """Outline a stage as a function
+    def outline(self, *stage_list):
+        """Outline stages as a function
+
+        e.g., s.outline([s0,s1], [s2], [s3,s4])
         """
 
-        with get_context() as ctx, get_location() as loc:
-            hcl_d.OutlineOp(stage.stage_handle.result,
-                            ip=GlobalInsertionPoint.get())
-        return StageFunction(stage.name)
+        results = []
+        for stages in stage_list:
+            handles = [stage.stage_handle.result for stage in stages]
+            with get_context() as ctx, get_location() as loc:
+                hcl_d.OutlineOp(handles,
+                                ip=GlobalInsertionPoint.get())
+            results.append(StageFunction([stage.name for stage in stages]))
+        return results
 
 
 class StageFunction(object):
 
     def __init__(self, name=None):
-        self.name = "Stage_" + name
+        if not isinstance(name, list):
+            name = [name]
+        self.name = "Stage"
+        for n in name:
+            self.name += "_" + n
 
     def build(self, schedule):
         set_context()
@@ -459,7 +471,7 @@ class StageFunction(object):
             new_module = Module.create(loc)
             # just a placeholder for inserting the function
             top = builtin.FuncOp(name="top", type=FunctionType.get(
-                    inputs=[], results=[]), ip=InsertionPoint(new_module.body))
+                inputs=[], results=[]), ip=InsertionPoint(new_module.body))
             for op in schedule.device_module.body.operations:
                 if str(op.name) == "\"{}\"".format(self.name):
                     op.move_before(top)
@@ -639,7 +651,7 @@ class Stage(object):
         """
 
         with get_context() as ctx, get_location() as loc:
-            hcl_d.OutlineOp(self.stage_handle.result,
+            hcl_d.OutlineOp([self.stage_handle.result],
                             ip=GlobalInsertionPoint.get())
         return StageFunction(self.name)
 
