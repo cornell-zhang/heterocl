@@ -83,8 +83,8 @@ def test_binary_conv():
     s = hcl.create_schedule([A, B])
     s[C].split(C.axis[1], factor=5)
     code = hcl.build(s, target='vhls')
-    assert "for (int ff_outer = 0; ff_outer < 13; ff_outer += 1)" in code
-    assert "for (int ff_inner = 0; ff_inner < min(5, ((-v5) + 64)); ff_inner += 1)" in code
+    assert "for (int ff_outer = 0; ff_outer < 13; ff_outer++)" in code
+    assert "for (int ff_inner = 0; ff_inner < min(5, ((ff_outer * -5) + 64)); ff_inner++)" in code
 
 
 def test_legacy_interface():

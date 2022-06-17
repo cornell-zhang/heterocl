@@ -41,7 +41,7 @@ def build(schedule, target=None, stmt=None, top=None):
     """Build the executable according to the schedule and target.
     """
     try:
-        if target is not None and str(target.tool.mode) != "debug":
+        if isinstance(target, Platform) and str(target.tool.mode) != "debug":
             for op, stage in Stage._mapping:
                 stage.outline()
         lowered_module = lower(schedule)
