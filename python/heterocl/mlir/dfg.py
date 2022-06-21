@@ -5,12 +5,24 @@ class DFGNode(object):
         self.device = None
         self.children = []
         self.parents = []
+        self.states = []
+        self.base = None
 
     def add_child(self, child):
-        self.children.append(child)
+        if len(self.states) != 0:
+            self.states[-1].children.append(child)
+        else:
+            self.children.append(child)
 
     def add_parent(self, parent):
-        self.parents.append(parent)
+        if len(parent.states) != 0:
+            self.parents.append(parent.states[-1])
+        else:
+            self.parents.append(parent)
+
+    def add_state(self, state):
+        state.base = self
+        self.states.append(state)
 
     def has_children(self):
         if len(self.children) == 0:
@@ -47,16 +59,23 @@ class DataflowGraph(object):
             if output.name not in self.node_map:
                 raise RuntimeError("Output not in DFG node map")
             elif self.node_map[output.name].has_children():
-                raise RuntimeError("Output is not leaf")
-            self.leaves.append(self.node_map[output.name])
+                for child in self.node_map[output.name].children:
+                    if child not in self.node_map[output.name].states:
+                        raise RuntimeError("Output is not leaf")
+            if len(self.node_map[output.name].states) != 0:
+                self.leaves.append(self.node_map[output.name].states[-1])
+            else:
+                self.leaves.append(self.node_map[output.name])
 
-    def add_edge(self, src, dst):
+    def add_edge(self, src, dst, stateful=False):
         if src.name == dst.name:
             return
         src_node = self.create_node(src)
         dst_node = self.create_node(dst)
         src_node.add_child(dst_node)
         dst_node.add_parent(src_node)
+        if stateful:
+            src_node.add_state(dst_node)
 
     def add_edges(self, src_nodes, dst_nodes):
         if not isinstance(src_nodes, list):

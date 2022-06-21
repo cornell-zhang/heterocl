@@ -116,10 +116,7 @@ def build_schedule(inputs, func=None, name=""):
             new_outputs = []
             for output in outputs:
                 new_outputs.append(output.result)
-            try:
-                sch.DataflowGraph.set_leaves(outputs)
-            except:
-                pass
+            sch.DataflowGraph.set_leaves(outputs)
             assert len(new_outputs) == len(outputs)
             ret_op = std.ReturnOp(new_outputs, ip=GlobalInsertionPoint.get())
             GlobalInsertionPoint.restore()

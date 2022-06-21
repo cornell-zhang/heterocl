@@ -159,11 +159,13 @@ def separate_host_device(schedule):
             name = working_node.name
             if working_node not in host_nodes and schedule.DataflowGraph.device_map[name] == "CPU":
                 op_map[name]["func"].move_before(schedule._host_top)
-                op_map[name]["alloc"].move_before(schedule._host_ret)
+                if "alloc" in op_map[name]:
+                    op_map[name]["alloc"].move_before(schedule._host_ret)
                 op_map[name]["call"].move_before(schedule._host_ret)
                 # update reference
                 for i, parent in enumerate(working_node.parents):
-                    op_map[name]["call"].operands[i] = op_map[parent.name]["alloc"].result
+                    if "alloc" in op_map[parent.name]:
+                        op_map[name]["call"].operands[i] = op_map[parent.name]["alloc"].result
             elif schedule.DataflowGraph.device_map[name] == "FPGA":
                 if not flag:
                     flag = True
@@ -179,12 +181,22 @@ def separate_host_device(schedule):
                         ",".join([node.tensor.name for node in schedule.DataflowGraph.subgraph["outputs"]]))
                 # update reference
                 for i, parent in enumerate(working_node.parents):
-                    if "xcel" in op_map[parent.name]:
-                        op_map[name]["call"].operands[i] = op_map[parent.name]["xcel"]
+                    if parent.base is not None:
+                        op_dict = op_map[parent.base.name]
                     else:
-                        op_map[name]["call"].operands[i] = op_map[parent.name]["alloc"].result
+                        op_dict = op_map[parent.name]
+                    if "xcel" in op_dict:
+                        if isinstance(op_dict["xcel"], hcl_mlir.BlockArgument):
+                            op_map[name]["call"].operands[i] = op_dict["xcel"]
+                        else:
+                            op_map[name]["call"].operands[i] = op_dict["xcel"].result
+                    else:
+                        op_map[name]["call"].operands[i] = op_dict["alloc"].result
                 if working_node in schedule.DataflowGraph.subgraph["outputs"]:
-                    op_dict = op_map[working_node.name]
+                    if working_node.base is not None:
+                        op_dict = op_map[working_node.base.name]
+                    else:
+                        op_dict = op_map[working_node.name]
                     if "xcel" in op_dict:
                         if isinstance(op_dict["xcel"], hcl_mlir.BlockArgument):
                             schedule._xcel_ret.operands[0] = op_dict["xcel"]

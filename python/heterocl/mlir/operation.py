@@ -76,8 +76,8 @@ def reduce_axis(lower, upper, name=None):
 
 def cast(dtype, expr):
     if isinstance(expr, Tensor):
-        raise RuntimeError("Tensor is not supported in hcl.cast. " + 
-            "If you are try to cast a hcl.scalar, please use hcl.cast(scalar.v)")
+        raise RuntimeError("Tensor is not supported in hcl.cast. " +
+                           "If you are try to cast a hcl.scalar, please use hcl.cast(scalar.v)")
     return hcl_mlir.CastOp(expr, hcl_dtype_to_mlir(dtype))
 
 
@@ -236,12 +236,13 @@ def update(tensor: Tensor, fcompute, name=None):
             tensor.op, hcl_mlir.TensorOp) else tensor.op.output,
     )
     tensor.add_use(new_tensor)
-    Schedule._CurrentSchedule.DataflowGraph.add_edges(tensor, new_tensor)
+    Schedule._CurrentSchedule.DataflowGraph.add_edge(
+        tensor, new_tensor, stateful=True)
     if Schedule._TopFunction != None:
         stage = Stage(name)
         Schedule._CurrentStage.append(stage)
         Schedule._TopFunction.__setattr__(name, stage)
-        stage.__setattr__(tensor.name, tensor)
+        stage.__setattr__(tensor.name, new_tensor)
 
 
 def mutate(domain, fcompute, name=None):
