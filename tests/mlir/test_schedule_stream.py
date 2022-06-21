@@ -23,11 +23,10 @@ def test_move_outputs():
 
     mod = hcl.build(s, target)
     assert "top" in mod.host_src
-    assert "Stage_update1" in mod.host_src
-    assert "Stage_update2" in mod.host_src
     assert "Stage_B" in mod.src
+    assert "Stage_update1" in mod.src
+    assert "Stage_update2" in mod.host_src
 
-@pytest.mark.skip(reason="segfault")
 def test_in_place_update():
     hcl.init()
     A = hcl.placeholder((10, 32), "A")
@@ -95,9 +94,8 @@ def test_inner_loop_body_placement():
         B = hcl.placeholder((10, 32), "B")
         def kernel(A, B):
             C = hcl.compute(A.shape, lambda *args : 0, "C")
-            # with hcl.Stage("stage"):
-            with hcl.for_(0, 10, name="i") as i:
-                with hcl.for_(0, 32, name="j") as j:
+            with hcl.for_(0, 10, tag="stage") as i:
+                with hcl.for_(0, 32) as j:
                     B[i, j] = A[i, j] + B[i, j]
                     C[i, j] = 2 * B[i, j]
             return C
@@ -493,8 +491,7 @@ def test_dataflow_primitive():
     def kernel(A, B):
         C = hcl.compute((10, 32), lambda *args : 0, "C")
         D = hcl.compute(C.shape, lambda *args: 0, "D")
-        # with hcl.Stage("Super") as m:
-        with hcl.for_(0, 10, name="j") as j:
+        with hcl.for_(0, 10, name="Super") as j:
             hcl.update(D, lambda *args: j*A[args] + B[args], name="update.D")
             hcl.update(C, lambda *args: A[args] + j*D[args], name="update.C")
         return C
@@ -604,8 +601,8 @@ def test_sobel_vivado_hls():
             lambda x,y:hcl.sqrt(D[x][y]*D[x][y]+E[x][y]*E[x][y])*0.05891867,"Fimg")
 
     s = hcl.create_schedule([A,Gx,Gy],sobel)
-    LBX = s.reuse_at(sobel.B._op, s[sobel.xx], sobel.xx.axis[0], "LBX")
-    LBY = s.reuse_at(sobel.B._op, s[sobel.yy], sobel.yy.axis[0], "LBY") 
+    LBX = s.reuse_at(sobel.B, s[sobel.xx], sobel.xx.axis[0], "LBX")
+    LBY = s.reuse_at(sobel.B, s[sobel.yy], sobel.yy.axis[0], "LBY") 
     WBX = s.reuse_at(LBX, s[sobel.xx], sobel.xx.axis[1], "WBX")
     WBY = s.reuse_at(LBY, s[sobel.yy], sobel.yy.axis[1], "WBY")
     s.partition(LBX)
@@ -870,29 +867,29 @@ def test_stream_multi_buffer_access():
     _test_invalid_stream_pattern()
     _test_valid_stream_pattern()
 
-if __name__ == '__main__':
-    test_dataflow_graph()
-    test_dataflow_primitive()
+# if __name__ == '__main__':
+#     test_dataflow_graph()
+#     test_dataflow_primitive()
 
-    test_stream_advanced_features()
-    test_kernel_duplicate()
-    test_inner_loop_body_placement()
-    test_multiple_subgraph()
-    test_fork_join()
-    test_stream_multi_buffer_access()
-    test_vhls_kernel_interface_naming()
-    test_super_stage()
+#     test_stream_advanced_features()
+#     test_kernel_duplicate()
+#     test_inner_loop_body_placement()
+#     test_multiple_subgraph()
+#     test_fork_join()
+#     test_stream_multi_buffer_access()
+#     test_vhls_kernel_interface_naming()
+#     test_super_stage()
     
-    test_host_to_device_stream()
-    test_inter_kernel_channels()
-    test_sobel_vivado_hls()
-    test_subgraph()
-    test_one_stage_on_dev()
-    test_auto_move_to_dev()
-    test_inter_stage_consective_streaming()
-    test_vhls_host_dtype()
+#     test_host_to_device_stream()
+#     test_inter_kernel_channels()
+#     test_sobel_vivado_hls()
+#     test_subgraph()
+#     test_one_stage_on_dev()
+#     test_auto_move_to_dev()
+#     test_inter_stage_consective_streaming()
+#     test_vhls_host_dtype()
 
-    test_extern_ops()
-    test_stages_one_to_many()
-    test_mixed_stream()
-    test_mem_customization()
+#     test_extern_ops()
+#     test_stages_one_to_many()
+#     test_mixed_stream()
+#     test_mem_customization()
