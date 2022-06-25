@@ -366,6 +366,25 @@ class Schedule(object):
             res = hcl_d.ReshapeOp(MemRefType.get(
                 shape, target.op.dtype), target.result, ip=GlobalInsertionPoint.get())
 
+    def layout(self, target, layout):
+        """Change the layout of a tensor
+        """
+        try:
+            target = target.tensor
+        except (AttributeError, ValueError):
+            try:
+                target = target._op
+            except AttributeError:
+                pass
+        with get_context() as ctx, get_location():
+            if layout == "nhwc":
+                attr = AffineMap.get_permutation([0, 2, 3, 1])
+            else:
+                raise RuntimeError("Not supported layout")
+            res = hcl_d.LayoutOp(MemRefType.get(
+                target.shape, target.op.dtype), target.result, ip=GlobalInsertionPoint.get())
+            res.attributes["layout"] = AffineMapAttr.get(attr)
+
     def reuse_at(self, target, parent, axis, name=None):
         """Create a reuse buffer reusing the output of current stage
         """
