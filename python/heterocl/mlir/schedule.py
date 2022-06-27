@@ -471,7 +471,7 @@ class Schedule(object):
                 hcl_d.OutlineOp(handles,
                                 ip=GlobalInsertionPoint.get())
             results.append(StageFunction([stage.name for stage in stages]))
-        return results
+        return results if len(results) > 1 else results[0]
 
 
 class StageFunction(object):

@@ -57,9 +57,12 @@ class HCLSuperModule(object):
         self.modules = modules
 
     def __call__(self):
-        pool = []
-        for module in self.modules:
-            pool.append(Process(target=module.run_hls, args=(False,)))
-            pool[-1].start()
-        for p in pool:
-            p.join()
+        if len(self.modules) > 1:
+            pool = []
+            for module in self.modules:
+                pool.append(Process(target=module.run_hls, args=(False,)))
+                pool[-1].start()
+            for p in pool:
+                p.join()
+        else:
+            self.modules[0].run_hls(True)
