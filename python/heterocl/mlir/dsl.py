@@ -1,3 +1,5 @@
+import warnings
+
 import hcl_mlir
 from hcl_mlir import GlobalInsertionPoint
 from hcl_mlir.dialects import affine, builtin
@@ -5,7 +7,6 @@ from hcl_mlir.dialects import hcl as hcl_d
 from hcl_mlir.dialects import scf, std
 from hcl_mlir.ir import *
 
-import warnings
 from .. import config
 from .context import (BreakFlag, ImperativeLoopDepth, ImperativeLoopNestCount,
                       NestedCompute, StageName, UniqueName)
@@ -369,6 +370,9 @@ def def_(shapes, dtypes=None, ret_dtype=None, name=None, arg_names=None):
 
 
 def return_(expr=None):
+    if len(Schedule._IfElseStack) > 0:
+        raise RuntimeError(
+            "hcl.return_ statement cannot be in a nested region due to MLIR's limitation. Please rewrite your program and use .outline() to create a new function.")
     hcl_mlir.enable_build_inplace()
     if expr is not None:
         if DEF_FUNC:  # imperative

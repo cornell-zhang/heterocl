@@ -1,5 +1,7 @@
 import heterocl as hcl
 import numpy as np
+import pytest
+
 
 def test_module_no_return():
 
@@ -61,7 +63,8 @@ def test_module_with_return():
     for i in range(0, 10):
         assert(_B[i] == a[i]+1)
 
-def test_module_cond_return_if_only():
+
+def _test_module_cond_return_if_only():
 
     def algorithm(A, B):
 
@@ -90,9 +93,15 @@ def test_module_cond_return_if_only():
     _B = _B.asnumpy()
 
     for i in range(0, 10):
-        assert(_B[i] == a[i]+1 if a[i] <=5 else -1)
+        assert(_B[i] == a[i]+1 if a[i] <= 5 else -1)
 
-def test_module_cond_return_if_else():
+
+def test_module_cond_return_if_only():
+    with pytest.raises(Exception):
+        _test_module_cond_return_if_only()
+
+
+def _test_module_cond_return_if_else():
 
     def algorithm(A, B):
 
@@ -122,9 +131,15 @@ def test_module_cond_return_if_else():
     _B = _B.asnumpy()
 
     for i in range(0, 10):
-        assert(_B[i] == a[i]+1 if a[i] <=5 else -1)
+        assert(_B[i] == a[i]+1 if a[i] <= 5 else -1)
 
-def test_module_cond_return_multi_if_else():
+
+def test_module_cond_return_if_else():
+    with pytest.raises(Exception):
+        _test_module_cond_return_if_else()
+
+
+def _test_module_cond_return_multi_if_else():
 
     def algorithm(A, B):
 
@@ -170,7 +185,13 @@ def test_module_cond_return_multi_if_else():
     for i in range(0, 10):
         assert(_B[i] == check_res(a[i]))
 
-def test_module_cond_return_for():
+
+def test_module_cond_return_multi_if_else():
+    with pytest.raises(Exception):
+        _test_module_cond_return_multi_if_else()
+
+
+def _test_module_cond_return_for():
 
     def algorithm(A, B):
 
@@ -201,6 +222,12 @@ def test_module_cond_return_for():
 
     for i in range(0, 10):
         assert(_B[i] == 1 if a[i] < 10 else -1)
+
+
+def test_module_cond_return_for():
+    with pytest.raises(Exception):
+        _test_module_cond_return_for()
+
 
 def test_module_multi_calls():
 
@@ -241,6 +268,7 @@ def test_module_multi_calls():
     for i in range(0, 10):
         assert(_C[i] == (a[i]+b[i])*i)
 
+
 def test_module_ret_dtype():
 
     def algorithm(A, B):
@@ -272,6 +300,7 @@ def test_module_ret_dtype():
 
     for i in range(0, 10):
         assert(_C[i] == (a[i]+b[i]) % 4)
+
 
 def test_module_quantize_ret_dtype():
 
@@ -309,6 +338,7 @@ def test_module_quantize_ret_dtype():
     for i in range(0, 10):
         assert(_C[i] == (a[i]+b[i]) % 4)
 
+
 def test_module_args_dtype():
 
     hcl.init()
@@ -341,7 +371,8 @@ def test_module_args_dtype():
     _C = _C.asnumpy()
 
     for i in range(0, 10):
-        assert(_C[i] == a[i]%4 + b[i])
+        assert(_C[i] == a[i] % 4 + b[i])
+
 
 def test_module_quantize_args():
 
@@ -377,7 +408,8 @@ def test_module_quantize_args():
     _C = _C.asnumpy()
 
     for i in range(0, 10):
-        assert(_C[i] == a[i]%4 + b[i])
+        assert(_C[i] == a[i] % 4 + b[i])
+
 
 def test_module_declarative():
     hcl.init()
@@ -407,6 +439,7 @@ def test_module_declarative():
     f(_a, _b, _c)
 
     assert np.array_equal(_c.asnumpy(), a + b)
+
 
 def test_module_declarative_internal_allocate():
     hcl.init()
@@ -438,6 +471,7 @@ def test_module_declarative_internal_allocate():
 
     assert np.array_equal(_c.asnumpy(), a + b + 1)
 
+
 def test_module_declarative_compute_at():
     hcl.init()
 
@@ -455,8 +489,7 @@ def test_module_declarative_compute_at():
     c = hcl.placeholder((10,))
 
     s = hcl.create_schedule([a, b, c], algorithm)
-    add = algorithm.add
-    s[add.d].compute_at(s[add.u], add.u.axis[0])
+    s[algorithm.d].compute_at(s[algorithm.u], algorithm.u.axis[0])
     f = hcl.build(s)
 
     a = np.random.randint(100, size=(10,))
@@ -469,6 +502,7 @@ def test_module_declarative_compute_at():
     f(_a, _b, _c)
 
     assert np.array_equal(_c.asnumpy(), a + b + 1)
+
 
 def test_module_mixed_paradigm():
     hcl.init()
