@@ -91,7 +91,45 @@ def test_outline_cpu():
     mod.modules[1](hcl_B, hcl_C, hcl_D)
     print(hcl_D.asnumpy())
 
+def test_module_mixed_paradigm():
+    hcl.init()
+
+    def algorithm(a, b, c):
+
+        @hcl.def_([a.shape, b.shape, c.shape])
+        def add(a, b, c):
+            with hcl.for_(0, 10, tag="A") as i:
+                a[i] = 0
+            d = hcl.compute(a.shape, lambda *x: a[x] + b[x], "D")
+            hcl.update(c, lambda *x: d[x] + 1, "C")
+
+        add(a, b, c)
+
+    a = hcl.placeholder((10,))
+    b = hcl.placeholder((10,))
+    c = hcl.placeholder((10,))
+
+    s = hcl.create_schedule([a, b, c], algorithm)
+    s.outline([s[algorithm.A], s[algorithm.D], s[algorithm.C]])
+    # s[algorithm.A].outline()
+    # s[algorithm.D].outline()
+    # s[algorithm.C].outline()
+    f = hcl.build(s)
+    print(s.device_module)
+
+    a = np.random.randint(100, size=(10,))
+    b = np.random.randint(100, size=(10,))
+    c = np.zeros(10)
+    _a = hcl.asarray(a)
+    _b = hcl.asarray(b)
+    _c = hcl.asarray(c)
+
+    f(_a, _b, _c)
+
+    assert np.array_equal(_c.asnumpy(), b + 1)
+
 if __name__ == "__main__":
     # test_stages()
     # test_outline()
-    test_outline_cpu()
+    # test_outline_cpu()
+    test_module_mixed_paradigm()

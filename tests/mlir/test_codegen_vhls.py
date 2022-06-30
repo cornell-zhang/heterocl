@@ -3,6 +3,7 @@ import __test_codegen_harness as harness
 import pytest
 target="vhls"
 
+@pytest.mark.skip(reason="Type casting to be supported")
 def test_dtype():
     harness.test_dtype(target, ["ap_int<3>",
                                 "ap_uint<3>",
