@@ -211,6 +211,9 @@ def def_(shapes, dtypes=None, ret_dtype=None, name=None, arg_names=None):
     def decorator(fmodule):
         warnings.warn(
             "hcl.def_() is deprecated, please use .outline() instead.", DeprecationWarning)
+        if Schedule._CurrentSchedule is None:
+            raise RuntimeError(
+                "def_() must be called with hcl.create_schedule")
         fname = name if name is not None else fmodule.__name__
         if Schedule._TopFunction != None:
             Schedule._TopFunction.__setattr__(fname, fmodule)

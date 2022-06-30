@@ -302,7 +302,7 @@ def test_module_ret_dtype():
         assert(_C[i] == (a[i]+b[i]) % 4)
 
 
-def test_module_quantize_ret_dtype():
+def _test_module_quantize_ret_dtype():
 
     hcl.init()
 
@@ -337,6 +337,11 @@ def test_module_quantize_ret_dtype():
 
     for i in range(0, 10):
         assert(_C[i] == (a[i]+b[i]) % 4)
+
+
+def test_module_quantize_ret_dtype():
+    with pytest.raises(Exception):
+        _test_module_quantize_ret_dtype()
 
 
 def test_module_args_dtype():
@@ -374,7 +379,7 @@ def test_module_args_dtype():
         assert(_C[i] == a[i] % 4 + b[i])
 
 
-def test_module_quantize_args():
+def _test_module_quantize_args():
 
     hcl.init()
 
@@ -409,6 +414,11 @@ def test_module_quantize_args():
 
     for i in range(0, 10):
         assert(_C[i] == a[i] % 4 + b[i])
+
+
+def test_module_quantize_args():
+    with pytest.raises(Exception):
+        _test_module_quantize_args()
 
 
 def test_module_declarative():
