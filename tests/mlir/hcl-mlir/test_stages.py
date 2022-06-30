@@ -68,6 +68,30 @@ def test_outline():
     mod()
 
 
+def test_outline_cpu():
+
+    A = hcl.placeholder((32, 32), "A")
+
+    def kernel(A):
+        B = hcl.compute(A.shape, lambda i, j: A[i, j] + 1, "B")
+        C = hcl.compute(A.shape, lambda i, j: A[i, j] + 1, "C")
+        D = hcl.compute(A.shape, lambda i, j: B[i, j] + C[i, j], "D")
+        return D
+
+    s = hcl.create_schedule([A], kernel)
+    func_B_C, func_D = s.outline([s[kernel.B], s[kernel.C]], [s[kernel.D]])
+
+    mod = hcl.build(s, top=[func_B_C, func_D], target=None)
+    np_A, np_B, np_C, np_D = [np.zeros((32, 32))] * 4
+    hcl_A = hcl.asarray(np_A)
+    hcl_B = hcl.asarray(np_B)
+    hcl_C = hcl.asarray(np_C)
+    hcl_D = hcl.asarray(np_D)
+    mod.modules[0](hcl_A, hcl_B, hcl_C)
+    mod.modules[1](hcl_B, hcl_C, hcl_D)
+    print(hcl_D.asnumpy())
+
 if __name__ == "__main__":
-    test_stages()
+    # test_stages()
     # test_outline()
+    test_outline_cpu()

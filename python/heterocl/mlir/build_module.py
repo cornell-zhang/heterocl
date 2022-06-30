@@ -4,7 +4,7 @@ import hcl_mlir
 from hcl_mlir import GlobalInsertionPoint
 from hcl_mlir.dialects import affine
 from hcl_mlir.dialects import hcl as hcl_d
-from hcl_mlir.dialects import memref, scf, std
+from hcl_mlir.dialects import memref, scf, std, builtin
 from hcl_mlir.execution_engine import *
 from hcl_mlir.ir import *
 from hcl_mlir.passmanager import PassManager
@@ -32,8 +32,11 @@ def lower(schedule,
         f"builtin.func"
         f"(affine-loop-normalize)"
     )
-    with get_context():
-        PassManager.parse(pipeline).run(schedule.device_module)
+    try:
+        with get_context():
+            PassManager.parse(pipeline).run(schedule.device_module)
+    except:
+        print(schedule.device_module)
     return schedule.device_module
 
 
@@ -51,16 +54,15 @@ def build(schedule, target=None, stmt=None, top=None):
             modules = []
             for func in top:
                 func_mod = func.build(schedule)
-                if target is None:
-                    raise RuntimeError(
-                        "Stage function build can only support FPGA backend now")
-                else:
+                if target is not None:
                     target.top = func.name
                     original_name = target.project
                     target.project = "{}/{}.prj".format(
                         original_name, func.name)
                     modules.append(build_fpga_kernel(func_mod, target, stmt))
                     target.project = original_name
+                else:
+                    modules.append(build_llvm(func_mod, target, stmt))
             return HCLSuperModule(modules)
         if target is not None:
             return build_fpga_kernel(schedule, target, stmt)
@@ -306,10 +308,22 @@ def build_fpga_kernel(schedule, target=None, stmt=None):
 def build_llvm(schedule, target=None, stmt=None):
     name = 'top'
     with get_context() as ctx, get_location():
-        func = schedule.device_top
-        func.attributes['llvm.emit_c_interface'] = UnitAttr.get()
-        func.attributes[name] = UnitAttr.get()
-        module = Module.parse(str(schedule.device_module), ctx)
+        if isinstance(schedule, Schedule):
+            func = schedule.device_top
+            func.attributes['llvm.emit_c_interface'] = UnitAttr.get()
+            func.attributes[name] = UnitAttr.get()
+            module = Module.parse(str(schedule.device_module), ctx)
+        else:
+            module = Module.parse(str(schedule), ctx)
+            for op in module.body.operations:
+                if isinstance(op, builtin.FuncOp):
+                    func = op
+                    break
+            else:
+                raise RuntimeError("No function found")
+            func.attributes['llvm.emit_c_interface'] = UnitAttr.get()
+            func.attributes[name] = UnitAttr.get()
+            func.attributes['sym_name'] = StringAttr.get("top")
         hcl_d.loop_transformation(module)
         hcl_d.lower_composite_type(module)
         hcl_d.lower_fixed_to_int(module)
