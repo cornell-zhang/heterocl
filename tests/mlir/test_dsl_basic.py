@@ -295,79 +295,82 @@ def test_while_basic():
 
 
 def test_break_in_for():
-    def kernel(A):
-        with hcl.for_(0, 10) as i:
-            with hcl.if_(i > 5):
-                hcl.break_()
-            A[i] = i
+    with pytest.raises(Exception):
+        def kernel(A):
+            with hcl.for_(0, 10) as i:
+                with hcl.if_(i > 5):
+                    hcl.break_()
+                A[i] = i
 
-    A = hcl.placeholder((10,))
-    s = hcl.create_schedule(A, kernel)
-    f = hcl.build(s)
+        A = hcl.placeholder((10,))
+        s = hcl.create_schedule(A, kernel)
+        f = hcl.build(s)
 
-    np_A = np.random.randint(10, size=(10,))
-    golden_A = np.copy(np_A)
-    for i in range(0, 6):
-        golden_A[i] = i
+        np_A = np.random.randint(10, size=(10,))
+        golden_A = np.copy(np_A)
+        for i in range(0, 6):
+            golden_A[i] = i
 
-    hcl_A = hcl.asarray(np_A)
+        hcl_A = hcl.asarray(np_A)
 
-    f(hcl_A)
+        f(hcl_A)
 
-    ret_A = hcl_A.asnumpy()
-    assert np.array_equal(golden_A, ret_A)
+        ret_A = hcl_A.asnumpy()
+        assert np.array_equal(golden_A, ret_A)
 
 
 def test_break_in_while():
-    def kernel(A):
-        i = hcl.scalar(0)
-        with hcl.while_(True):
-            with hcl.if_(i[0] > 5):
-                hcl.break_()
-            A[i[0]] = i[0]
-            i[0] += 1
+    with pytest.raises(Exception):
+        def kernel(A):
+            i = hcl.scalar(0)
+            with hcl.while_(True):
+                with hcl.if_(i[0] > 5):
+                    hcl.break_()
+                A[i[0]] = i[0]
+                i[0] += 1
 
-    A = hcl.placeholder((10,))
-    s = hcl.create_schedule(A, kernel)
-    f = hcl.build(s)
+        A = hcl.placeholder((10,))
+        s = hcl.create_schedule(A, kernel)
+        f = hcl.build(s)
 
-    np_A = np.random.randint(10, size=(10,))
-    golden_A = np.copy(np_A)
-    for i in range(0, 6):
-        golden_A[i] = i
+        np_A = np.random.randint(10, size=(10,))
+        golden_A = np.copy(np_A)
+        for i in range(0, 6):
+            golden_A[i] = i
 
-    hcl_A = hcl.asarray(np_A)
+        hcl_A = hcl.asarray(np_A)
 
-    f(hcl_A)
+        f(hcl_A)
 
-    ret_A = hcl_A.asnumpy()
-    assert np.array_equal(golden_A, ret_A)
+        ret_A = hcl_A.asnumpy()
+        assert np.array_equal(golden_A, ret_A)
 
 
 def test_break_multi_level():
-    def kernel(A):
-        with hcl.for_(0, 10) as i:
-            with hcl.for_(0, 10) as j:
-                with hcl.if_(j >= i):
-                    hcl.break_()
-                A[i] += j
+    with pytest.raises(Exception):
+        def kernel(A):
+            with hcl.for_(0, 10) as i:
+                with hcl.for_(0, 10) as j:
+                    with hcl.if_(j >= i):
+                        hcl.break_()
+                    A[i] += j
 
-    A = hcl.placeholder((10,))
-    s = hcl.create_schedule(A, kernel)
-    f = hcl.build(s)
+        A = hcl.placeholder((10,))
+        s = hcl.create_schedule(A, kernel)
+        f = hcl.build(s)
 
-    np_A = np.random.randint(10, size=(10,))
-    golden_A = np.copy(np_A)
-    for i in range(0, 10):
-        for j in range(0, i):
-            golden_A[i] += j
+        np_A = np.random.randint(10, size=(10,))
+        golden_A = np.copy(np_A)
+        for i in range(0, 10):
+            for j in range(0, i):
+                golden_A[i] += j
 
-    hcl_A = hcl.asarray(np_A)
+        hcl_A = hcl.asarray(np_A)
 
-    f(hcl_A)
+        f(hcl_A)
 
-    ret_A = hcl_A.asnumpy()
-    assert np.array_equal(golden_A, ret_A)
+        ret_A = hcl_A.asnumpy()
+        assert np.array_equal(golden_A, ret_A)
 
 
 def test_get_bit_expr():
