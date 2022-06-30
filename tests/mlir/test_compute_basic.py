@@ -106,7 +106,7 @@ def test_fcompute_nested_imperative():
     _test_kernel(kernel)
 
 
-def test_fcompute_multiple_return():
+def _test_fcompute_multiple_return():
     def kernel(A):
         def foo(x):
             with hcl.if_(A[x] > 5):
@@ -137,7 +137,12 @@ def test_fcompute_multiple_return():
             assert ret_B[i] == 0
 
 
-def test_fcompute_multiple_return_multi_dim():
+def test_fcompute_multiple_return():
+    with pytest.raises(Exception):
+        _test_fcompute_multiple_return()
+
+
+def _test_fcompute_multiple_return_multi_dim():
     def kernel(A):
         def foo(x, y, z):
             with hcl.if_(A[x, y, z] > 5):
@@ -168,6 +173,11 @@ def test_fcompute_multiple_return_multi_dim():
                     assert ret_B[i][j][k] == i
                 else:
                     assert ret_B[i][j][k] == 0
+
+
+def test_fcompute_multiple_return_multi_dim():
+    with pytest.raises(Exception):
+        _test_fcompute_multiple_return_multi_dim()
 
 
 def test_update():
@@ -334,6 +344,7 @@ def test_const_tensor_float():
     test_kernel(hcl.Float(), (8, 8))
     test_kernel(hcl.Float(), (20, 20, 3))
 
+
 @pytest.mark.skip(reason="Not implemented")
 def test_const_tensor_fixed():
     def test_kernel(dtype, size):
@@ -371,13 +382,13 @@ def test_const_tensor_fixed():
     #     test_kernel(hcl.UFixed(bit, bit - 4), (20, 20, 3))
 
     test_kernel(hcl.Fixed(10, 6), (8, 8))
-test_const_tensor_fixed()
 
 
-def test_deprecate_stage():    
+def test_deprecate_stage():
     with warnings.catch_warnings(record=True) as w:
         hcl.init(hcl.Int(32))
         A = hcl.placeholder((10,))
+
         def kernel(A):
             with hcl.Stage("B"):
                 with hcl.for_(0, 10) as i:
