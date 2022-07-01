@@ -232,16 +232,17 @@ def conv2d_nchw(
 
 
 def packed_conv2d_nchw(
-        Input,
-        Filter,
-        strides=[1, 1],
-        padding=[0, 0],
-        dilation=[1, 1],
-        out_dtype=None,
-        threshold=None,
-        bitwidth=None,
-        mac=True,
-        name='packed_binary_conv2d'):
+    Input,
+    Filter,
+    strides=[1, 1],
+    padding=[0, 0],
+    dilation=[1, 1],
+    out_dtype=None,
+    threshold=None,
+    bitwidth=None,
+    mac=True,
+    name="packed_binary_conv2d",
+):
     if out_dtype is None:
         out_dtype = hcl.Int()
     assert isinstance(strides, int) or len(strides) == 2
@@ -273,27 +274,31 @@ def packed_conv2d_nchw(
     # compute graph
     pad_before = [0, 0, pad_top, pad_left]
     pad_after = [0, 0, pad_down, pad_right]
-    temp = pad_nhwc(Input, padding, name=name+"_pad", dtype=hcl.UInt(bitwidth))
+    if padding != [0, 0]:
+        temp = pad_nchw(Input, padding, name=name +
+                        "_pad", dtype=hcl.UInt(bitwidth))
+    else:
+        temp = Input
     # temp = pad_(Input, name=name+"_pad", dtype=hcl.UInt(bitwidth))
     pad_in_height = in_height + pad_top + pad_down
     pad_in_width = in_width + pad_left + pad_right
-    rc = hcl.reduce_axis(0, in_channel, name=name+'_rc')
-    ry = hcl.reduce_axis(0, kernel_h, name=name+'_ry')
-    rx = hcl.reduce_axis(0, kernel_w, name=name+'_rx')
-    rb = hcl.reduce_axis(0, bitwidth, name=name+'_rb')
+    rc = hcl.reduce_axis(0, in_channel, name=name + "_rc")
+    ry = hcl.reduce_axis(0, kernel_h, name=name + "_ry")
+    rx = hcl.reduce_axis(0, kernel_w, name=name + "_rx")
+    rb = hcl.reduce_axis(0, bitwidth, name=name + "_rb")
     # assert stride_h == 1 and stride_w == 1
     assert dilation_h == 1 and dilation_w == 1
     kernel_size = kernel_h * kernel_w
     if bitwidth == 1:
         const = 1
     elif bitwidth == 8:
-        const = 0xff
+        const = 0xFF
     elif bitwidth == 16:
-        const = 0xffff
+        const = 0xFFFF
     elif bitwidth == 32:
-        const = 0xffffffff
+        const = 0xFFFFFFFF
     elif bitwidth == 64:
-        const = 0xffffffffffffffff
+        const = 0xFFFFFFFFFFFFFFFF
     if threshold == None:
         rc_ = rc if in_channel != 1 else 0
         if mac:
@@ -301,43 +306,118 @@ def packed_conv2d_nchw(
                 (batch, out_channel, out_height, out_width),
                 lambda nn, ff, yy, xx: hcl.sum(
                     hcl.select(
-                        if_mac(yy*stride_h+ry, xx*stride_w+rx, pad_in_height, pad_in_width,
-                               pad_top, pad_left, pad_down, pad_right),  # neglect padding pixels in mac
-                        ((const - (temp[nn, rc_, yy * stride_h + ry, xx * \
-                         stride_w + rx] ^ Filter[ff, rc_, ry, rx]))[rb] << 1) - 1,
-                        0),
-                    axis=[rc, ry, rx, rb], dtype=out_dtype, name=name+"_sum"),
+                        if_mac(
+                            yy * stride_h + ry,
+                            xx * stride_w + rx,
+                            pad_in_height,
+                            pad_in_width,
+                            pad_top,
+                            pad_left,
+                            pad_down,
+                            pad_right,
+                        ),  # neglect padding pixels in mac
+                        hcl.cast(
+                            out_dtype,
+                            (
+                                (
+                                    hcl.cast(hcl.UInt(bitwidth), const)
+                                    - (
+                                        temp[
+                                            nn,
+                                            rc_,
+                                            yy * stride_h + ry,
+                                            xx * stride_w + rx,
+                                        ]
+                                        ^ Filter[ff, rc_, ry, rx]
+                                    )
+                                )[rb]
+                                << 1
+                            )
+                            - 1,
+                        ),
+                        hcl.cast(out_dtype, 0),
+                    ),
+                    axis=[rc, ry, rx, rb],
+                    dtype=out_dtype,
+                    name=name + "_sum",
+                ),
                 name=name,
-                dtype=out_dtype)
+                dtype=out_dtype,
+            )
         else:
             out = hcl.compute(
                 (batch, out_channel, out_height, out_width),
-                lambda nn, ff, yy, xx: kernel_size * bitwidth * in_channel - (
+                lambda nn, ff, yy, xx: kernel_size * bitwidth * in_channel
+                - (
                     hcl.sum(
-                        (temp[nn, rc_, yy * stride_h + ry, xx *
-                         stride_w + rx] ^ Filter[ff, rc_, ry, rx])[rb],
-                        axis=[rc, ry, rx, rb], dtype=out_dtype, name=name+"_sum") << 1),
+                        (
+                            temp[nn, rc_, yy * stride_h +
+                                 ry, xx * stride_w + rx]
+                            ^ Filter[ff, rc_, ry, rx]
+                        )[rb],
+                        axis=[rc, ry, rx, rb],
+                        dtype=out_dtype,
+                        name=name + "_sum",
+                    )
+                    << 1
+                ),
                 name=name,
-                dtype=out_dtype)
+                dtype=out_dtype,
+            )
     else:
         bitwidth = out_channel
         rc_ = rc if in_channel != 1 else 0
 
         def genpack(nn, ff, yy, xx):
-            out = hcl.scalar(0, name=name+"_pack", dtype=hcl.UInt(bitwidth))
+            out = hcl.scalar(0, name=name + "_pack", dtype=hcl.UInt(bitwidth))
             with hcl.for_(0, bitwidth) as k:
-                out[0][(k+1): k] = hcl.select(
-                    hcl.sum(hcl.select(
-                        if_mac(yy*stride_h+ry, xx*stride_w+rx, pad_in_height, pad_in_width,
-                               pad_top, pad_left, pad_down, pad_right),  # neglect padding pixels in mac
-                        ((const - (temp[nn, rc_, yy * stride_h + ry, xx * stride_w + rx]
-                         ^ Filter[ff*bitwidth+k, rc_, ry, rx]))[rb] << 1) - 1,
-                        0), axis=[rc, ry, rx, rb], dtype=out_dtype, name=name+"_sum")
-                    > threshold[ff*bitwidth+k, yy, xx],
-                    1, 0)
+                out[0][(k + 1): k] = hcl.select(
+                    hcl.sum(
+                        hcl.select(
+                            if_mac(
+                                yy * stride_h + ry,
+                                xx * stride_w + rx,
+                                pad_in_height,
+                                pad_in_width,
+                                pad_top,
+                                pad_left,
+                                pad_down,
+                                pad_right,
+                            ),  # neglect padding pixels in mac
+                            (
+                                (
+                                    hcl.cast(hcl.UInt(bitwidth), const)
+                                    - (
+                                        temp[
+                                            nn,
+                                            rc_,
+                                            yy * stride_h + ry,
+                                            xx * stride_w + rx,
+                                        ]
+                                        ^ Filter[ff * bitwidth + k, rc_, ry, rx]
+                                    )
+                                )[rb]
+                                << 1
+                            )
+                            - 1,
+                            0,
+                        ),
+                        axis=[rc, ry, rx, rb],
+                        dtype=out_dtype,
+                        name=name + "_sum",
+                    )
+                    > threshold[ff * bitwidth + k, yy, xx],
+                    1,
+                    0,
+                )
             return out[0]
-        return hcl.compute((batch, out_channel // bitwidth, out_height, out_width),
-                           genpack, name=name, dtype=hcl.UInt(bitwidth))
+
+        return hcl.compute(
+            (batch, out_channel // bitwidth, out_height, out_width),
+            genpack,
+            name=name,
+            dtype=hcl.UInt(bitwidth),
+        )
     return out
 
 
