@@ -308,12 +308,12 @@ class Array(object):
                 np_array = np_array % sb
                 def cast_func(x): return x if x < sb_limit else x - sb
                 np_array = np.vectorize(cast_func)(np_array)
-                np_array = np_array.astype(np.int64)
+                np_array = np_array.astype(np.uint64)
             elif isinstance(dtype, UInt):
                 # Handle overflow
                 sb = 1 << self.dtype.bits
                 np_array = np_array % sb
-                np_array = np_array.astype(np.int64)
+                np_array = np_array.astype(np.uint64)
             elif isinstance(dtype, Fixed):
                 # Handle overflow
                 sb = 1 << self.dtype.bits
@@ -322,13 +322,13 @@ class Array(object):
                 np_array = np.fix(np_array) % sb
                 def cast_func(x): return x if x < sb_limit else x - sb
                 np_array = np.vectorize(cast_func)(np_array)
-                np_array = np_array.astype(np.int64)
+                np_array = np_array.astype(np.uint64)
             elif isinstance(dtype, UFixed):
                 # Handle overflow
                 sb = 1 << self.dtype.bits
                 np_array = np_array * (2**dtype.fracs)
                 np_array = np.fix(np_array) % sb
-                np_array = np_array.astype(np.int64)
+                np_array = np_array.astype(np.uint64)
             else:
                 raise RuntimeError("Unrecognized type")
         else:
