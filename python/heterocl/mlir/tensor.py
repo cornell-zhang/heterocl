@@ -1,4 +1,5 @@
 import inspect
+import warnings
 from typing import List, Callable
 
 import hcl_mlir
@@ -233,7 +234,7 @@ class ComputeOp(object):
                 value = builder.visit(result_expr)
 
                 # Tuple is for struct construction, in this case
-                # we won't need to cast the result since it's a struct. 
+                # we won't need to cast the result since it's a struct.
                 if not isinstance(result_expr, tuple):
                     result_expr.built_op = value
 
@@ -244,8 +245,8 @@ class ComputeOp(object):
                 if not isinstance(value, hcl_mlir.BlockArgument):
                     value = value.result
                 if value.type != write_back_elt:
-                    print(
-                        "Warning: store operation has different input types. Cast from {} to {}.".format(
+                    warnings.warn(
+                        "StoreOp has different input types. Cast from {} to {}.".format(
                             value.type, write_back_elt
                         )
                     )
