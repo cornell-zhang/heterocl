@@ -356,7 +356,7 @@ def packed_conv2d_nchw(
                             ^ Filter[ff, rc_, ry, rx]
                         )[rb],
                         axis=[rc, ry, rx, rb],
-                        dtype=out_dtype,
+                        dtype=hcl.UInt(bitwidth),
                         name=name + "_sum",
                     )
                     << 1
