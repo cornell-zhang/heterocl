@@ -482,6 +482,7 @@ class StageFunction(object):
         self.name = "Stage"
         for n in name:
             self.name += "_" + n
+        self.module = None
 
     def build(self, schedule):
         set_context()
@@ -493,10 +494,12 @@ class StageFunction(object):
             for op in schedule.device_module.body.operations:
                 if str(op.name) == "\"{}\"".format(self.name):
                     op.move_before(top)
+                    op.attributes["bit"] = UnitAttr.get()
                     break
             else:
                 raise RuntimeError("Stage {} not found".format(self.name))
             top.operation.erase()
+        self.module = new_module
         return new_module
 
 
