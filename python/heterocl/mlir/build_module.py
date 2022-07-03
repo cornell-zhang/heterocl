@@ -333,6 +333,7 @@ def build_llvm(schedule, target=None, stmt=None):
         # type hints.
         hcl_d.move_return_to_input(module)
         hcl_d.lower_bit_ops(module)
+        hcl_d.legalize_cast(module)
         hcl_d.lower_hcl_to_llvm(module, ctx)
         # num_results = len(func.type.results)
         num_results = 0
