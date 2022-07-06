@@ -420,6 +420,31 @@ def packed_conv2d_nchw(
         )
     return out
 
+# https://tlx.github.io/popcount_8hpp_source.html
+
+
+def popcnt(x):
+    if x.dtype.width == 8:
+        x -= (x >> 1) & 0x55
+        x = (x & 0x33) + ((x >> 2) & 0x33)
+        x = (x + (x >> 4)) & 0x0F
+        return x
+    # elif x.dtype.width == 16:
+    # x -= (x >> 1) & 0x5555
+    # x = (x & 0x3333) + ((x >> 2) & 0x3333)
+    # x = (x + (x >> 4)) & 0x0F0F
+    # return (x * 0x0101) >> 8
+    elif x.dtype.width == 32:
+        x -= (x >> 1) & 0x55555555
+        x = (x & 0x33333333) + ((x >> 2) & 0x33333333)
+        x = (x + (x >> 4)) & 0x0F0F0F0F
+        return (x * 0x01010101) >> 24
+    else:
+        x -= (x >> 1) & 0x5555555555555555
+        x = (x & 0x3333333333333333) + ((x >> 2) & 0x3333333333333333)
+        x = (x + (x >> 4)) & 0x0F0F0F0F0F0F0F0F
+        return (x * 0x0101010101010101) >> 56
+
 
 def packed_conv2d_nhwc(
     Input,
@@ -501,21 +526,16 @@ def packed_conv2d_nhwc(
                 hcl.cast(
                     out_dtype,
                     (
-                        (
-                            const
-                            - (
-                                temp[nn, yy * stride_h + ry,
-                                     xx * stride_w + rx, rc_]
-                                ^ Filter[ff, ry, rx, rc_]
-                            )
-                        )[rb]
-                        << 1
-                    )
-                    - 1,
+                        bitwidth - (popcnt(
+                            temp[nn, yy * stride_h + ry,
+                                 xx * stride_w + rx, rc_]
+                            ^ Filter[ff, ry, rx, rc_]
+                        ) << 1)
+                    ),
                 ),
                 hcl.cast(out_dtype, 0),
             ),
-            axis=[ry, rx, rc, rb],
+            axis=[ry, rx, rc],
             dtype=out_dtype,
             name=name + "_sum",
         ),
