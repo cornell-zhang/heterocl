@@ -22,8 +22,8 @@ def test_unpack():
 
         f(_A, _B)
 
-        __A = _A.asnumpy()
-        __B = _B.asnumpy()
+        __A = _A.asnumpy().astype(np.int64)
+        __B = _B.asnumpy().astype(np.int64)
 
         for j in range(0, 10):
             for k in range(0, 4):
@@ -50,8 +50,8 @@ def test_unpack_dtype():
 
         f(_A, _B)
 
-        __A = _A.asnumpy()
-        __B = _B.asnumpy()
+        __A = _A.asnumpy().astype(np.int64)
+        __B = _B.asnumpy().astype(np.int64)
 
         for j in range(0, 10):
             for k in range(0, 4):
@@ -76,8 +76,8 @@ def test_unpack_multi_dimension():
 
         f(_A, _B)
 
-        __A = _A.asnumpy()
-        __B = _B.asnumpy()
+        __A = _A.asnumpy().astype(np.int64)
+        __B = _B.asnumpy().astype(np.int64)
 
         for j in range(0, 10):
             for k in range(0, 10):
@@ -108,8 +108,8 @@ def test_pack():
 
         f(_A, _B)
 
-        __A = _A.asnumpy()
-        __B = _B.asnumpy()
+        __A = _A.asnumpy().astype(np.int64)
+        __B = _B.asnumpy().astype(np.int64)
 
         for j in range(0, 10):
             golden = 0
@@ -135,8 +135,8 @@ def test_pack_dtype():
 
         f(_A, _B)
 
-        __A = _A.asnumpy()
-        __B = _B.asnumpy()
+        __A = _A.asnumpy().astype(np.int64)
+        __B = _B.asnumpy().astype(np.int64)
 
         for j in range(0, 10):
             golden = 0
@@ -162,8 +162,8 @@ def test_pack_multi_dimension():
 
         f(_A, _B)
 
-        __A = _A.asnumpy()
-        __B = _B.asnumpy()
+        __A = _A.asnumpy().astype(np.int64)
+        __B = _B.asnumpy().astype(np.int64)
 
         for j in range(0, 10):
             for k in range(0, 10):
@@ -191,8 +191,8 @@ def test_pack_unpack():
 
         f(_A, _B)
 
-        __A = _A.asnumpy()
-        __B = _B.asnumpy()
+        __A = _A.asnumpy().astype(np.int64)
+        __B = _B.asnumpy().astype(np.int64)
 
         for j in range(0, 40):
             assert __A[j] == __B[j]
@@ -215,7 +215,7 @@ def test_pack_dtype_str():
 
     f(hclB)
 
-    npB = hclB.asnumpy()
+    npB = hclB.asnumpy().astype(np.int64)
 
     for i in range(0, 4):
         e = npB[i]
