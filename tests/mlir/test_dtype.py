@@ -244,27 +244,26 @@ def test_fixed_compute_basic():
 
     assert np.allclose(hcl_A.asnumpy() + hcl_B.asnumpy(), hcl_C.asnumpy())
 
-@pytest.mark.skip(reason="crashed")
 def test_dtype_cast():
 
     def _test_body(dtype1, dtype2, dtype3):
 
         hcl.init()
-        A = hcl.placeholder((100,), dtype=dtype1)
-        B = hcl.placeholder((100,), dtype=dtype2)
+        A = hcl.placeholder((2,), dtype=dtype1)
+        B = hcl.placeholder((2,), dtype=dtype2)
 
         def kernel(A, B):
-            C = hcl.compute((100,), lambda x: A[x] + B[x], dtype=dtype3)
-            D = hcl.compute((100,), lambda x: A[x] - B[x], dtype=dtype3)
+            C = hcl.compute((2,), lambda x: A[x] + B[x], dtype=dtype3)
+            D = hcl.compute((2,), lambda x: A[x] - B[x], dtype=dtype3)
             return C, D
 
         s = hcl.create_schedule([A, B], kernel)
         f = hcl.build(s)
 
-        npA = np.random.rand(100) * 100
-        npB = np.random.rand(100) * 100
-        npC = np.random.rand(100)
-        npD = np.random.rand(100)
+        npA = np.random.rand(2) * 100
+        npB = np.random.rand(2) * 100
+        npC = np.random.rand(2)
+        npD = np.random.rand(2)
 
         hclA = hcl.asarray(npA, dtype1)
         hclB = hcl.asarray(npB, dtype2)
@@ -283,7 +282,7 @@ def test_dtype_cast():
              hcl.UFixed(32, 16), hcl.Fixed(32, 16), hcl.Float()], 3)
 
     for dtypes in list(perm):
-        _test_body(*dtypes)
+       _test_body(*dtypes)
 
 
 def test_dtype_long_int():
@@ -492,3 +491,25 @@ def test_dtype_large_array():
     test_kernel(hcl.Fixed(11, 9))
     test_kernel(hcl.Fixed(18, 16))
     test_kernel(hcl.Fixed(37, 35))
+
+
+def test_sign():
+    hcl.init(hcl.Int(32))
+    A = hcl.placeholder((1, 6, 3, 3))
+
+    def sign(data, name="sign"):
+        batch, channel, out_height, out_width = data.shape
+        res = hcl.compute((batch, channel, out_height, out_width), lambda nn, cc, hh, ww:
+                            hcl.select(data[nn, cc, hh, ww] > 0, 1, 0), name=name, dtype=hcl.UInt(2))
+        hcl.print(res)
+        return res
+
+    s = hcl.create_schedule([A], sign)
+    f = hcl.build(s)
+
+    np_A = np.random.randint(0, 4, size=(1, 6, 3, 3))
+
+    hcl_A = hcl.asarray(np_A, dtype=hcl.Int(32))
+    hcl_B = hcl.asarray(np.zeros((1, 6, 3, 3), dtype="int"), dtype=hcl.UInt(2))
+
+    f(hcl_A, hcl_B)
