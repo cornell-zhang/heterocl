@@ -106,14 +106,17 @@ def select(cond, true_val, false_val):
 
 
 def sum(data, axis=None, dtype=None, name=""):
+    dtype = config.init_dtype if dtype == None else dtype
     return hcl_mlir.SumOp(data, axis, get_dtype_str(dtype))
 
 
 def max(data, axis=None, dtype=None, name=""):
+    dtype = config.init_dtype if dtype == None else dtype
     return hcl_mlir.MaxOp(data, axis, get_dtype_str(dtype))
 
 
 def min(data, axis=None, dtype=None, name=""):
+    dtype = config.init_dtype if dtype == None else dtype
     return hcl_mlir.MinOp(data, axis, get_dtype_str(dtype))
 
 
