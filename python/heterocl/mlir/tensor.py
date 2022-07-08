@@ -337,7 +337,11 @@ class Array(object):
 
     def asnumpy(self):
         if isinstance(self.dtype, (Fixed, UFixed)):
-            res_array = self.np_array.astype(
+            if isinstance(self.dtype, Fixed):
+                res_array = self.np_array.astype(np.int64)
+            else:
+                res_array = self.np_array
+            res_array = res_array.astype(
                 np.float64) / float(2**(self.dtype.fracs))
             return res_array
         elif isinstance(self.dtype, Int):
