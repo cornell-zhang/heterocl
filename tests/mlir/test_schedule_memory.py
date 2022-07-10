@@ -27,6 +27,44 @@ def test_reuse_blur_x():
 
     assert np.array_equal(np_B, np_C)
 
+def test_reuse_and_partition():
+    hcl.init()
+    A = hcl.placeholder((10, 10))
+    F = hcl.placeholder((3, 3))
+    def conv(A, F):
+        r = hcl.reduce_axis(0, 3)
+        c = hcl.reduce_axis(0, 3)
+        B = hcl.compute((8, 8), lambda y, x: hcl.sum(A[y+r, x+c]*F[r,c], axis=[r, c]), name="B")
+        return B
+    s = hcl.create_schedule([A, F], conv)
+    B = conv.B
+    LB = s.reuse_at(A, s[B], B.axis[0])
+    WB = s.reuse_at(LB, s[B], B.axis[1])
+    s.partition(LB, dim=1)
+    s.partition(WB)
+    f = hcl.build(s)
+    np_A = np.random.randint(0, 10, size=(10, 10))
+    np_F = np.random.randint(0, 10, size=(3, 3))
+    np_B = np.zeros((8, 8), dtype="int")
+    np_C = np.zeros((8, 8), dtype="int")
+
+    for y in range(0, 8):
+        for x in range(0, 8):
+            for r in range(0, 3):
+                for c in range(0, 3):
+                    np_C[y][x] += np_A[y+r][x+c] * np_F[r][c]
+
+    hcl_A = hcl.asarray(np_A)
+    hcl_F = hcl.asarray(np_F)
+    hcl_B = hcl.asarray(np_B)
+
+    f(hcl_A, hcl_F, hcl_B)
+
+    np_B = hcl_B.asnumpy()
+
+    assert np.array_equal(np_B, np_C)
+
+
 def test_reuse_blur_x_tensor():
     hcl.init()
     A = hcl.placeholder((10, 10))
@@ -306,7 +344,9 @@ def test_partition_basic():
     s = hcl.create_schedule([A])
     s.partition(A)
     ir = str(hcl.lower(s))
+    print(ir)
     assert "affine_map<(d0, d1) -> (d0, d1, 0, 0)>" in ir
+    f = hcl.build(s)
 
 def test_partition_type():
     def test_1():
