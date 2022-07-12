@@ -4,7 +4,6 @@ setup(
   name = "heterocl",
   version = "1.0.0",
   install_requires=[
-      'cython',
       'numpy==1.18.5',
       'decorator==4.4.2',
       'networkx==2.5.1',

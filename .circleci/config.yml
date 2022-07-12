@@ -67,6 +67,7 @@ jobs:
           name: Install HeteroCL
           command: |
             cd python
+            python3 -m pip install cython
             python3 setup.py install
             python3 -m pip install pytest==7.1.1
       - run: 
