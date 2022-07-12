@@ -219,7 +219,7 @@ class Schedule(object):
                 itypes)
             device_top.attributes["otypes"] = StringAttr.get("")
             device_top.add_entry_block()
-        GlobalInsertionPoint.save(InsertionPoint(self._device_module.body))
+        GlobalInsertionPoint.save(InsertionPoint(device_top))
         GlobalInsertionPoint.save(InsertionPoint(device_top.entry_block))
         self._device_top = device_top
 
