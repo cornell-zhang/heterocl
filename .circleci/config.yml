@@ -58,7 +58,12 @@ jobs:
             make -j4
             export PYTHONPATH=$(pwd)/tools/hcl/python_packages/hcl_core:${PYTHONPATH}
       - run:
-          name: Test
+          name: MLIR Tests
           command: |
             cd hcl-dialect-prototype/build
             cmake --build . --target check-hcl
+      - run: 
+          name: HeteroCL Tests
+          command: |
+            cd tests
+            pytest mlir -v
