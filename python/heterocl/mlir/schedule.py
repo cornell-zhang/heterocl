@@ -343,6 +343,8 @@ class Schedule(object):
                 raise RuntimeError("Not supported partition type")
             ui32 = IntegerType.get_unsigned(32)
             factor = IntegerAttr.get(ui32, factor)
+            # if dim > len(MemRefType(target.type).shape):
+            #     raise RuntimeError("Out-of-bound partition dimensionr. Got dim={}, but the target is of shape {}".format(dim, MemRefType(target.type).shape))
             dim = IntegerAttr.get(ui32, dim)
             res = hcl_d.PartitionOp(
                 target, partition_type, dim, factor, ip=GlobalInsertionPoint.get())
@@ -418,14 +420,19 @@ class Schedule(object):
                 target = target._op
             except AttributeError:
                 pass
+        if not isinstance(target, OpResult):
+            shape = target.shape
+            target = target.result
+        if not isinstance(axis, OpResult):
+            axis = axis.result
 
         with get_context() as ctx, get_location() as loc:
             i32 = IntegerType.get_signless(32)
             f32 = F32Type.get(ctx)
             # TODO: Need to do shape inference
-            memref_type = MemRefType.get(target.shape, f32, loc=loc)
+            memref_type = MemRefType.get(shape, f32, loc=loc)
             res = hcl_d.BufferAtOp(memref_type, parent.stage_handle.result,
-                                   target.result, axis.result, ip=GlobalInsertionPoint.get())
+                                   target, axis, ip=GlobalInsertionPoint.get())
         return res.result
 
     def to(self, tensor, dst=None, fifo_depth=-1):
@@ -458,7 +465,7 @@ class Schedule(object):
                 to_op = hcl_d.InterKernelToOp(
                     tensor, dst.stage_handle.result, fifo_depth, ip=GlobalInsertionPoint.get())
 
-    def outline(self, *stage_list):
+    def outline(self, *stage_list, merge=None):
         """Outline stages as a function
 
         e.g., s.outline([s0,s1], [s2], [s3,s4])
@@ -468,8 +475,10 @@ class Schedule(object):
         for stages in stage_list:
             handles = [stage.stage_handle.result for stage in stages]
             with get_context() as ctx, get_location() as loc:
-                hcl_d.OutlineOp(handles,
-                                ip=GlobalInsertionPoint.get())
+                op = hcl_d.OutlineOp(handles,
+                                     ip=GlobalInsertionPoint.get())
+                if merge is not None:
+                    op.attributes["merge"] = StringAttr.get(merge.name)
             results.append(StageFunction([stage.name for stage in stages]))
         return results if len(results) > 1 else results[0]
 
@@ -668,13 +677,15 @@ class Stage(object):
             compute_at = hcl_d.ComputeAtOp(
                 self.stage_handle.result, parent.stage_handle.result, scope.result, ip=GlobalInsertionPoint.get())
 
-    def outline(self):
+    def outline(self, merge=None):
         """Outline a stage as a function
         """
 
         with get_context() as ctx, get_location() as loc:
-            hcl_d.OutlineOp([self.stage_handle.result],
-                            ip=GlobalInsertionPoint.get())
+            op = hcl_d.OutlineOp([self.stage_handle.result],
+                                 ip=GlobalInsertionPoint.get())
+            if merge is not None:
+                op.attributes["merge"] = StringAttr.get(merge.name)
         return StageFunction(self.name)
 
     def systolic(self):
