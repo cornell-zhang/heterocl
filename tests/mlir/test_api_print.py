@@ -2,7 +2,7 @@ import heterocl as hcl
 import numpy as np
 import pathlib
 import subprocess
-
+import pytest
 
 def get_stdout(filename):
     path = pathlib.Path(__file__).parent.absolute()
@@ -20,7 +20,7 @@ def test_print_number():
 
     assert golden in str(output)
 
-
+@pytest.mark.skip(reason="Not implemented")
 def test_print_expr():
 
     outputs = get_stdout("print_expr").split("\n")
