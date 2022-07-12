@@ -13,5 +13,5 @@ setup(
       'xmltodict',
       'tabulate',
       'sodac',
-      'pandas',
+    #   'pandas', # timed out on CI
       ])
