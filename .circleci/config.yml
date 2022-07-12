@@ -57,6 +57,7 @@ jobs:
                 -DPython3_EXECUTABLE=`which python3`
             make -j4
             export PYTHONPATH=$(pwd)/tools/hcl/python_packages/hcl_core:${PYTHONPATH}
+            export PYTHONPATH=$(pwd)/tools/mlir/python_packages/mlir_core:${PYTHONPATH}
       - run:
           name: MLIR Tests
           command: |
