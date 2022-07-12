@@ -62,9 +62,14 @@ jobs:
           command: |
             cd hcl-dialect-prototype/build
             cmake --build . --target check-hcl
+      - run:
+          name: Install HeteroCL
+          command: |
+            cd python
+            python3 setup.py install
+            python3 -m pip install pytest==7.1.1
       - run: 
           name: HeteroCL Tests
           command: |
-            python3 -m pip install pytest==7.1.1
             cd tests
             python -m pytest mlir -v
