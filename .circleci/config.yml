@@ -67,4 +67,4 @@ jobs:
           command: |
             python3 -m pip install pytest==7.1.1
             cd tests
-            pytest mlir -v
+            python -m pytest mlir -v
