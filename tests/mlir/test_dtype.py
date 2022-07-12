@@ -352,7 +352,6 @@ def test_dtype_struct():
         return E, F, G
 
     s = hcl.create_schedule([A, B, C], kernel)
-    print(hcl.lower(s))
     f = hcl.build(s)
     np_A = np.random.randint(0, 500, size=100) - 250
     np_B = np.random.rand(100) - 0.5
@@ -501,7 +500,6 @@ def test_sign():
         batch, channel, out_height, out_width = data.shape
         res = hcl.compute((batch, channel, out_height, out_width), lambda nn, cc, hh, ww:
                             hcl.select(data[nn, cc, hh, ww] > 0, 1, 0), name=name, dtype=hcl.UInt(2))
-        hcl.print(res)
         return res
 
     s = hcl.create_schedule([A], sign)
