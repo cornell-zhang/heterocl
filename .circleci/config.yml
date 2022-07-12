@@ -63,15 +63,20 @@ jobs:
             cd hcl-dialect-prototype/build
             cmake --build . --target check-hcl
       - run:
-          name: Install HeteroCL
+          name: Install HeteroCL Dependencies
           command: |
             python3 -m pip install numpy==1.18.5
             python3 -m pip install ordered_set
             python3 -m pip install pytest==7.1.1
-            export HCL_HOME=$(pwd)
-            export PYTHONPATH=$HCL_HOME/python:$HCL_HOME/hlib/python:${PYTHONPATH}
+            python3 -m pip install xmltodict
+            python3 -m pip install tabulate
+            python3 -m pip install pandas
+            python3 -m pip install imageio
       - run: 
           name: HeteroCL Tests
           command: |
+            export HCL_HOME=$(pwd)
+            export PYTHONPATH=$HCL_HOME/hcl-dialect-prototype/build/tools/hcl/python_packages/hcl_core:${PYTHONPATH}
+            export PYTHONPATH=$HCL_HOME/python:$HCL_HOME/hlib/python:${PYTHONPATH}
             cd tests
             python3 -m pytest mlir -v
