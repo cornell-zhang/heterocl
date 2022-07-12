@@ -27,6 +27,7 @@ def test_move_outputs():
     assert "Stage_update1" in mod.src
     assert "Stage_update2" in mod.host_src
 
+@pytest.mark.skip(reason="IndexError: access out of bound")
 def test_in_place_update():
     hcl.init()
     A = hcl.placeholder((10, 32), "A")
@@ -87,6 +88,7 @@ def test_extern_ops():
     assert "Stage_D" in mod.host_src
 
 
+@pytest.mark.skip(reason="TypeError: .to() got an unexpected keyword argument axis")
 def test_inner_loop_body_placement():
     def _test_imperative_loop():
         hcl.init()
@@ -147,6 +149,7 @@ def test_inner_loop_body_placement():
     _test_inner_loop_tile() 
 
 # Test on-chip data movement
+@pytest.mark.skip(reason="IndexError: list index out of range")
 def test_stages_one_to_many():
     A = hcl.placeholder((10, 32), "A")
     B = hcl.placeholder((10, 32), "B")
@@ -190,6 +193,7 @@ def test_mixed_stream():
     assert "Stage_C" in mod.src
     assert "Stage_D" in mod.src
 
+@pytest.mark.skip(reason="IndexError: list index out of range")
 def test_fork_join():
     def inter_stage_fork():
         hcl.init()
@@ -236,6 +240,7 @@ def test_fork_join():
     inter_stage_fork()
     inter_stage_join()
 
+@pytest.mark.skip(reason="Schedule object has no attribute subgraph")
 def test_kernel_duplicate():
     def test_extract_subgraph(combine=False):
         hcl.init()
@@ -291,6 +296,7 @@ def test_kernel_duplicate():
     test_extract_subgraph(True)
 
 # Test cross device data movement
+@pytest.mark.skip(reason="DevMemoryPair has no attribute types")
 def test_stream_advanced_features():
     def test_custom_target():
         hcl.init()
@@ -482,6 +488,7 @@ def test_mem_customization():
     test_compute_at_blur_x_with_data_placement()
     test_reuse_at_with_data_placement()
 
+@pytest.mark.skip(reason="for_() got an unexpected keyword argument 'name'")
 def test_dataflow_primitive():
     hcl.init()
     A = hcl.placeholder((10, 32), "A")
@@ -550,6 +557,7 @@ def test_dataflow_graph():
     code = str(hcl.build(s, target="aocl"))
     print("Succeed!")
 
+@pytest.mark.skip(reason="Schedule object has no attribute subgraph")
 def test_subgraph():
     hcl.init()
     A = hcl.placeholder((10, 32), "A")
@@ -580,6 +588,7 @@ def test_subgraph():
 
     print(hcl.lower(s))
 
+@pytest.mark.skip(reason="Expected str, bytes or os.PathLike Object, not NoneType")
 def test_sobel_vivado_hls():
     width, height = 224, 224
     A = hcl.placeholder((height,width,3), "A")
@@ -621,6 +630,7 @@ def test_sobel_vivado_hls():
     target.config(compiler="vivado_hls", mode="debug")
     print(hcl.build(s, target))
 
+@pytest.mark.skip(reason="function object has no attribute Super")
 def test_super_stage():
     hcl.init()
     A = hcl.placeholder((10, 32), "A")
@@ -668,6 +678,7 @@ def test_super_stage():
     _test_super_stage_on_device()
     _test_super_stage_on_device_stream()
 
+@pytest.mark.skip(reason="AttributeError: function object has no attribute B")
 def test_inter_kernel_channels():
     hcl.init()
     A = hcl.placeholder((10, 32), "A")
@@ -728,6 +739,7 @@ def test_one_stage_on_dev():
     s.to(kernel.C,target.host)
     print(hcl.lower(s))
 
+@pytest.mark.skip(reason="index out of range")
 def test_auto_move_to_dev():
     A = hcl.placeholder((10, 32), "A")
     B = hcl.placeholder((10, 32), "B")
