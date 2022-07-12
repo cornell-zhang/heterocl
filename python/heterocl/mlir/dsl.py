@@ -274,7 +274,6 @@ def def_(shapes, dtypes=None, ret_dtype=None, name=None, arg_names=None):
                                   return_types, results=[]),
             ip=GlobalInsertionPoint.ip_stack[0],
         )
-        GlobalInsertionPoint.update_front(stage_func_op)
         # stage_func_op.attributes["inputs"] = StringAttr.get(
         #     ",".join([tensor.name for tensor in self.inputs]))
         stage_func_op.attributes["itypes"] = StringAttr.get(
