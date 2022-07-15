@@ -74,6 +74,7 @@ def test_if():
     assert np.array_equal(golden_A, ret_A)
 
 def test_else():
+    hcl.init(hcl.Int(32))
     def kernel(A):
         with hcl.if_(A[0] > 5):
             A[0] = 5
@@ -83,14 +84,10 @@ def test_else():
     A = hcl.placeholder((1,))
     s = hcl.create_schedule(A, kernel)
     f = hcl.build(s)
-
     np_A = np.random.randint(10, size=(1,))
     golden_A = [5 if np_A[0] > 5 else -1]
-
     hcl_A = hcl.asarray(np_A)
-
     f(hcl_A)
-
     ret_A = hcl_A.asnumpy()
     assert np.array_equal(golden_A, ret_A)
 
