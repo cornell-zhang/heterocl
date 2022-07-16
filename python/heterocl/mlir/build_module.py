@@ -30,7 +30,7 @@ def lower(schedule,
     hcl_d.loop_transformation(schedule.device_module)
     pipeline = (
         f"builtin.func"
-        f"(affine-loop-normalize, cse)"
+        f"(affine-loop-normalize, cse, affine-simplify-structures)"
     )
     try:
         with get_context():
