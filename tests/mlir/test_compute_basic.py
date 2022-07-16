@@ -1,7 +1,6 @@
 import heterocl as hcl
 import numpy
 import pytest
-import warnings
 
 
 def _test_kernel(kernel):

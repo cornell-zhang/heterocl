@@ -1,3 +1,4 @@
+from re import I
 import heterocl as hcl
 import numpy as np
 from itertools import permutations
@@ -498,7 +499,7 @@ def test_dataflow_primitive():
     def kernel(A, B):
         C = hcl.compute((10, 32), lambda *args : 0, "C")
         D = hcl.compute(C.shape, lambda *args: 0, "D")
-        with hcl.for_(0, 10, name="Super") as j:
+        with hcl.for_(0, 10, tag="Super") as j:
             hcl.update(D, lambda *args: j*A[args] + B[args], name="update.D")
             hcl.update(C, lambda *args: A[args] + j*D[args], name="update.C")
         return C
@@ -522,7 +523,7 @@ def test_dataflow_primitive():
 
     _test_dataflow_loop_body()
     _test_dataflow_region_in_func()
-    
+
 
 @pytest.mark.skip(reason="segfault")
 def test_dataflow_graph():
