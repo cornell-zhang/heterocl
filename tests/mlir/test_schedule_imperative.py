@@ -86,7 +86,6 @@ def test_schedule_intra_stage():
     test_split()
 
 
-@pytest.mark.skip(reason="Assertion failure")
 def test_schedule_inter_stage():
 
     hcl.init()
@@ -106,14 +105,11 @@ def test_schedule_inter_stage():
         Out = popcount.Out
         s[popcount.C].compute_at(s[Out], Out.axis[1])
         ir = hcl.lower(s)
-        loops = hcl_mlir.get_affine_loop_nests(s.device_top)[0]
-        assert 'affine.store %2, %0[%arg2, %arg3] {to = "C"} : memref<10x20xi32>' in str(loops[1]["body"])
-        assert "0 to 32" in str(loops[2]["body"])
+        assert 'affine.store %2, %0[%arg2, %arg3] {to = "C"} : memref<10x20xi32>' in str(ir)
+        assert "0 to 32" in str(ir)
 
     test_compute_at()
 
 
 if __name__ == '__main__':
-    test_if()
-    test_schedule_intra_stage()
     test_schedule_inter_stage()

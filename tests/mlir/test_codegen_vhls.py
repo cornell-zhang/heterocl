@@ -3,7 +3,6 @@ import __test_codegen_harness as harness
 import pytest
 target="vhls"
 
-@pytest.mark.skip(reason="Type casting to be supported")
 def test_dtype():
     harness.test_dtype(target, ["ap_int<3>",
                                 "ap_uint<3>",
@@ -15,6 +14,7 @@ def test_dtype():
 @pytest.mark.skip(reason="print op to be supported")
 def test_print():
     harness.test_print(target)
+
 
 def test_pragma():
     harness.test_pragma(target,
@@ -108,8 +108,7 @@ def test_select_type_cast():
         s = hcl.create_scheme(A, kernel)
         s = hcl.create_schedule_from_scheme(s)
         code = hcl.build(s, target="vhls")
-        assert "((ap_int<33>)0)" in code
-        assert "((ap_int<33>)(((ap_int<33>)A" in code
+        assert "((-x) + 3) >= 0" in code
 
     def test_uint_imm_ops():
         A = hcl.placeholder((10, 10), "A", dtype=hcl.UInt(1))

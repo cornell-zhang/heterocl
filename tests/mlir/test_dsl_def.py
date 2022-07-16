@@ -269,7 +269,7 @@ def test_module_multi_calls():
     for i in range(0, 10):
         assert(_C[i] == (a[i]+b[i])*i)
 
-@pytest.mark.skip(reason="crashes")
+@pytest.mark.skip(reason="verification failure")
 def test_module_ret_dtype():
 
     def algorithm(A, B):
@@ -501,6 +501,7 @@ def test_module_declarative_compute_at():
     c = hcl.placeholder((10,))
 
     s = hcl.create_schedule([a, b, c], algorithm)
+    # the update stage doesn't have any axis
     s[algorithm.d].compute_at(s[algorithm.u], algorithm.u.axis[0])
     f = hcl.build(s)
 

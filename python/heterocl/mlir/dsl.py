@@ -6,6 +6,7 @@ from hcl_mlir.dialects import affine, builtin
 from hcl_mlir.dialects import hcl as hcl_d
 from hcl_mlir.dialects import scf, std
 from hcl_mlir.ir import *
+from hcl_mlir.exceptions import *
 
 from .. import config
 from .context import (BreakFlag, ImperativeLoopDepth, ImperativeLoopNestCount,

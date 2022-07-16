@@ -7,6 +7,7 @@ from hcl_mlir.dialects import builtin
 from hcl_mlir.dialects import hcl as hcl_d
 from hcl_mlir.dialects import std
 from hcl_mlir.ir import *
+from hcl_mlir.exceptions import *
 
 from ..devices import Device, DevMemoryPair
 from .context import (BreakFlag, ImperativeLoopDepth, ImperativeLoopNestCount,
@@ -695,8 +696,7 @@ class Stage(object):
             self.ir_node.attributes["systolic"] = UnitAttr.get()
 
     def __enter__(self):
-        warnings.warn(
-            "hcl.Stage() is deprecated, please remove it.", DeprecationWarning)
+        HCLDeprecationWarning("hcl.Stage() is deprecated, please remove it.").warn()
 
     def __exit__(self, ptype, value, trace):
         pass

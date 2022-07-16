@@ -64,12 +64,6 @@ def test_reuse_and_partition():
 
     assert np.array_equal(np_B, np_C)
 
-    print("np_B: ", np_B)
-    print("np_C: ", np_C)
-    print("test_reuse_and_partition success")
-
-test_reuse_and_partition()
-
 
 def test_reuse_blur_x_tensor():
     hcl.init()

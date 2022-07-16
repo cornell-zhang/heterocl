@@ -54,7 +54,6 @@ def test_or():
     ret_C = hcl_C.asnumpy()
     assert np.array_equal(ret_C, golden_C)
 
-@pytest.mark.skip(reason="Runtime error: the operation has been invalidated")
 def test_if():
     def kernel(A):
         with hcl.if_(A[0] > 5):
@@ -74,8 +73,8 @@ def test_if():
     ret_A = hcl_A.asnumpy()
     assert np.array_equal(golden_A, ret_A)
 
-@pytest.mark.skip(reason="Runtime error: the operation has been invalidated")
 def test_else():
+    hcl.init(hcl.Int(32))
     def kernel(A):
         with hcl.if_(A[0] > 5):
             A[0] = 5
@@ -85,18 +84,13 @@ def test_else():
     A = hcl.placeholder((1,))
     s = hcl.create_schedule(A, kernel)
     f = hcl.build(s)
-
     np_A = np.random.randint(10, size=(1,))
     golden_A = [5 if np_A[0] > 5 else -1]
-
     hcl_A = hcl.asarray(np_A)
-
     f(hcl_A)
-
     ret_A = hcl_A.asnumpy()
     assert np.array_equal(golden_A, ret_A)
 
-@pytest.mark.skip(reason="Runtime error: the operation has been invalidated")
 def test_cond_all():
     def kernel(A):
         with hcl.if_(A[0] > 5):
@@ -119,7 +113,6 @@ def test_cond_all():
 
     ret_A = hcl_A.asnumpy()
 
-@pytest.mark.skip(reason="Runtime error: the operation has been invalidated")
 def test_elif():
     def kernel(A):
         with hcl.if_(A[0] > 5):
@@ -251,7 +244,6 @@ def test_for_index_casting():
     assert np.array_equal(golden_A, ret_A)
 
 
-@pytest.mark.skip(reason="crashes")
 def test_while_basic():
     def kernel(A):
         a = hcl.scalar(0)
@@ -273,6 +265,12 @@ def test_while_basic():
     ret_A = hcl_A.asnumpy()
     assert np.array_equal(golden_A, ret_A)
 
+def test_invalidate():
+    def kernel():
+        i = hcl.scalar(0,"i",dtype=hcl.UInt(32))
+        with hcl.while_(i.v < 10):
+            i.v += 1
+    s = hcl.create_schedule([], kernel)
 
 def test_break_in_for():
     with pytest.raises(Exception):
