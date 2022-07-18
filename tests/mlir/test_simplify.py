@@ -1,5 +1,6 @@
 import heterocl as hcl
 import pytest
+from hcl_mlir.exceptions import APIError
 
 def test_remove_single_loop():
     hcl.init()
@@ -10,7 +11,7 @@ def test_remove_single_loop():
     assert "0 to 1" not in str(ir)
 
 def test_simplify_slice():
-    with pytest.raises(RuntimeError):
+    with pytest.raises(APIError):
         hcl.init()
         A = hcl.placeholder((10,), "A")
         def kernel(A):
