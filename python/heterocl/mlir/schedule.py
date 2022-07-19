@@ -146,7 +146,7 @@ def build_schedule(inputs, func=None, name=""):
     return sch
 
 
-def create_schedule(inputs, func=None, name=""):
+def customize(inputs, func=None, name=""):
     try:
         return build_schedule(inputs, func, name)
     except Exception as e:
@@ -154,6 +154,13 @@ def create_schedule(inputs, func=None, name=""):
     finally:
         hcl_mlir.reset_build_inplace()
         NestedCompute.set(0)
+
+
+def create_schedule(inputs, func=None, name=""):
+    """Create a schedule for compute optimizations.
+    inputs: list of Tensor
+    """
+    return customize(inputs, func, name)
 
 
 class Partition(object):
