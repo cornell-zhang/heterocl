@@ -42,6 +42,7 @@ class Instance(object):
     def __call__(self, *args):
         call_arg_list = [arg.result for arg in args]
         input_types = [arg.result.type for arg in args]
+
         # get instance interface return type
         saved_ip_stack = [ip for ip in GlobalInsertionPoint.ip_stack]
         set_context()
@@ -63,4 +64,8 @@ class Instance(object):
         )
         call_op = hcl_mlir.CallOp(result_types[0], self.name, call_arg_list)
         call_op.build()
-        return
+        # attach a 'memref_type' attribute to the call op
+        call_op.memref_type = call_op.result.type
+        # attach element type to the call op
+        setattr(call_op.op, 'dtype', hcl_dtype_to_mlir(ret.dtype))
+        return call_op
