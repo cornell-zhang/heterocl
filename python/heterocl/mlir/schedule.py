@@ -678,13 +678,19 @@ class Stage(object):
             compute_at = hcl_d.ComputeAtOp(
                 self.stage_handle.result, parent.stage_handle.result, scope.result, ip=GlobalInsertionPoint.get())
 
-    def outline(self, merge=None):
+    def outline(self, param=[], merge=None):
         """Outline a stage as a function
         """
 
         with get_context() as ctx, get_location() as loc:
             op = hcl_d.OutlineOp([self.stage_handle.result],
                                  ip=GlobalInsertionPoint.get())
+            assert isinstance(param, list), "param must be a list"
+            if len(param) > 0:
+                attr_list = []
+                for p in param:
+                    attr_list.append(p.loop_name)
+                op.attributes["param"] = ArrayAttr.get(attr_list)
             if merge is not None:
                 op.attributes["merge"] = StringAttr.get(merge.name)
         return StageFunction(self.name)
