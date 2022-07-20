@@ -4,7 +4,7 @@ from hcl_mlir import GlobalInsertionPoint, ASTVisitor
 from hcl_mlir.ir import *
 from .context import *
 from .utils import hcl_dtype_to_mlir
-from .schedule import Schedule
+from .schedule import Schedule, build_schedule
 
 def instantiate(func, name=None, count=1):
     """Instantiate a function.
@@ -56,7 +56,14 @@ class Instance(object):
         result_types = [ret.result.type]
         GlobalInsertionPoint.clear()
         GlobalInsertionPoint.ip_stack.extend(saved_ip_stack)
-        
+
+        # The instance schedule is built in self.func call
+        # attach the instance schedule to the instance
+        self.instance_sch = Schedule._ScheduleStack.pop()
+        Schedule._CurrentSchedule = Schedule._ScheduleStack[-1]
+        # TODO(Niansong): change top func name in instance_sch
+        Schedule._CurrentSchedule._instance_modules.append(self.instance_sch.device_module)
+
         # Build a FuncOp with no function body as declaration
         func_op = builtin.FuncOp(
             name=self.name,
