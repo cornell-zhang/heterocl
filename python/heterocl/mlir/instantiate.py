@@ -4,7 +4,7 @@ from hcl_mlir import GlobalInsertionPoint, ASTVisitor
 from hcl_mlir.ir import *
 from .context import *
 from .utils import hcl_dtype_to_mlir
-from .tensor import Tensor
+from .schedule import Schedule
 
 def instantiate(func, name=None, count=1):
     """Instantiate a function.
@@ -27,10 +27,12 @@ def instantiate(func, name=None, count=1):
         if count == 1:
             name = UniqueName.get("instance")
         else:
-            name = [UniqueName.get("instance") for _ in range(count)]
+            names = [UniqueName.get("instance") for _ in range(count)]
     
-    
-    return Instance(func, name)
+    if count == 1:
+        return Instance(func, name)
+    else:
+        return [Instance(func, name) for name in names]
 
 
 class Instance(object):
@@ -64,8 +66,17 @@ class Instance(object):
         )
         call_op = hcl_mlir.CallOp(result_types[0], self.name, call_arg_list)
         call_op.build()
+
+        # Attach necessary information for the callOp
         # attach a 'memref_type' attribute to the call op
         call_op.memref_type = call_op.result.type
         # attach element type to the call op
         setattr(call_op.op, 'dtype', hcl_dtype_to_mlir(ret.dtype))
+        # attach a name to the call op
+        setattr(call_op, 'name', ret.name)
+
+        # Set up a dataflow node for this instance
+        node = Schedule._CurrentSchedule.DataflowGraph.create_node(call_op)
+        Schedule._CurrentSchedule.DataflowGraph.add_edges(list(args), [node])
+        
         return call_op
