@@ -19,6 +19,7 @@ if ir_name == "mlir":
     from .mlir.debug import *
     from .types import *
     from .platforms import *
+    from .mlir.instantiate import *
 else:
     from .api import *
     from .compute_api import *

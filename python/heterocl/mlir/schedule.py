@@ -146,7 +146,7 @@ def build_schedule(inputs, func=None, name=""):
     return sch
 
 
-def create_schedule(inputs, func=None, name=""):
+def customize(inputs, func=None, name=""):
     try:
         return build_schedule(inputs, func, name)
     except Exception as e:
@@ -154,6 +154,13 @@ def create_schedule(inputs, func=None, name=""):
     finally:
         hcl_mlir.reset_build_inplace()
         NestedCompute.set(0)
+
+
+def create_schedule(inputs, func=None, name=""):
+    """Create a schedule for compute optimizations.
+    inputs: list of Tensor
+    """
+    return customize(inputs, func, name)
 
 
 class Partition(object):
@@ -171,6 +178,7 @@ class Schedule(object):
     _CurrentStage = []
     _CurrentLoops = []  # only used in imperative DSL
     _TopFunction = None
+    _ScheduleStack = []
 
     def __init__(self, name, inputs, func=None):
         self.name = name
@@ -188,6 +196,9 @@ class Schedule(object):
         self._host_ret = None
         self._xcel_ret = None
 
+        # Instance modules for hierarchical construction
+        self._instance_modules = []
+
         # External module:
         # used for generating other backend codes
         self._extern_module = None
@@ -196,6 +207,7 @@ class Schedule(object):
         # Other facilities
         Stage._mapping = []  # operation->stage
         Schedule._CurrentSchedule = self
+        Schedule._ScheduleStack.append(self)
         Schedule._CurrentStage = []
         Schedule._CurrentLoops = []
         Schedule._TopFunction = func
@@ -302,6 +314,10 @@ class Schedule(object):
     @property
     def extern_top(self):
         return self._extern_top
+
+    @property
+    def instance_modules(self):
+        return self._instance_modules
 
     def __getitem__(self, target):
         """Return a Stage
