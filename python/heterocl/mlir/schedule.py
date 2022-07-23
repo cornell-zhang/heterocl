@@ -424,8 +424,8 @@ class Schedule(object):
             f32 = F32Type.get(ctx)
             # TODO: Need to do shape inference
             memref_type = MemRefType.get((1,), f32, loc=loc)
-            res = hcl_d.ReuseAtOp(memref_type, parent.stage_handle.result,
-                                  target, axis, ip=GlobalInsertionPoint.get())
+            res = hcl_d.ReuseAtOp(memref_type, target,
+                                  axis, ip=GlobalInsertionPoint.get())
         return res.result
 
     def buffer_at(self, target, parent, axis, name=None):
@@ -448,8 +448,8 @@ class Schedule(object):
             f32 = F32Type.get(ctx)
             # TODO: Need to do shape inference
             memref_type = MemRefType.get(shape, f32, loc=loc)
-            res = hcl_d.BufferAtOp(memref_type, parent.stage_handle.result,
-                                   target, axis, ip=GlobalInsertionPoint.get())
+            res = hcl_d.BufferAtOp(memref_type, target,
+                                   axis, ip=GlobalInsertionPoint.get())
         return res.result
 
     def to(self, tensor, dst=None, fifo_depth=-1):
@@ -553,10 +553,6 @@ class Stage(object):
 
     def done(self):
         # create stage handle
-        with get_context() as ctx, get_location() as loc:
-            self.stage_handle = hcl_d.CreateOpHandleOp(
-                StringAttr.get(self.name), ip=GlobalInsertionPoint.get()
-            )
         if self.op is None:
             # pseudo return tensor for stage with no return value
             from .operation import placeholder
@@ -590,7 +586,7 @@ class Stage(object):
             if not isinstance(args[i], OpResult):
                 args[i] = args[i].result
         with get_context(), get_location():
-            hcl_d.ReorderOp(self.stage_handle.result, args,
+            hcl_d.ReorderOp(args,
                             ip=GlobalInsertionPoint.get())
 
     def split(self, parent, factor=None, nparts=None, mode="transform"):
@@ -609,7 +605,7 @@ class Stage(object):
             i32 = IntegerType.get_unsigned(32)
             factor = IntegerAttr.get(i32, factor)
             split_op = hcl_d.SplitOp(
-                self.stage_handle.result, var, factor, ip=GlobalInsertionPoint.get())
+                var, factor, ip=GlobalInsertionPoint.get())
         # self.op.axis[idx] = split_op.results[0]
         # self.op.axis.insert(idx+1, split_op.results[1])
         return split_op.results[0], split_op.results[1]
@@ -626,12 +622,8 @@ class Stage(object):
                 x_parent = x_parent.result
             if isinstance(y_parent, hcl_d.CreateLoopHandleOp):
                 y_parent = y_parent.result
-            tile_op = hcl_d.TileOp(self.stage_handle.result, x_parent,
-                                   y_parent, x_factor, y_factor, ip=GlobalInsertionPoint.get())
-        # self.op.axis[idx] = tile_op.results[0]
-        # self.op.axis.insert(idx+1, tile_op.results[1])
-        # self.op.axis.insert(idx+2, tile_op.results[2])
-        # self.op.axis.insert(idx+3, tile_op.results[3])
+            tile_op = hcl_d.TileOp(
+                x_parent, y_parent, x_factor, y_factor, ip=GlobalInsertionPoint.get())
         return tile_op.results[0], tile_op.results[1], tile_op.results[2], tile_op.results[3]
 
     def pipeline(self, var, initiation_interval=1):
@@ -644,8 +636,7 @@ class Stage(object):
         with get_context(), get_location():
             i32 = IntegerType.get_unsigned(32)
             ii = IntegerAttr.get(i32, initiation_interval)
-            hcl_d.PipelineOp(self.stage_handle.result,
-                             var, ii, ip=GlobalInsertionPoint.get())
+            hcl_d.PipelineOp(var, ii, ip=GlobalInsertionPoint.get())
 
     def unroll(self, var, factor=0):
         """Unroll the iteration.
@@ -657,8 +648,7 @@ class Stage(object):
         with get_context(), get_location():
             i32 = IntegerType.get_unsigned(32)
             factor = IntegerAttr.get(i32, factor)
-            hcl_d.UnrollOp(self.stage_handle.result, var,
-                           factor, ip=GlobalInsertionPoint.get())
+            hcl_d.UnrollOp(var, factor, ip=GlobalInsertionPoint.get())
 
     def parallel(self, var):
         """Parallelize the iteration.
@@ -666,8 +656,7 @@ class Stage(object):
         if isinstance(var, int):
             var = self.op.axis[var]
         with get_context(), get_location():
-            hcl_d.ParallelOp(self.stage_handle.result,
-                             var.result, ip=GlobalInsertionPoint.get())
+            hcl_d.ParallelOp(var.result, ip=GlobalInsertionPoint.get())
 
     def fuse(self, *args):
         """Fuse multiple consecutive iteration variables into a single iteration variable.
@@ -681,8 +670,8 @@ class Stage(object):
                 args[i] = args[i].result
         with get_context() as ctx, get_location():
             loop_handle_type = hcl_d.LoopHandleType.get(ctx)
-            fused = hcl_d.FuseOp(loop_handle_type, self.stage_handle.result,
-                                 args, ip=GlobalInsertionPoint.get())
+            fused = hcl_d.FuseOp(loop_handle_type, args,
+                                 ip=GlobalInsertionPoint.get())
         return fused
 
     def compute_at(self, parent, scope):
@@ -723,7 +712,8 @@ class Stage(object):
             self.ir_node.attributes["systolic"] = UnitAttr.get()
 
     def __enter__(self):
-        HCLDeprecationWarning("hcl.Stage() is deprecated, please remove it.").warn()
+        HCLDeprecationWarning(
+            "hcl.Stage() is deprecated, please remove it.").warn()
 
     def __exit__(self, ptype, value, trace):
         pass

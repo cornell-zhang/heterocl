@@ -165,6 +165,9 @@ class ComputeOp(object):
 
     def build(self):
         Schedule._CurrentStage.append(self.stage)
+        self.stage.stage_handle = hcl_d.CreateOpHandleOp(
+            StringAttr.get(self.stage.name), ip=GlobalInsertionPoint.get()
+        )
         NestedCompute.set(NestedCompute.get() + 1)
         input_types = []
         for in_tensor in self.inputs:  # hcl.Tensor -> hcl_mlir.TensorOp
@@ -179,11 +182,12 @@ class ComputeOp(object):
                 loop_handles = []
                 for loop_name in self.arg_names:
                     loop_handles.append(
-                        hcl_d.CreateLoopHandleOp(StringAttr.get(loop_name))
+                        hcl_d.CreateLoopHandleOp(
+                            self.stage.stage_handle.result, StringAttr.get(loop_name))
                     )
                 for var in self.reduce_var:
                     loop_handles.append(
-                        hcl_d.CreateLoopHandleOp(StringAttr.get(var.name)))
+                        hcl_d.CreateLoopHandleOp(self.stage.stage_handle.result, StringAttr.get(var.name)))
             # set loop handles
             if self.output is not None:
                 self.stage.op.set_axis(loop_handles)

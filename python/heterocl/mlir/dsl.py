@@ -79,6 +79,9 @@ def for_(begin, end, step=1, tag=""):
         stage_name = tag
     if depth == 0:
         Schedule._CurrentStage.append(Stage(stage_name))
+        Schedule._CurrentStage[-1].stage_handle = hcl_d.CreateOpHandleOp(
+            StringAttr.get(stage_name), ip=GlobalInsertionPoint.get()
+        )
         Schedule._TopFunction.__setattr__(
             stage_name, Schedule._CurrentStage[-1])
         ImperativeLoopNestCount.set(count + 1)
@@ -86,7 +89,7 @@ def for_(begin, end, step=1, tag=""):
 
     hcl_mlir.enable_build_inplace()
     loop_name = UniqueName.get("loop")
-    loop_handle = hcl_d.CreateLoopHandleOp(StringAttr.get(
+    loop_handle = hcl_d.CreateLoopHandleOp(Schedule._CurrentStage[-1].stage_handle.result, StringAttr.get(
         loop_name), ip=hcl_mlir.GlobalInsertionPoint.ip_stack[-depth-1])
     loop = hcl_mlir.make_for(
         begin, end, step, name=loop_name, stage=stage_name, ip=hcl_mlir.GlobalInsertionPoint.get())
