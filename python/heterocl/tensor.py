@@ -10,7 +10,7 @@ from hcl_mlir.dialects import hcl as hcl_d
 from hcl_mlir.dialects import memref, std, scf
 from hcl_mlir.ir import *
 
-from ..types import dtype_to_str, Int, UInt, Float, Fixed, UFixed
+from .types import dtype_to_str, Int, UInt, Float, Fixed, UFixed
 from .context import get_context, get_location, NestedCompute
 from .schedule import Schedule, Stage
 from .utils import get_extra_type_hints, hcl_dtype_to_mlir

@@ -9,7 +9,7 @@ from hcl_mlir.dialects import std
 from hcl_mlir.ir import *
 from hcl_mlir.exceptions import *
 
-from ..devices import Device, DevMemoryPair
+from .devices import Device, DevMemoryPair
 from .context import (BreakFlag, ImperativeLoopDepth, ImperativeLoopNestCount,
                       NestedCompute, StageName, UniqueName, get_context,
                       get_location, set_context)

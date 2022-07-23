@@ -7,7 +7,7 @@ from hcl_mlir import ir
 from hcl_mlir import runtime as rt
 import numpy as np
 import ctypes
-from ..report import parse_xml
+from .report import parse_xml
 
 
 def run_process(cmd, pattern=None, env=None):

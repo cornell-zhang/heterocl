@@ -2,8 +2,8 @@ import hcl_mlir
 from hcl_mlir.dialects import hcl as hcl_d
 from hcl_mlir.ir import *
 
-from ..config import init_dtype
-from ..types import Fixed, Float, Int, Type, UFixed, UInt, Struct, dtype_to_str
+from .config import init_dtype
+from .types import Fixed, Float, Int, Type, UFixed, UInt, Struct, dtype_to_str
 
 
 def hcl_dtype_to_mlir(dtype):

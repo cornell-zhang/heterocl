@@ -1,4 +1,4 @@
-from .. import types
+from . import types
 from .schedule import Stage, create_schedule
 
 

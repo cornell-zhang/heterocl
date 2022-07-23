@@ -1,12 +1,11 @@
 import hcl_mlir
 from hcl_mlir.ir import *
 
-from ..types import Float, Int
+from .types import Float, Int
 from .context import UniqueName
 from .operation import placeholder
 from .tensor import Tensor
 from .utils import get_dtype_str
-
 
 def print(vals, format_str=""):
     if isinstance(vals, Tensor):

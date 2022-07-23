@@ -9,7 +9,7 @@ from hcl_mlir.execution_engine import *
 from hcl_mlir.ir import *
 from hcl_mlir.passmanager import PassManager
 
-from ..devices import Platform
+from .devices import Platform
 from .context import NestedCompute, get_context, get_location, set_context
 from .module import HCLModule, HCLSuperModule
 from .operation import placeholder

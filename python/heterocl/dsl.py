@@ -1,517 +1,472 @@
-"""HeteroCL imperative DSL."""
-#pylint: disable=too-many-arguments,missing-docstring
-from .tvm import make as _make
-from .tvm import stmt as _stmt
-from .tvm import ir_pass as _pass
-from .tvm._api_internal import _IterVar, _Var
-from .tvm.ir_builder import WithScope
-# from .api import placeholder
-from .debug import DSLError, APIError
-from .schedule import Stage
-from .module import Module
-from . import util
-from .api import placeholder
+import warnings
+
+import hcl_mlir
+from hcl_mlir import GlobalInsertionPoint
+from hcl_mlir.dialects import affine, builtin
+from hcl_mlir.dialects import hcl as hcl_d
+from hcl_mlir.dialects import scf, std
+from hcl_mlir.ir import *
+from hcl_mlir.exceptions import *
+
+from . import config
+from .context import (BreakFlag, ImperativeLoopDepth, ImperativeLoopNestCount,
+                      NestedCompute, StageName, UniqueName)
+from .schedule import Schedule, Stage
+from .tensor import Tensor
+from .utils import get_extra_type_hints, hcl_dtype_to_mlir
+
+
+class WithScope(object):
+    """Auxiliary scope with"""
+
+    def __init__(self, enter_value, exit_cb):
+        self._enter_value = enter_value
+        self._exit_cb = exit_cb
+
+    def __enter__(self):
+        return self._enter_value
+
+    def __exit__(self, ptype, value, trace):
+        self._exit_cb()
+
+
+def any(*args):
+    """Create a new experssion of the union of all conditions in the arguments
+    a | b = !(!a & !b)
+    """
+    if not args:
+        raise ValueError("Any must take at least 1 argument")
+    ret = hcl_mlir.LogicalOrOp(*args)
+    return ret
+
+
+def all(*args):
+    """Create a new experssion of the intersection of all conditions in the
+    arguments
+    """
+    if not args:
+        raise ValueError("Any must take at least 1 argument")
+    ret = hcl_mlir.LogicalAndOp(*args)
+    return ret
+
 
 def and_(*args):
-    """Compute the logic AND between expressions.
+    """Compute the logic AND between expressions."""
+    return all(*args)
 
-    If there is only one argument, itself is returned.
-
-    Parameters
-    ----------
-    args : list of Expr
-        A list of expression to be computed
-
-    Returns
-    -------
-    Expr
-
-    Examples
-    --------
-    .. code-block:: python
-
-        A = hcl.placeholder((3,))
-        cond = hcl.and_(A[0] > 0, A[1] > 1, A[2] > 2)
-    """
-    ret = args[0]
-    for i in range(1, len(args)):
-        ret = _make.And(ret, args[i])
-    return ret
 
 def or_(*args):
-    """Compute the logic OR between expressions.
+    """Compute the logic OR between expressions."""
+    return any(*args)
 
-    If there is only one argument, itself is returned.
 
-    Parameters
-    ----------
-    args : list of Expr
-        A list of expression to be computed
-
-    Returns
-    -------
-    Expr
-
-    Examples
-    --------
-    .. code-block:: python
-
-        A = hcl.placeholder((3,))
-        cond = hcl.or_(A[0] > 0, A[1] > 1, A[2] > 2)
+def not_(arg):
+    """Compute the logic NOT operation.
     """
-    ret = args[0]
-    for i in range(1, len(args)):
-        ret = _make.Or(ret, args[i])
-    return ret
+    return hcl_mlir.LogicalNotOp(arg)
 
-def if_(cond):
-    """Construct an IF branch.
 
-    The usage is the same as Python `if` statement. Namely, a single `if`
-    statement without the `else` branch is allowed. In addition, we cannot
-    use `else` and `elif` without an `if` statement. Finally, an `else`
-    statement must be preceded by either an `if` or `elif` statement.
-
-    Parameters
-    ----------
-    cond : Expr
-        The condition of the `if` statement
-
-    Returns
-    -------
-    None
-
-    Examples
-    --------
-    .. code-block:: python
-
-        def my_compute(x):
-            with hcl.if_(A[x] < 3):
-                # do something
-            with hcl.elif_(A[x] < 6):
-                # do something
-            with hcl.else_():
-                # do something
-    """
-    if not Stage.get_len():
-        raise DSLError("Imperative DSL must be used with other compute APIs")
-    stage = Stage.get_current()
-    stage.stmt_stack.append([])
-    def _exit_cb():
-        stmt = stage.pop_stmt()
-        stage.has_break = False
-        stage.emit(_make.IfThenElse(cond, stmt, None))
-    return WithScope(None, _exit_cb)
-
-def else_():
-    """Construct an ELSE branch.
-
-    Parameters
-    ----------
-
-    Returns
-    -------
-    None
-
-    See Also
-    --------
-    if_
-    """
-    if not Stage.get_len():
-        raise DSLError("Imperative DSL must be used with other compute APIs")
-    stage = Stage.get_current()
-    prev = stage.stmt_stack[-1][-1]
-    if not isinstance(prev, _stmt.IfThenElse):
-        raise DSLError("There is no if_ or elif_ in front of the else_ branch")
-    stage.stmt_stack[-1].pop()
-    stage.stmt_stack.append([])
-    def _exit_cb():
-        stmt = stage.pop_stmt()
-        stage.has_break = False
-        stage.emit(stage.replace_else(prev, stmt))
-    return WithScope(None, _exit_cb)
-
-def elif_(cond):
-    """Construct an ELIF branch.
-
-    Parameters
-    ----------
-    cond : Expr
-        The condition of the branch
-
-    Returns
-    -------
-    None
-
-    See Also
-    --------
-    if_
-    """
-    if not Stage.get_len():
-        raise DSLError("Imperative DSL must be used with other compute APIs")
-    stage = Stage.get_current()
-    prev = stage.stmt_stack[-1][-1]
-    if not isinstance(prev, _stmt.IfThenElse):
-        raise DSLError("There is no if_ or elif_ in front of the elif_ branch")
-    stage.stmt_stack[-1].pop()
-    stage.stmt_stack.append([])
-    def _exit_cb():
-        stmt = stage.pop_stmt()
-        stage.has_break = False
-        stage.emit(stage.replace_else(prev, _make.IfThenElse(cond, stmt, None)))
-    return WithScope(None, _exit_cb)
-
-def for_(begin, end, step=1, name="i", dtype="int32", for_type="serial"):
+def for_(begin, end, step=1, tag=""):
     """Construct a FOR loop.
 
-    Create an imperative for loop based on the given bound and step. It is
-    the same as the following Python code.
-
-    .. code-block:: python
-
-        for i in range(begin, end, step):
-            # do something
-
-    The bound and step can be negative values. In addition, `begin` is
-    inclusive while `end` is exclusive.
-
-    Parameters
-    ----------
-    begin : Expr
-        The starting bound of the loop
-
-    end : Expr
-        The ending bound of the loop
-
-    step : Expr, optional
-        The step of the loop
-
-    name : str, optional
-        The name of the iteration variable
-
-    dtype : Type, optional
-        The data type of the iteration variable
-
-    for_type : str, optional
-        The type of the for loop
-
-    Returns
-    -------
-    Var
-        The iteration variable
-
-    See Also
-    --------
-    break_
-
-    Examples
-    --------
-    .. code-block:: python
-
-        # example 1 - basic usage
-        with hcl.for_(0, 5) as i:
-            # i = [0, 1, 2, 3, 4]
-
-        # example 2 - negative step
-        with hcl.for_(5, 0, -1) as i:
-            # i = [5, 4, 3, 2, 1]
-
-        # example 3 - larger step
-        with hcl.for_(0, 5, 2) as i:
-            # i = [0, 2, 4]
-
-        # example 4 - arbitrary bound
-        with hcl.for_(-4, -8, -2) as i:
-            # i = [-4, -6]
+    Be careful: should not be used with other compute APIs like sum
     """
-    if not Stage.get_len():
-        raise DSLError("Imperative DSL must be used with other compute APIs")
-    stage = Stage.get_current()
-    stage.stmt_stack.append([])
-    extent = (end - begin) // step
-    extent = util.CastRemover().mutate(extent)
-    name = "i"+str(stage.for_ID) if name is None else name
-    stage.for_ID += 1
-    iter_var = _IterVar(_make.range_by_min_extent(0, extent), _Var(name, dtype), 0, '')
-    stage.var_dict[name] = iter_var
-    stage.axis_list.append(iter_var)
-    stage.for_level += 1
+    depth = ImperativeLoopDepth.get()
+    count = ImperativeLoopNestCount.get()
+    if tag == None:
+        stage_name = StageName.get()
+    else:
+        stage_name = tag
+    if depth == 0:
+        Schedule._CurrentStage.append(Stage(stage_name))
+        Schedule._CurrentStage[-1].stage_handle = hcl_d.CreateOpHandleOp(
+            StringAttr.get(stage_name), ip=GlobalInsertionPoint.get()
+        )
+        Schedule._TopFunction.__setattr__(
+            stage_name, Schedule._CurrentStage[-1])
+        ImperativeLoopNestCount.set(count + 1)
+    ImperativeLoopDepth.set(depth + 1)
+
+    hcl_mlir.enable_build_inplace()
+    loop_name = UniqueName.get("loop")
+    loop_handle = hcl_d.CreateLoopHandleOp(Schedule._CurrentStage[-1].stage_handle.result, StringAttr.get(
+        loop_name), ip=hcl_mlir.GlobalInsertionPoint.ip_stack[-depth-1])
+    loop = hcl_mlir.make_for(
+        begin, end, step, name=loop_name, stage=stage_name, ip=hcl_mlir.GlobalInsertionPoint.get())
+    Schedule._CurrentLoops.append(loop)
+    Schedule._CurrentStage[-1].add_axis(loop_handle)
+
+    iter_var = hcl_mlir.IterVar(loop.induction_variable, name=stage_name)
+    hcl_mlir.GlobalInsertionPoint.save(loop.body.operations[0])
+    if step < 0:
+        begin = hcl_mlir.ConstantOp("index", begin)
+        iter_var = begin - iter_var
+
     def _exit_cb():
-        if for_type == "serial":
-            for_type_id = 0
-        elif for_type == "parallel":
-            for_type_id = 1
-        elif for_type == "vectorize":
-            for_type_id = 2
-        elif for_type == "unroll":
-            for_type_id = 3
+        if BreakFlag.get():
+            hcl_mlir.GlobalInsertionPoint.restore()
+            BreakFlag.set(False)
+        hcl_mlir.GlobalInsertionPoint.restore()
+        if depth == 0:
+            # itself
+            Schedule._CurrentStage[-1].set_output(Schedule._CurrentStage[-1])
+            Schedule._CurrentStage[-1].done()
+        ImperativeLoopDepth.set(ImperativeLoopDepth.get() - 1)
+
+    return WithScope(iter_var, _exit_cb)
+
+
+def if_(cond):
+    """Construct an IF branch."""
+    hcl_mlir.enable_build_inplace()
+    if isinstance(cond, hcl_mlir.ExprOp):
+        if_op = hcl_mlir.make_if(cond, ip=hcl_mlir.GlobalInsertionPoint.get())
+    else:
+        raise RuntimeError("Not implemented")
+    hcl_mlir.GlobalInsertionPoint.save(if_op.then_block.operations[0])
+    Schedule._IfElseStack.append(if_op)
+
+    def _exit_cb():
+        if BreakFlag.get():
+            ip_stack = hcl_mlir.GlobalInsertionPoint.ip_stack
+            hcl_mlir.GlobalInsertionPoint.ip_stack = ip_stack[:-2] + [
+                ip_stack[-1]]
         else:
-            raise ValueError("Unknown for_type")
-        stmt = _make.AttrStmt(iter_var, "loop_scope", iter_var.var, stage.pop_stmt())
-        stage.has_break = False
-        stage.for_level -= 1
-        stage.emit(_make.For(iter_var.var, 0, extent, for_type_id, 0, stmt))
-    ret_var = _pass.Simplify(iter_var.var * step + begin)
-    return WithScope(ret_var, _exit_cb)
+            hcl_mlir.GlobalInsertionPoint.restore()
 
-def while_(cond):
-    """Construct a WHILE loop.
-
-    Parameters
-    ----------
-    cond : Expr
-        The condition of the loop
-
-    Returns
-    -------
-    None
-
-    See Also
-    --------
-    break_
-
-    Examples
-    --------
-    .. code-block:: python
-
-        with hcl.while_(A[x] > 5):
-            # do something
-    """
-    if not Stage.get_len():
-        raise DSLError("Imperative DSL must be used with other compute APIs")
-    stage = Stage.get_current()
-    stage.stmt_stack.append([])
-    stage.for_level += 1
-    def _exit_cb():
-        stmt = stage.pop_stmt()
-        stage.has_break = False
-        stage.for_level -= 1
-        stage.emit(_make.While(cond, stmt))
     return WithScope(None, _exit_cb)
 
-def break_():
-    """
-    Construct a BREAK statement.
 
-    This DSL can only be used inside a `while` loop or a `for loop`. Moreover,
-    it is not allowed to have tracing statements after the `break`.
+def else_():
+    """Construct an ELSE branch."""
+    hcl_mlir.enable_build_inplace()
+    if len(Schedule._IfElseStack) == 0:
+        raise RuntimeError("There is no if_ in front of the else_ branch")
+    last_if_op = Schedule._IfElseStack.pop()
+    last_if_op.regions[1].blocks.append(*[])
+    if isinstance(last_if_op, affine.AffineIfOp):
+        affine.AffineYieldOp([], ip=InsertionPoint(last_if_op.else_block))
+    else:
+        scf.YieldOp([], ip=hcl_mlir.InsertionPoint(last_if_op.else_block))
+    hcl_mlir.GlobalInsertionPoint.save(last_if_op.else_block.operations[0])
 
-    Parameters
-    ----------
+    def _exit_cb():
+        hcl_mlir.GlobalInsertionPoint.restore()
 
-    Returns
-    -------
-    None
+    return WithScope(None, _exit_cb)
 
-    Examples
-    --------
-    .. code-block:: python
 
-        # example 1 - inside a for loop
-        with hcl.for_(0, 5) as i:
-            with hcl.if_(A[i] > 5):
-                hcl.break_()
+def elif_(cond):
+    """Construct an ELIF branch."""
+    hcl_mlir.enable_build_inplace()
+    if len(Schedule._IfElseStack) == 0:
+        raise RuntimeError(
+            "There is no if_ or elif_ in front of the elif_ branch")
+    last_if_op = Schedule._IfElseStack.pop()
+    last_if_op.regions[1].blocks.append(*[])
+    if isinstance(last_if_op, affine.AffineIfOp):
+        affine.AffineYieldOp([], ip=InsertionPoint(last_if_op.else_block))
+    else:
+        scf.YieldOp([], ip=hcl_mlir.InsertionPoint(last_if_op.else_block))
+    hcl_mlir.GlobalInsertionPoint.save(last_if_op.else_block.operations[0])
 
-        # example 2 - inside a while loop
-        with hcl.while_(A[i] > 5):
-            with hcl.if_(A[i] > 10):
-                hcl.break_()
-    """
-    if not Stage.get_len():
-        raise DSLError("Imperative DSL must be used with other compute APIs")
-    if not Stage.get_current().for_level:
-        raise DSLError("break_ must be used inside a for/while loop")
-    Stage.get_current().emit(_make.Break())
-    Stage.get_current().has_break = True
+    if isinstance(cond, hcl_mlir.ExprOp):
+        if_op = hcl_mlir.make_if(cond, ip=hcl_mlir.GlobalInsertionPoint.get())
+    else:
+        raise RuntimeError("Not implemented")
+    hcl_mlir.GlobalInsertionPoint.save(if_op.then_block.operations[0])
+    Schedule._IfElseStack.append(if_op)
+
+    def _exit_cb():
+        hcl_mlir.GlobalInsertionPoint.restore()
+        hcl_mlir.GlobalInsertionPoint.restore()
+
+    return WithScope(None, _exit_cb)
+
+
+def while_(cond):
+    """Construct an IF branch."""
+    hcl_mlir.enable_build_inplace()
+    if isinstance(cond, hcl_mlir.ExprOp):
+        while_op = hcl_mlir.make_while(
+            cond, ip=hcl_mlir.GlobalInsertionPoint.get())
+    else:
+        raise RuntimeError("Not implemented")
+    hcl_mlir.GlobalInsertionPoint.save(while_op.after.blocks[0])
+
+    def _exit_cb():
+        scf.YieldOp([], ip=hcl_mlir.GlobalInsertionPoint.get())
+        hcl_mlir.GlobalInsertionPoint.restore()
+
+    return WithScope(None, _exit_cb)
+
+
+DEF_FUNC = False
+
 
 def def_(shapes, dtypes=None, ret_dtype=None, name=None, arg_names=None):
     """
     Define a HeteroCL function from a Python function.
 
-    This DSL is used as a Python decorator. The function defined with HeteroCL
-    is not inlined by default. Users need to provide the shapes of the
-    arguments, while the data types of the arguments and the returned data
-    type are optional. This DSL helps make the algorithm more organized and
-    could potentially reduce the memory usage by reusing the same
-    functionality. Users can later on use compute primitives to decide whether
-    to inline these functions or not.
-
-    After specifying a Python function to be a HeteroCL function, users can
-    use the function just like using a Python function. We can also apply
-    optimization primitives.
-
-    Parameters
-    ----------
-    shapes : list of tuple
-        The shapes of the arguments
-
-    dtypes : list of Type, optional
-        The data types of the argument
-
-    ret_dtype : Type, optional
-        The data type of the returned value
-
-    name : str, optional
-        The name of the function. By default, it is the same as the Python
-        function
-
-    Returns
-    -------
-    None
-
-    Examples
-    --------
-    .. code-block:: python
-
-        # example 1 - no return
-        A = hcl.placeholder((10,))
-        B = hcl.placeholder((10,))
-        x = hcl.placeholder(())
-
-        @hcl.def_([A.shape, B.shape, x.shape])
-        def update_B(A, B, x):
-            with hcl.for_(0, 10) as i:
-                B[i] = A[i] + x
-
-        # directly call the function
-        update_B(A, B, x)
-
-        # example 2 - with return value
-        @hcl.def_([(10,), (10,), ()])
-        def ret_add(A, B, x):
-            hcl.return_(A[x] + B[x])
-
-        # use inside a compute API
-        A = hcl.placeholder((10,))
-        B = hcl.placeholder((10,))
-        C = hcl.compute((10,), lambda x: ret_add(A, B, x))
-        D = hcl.compute((10,), lambda x: ret_add(A, C, x))
+    Actual execution order:
+    (def_(shapes))(fmodule(*args))
     """
-    def decorator(fmodule, shapes=shapes, dtypes=dtypes, ret_dtype=ret_dtype, name=name, arg_names=arg_names):
-        name = name if name is not None else fmodule.__name__
+
+    def decorator(fmodule):
+        warnings.warn(
+            "hcl.def_() is deprecated, please use .outline() instead.", DeprecationWarning)
+        if Schedule._CurrentSchedule is None:
+            raise RuntimeError(
+                "def_() must be called with hcl.create_schedule")
+        fname = name if name is not None else fmodule.__name__
+        if Schedule._TopFunction != None:
+            Schedule._TopFunction.__setattr__(fname, fmodule)
         code = fmodule.__code__
         names = code.co_varnames
         if arg_names is not None:
-          names = list(names)
-          for i in range(len(arg_names)):
-            names[i] = arg_names[i]
-          names = tuple(names)
+            names = list(names)
+            for i in range(len(arg_names)):
+                names[i] = arg_names[i]
+            names = tuple(names)
         nargs = code.co_argcount
 
-        with Stage(name) as s:
-            # prepare names
-            new_names = [s.name_with_prefix + "." + name_ for name_ in names]
-            # prepare dtypes
-            hcl_dtypes = []
-            if dtypes is None:
-                dtypes = []
-                for name_ in new_names:
-                    dtypes.append(util.get_tvm_dtype(None, name_))
-                    hcl_dtypes.append(util.get_dtype(None, name_))
-            elif isinstance(dtypes, list):
-                if len(dtypes) != nargs:
-                    raise APIError("The number of data types does not match the of arguments")
-                for (name_, dtype_) in zip(new_names, dtypes):
-                    dtypes.append(util.get_tvm_dtype(dtype_, name_))
-                    hcl_dtypes.append(util.get_dtype(dtype_, name_))
-                dtypes = dtypes[int(len(dtypes)/2):]
-            else:
-                dtype = util.get_tvm_dtype(dtypes)
-                dtypes = []
-                for name_ in new_names:
-                    dtypes.append(util.get_tvm_dtype(dtype, name_))
-            ret_dtype = util.get_tvm_dtype(ret_dtype, s.name_with_prefix)
-            # prepare inputs for IR generation
-            inputs = []
-            inputs_tvm = []
-            arg_shapes, arg_dtypes, arg_tensors = [], [], []
-            for shape, name_, dtype, htype in zip(shapes, new_names, dtypes, hcl_dtypes):
-                if shape == ():
-                    var_ = placeholder((), name_, dtype)
-                    inputs.append(var_)
-                    inputs_tvm.append(var_.var)
-                    arg_shapes.append([1])
-                    arg_dtypes.append(dtype)
-                else: # tensor inputs (new bufs)
-                    placeholder_ = placeholder(shape, name_, htype)
-                    inputs.append(placeholder_)
-                    inputs_tvm.append(placeholder_.buf.data)
-                    arg_shapes.append(list(shape))
-                    arg_dtypes.append(dtype)
-                    arg_tensors.append(placeholder_.op)
+        # prepare input types
+        input_types = []
+        input_elt = []
+        if dtypes is None:
+            dtype = config.init_dtype
+            dtype = hcl_dtype_to_mlir(dtype)
+            if hcl_mlir.is_unsigned_type(dtype):
+                dtype = IntegerType.get_signless(dtype.width)
+            for shape in shapes:
+                input_elt.append(dtype)
+                if shape != ():  # scalar
+                    input_types.append(MemRefType.get(shape, dtype))
+                else:
+                    input_types.append(dtype)
+        elif isinstance(dtypes, list):
+            if len(dtypes) != nargs:
+                raise RuntimeError(
+                    "The number of data types does not match the of arguments"
+                )
+            for shape, dtype in zip(shapes, dtypes):
+                dtype = hcl_dtype_to_mlir(dtype)
+                if hcl_mlir.is_unsigned_type(dtype):
+                    dtype = IntegerType.get_signless(dtype.width)
+                input_elt.append(dtype)
+                if shape != ():  # scalar
+                    input_types.append(MemRefType.get(shape, dtype))
+                else:
+                    input_types.append(dtype)
+        else:
+            raise RuntimeError("Unrecognized dtype format")
+        # prepare return types
+        return_types = []
+        return_elt = []
+        if ret_dtype is not None:
+            dtype = hcl_dtype_to_mlir(ret_dtype)
+            return_elt.append(dtype)
+            return_types.append(dtype)
 
-            s.ret_dtype = ret_dtype
-            s._module = True
-            s._inputs = inputs
+        # create stage function
+        stage_func_name = "Stage_" + fname
+        # here we also put the return in the input argument,
+        # since commonly in C++ we should pass the array by reference
+        stage_func_op = builtin.FuncOp(
+            name=stage_func_name,
+            type=FunctionType.get(inputs=input_types +
+                                  return_types, results=[]),
+            ip=GlobalInsertionPoint.ip_stack[0],
+        )
+        # stage_func_op.attributes["inputs"] = StringAttr.get(
+        #     ",".join([tensor.name for tensor in self.inputs]))
+        stage_func_op.attributes["itypes"] = StringAttr.get(
+            "".join(
+                [get_extra_type_hints(dtype) for dtype in input_elt]
+                + [get_extra_type_hints(dtype) for dtype in return_elt]
+            )
+        )  # inputs & outputs
+        # if self.output is not None:
+        #     stage_func_op.attributes["outputs"] = StringAttr.get(
+        #         self.output.op.name)
+        stage_func_op.add_entry_block()
+
+        def wrapped_func(*inputs):
+            global DEF_FUNC
+            DEF_FUNC = True
+            hcl_mlir.enable_build_inplace()
+            # call this function in the top function
+            call_arglist = []
+            for i, tensor in enumerate(inputs):
+                call_arglist.append(tensor.result)
+                if isinstance(tensor, hcl_mlir.IterVar):
+                    input_types[i] = IndexType.get()
+                    stage_func_op.entry_block.arguments[i].set_type(
+                        IndexType.get())
+            # update function type
+            stage_func_op.attributes["type"] = TypeAttr.get(
+                FunctionType.get(inputs=input_types + return_types, results=[])
+            )
+
+            # update inner load/store references
+            # used for recovery
+            original_tensor_op = []
+            for tensor, arg in zip(inputs, stage_func_op.entry_block.arguments):
+                if isinstance(tensor, hcl_mlir.IterVar):
+                    original_tensor_op.append(tensor.built_op)
+                    tensor.op = arg
+                    tensor.built_op = arg
+                elif isinstance(tensor.op, hcl_mlir.TensorOp):
+                    original_tensor_op.append(tensor.op.built_op)
+                    tensor.op.update_op(arg)
+                else:  # ComputeOp
+                    original_tensor_op.append(tensor.op.output.op.built_op)
+                    tensor.op.output.op.update_op(arg)
+            # insertion point become the stage function inside
+            GlobalInsertionPoint.save(
+                InsertionPoint(stage_func_op.entry_block))
+
+            # execute the original function
             fmodule(*inputs)
-            lhs = []
-            for tensor in s.lhs_tensors:
-                try:
-                    lhs.append(inputs.index(tensor))
-                except ValueError:
-                    pass
-            ret_void = _make.UIntImm("uint1", 0) if s.has_return else _make.UIntImm("uint1", 1)
-            body = s.pop_stmt()
 
-            s.stmt_stack.append([])
-            s.emit(_make.KernelDef(inputs_tvm, arg_shapes, arg_dtypes, arg_tensors,
-                                   body, ret_void, ret_dtype, name, []))
-            for name_, i in zip(names, inputs):
-                s.var_dict[name_] = i
-            s.input_stages.clear()
+            # recover as top function op
+            for i, tensor in enumerate(inputs):
+                if isinstance(tensor, hcl_mlir.IterVar):
+                    tensor.op = original_tensor_op[i]
+                    tensor.built_op = original_tensor_op[i]
+                elif isinstance(tensor.op, hcl_mlir.TensorOp):
+                    tensor.op.update_op(original_tensor_op[i])
+                else:  # ComputeOp
+                    tensor.op.output.op.update_op(original_tensor_op[i])
 
-        return Module(shapes, names, name, not s.has_return, lhs, ret_dtype)
+            # recover from the subfunction
+            if len(Schedule._DefFuncReturn) == 0:
+                ret_op = std.ReturnOp([], ip=GlobalInsertionPoint.get())
+                GlobalInsertionPoint.restore()
+                # build call op
+                call_op = hcl_mlir.CallOp(None, stage_func_name, call_arglist)
+                call_op.built_op.attributes["inputs"] = StringAttr.get(
+                    ",".join([tensor.name for tensor in inputs])
+                )
+            else:
+                if Schedule._DefFuncReturn[0] is not None:
+                    new_return_types = [Schedule._DefFuncReturn[0].dtype]
+                else:
+                    new_return_types = []
+                stage_func_op.attributes["type"] = TypeAttr.get(
+                    FunctionType.get(inputs=input_types,
+                                     results=new_return_types)
+                )
+                GlobalInsertionPoint.restore()
+                # build call op
+                call_op = hcl_mlir.CallOp(
+                    Schedule._DefFuncReturn[0].dtype, stage_func_name, call_arglist
+                )
+                call_op.built_op.attributes["inputs"] = StringAttr.get(
+                    ",".join([tensor.name for tensor in inputs])
+                )
+                # call_op.built_op.attributes["outputs"] = StringAttr.get(
+                #     Schedule._DefFuncReturn[0].name)
+
+            DEF_FUNC = False
+            return call_op
+
+        return wrapped_func
+
     return decorator
 
-def return_(val):
-    """Return an expression within a function.
 
-    This DSL should be used within a function definition. The return type can
-    only be an expression.
+def return_(expr=None):
+    if len(Schedule._IfElseStack) > 0:
+        raise RuntimeError(
+            "hcl.return_ statement cannot be in a nested region due to MLIR's limitation. Please rewrite your program and use .outline() to create a new function.")
+    hcl_mlir.enable_build_inplace()
+    if expr is not None:
+        if DEF_FUNC:  # imperative
+            expr = hcl_mlir.get_hcl_op(expr)
+            Schedule._DefFuncReturn.append(expr)
+            ret_op = std.ReturnOp(
+                [expr.result], ip=hcl_mlir.GlobalInsertionPoint.get())
+            hcl_mlir.GlobalInsertionPoint.ip_stack[-1] = InsertionPoint(ret_op)
+        elif (
+            isinstance(expr, (int, float, hcl_mlir.ExprOp)
+                       ) or expr.built_op == None
+        ):  # declarative
+            expr = hcl_mlir.get_hcl_op(expr)
+            builder = hcl_mlir.ASTVisitor("build")
+            builder.visit(expr)
+            hcl_mlir.StoreOp(
+                expr,
+                Schedule._CurrentStage[-1].op.op,
+                Schedule._CurrentStage[-1].op.iter_var,
+            )
+            ret_op = Schedule._CurrentStage[-1].op
+        else:
+            raise RuntimeError("Not recognized return value")
+    else:
+        Schedule._DefFuncReturn.append(None)
+        ret_op = std.ReturnOp([], ip=hcl_mlir.GlobalInsertionPoint.get())
+    return ret_op
 
-    Parameters
-    ----------
-    val : Expr
-        The returned expression
 
-    Returns
-    -------
-    None
+def break_():
+    raise RuntimeError(
+        "Currently we cannot support hcl.break_ due to MLIR's limitation. Please rewrite your prorgam.")
+    # hcl_mlir.enable_build_inplace()
+    # BreakFlag.set(True)
+    # if len(Schedule._IfElseStack) == 0:
+    #     raise RuntimeError("There is no if_ before hcl.break_")
+    # last_if_op = Schedule._IfElseStack.pop()
+    # last_if_op.regions[1].blocks.append(*[])
+    # if isinstance(last_if_op, affine.AffineIfOp):
+    #     affine.AffineYieldOp([], ip=InsertionPoint(last_if_op.else_block))
+    # else:
+    #     scf.YieldOp([], ip=hcl_mlir.InsertionPoint(last_if_op.else_block))
+    # hcl_mlir.GlobalInsertionPoint.save(last_if_op.else_block.operations[0])
 
-    See Also
-    --------
-    heterocl.compute, def_
-
-    Examples
-    --------
-    .. code-block:: python
-
-        # example 1 - using with a compute API
-        A = hcl.placeholder((10,))
-
-        def compute_out(x):
-            with hcl.if_(A[x]>0):
-                hcl.return_(1)
-            with hcl.else_():
-                hcl.return_(0)
-
-        B = hcl.compute(A.shape, compute_out)
-
-        # example 2 - using with a HeteroCL function
-        A = hcl.placeholder((10,))
-
-        @hcl.def_([A.shape, ()])
-        def compute_out(A, x):
-            with hcl.if_(A[x]>0):
-                hcl.return_(1)
-            with hcl.else_():
-                hcl.return_(0)
-
-        B = hcl.compute(A.shape, lambda x: compute_out(A, x))
-    """
-    if not Stage.get_len():
-        raise DSLError("Imperative DSL must be used with other compute APIs")
-    stage = Stage.get_current()
-    dtype = util.get_tvm_dtype(stage.ret_dtype)
-    stage.emit(_make.Return(_make.Cast(dtype, val)))
-    stage.has_return = True
+# def break_():
+#     BreakFlag.set(True)
+#     hcl_mlir.enable_build_inplace()
+#     bool = MemRefType.get((1,), IntegerType.get_signless(1))
+#     # outside stage
+#     global_ip = InsertionPoint(Schedule._CurrentSchedule.device_top.entry_block.operations[0])
+#     flag = memref.AllocOp(bool, [], [], None, ip=global_ip) # inside top func
+#     zero_idx = arith.ConstantOp(
+#         IndexType.get(),
+#         IntegerAttr.get(IndexType.get(), 0),
+#         ip=global_ip,
+#     )
+#     true_value = arith.ConstantOp(
+#         IntegerType.get_signless(1), IntegerAttr.get(IntegerType.get_signless(1), 1), ip=global_ip
+#     )
+#     store = affine.AffineStoreOp(
+#         true_value.result,
+#         flag.result,
+#         [zero_idx.result],
+#         ip=global_ip,
+#     )
+#     # inside the stage
+#     false_value = arith.ConstantOp(
+#         IntegerType.get_signless(1), IntegerAttr.get(IntegerType.get_signless(1), 0), ip=GlobalInsertionPoint.get()
+#     )
+#     store = affine.AffineStoreOp(
+#         false_value.result,
+#         flag.result,
+#         [zero_idx.result],
+#         ip=GlobalInsertionPoint.get(),
+#     )
+#     # at the beginning of the stage
+#     stage_ip = InsertionPoint(Schedule._CurrentLoops[-1].body.operations[0])
+#     load = affine.AffineLoadOp(
+#         flag.result, [zero_idx.result], ip=stage_ip
+#     ) # op0
+#     if_op = scf.IfOp(load.result, ip=stage_ip, hasElse=False) # op1
+#     yield_op = scf.YieldOp([], ip=InsertionPoint(if_op.then_block))
+#     for i, op in enumerate(Schedule._CurrentLoops[-1].body.operations):
+#         if i < 2 or isinstance(op, (affine.AffineYieldOp, scf.YieldOp)):
+#             continue
+#         op.move_before(yield_op)
+#     if len(Schedule._IfElseStack) > 0:
+#         GlobalInsertionPoint.ip_stack.insert(-1, InsertionPoint(yield_op))
+#     # GlobalInsertionPoint.save(yield_op)
+#     print(Schedule._CurrentSchedule.device_module)

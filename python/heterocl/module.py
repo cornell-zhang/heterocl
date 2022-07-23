@@ -1,8 +1,8 @@
 import copy
 from multiprocessing import Process
 
-from ..devices import Platform
-from ..report import report_stats
+from .devices import Platform
+from .report import report_stats
 from .runtime import execute_fpga_backend, execute_llvm_backend
 
 
