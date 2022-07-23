@@ -385,7 +385,7 @@ class Schedule(object):
             res = hcl_d.ReshapeOp(MemRefType.get(
                 shape, target.op.dtype), target.result, ip=GlobalInsertionPoint.get())
 
-    def layout(self, target, layout):
+    def reform(self, target, layout):
         """Change the layout of a tensor
         """
         try:
@@ -400,7 +400,7 @@ class Schedule(object):
                 attr = AffineMap.get_permutation([0, 2, 3, 1])
             else:
                 raise RuntimeError("Not supported layout")
-            res = hcl_d.LayoutOp(MemRefType.get(
+            res = hcl_d.ReformOp(MemRefType.get(
                 target.shape, target.op.dtype), target.result, ip=GlobalInsertionPoint.get())
             res.attributes["layout"] = AffineMapAttr.get(attr)
 
