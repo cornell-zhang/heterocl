@@ -3,8 +3,6 @@
 from .tools import Tool
 from .debug import DSLError, APIError, HCLError, DeviceError
 from . import IR
-if IR == "tvm":
-    from .tvm.target import FPGA_TARGETS
 
 model_table = {
   "fpga"   : {
@@ -128,8 +126,6 @@ class Device(object):
     def set_backend(self, backend):
         if backend is None:
             backend = "vhls"
-        if IR == "tvm":
-            assert backend in FPGA_TARGETS, "unsupported backend " + backend
         self.backend = backend
         return self
 
