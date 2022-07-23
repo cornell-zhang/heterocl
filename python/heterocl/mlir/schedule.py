@@ -554,7 +554,7 @@ class Stage(object):
     def done(self):
         # create stage handle
         with get_context() as ctx, get_location() as loc:
-            self.stage_handle = hcl_d.CreateStageHandleOp(
+            self.stage_handle = hcl_d.CreateOpHandleOp(
                 StringAttr.get(self.name), ip=GlobalInsertionPoint.get()
             )
         if self.op is None:

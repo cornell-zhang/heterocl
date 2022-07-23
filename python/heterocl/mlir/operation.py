@@ -246,7 +246,7 @@ def update(tensor: Tensor, fcompute, name=None):
     if Schedule._TopFunction != None:
         stage = Stage(name)
         with get_context() as ctx, get_location() as loc:
-            stage.stage_handle = hcl_d.CreateStageHandleOp(
+            stage.stage_handle = hcl_d.CreateOpHandleOp(
                 StringAttr.get(name), ip=hcl_mlir.GlobalInsertionPoint.get()
             )
         Schedule._CurrentStage.append(stage)
