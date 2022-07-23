@@ -56,17 +56,86 @@ def test_outline():
                   project="stages-outline.prj")
     s = hcl.create_schedule([A], kernel)
     s[kernel.B].pipeline(kernel.B.axis[1])
-    s.partition(kernel.B, dim=2)
-    # func_B = s[kernel.B].outline()
-    # func_C = s[kernel.C].outline()
-    # func_D = s[kernel.D].outline()
-    func_B_C, func_D = s.outline([s[kernel.B], s[kernel.C]], [s[kernel.D]])
+    # s.partition(kernel.B, dim=2)
+    func_B = s[kernel.B].outline()
+    func_C = s[kernel.C].outline(merge=func_B)
+    func_D = s[kernel.D].outline()
+    print(s.device_module)
+    # func_B_C, func_D = s.outline([s[kernel.B], s[kernel.C]], [s[kernel.D]])
     # func_B, func_C_D = s.outline([s[kernel.B]], [s[kernel.C], s[kernel.D]])
     print(hcl.lower(s))
 
-    mod = hcl.build(s, top=[func_B_C, func_D], target=target)
-    mod()
+    # mod = hcl.build(s, top=[func_B_C, func_D], target=target)
+    # mod()
 
+
+def test_outline_extension():
+
+    A = hcl.placeholder((32, 32), "A")
+
+    def kernel(A):
+        B = hcl.compute(A.shape, lambda i, j: A[i, j] + 1, "B")
+        C = hcl.compute(A.shape, lambda i, j: B[i, j] + 1, "C")
+        D = hcl.compute(A.shape, lambda i, j: C[i, j] + 1, "D")
+        return D
+
+    s = hcl.create_schedule([A], kernel)
+    func_B = s[kernel.B].outline()
+    func_C = s[kernel.C].outline(merge=func_B)
+    func_D = s[kernel.D].outline(merge=func_B)
+    print(hcl.lower(s))
+
+def test_outline_extension_axis():
+
+    A = hcl.placeholder((32, 32), "A")
+
+    def kernel(A):
+        B = hcl.compute((32, 32), lambda i, j: A[i, j] + 1, "B")
+        C = hcl.compute((16, 16), lambda i, j: B[i, j] + 1, "C")
+        D = hcl.compute((8, 8), lambda i, j: C[i, j] + 1, "D")
+        return D
+
+    s = hcl.create_schedule([A], kernel)
+    s_B, s_C, s_D = kernel.B, kernel.C, kernel.D
+    s[s_B].tile(s_B.axis[0], s_B.axis[1], 8, 8)
+    # s[s_C].tile(s_C.axis[0], s_C.axis[1], 8, 8)
+    # func_D = s[s_D].outline()
+    # func_C = s[s_C].outline(axis=s_C.axis[1])
+    func_B = s[s_B].outline(axis=s_B.axis[1])
+    print(s.device_module)
+    print(hcl.lower(s))
+
+def test_outline_extension_axis():
+
+    A = hcl.placeholder((32, 32), "A")
+
+    def kernel(A):
+        B = hcl.compute((32, 32), lambda i, j: A[i, j] + 1, "B")
+        return B
+
+    s = hcl.create_schedule([A], kernel)
+    s_B = kernel.B
+    x_o, x_i, y_o, y_i = s[s_B].tile(s_B.axis[0], s_B.axis[1], 8, 8)
+    func_B = s[s_B].outline(axis=y_i)
+    print(s.device_module)
+    print(hcl.lower(s))
+
+def test_outline_extension_param():
+
+    A = hcl.placeholder((32, 32), "A")
+
+    def kernel(A):
+        B = hcl.compute((32, 32), lambda i, j: A[i, j] + 1, "B")
+        C = hcl.compute((16, 16), lambda i, j: B[i, j] + 1, "C")
+        D = hcl.compute((8, 8), lambda i, j: C[i, j] + 1, "D")
+        return D
+
+    s = hcl.create_schedule([A], kernel)
+    func_B = s[kernel.B].outline(param=[kernel.B.axis[0], kernel.B.axis[1]])
+    func_C = s[kernel.C].outline(param=[kernel.C.axis[0], kernel.C.axis[1]])
+    func_D = s[kernel.D].outline(param=[kernel.D.axis[0], kernel.D.axis[1]])
+    print(s.device_module)
+    print(hcl.lower(s))
 
 def test_outline_cpu():
 
@@ -131,5 +200,8 @@ def test_module_mixed_paradigm():
 if __name__ == "__main__":
     # test_stages()
     # test_outline()
+    # test_outline_extension()
+    # test_outline_extension_param()
+    test_outline_extension_axis()
     # test_outline_cpu()
-    test_module_mixed_paradigm()
+    # test_module_mixed_paradigm()

@@ -53,7 +53,7 @@ def test_gemm_fpga(m=32, n=32, k=32, dtype=hcl.Int(), target=None):
     s[out_matrix].reorder(y0, x0, y1, x1)
 
     target = hcl.Platform.xilinx_zc706
-    target.config(compiler="vivado_hls", mode="csyn", project="gemm.prj")
+    target.config(compiler="vivado_hls", mode="debug", project="gemm.prj")
 
     mod = hcl.build(s, target=target)
     end_time = time.time()
@@ -110,14 +110,42 @@ def test_gemm_outline(M=32, N=32, K=32, dtype=hcl.Int(), target=None):
     s[s_C].reorder(i0, j0, i1, j1)
     s[s_C].unroll(j1)
     s[s_C].pipeline(i1)
-    s.outline(s[s_C])
+    # s.outline(s[s_C])
+    print(hcl.lower(s))
+
+    f = hcl.build(s, "vhls")
+    print(f)
+
+def test_gemm_buffer(M=32, N=32, K=32, dtype=hcl.Int(), target=None):
+
+    hcl.init(hcl.Float())
+    A = hcl.placeholder((M, K), name="A")
+    B = hcl.placeholder((K, N), name="B")
+
+    def gemm(A, B):
+        k = hcl.reduce_axis(0, K, name="k")
+        C = hcl.compute((M, N), lambda i, j:
+                hcl.sum(A[i, k] * B[k, j], axis=k), "C")
+        return C
+
+    s = hcl.create_schedule([A, B], gemm)
+
+    # optimization
+    C = gemm.C
+    # j_out, j_in = s[C].split(C.axis[1], 2)
+    # s[C].reorder(j_in, C.axis[2])
+    # s.buffer_at(C, s[C], j_out)
+    s[C].reorder(C.axis[2], C.axis[1])
+    s.buffer_at(C, s[C], C.axis[0])
+    s[C].pipeline(C.axis[2])
     print(hcl.lower(s))
 
     f = hcl.build(s, "vhls")
     print(f)
 
 if __name__ == "__main__":
-    # test_gemm_cpu()
+    test_gemm_cpu()
     # test_gemm_fpga()
     # test_gemm_ihls()
-    test_gemm_outline()
+    # test_gemm_outline()
+    # test_gemm_buffer()
