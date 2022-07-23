@@ -22,7 +22,7 @@ export PYTHONPATH=$HCL_HOME/python:$HCL_HOME/hlib/python:${PYTHONPATH}
 cd hcl-dialect-prototype
 git clone https://github.com/llvm/llvm-project.git
 cd llvm-project
-git checkout tags/llvmorg-14.0.0
+git checkout 73202130e52e69d58c571c60163d1c8994e8d166
 python3 -m pip install --upgrade pip
 python3 -m pip install -r mlir/python/requirements.txt
 mkdir -p build && cd build
@@ -46,7 +46,11 @@ cmake -G "Unix Makefiles" .. \
    -DLLVM_EXTERNAL_LIT=$LLVM_BUILD_DIR/bin/llvm-lit \
    -DPYTHON_BINDING=ON \
    -DOPENSCOP=OFF \
+    -DLLVM_USE_LINKER=lld \
+    -DCMAKE_C_COMPILER=clang \
+    -DCMAKE_CXX_COMPILER=clang++ \
    -DPython3_EXECUTABLE=~/.venv/hcl-dev/bin/python3
+
 make -j8
 
 # Export the generated HCL-MLIR Python library

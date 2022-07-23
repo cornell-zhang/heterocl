@@ -3,9 +3,8 @@ import warnings
 
 import hcl_mlir
 from hcl_mlir import GlobalInsertionPoint
-from hcl_mlir.dialects import builtin
 from hcl_mlir.dialects import hcl as hcl_d
-from hcl_mlir.dialects import std
+from hcl_mlir.dialects import func as func_d
 from hcl_mlir.ir import *
 from hcl_mlir.exceptions import *
 
@@ -108,7 +107,7 @@ def build_schedule(inputs, func=None, name=""):
             return_types = [v.memref_type for v in outputs]
             function_type = FunctionType.get(
                 inputs=func_op.type.inputs, results=return_types)
-            func_op.attributes["type"] = TypeAttr.get(function_type)
+            func_op.attributes["function_type"] = TypeAttr.get(function_type)
             otypes = "".join(
                 [get_extra_type_hints(v.op.dtype) for v in outputs])
             func_op.attributes["otypes"] = StringAttr.get(otypes)
@@ -119,7 +118,8 @@ def build_schedule(inputs, func=None, name=""):
                 new_outputs.append(output.result)
             sch.DataflowGraph.set_leaves(outputs)
             assert len(new_outputs) == len(outputs)
-            ret_op = std.ReturnOp(new_outputs, ip=GlobalInsertionPoint.get())
+            ret_op = func_d.ReturnOp(
+                new_outputs, ip=GlobalInsertionPoint.get())
             GlobalInsertionPoint.restore()
 
             # let the later schedule nodes insert before ret_op
@@ -134,7 +134,7 @@ def build_schedule(inputs, func=None, name=""):
             func_op.attributes["type"] = TypeAttr.get(function_type)
             func_op.attributes["otypes"] = StringAttr.get("")
             # create block terminator
-            ret_op = std.ReturnOp([], ip=GlobalInsertionPoint.get())
+            ret_op = func_d.ReturnOp([], ip=GlobalInsertionPoint.get())
             GlobalInsertionPoint.restore()
             GlobalInsertionPoint.save(InsertionPoint(ret_op))
 
@@ -226,7 +226,7 @@ class Schedule(object):
                 tensor.init()
                 input_types.append(tensor.op.memref_type)
                 itypes += get_extra_type_hints(tensor.op.dtype)
-            device_top = builtin.FuncOp(name="top", type=FunctionType.get(
+            device_top = func_d.FuncOp(name="top", type=FunctionType.get(
                 inputs=input_types, results=[]), ip=InsertionPoint(self._device_module.body))
             device_top.attributes["itypes"] = StringAttr.get(
                 itypes)
@@ -243,7 +243,7 @@ class Schedule(object):
             self._host_module.operation.attributes["sym_name"] = StringAttr.get(
                 "host")
             # create top-level function
-            self._host_top = builtin.FuncOp(name="main", type=FunctionType.get(
+            self._host_top = func_d.FuncOp(name="main", type=FunctionType.get(
                 inputs=[], results=[IntegerType.get_signless(32)]), ip=InsertionPoint(self._host_module.body))
             self._host_top.add_entry_block()
             # main function return
@@ -252,7 +252,7 @@ class Schedule(object):
                 InsertionPoint(self._host_top.entry_block))
             ret_zero = hcl_mlir.ConstantOp(IntegerType.get_signless(32), 0)
             ret_zero.build()
-            ret_op = std.ReturnOp(
+            ret_op = func_d.ReturnOp(
                 [ret_zero.result], ip=GlobalInsertionPoint.get())
             GlobalInsertionPoint.save(InsertionPoint(ret_op))
             self._host_ret = ret_op
@@ -269,7 +269,7 @@ class Schedule(object):
             if str(op.name) == "\"top\"":
                 self._xcel_top = op
         for op in self._xcel_top.entry_block.operations:
-            if isinstance(op, std.ReturnOp):
+            if isinstance(op, func_d.ReturnOp):
                 self._xcel_ret = op
         return self._xcel_module
 
@@ -278,7 +278,7 @@ class Schedule(object):
         with get_context() as ctx, get_location() as loc:
             self._extern_module = Module.create(loc)
             # create top-level function
-            self._extern_top = builtin.FuncOp(name="top", type=FunctionType.get(
+            self._extern_top = func_d.FuncOp(name="top", type=FunctionType.get(
                 inputs=[], results=[]), ip=InsertionPoint(self._extern_module.body))
             self._extern_top.add_entry_block()
         return self._extern_module
@@ -515,7 +515,7 @@ class StageFunction(object):
         with get_context() as ctx, get_location() as loc:
             new_module = Module.create(loc)
             # just a placeholder for inserting the function
-            top = builtin.FuncOp(name="top", type=FunctionType.get(
+            top = func_d.FuncOp(name="top", type=FunctionType.get(
                 inputs=[], results=[]), ip=InsertionPoint(new_module.body))
             for op in schedule.device_module.body.operations:
                 if str(op.name) == "\"{}\"".format(self.name):

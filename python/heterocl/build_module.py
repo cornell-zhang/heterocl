@@ -4,7 +4,8 @@ import hcl_mlir
 from hcl_mlir import GlobalInsertionPoint
 from hcl_mlir.dialects import affine
 from hcl_mlir.dialects import hcl as hcl_d
-from hcl_mlir.dialects import memref, scf, std, builtin
+from hcl_mlir.dialects import memref, scf
+from hcl_mlir.dialects import func as func_d
 from hcl_mlir.execution_engine import *
 from hcl_mlir.ir import *
 from hcl_mlir.passmanager import PassManager
@@ -29,7 +30,7 @@ def lower(schedule,
     """
     hcl_d.loop_transformation(schedule.device_module)
     pipeline = (
-        f"builtin.func"
+        f"func.func"
         f"(affine-loop-normalize, cse, affine-simplify-structures)"
     )
     try:
@@ -147,7 +148,7 @@ def separate_host_device(schedule):
                     op_map[name]["alloc"] = op
                 else:
                     op_map[name]["xcel"] = op
-            elif isinstance(op, std.CallOp):
+            elif isinstance(op, func_d.CallOp):
                 name = str(op.attributes["callee"]).split("_")[1]
                 op_map[name]["call"] = op
         for i, param in enumerate(func_op.arguments):
@@ -316,7 +317,7 @@ def build_llvm(schedule, target=None, stmt=None):
         else:
             module = Module.parse(str(schedule), ctx)
             for op in module.body.operations:
-                if isinstance(op, builtin.FuncOp):
+                if isinstance(op, func_d.FuncOp):
                     func = op
                     break
             else:
