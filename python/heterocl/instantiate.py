@@ -1,10 +1,15 @@
 import hcl_mlir
 from hcl_mlir.dialects import func as func_d
+<<<<<<< HEAD
 from hcl_mlir import GlobalInsertionPoint
+=======
+from hcl_mlir import GlobalInsertionPoint, ASTVisitor
+>>>>>>> Bump LLVM version
 from hcl_mlir.ir import *
 from .context import *
 from .utils import hcl_dtype_to_mlir
 from .schedule import Schedule, build_schedule
+
 
 def instantiate(func, name=None, count=1):
     """Instantiate a function.
@@ -28,7 +33,7 @@ def instantiate(func, name=None, count=1):
             name = UniqueName.get("instance")
         else:
             names = [UniqueName.get("instance") for _ in range(count)]
-    
+
     if count == 1:
         return Instance(func, name)
     else:
@@ -62,7 +67,8 @@ class Instance(object):
         self.instance_sch = Schedule._ScheduleStack.pop()
         Schedule._CurrentSchedule = Schedule._ScheduleStack[-1]
         # TODO(Niansong): change top func name in instance_sch
-        Schedule._CurrentSchedule._instance_modules.append(self.instance_sch.device_module)
+        Schedule._CurrentSchedule._instance_modules.append(
+            self.instance_sch.device_module)
 
         # Build a FuncOp with no function body as declaration
         func_op = func_d.FuncOp(
@@ -85,5 +91,5 @@ class Instance(object):
         # Set up a dataflow node for this instance
         node = Schedule._CurrentSchedule.DataflowGraph.create_node(call_op)
         Schedule._CurrentSchedule.DataflowGraph.add_edges(list(args), [node])
-        
+
         return call_op

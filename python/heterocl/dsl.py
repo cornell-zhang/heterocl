@@ -3,9 +3,15 @@ import warnings
 import hcl_mlir
 from hcl_mlir import GlobalInsertionPoint
 from hcl_mlir.dialects import affine
+<<<<<<< HEAD
 from hcl_mlir.dialects import func as func_d
 from hcl_mlir.dialects import hcl as hcl_d
 from hcl_mlir.dialects import scf
+=======
+from hcl_mlir.dialects import hcl as hcl_d
+from hcl_mlir.dialects import scf
+from hcl_mlir.dialects import func as func_d
+>>>>>>> Bump LLVM version
 from hcl_mlir.ir import *
 from hcl_mlir.exceptions import *
 

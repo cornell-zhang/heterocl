@@ -1,18 +1,23 @@
 from collections import OrderedDict
+from typing import Callable, Sequence, Mapping, Union
+
+from sympy import Integer
 
 import hcl_mlir
 import numpy as np
+from hcl_mlir import GlobalInsertionPoint
 from hcl_mlir.dialects import hcl as hcl_d
+from hcl_mlir.dialects import pdl
 from hcl_mlir.ir import *
 
 from . import config
-from .types import Int, Type, UInt, dtype_to_hcl
+from .types import Int, Type, UInt, Float, dtype_to_hcl
 from .context import UniqueName
 from .dsl import for_
 from .schedule import Schedule, Stage
 from .tensor import Array, Tensor
 from .utils import get_dtype_str, hcl_dtype_to_mlir
-from .context import get_context, get_location
+from .context import get_context, get_location, set_context
 
 
 def init(init_dtype=Int(32), raise_assert_exception=True):

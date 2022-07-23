@@ -3,7 +3,11 @@ import io
 import hcl_mlir
 from hcl_mlir import GlobalInsertionPoint
 from hcl_mlir.dialects import hcl as hcl_d
+<<<<<<< HEAD
 from hcl_mlir.dialects import memref
+=======
+from hcl_mlir.dialects import memref, scf
+>>>>>>> Bump LLVM version
 from hcl_mlir.dialects import func as func_d
 from hcl_mlir.execution_engine import *
 from hcl_mlir.ir import *
