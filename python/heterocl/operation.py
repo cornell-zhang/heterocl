@@ -1,3 +1,11 @@
+from .context import get_context, get_location, set_context
+from .utils import get_dtype_str, hcl_dtype_to_mlir
+from .tensor import Array, Tensor
+from .schedule import Schedule, Stage
+from .dsl import for_
+from .context import UniqueName
+from .types import Int, Type, UInt, Float, dtype_to_hcl
+from . import config
 from collections import OrderedDict
 from typing import Callable, Sequence, Mapping, Union
 
@@ -7,17 +15,18 @@ import hcl_mlir
 import numpy as np
 from hcl_mlir import GlobalInsertionPoint
 from hcl_mlir.dialects import hcl as hcl_d
-from hcl_mlir.dialects import pdl
+from hcl_mlir.dialects import scf, pdl, transform
 from hcl_mlir.ir import *
 
-from . import config
-from .types import Int, Type, UInt, Float, dtype_to_hcl
-from .context import UniqueName
-from .dsl import for_
-from .schedule import Schedule, Stage
-from .tensor import Array, Tensor
-from .utils import get_dtype_str, hcl_dtype_to_mlir
-from .context import get_context, get_location, set_context
+from hcl_mlir.dialects._ods_common import _cext as _ods_cext
+from hcl_mlir.dialects._ods_common import extend_opview_class as _ods_extend_opview_class, segmented_accessor as _ods_segmented_accessor, equally_sized_accessor as _ods_equally_sized_accessor, get_default_loc_context as _ods_get_default_loc_context, get_op_result_or_value as _get_op_result_or_value, get_op_results_or_values as _get_op_results_or_values
+
+_ods_ir = _ods_cext.ir
+
+try:
+    from . import _transform_ops_ext as _ods_ext_module
+except ImportError:
+    _ods_ext_module = None
 
 
 def init(init_dtype=Int(32), raise_assert_exception=True):
@@ -569,7 +578,7 @@ class ValueHandle(Handle):
         return self.get_expr_result("arith.cmp", [self, other], True, "ge")
 
 
-def pdl_pattern(pattern_descriptor: Callable, benefit=0):
+def pdl_pattern(pattern_descriptor: Callable, name: str, benefit=0):
     """
     Instantiate a PDL pattern from a pattern descriptor.
     """
@@ -577,7 +586,7 @@ def pdl_pattern(pattern_descriptor: Callable, benefit=0):
     module = Module.create(get_location())
     with get_context(), get_location():
         with InsertionPoint.at_block_begin(module.body):
-            pattern = pdl.PatternOp(benefit)
+            pattern = pdl.PatternOp(benefit, name)
         ip = InsertionPoint.at_block_begin(pattern.body)
         GlobalInsertionPoint.save(ip)
         pattern_descriptor()
@@ -643,6 +652,94 @@ def pdl_op(name: str,
             type_handles) else [pdl.TypesOp()]
         op_ssa = pdl.OperationOp(name,  operands, attrs, types).op
         return OpHandle(op_ssa, list(map(lambda x: x.dtype, type_handles)))
+
+
+def pdl_transform(target_handle):
+    """
+    Instantiate a transform.with_pdl_patterns wrapper and a transform.sequence.
+    """
+    with GlobalInsertionPoint.get():
+        rewrite = pdl.RewriteOp(
+            target_handle.get_op_ssa(), "transform.dialect")
+    pattern = rewrite.operation.parent
+    with InsertionPoint(pattern):
+        trans = transform.WithPDLPatternsOp()
+    trans_root = trans.body.arguments[0]
+    trans_ip = InsertionPoint.at_block_begin(trans.body)
+
+    pattern.detach_from_parent()
+    trans_ip.insert(pattern)
+    with trans_ip:
+        seq = transform.SequenceOp(trans_root)
+    seq_ip = InsertionPoint.at_block_begin(seq.body)
+
+    nameAttr = StringAttr(pattern.attributes["sym_name"])
+    with seq_ip:
+        target = transform.PDLMatchOp(trans_root, nameAttr.value)
+        terminator = transform.YieldOp()
+    ip = InsertionPoint(terminator)
+    GlobalInsertionPoint.save(ip)
+    return OpHandle(target.result)
+
+
+@_ods_extend_opview_class(_ods_ext_module)
+class HCLGetParentLoopOp(OpView):
+    OPERATION_NAME = "transform.hcl.get_parent_loop"
+
+    _ODS_REGIONS = (0, True)
+
+    def __init__(self, target, num_loops, *, loc=None, ip=None):
+        operands = []
+        results = []
+        attributes = {}
+        regions = None
+        operands.append(target)
+        attributes["num_loops"] = num_loops
+        results.extend([operands[0].type] * 1)
+        _ods_successors = None
+        super().__init__(self.build_generic(
+            attributes=attributes, results=results, operands=operands,
+            successors=_ods_successors, regions=regions, loc=loc, ip=ip))
+
+
+def get_parent_loop(target_handle, num_loops=1):
+    """
+    Instantiate a Transform HCLGetParentLoopOp.
+    """
+    with GlobalInsertionPoint.get():
+        num_loops_attr = IntegerAttr.get(
+            IntegerType.get_signless(64), num_loops)
+        loop = HCLGetParentLoopOp(target_handle.get_op_ssa(), num_loops_attr)
+        return OpHandle(loop.results[0])
+
+
+@_ods_extend_opview_class(_ods_ext_module)
+class HCLLoopUnrollOp(OpView):
+    OPERATION_NAME = "transform.hcl.loop_unroll"
+
+    _ODS_REGIONS = (0, True)
+
+    def __init__(self, target, factor, *, loc=None, ip=None):
+        operands = []
+        results = []
+        attributes = {}
+        regions = None
+        operands.append(target)
+        attributes["factor"] = factor
+        _ods_successors = None
+        super().__init__(self.build_generic(
+            attributes=attributes, results=results, operands=operands,
+            successors=_ods_successors, regions=regions, loc=loc, ip=ip))
+
+
+def loop_unroll(target_handle, factor=1):
+    """
+    Instantiate a Transform HCLLoopUnrollOp.
+    """
+    with GlobalInsertionPoint.get():
+        factor_attr = IntegerAttr.get(
+            IntegerType.get_signless(64), factor)
+        HCLLoopUnrollOp(target_handle.get_op_ssa(), factor_attr)
 
 
 def pdl_rewrite(target_handle):
