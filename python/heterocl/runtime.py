@@ -24,7 +24,7 @@ def copy_build_files(target, script=None):
     # make the project folder and copy files
     os.makedirs(target.project, exist_ok=True)
     path = os.path.dirname(__file__)
-    path = os.path.join(path, "../harness/")
+    path = os.path.join(path, "harness/")
     project = target.project
     platform = str(target.tool.name)
     mode = str(target.tool.mode)
