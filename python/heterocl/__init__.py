@@ -17,3 +17,4 @@ from .print import *
 from .types import *
 from .platforms import *
 from .instantiate import *
+from .pattern import *
