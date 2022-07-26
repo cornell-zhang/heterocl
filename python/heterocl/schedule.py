@@ -10,7 +10,7 @@ from hcl_mlir.dialects import pdl
 from hcl_mlir.ir import *
 from hcl_mlir.exceptions import *
 
-from .pattern import Pattern
+from .pattern import Pattern, OpHandle
 from .devices import Device, DevMemoryPair
 from .context import (BreakFlag, ImperativeLoopDepth, ImperativeLoopNestCount,
                       NestedCompute, StageName, UniqueName, get_context,
@@ -513,10 +513,23 @@ class Schedule(object):
             ip = InsertionPoint.at_block_begin(self.device_module.body)
             GlobalInsertionPoint.save(ip)
             pattern = Pattern(name, benefit)
-            pattern_builder(pattern, *values)
-            print(self.device_module)
-            hcl_d.apply_transform(self.device_module)
-            return pattern
+
+            def get_handle(stage: Stage):
+                with GlobalInsertionPoint.get():
+                    operands = [pdl.OperandsOp()]
+                    types = [pdl.TypesOp()]
+                    attr = pdl.AttributeOp(None, StringAttr.get(stage.name))
+                    attrs = {"op_name": attr}
+                    loop = pdl.OperationOp(
+                        "affine.for", operands, attrs, types)
+                    return OpHandle(loop)
+
+            pattern_builder(pattern, *(map(get_handle, values)))
+            GlobalInsertionPoint.restore()
+
+        # print(self.device_module)
+        hcl_d.apply_transform(self.device_module)
+        return pattern
 
 
 class StageFunction(object):
