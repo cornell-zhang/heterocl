@@ -1,13 +1,16 @@
 import functools
+from typing import Callable, Pattern
 import warnings
 
 import hcl_mlir
 from hcl_mlir import GlobalInsertionPoint
 from hcl_mlir.dialects import hcl as hcl_d
 from hcl_mlir.dialects import func as func_d
+from hcl_mlir.dialects import pdl
 from hcl_mlir.ir import *
 from hcl_mlir.exceptions import *
 
+from .pattern import Pattern
 from .devices import Device, DevMemoryPair
 from .context import (BreakFlag, ImperativeLoopDepth, ImperativeLoopNestCount,
                       NestedCompute, StageName, UniqueName, get_context,
@@ -498,6 +501,16 @@ class Schedule(object):
                     op.attributes["merge"] = StringAttr.get(merge.name)
             results.append(StageFunction([stage.name for stage in stages]))
         return results if len(results) > 1 else results[0]
+
+    def apply(self, name: str, benefit: int, pattern_builder: Callable, *values):
+        with get_context(), get_location():
+            ip = InsertionPoint.at_block_begin(self.device_module.body)
+            GlobalInsertionPoint.save(ip)
+            pattern = Pattern(name, benefit)
+            pattern_builder(pattern, *values)
+            print(self.device_module)
+            hcl_d.apply_transform(self.device_module)
+            return pattern
 
 
 class StageFunction(object):
