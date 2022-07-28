@@ -490,7 +490,12 @@ class Schedule(object):
 
         results = []
         for i, stages in enumerate(stage_list):
-            handles = [stage.stage_handle.result for stage in stages]
+            if isinstance(stages, list):
+                handles = [stage.stage_handle.result for stage in stages]
+                names = [stage.name for stage in stages]
+            else:
+                handles = [stages.stage_handle.result]
+                names = [stages.name]
             with get_context() as ctx, get_location() as loc:
                 op = hcl_d.OutlineOp(handles,
                                      ip=GlobalInsertionPoint.get())
@@ -503,7 +508,7 @@ class Schedule(object):
                 if unify and i > 0:
                     op.attributes["unify"] = StringAttr.get(results[0].name)
             if not unify or i == 0:
-                results.append(StageFunction([stage.name for stage in stages]))
+                results.append(StageFunction(names))
         return results if len(results) > 1 else results[0]
 
 
