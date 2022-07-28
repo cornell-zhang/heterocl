@@ -482,21 +482,28 @@ class Schedule(object):
                 to_op = hcl_d.InterKernelToOp(
                     tensor, dst.stage_handle.result, fifo_depth, ip=GlobalInsertionPoint.get())
 
-    def outline(self, *stage_list, merge=None):
+    def outline(self, *stage_list, param=[], unify=False):
         """Outline stages as a function
 
         e.g., s.outline([s0,s1], [s2], [s3,s4])
         """
 
         results = []
-        for stages in stage_list:
+        for i, stages in enumerate(stage_list):
             handles = [stage.stage_handle.result for stage in stages]
             with get_context() as ctx, get_location() as loc:
                 op = hcl_d.OutlineOp(handles,
                                      ip=GlobalInsertionPoint.get())
-                if merge is not None:
-                    op.attributes["merge"] = StringAttr.get(merge.name)
-            results.append(StageFunction([stage.name for stage in stages]))
+                assert isinstance(param, list), "param must be a list"
+                if len(param) > 0:
+                    attr_list = []
+                    for p in param:
+                        attr_list.append(p.loop_name)
+                    op.attributes["param"] = ArrayAttr.get(attr_list)
+                if unify and i > 0:
+                    op.attributes["unify"] = StringAttr.get(results[0].name)
+            if not unify or i == 0:
+                results.append(StageFunction([stage.name for stage in stages]))
         return results if len(results) > 1 else results[0]
 
 
@@ -683,7 +690,7 @@ class Stage(object):
             compute_at = hcl_d.ComputeAtOp(
                 self.stage_handle.result, parent.stage_handle.result, scope.result, ip=GlobalInsertionPoint.get())
 
-    def outline(self, param=[], axis=None, merge=None):
+    def outline(self, param=[], axis=None, unify=None):
         """Outline a stage as a function
         """
 
@@ -701,9 +708,12 @@ class Stage(object):
                     op.attributes["axis"] = StringAttr.get(axis)
                 else:
                     op.attributes["axis"] = axis.loop_name
-            if merge is not None:
-                op.attributes["merge"] = StringAttr.get(merge.name)
-        return StageFunction(self.name)
+            if unify is not None:
+                op.attributes["unify"] = StringAttr.get(unify.name)
+        if unify is not None:
+            return unify
+        else:
+            return StageFunction(self.name)
 
     def systolic(self):
         """Wrap the current stage as a systolic array
