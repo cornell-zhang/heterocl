@@ -482,7 +482,7 @@ class Schedule(object):
                 to_op = hcl_d.InterKernelToOp(
                     tensor, dst.stage_handle.result, fifo_depth, ip=GlobalInsertionPoint.get())
 
-    def outline(self, *stage_list, param=[], unify=False):
+    def outline(self, *stage_list, unify=False):
         """Outline stages as a function
 
         e.g., s.outline([s0,s1], [s2], [s3,s4])
@@ -499,12 +499,6 @@ class Schedule(object):
             with get_context() as ctx, get_location() as loc:
                 op = hcl_d.OutlineOp(handles,
                                      ip=GlobalInsertionPoint.get())
-                assert isinstance(param, list), "param must be a list"
-                if len(param) > 0:
-                    attr_list = []
-                    for p in param:
-                        attr_list.append(p.loop_name)
-                    op.attributes["param"] = ArrayAttr.get(attr_list)
                 if unify and i > 0:
                     op.attributes["unify"] = StringAttr.get(results[0].name)
             if not unify or i == 0:
@@ -695,19 +689,13 @@ class Stage(object):
             compute_at = hcl_d.ComputeAtOp(
                 self.stage_handle.result, parent.stage_handle.result, scope.result, ip=GlobalInsertionPoint.get())
 
-    def outline(self, param=[], axis=None, unify=None):
+    def outline(self, axis=None, unify=None):
         """Outline a stage as a function
         """
 
         with get_context() as ctx, get_location() as loc:
             op = hcl_d.OutlineOp([self.stage_handle.result],
                                  ip=GlobalInsertionPoint.get())
-            assert isinstance(param, list), "param must be a list"
-            if len(param) > 0:
-                attr_list = []
-                for p in param:
-                    attr_list.append(p.loop_name)
-                op.attributes["param"] = ArrayAttr.get(attr_list)
             if axis is not None:
                 if isinstance(axis, str):
                     op.attributes["axis"] = StringAttr.get(axis)
