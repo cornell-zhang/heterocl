@@ -18,11 +18,11 @@ git checkout hcl-mlir
 export HCL_HOME=$(pwd)
 export PYTHONPATH=$HCL_HOME/python:$HCL_HOME/hlib/python:${PYTHONPATH}
 
-# build LLVM 14.0.0
+# build LLVM 15.0.0-rc1
 cd hcl-dialect-prototype
 git clone https://github.com/llvm/llvm-project.git
 cd llvm-project
-git checkout 73202130e52e69d58c571c60163d1c8994e8d166
+git checkout tags/llvmorg-15.0.0-rc1
 python3 -m pip install --upgrade pip
 python3 -m pip install -r mlir/python/requirements.txt
 mkdir -p build && cd build
