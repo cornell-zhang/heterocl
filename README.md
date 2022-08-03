@@ -18,11 +18,11 @@ git checkout hcl-mlir
 export HCL_HOME=$(pwd)
 export PYTHONPATH=$HCL_HOME/python:$HCL_HOME/hlib/python:${PYTHONPATH}
 
-# build LLVM 14.0.0
+# build LLVM 15.0.0-rc1
 cd hcl-dialect-prototype
 git clone https://github.com/llvm/llvm-project.git
 cd llvm-project
-git checkout tags/llvmorg-14.0.0
+git checkout tags/llvmorg-15.0.0-rc1
 python3 -m pip install --upgrade pip
 python3 -m pip install -r mlir/python/requirements.txt
 mkdir -p build && cd build
@@ -49,11 +49,15 @@ cmake -G "Unix Makefiles" .. \
    -DPython3_EXECUTABLE=~/.venv/hcl-dev/bin/python3
 make -j8
 
+# install dependencies
+python3 -m pip install -r python/requirements.txt
+
 # Export the generated HCL-MLIR Python library
 export PYTHONPATH=$(pwd)/tools/hcl/python_packages/hcl_core:${PYTHONPATH}
 
 # run MLIR tests
 cmake --build . --target check-hcl
+
 # run frontend tests in the HeteroCL repository
 cd ../..
 python3 tests/mlir/hcl-mlir/test_gemm.py
@@ -81,18 +85,10 @@ The speedup is over a single-core single-thread CPU execution on AWS F1.
 | **[KNN Digit Recognition](samples/digitrec/)**<br/>K=3 #images=1800<br/>`uint49` | 4.1k (0.42%) | 5.5k (0.26%) | 38 (2.0%) | 0 (0.0%) | 250 | 0.73 | 0.07 | 10.4 |
 | **[K-Means](samples/kmeans)**<br/>K=16 #elem=320 x 32<br/>`int32` | 168.2k (16.6%) | 212.1k (10.0%) | 54 (2.8%) | 1.5k (22.5%) | 187 | 65.6 | 0.79 | 83.0 | 
 
-## Publication
+## Related Publications
 
-If you use HeteroCL in your design, please cite our [FPGA'19 paper](http://www.csl.cornell.edu/~zhiruz/pdfs/heterocl-fpga2019.pdf):
-```
-@article{lai2019heterocl,
-  title={HeteroCL: A Multi-Paradigm Programming Infrastructure for Software-Defined Reconfigurable Computing},
-  author={Lai, Yi-Hsiang and Chi, Yuze and Hu, Yuwei and Wang, Jie and Yu, Cody Hao and 
-          Zhou, Yuan and Cong, Jason and Zhang, Zhiru},
-  journal={Int'l Symp. on Field-Programmable Gate Arrays (FPGA)},
-  year={2019}
-}
-```
+* Shaojie Xiang, Yi-Hsiang Lai, Yuan Zhou, Hongzheng Chen, Niansong Zhang, Debjit Pal, Zhiru Zhang. [HeteroFlow: An Accelerator Programming Model with Decoupled Data Placement for Software-Defined FPGAs](https://www.csl.cornell.edu/~zhiruz/pdfs/heteroflow-fpga2022.pdf). In FPGA, 2022.
+* Yi-Hsiang Lai, Yuze Chi, Yuwei Hu, Jie Wang, Cody Hao Yu, Yuan Zhou, Jason Cong, Zhiru Zhang. [HeteroCL: A Multi-Paradigm Programming Infrastructure for Software-Defined Reconfigurable Computing](https://www.csl.cornell.edu/~zhiruz/pdfs/heterocl-fpga2019.pdf). In FPGA, 2019. (Best Paper Award)
 
 ## Related Work
 
