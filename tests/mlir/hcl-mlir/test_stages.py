@@ -80,29 +80,10 @@ def test_outline_extension():
         return D
 
     s = hcl.create_schedule([A], kernel)
-    func_B = s[kernel.B].outline()
-    func_C = s[kernel.C].outline(merge=func_B)
-    func_D = s[kernel.D].outline(merge=func_B)
-    print(hcl.lower(s))
-
-def test_outline_extension_axis():
-
-    A = hcl.placeholder((32, 32), "A")
-
-    def kernel(A):
-        B = hcl.compute((32, 32), lambda i, j: A[i, j] + 1, "B")
-        C = hcl.compute((16, 16), lambda i, j: B[i, j] + 1, "C")
-        D = hcl.compute((8, 8), lambda i, j: C[i, j] + 1, "D")
-        return D
-
-    s = hcl.create_schedule([A], kernel)
-    s_B, s_C, s_D = kernel.B, kernel.C, kernel.D
-    s[s_B].tile(s_B.axis[0], s_B.axis[1], 8, 8)
-    # s[s_C].tile(s_C.axis[0], s_C.axis[1], 8, 8)
-    # func_D = s[s_D].outline()
-    # func_C = s[s_C].outline(axis=s_C.axis[1])
-    func_B = s[s_B].outline(axis=s_B.axis[1])
-    print(s.device_module)
+    # func_B = s[kernel.B].outline()
+    # func_C = s[kernel.C].outline(merge=func_B)
+    # func_D = s[kernel.D].outline(merge=func_B)
+    s.outline(s[kernel.B], s[kernel.C], s[kernel.D], unify=True)
     print(hcl.lower(s))
 
 def test_outline_extension_axis():
@@ -120,7 +101,7 @@ def test_outline_extension_axis():
     print(s.device_module)
     print(hcl.lower(s))
 
-def test_outline_extension_param():
+def test_outline_extension_unify():
 
     A = hcl.placeholder((32, 32), "A")
 
@@ -131,11 +112,15 @@ def test_outline_extension_param():
         return D
 
     s = hcl.create_schedule([A], kernel)
-    func_B = s[kernel.B].outline(param=[kernel.B.axis[0], kernel.B.axis[1]])
-    func_C = s[kernel.C].outline(param=[kernel.C.axis[0], kernel.C.axis[1]])
-    func_D = s[kernel.D].outline(param=[kernel.D.axis[0], kernel.D.axis[1]])
+    s.outline(s[kernel.B], s[kernel.C], s[kernel.D], unify=True)
+    # print(hcl.lower(s))
+    mod = hcl.build(s)
     print(s.device_module)
-    print(hcl.lower(s))
+    np_A, np_D = np.zeros((32, 32)), np.zeros((8, 8))
+    hcl_A = hcl.asarray(np_A)
+    hcl_D = hcl.asarray(np_D)
+    mod(hcl_A, hcl_D)
+    print(hcl_D.asnumpy())
 
 def test_outline_cpu():
 
@@ -201,7 +186,7 @@ if __name__ == "__main__":
     # test_stages()
     # test_outline()
     # test_outline_extension()
-    # test_outline_extension_param()
-    test_outline_extension_axis()
+    test_outline_extension_unify()
+    # test_outline_extension_axis()
     # test_outline_cpu()
     # test_module_mixed_paradigm()

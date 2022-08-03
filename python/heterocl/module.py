@@ -1,5 +1,7 @@
 import copy
 from multiprocessing import Process
+import warnings
+import numpy as np
 
 from hcl_mlir.dialects import func as func_d
 from hcl_mlir.ir import *
@@ -35,6 +37,7 @@ class HCLModule(object):
         if isinstance(target, Platform) and target.tool.name in ["vivado_hls", "vitis_hls"]:
             self.run_hls(shell=True)
         elif target == "llvm":
+            original_results = []
             with get_context() as ctx, get_location():
                 for op in self.host_src.body.operations:
                     if isinstance(op, func_d.FuncOp) and op.sym_name.value == "top":
@@ -45,6 +48,14 @@ class HCLModule(object):
                             memref_type = MemRefType(arg.type)
                             assert memref_type.element_type == hcl_dtype_to_mlir(
                                 argv[i].dtype, signless=True)
+                            if tuple(memref_type.shape) != argv[i].np_array.shape:
+                                warnings.warn(
+                                    "Shape mismatch between input {} and kernel argument {}!".format(tuple(memref_type.shape), argv[i].np_array.shape))
+                                pad_shape = []
+                                for dst, src in zip(memref_type.shape, argv[i].np_array.shape):
+                                    pad_shape.append((0, dst - src))
+                                argv[i].np_array = np.pad(
+                                    argv[i].np_array, pad_shape)
                         # test outputs
                         for i, res_type in enumerate(op.type.results):
                             if not MemRefType.isinstance(res_type):
@@ -52,7 +63,22 @@ class HCLModule(object):
                             memref_type = MemRefType(res_type)
                             assert memref_type.element_type == hcl_dtype_to_mlir(
                                 argv[-i-1].dtype, signless=True)
+                            if tuple(memref_type.shape) != argv[-i-1].np_array.shape:
+                                warnings.warn(
+                                    "Shape mismatch between output {} and kernel result {}!".format(tuple(memref_type.shape), argv[-i-1].np_array.shape))
+                                pad_shape = []
+                                for dst, src in zip(memref_type.shape, argv[-i-1].np_array.shape):
+                                    pad_shape.append((0, dst - src))
+                                original_results.append(
+                                    [argv[-i-1], argv[-i-1].np_array.shape])
+                                argv[-i-1].np_array = np.pad(
+                                    argv[-i-1].np_array, pad_shape)
             execute_llvm_backend(self.src, self.name, self.return_num, *argv)
+            for res, shape in original_results:
+                slicing = []
+                for s in shape:
+                    slicing.append(slice(0, s))
+                res.np_array = res.np_array[tuple(slicing)]
         else:
             raise RuntimeError("Not implemented")
 
