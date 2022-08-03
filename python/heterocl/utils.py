@@ -6,13 +6,16 @@ from .config import init_dtype
 from .types import Fixed, Float, Int, Type, UFixed, UInt, Struct, dtype_to_str
 
 
-def hcl_dtype_to_mlir(dtype):
+def hcl_dtype_to_mlir(dtype, signless=False):
     if hcl_mlir.is_hcl_mlir_type(dtype):
         return dtype
     elif isinstance(dtype, Int):
         return IntegerType.get_signless(dtype.bits)
     elif isinstance(dtype, UInt):
-        return IntegerType.get_unsigned(dtype.bits)
+        if signless:
+            return IntegerType.get_signless(dtype.bits)
+        else:
+            return IntegerType.get_unsigned(dtype.bits)
     elif isinstance(dtype, Fixed):
         return hcl_d.FixedType.get(dtype.bits, dtype.fracs)
     elif isinstance(dtype, UFixed):

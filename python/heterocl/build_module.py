@@ -324,7 +324,7 @@ def build_llvm(schedule, target=None, stmt=None):
             func.attributes['llvm.emit_c_interface'] = UnitAttr.get()
             func.attributes[name] = UnitAttr.get()
             func.attributes['sym_name'] = StringAttr.get("top")
-        hcl_d.loop_transformation(module)
+        host_src = Module.parse(str(module))
         hcl_d.lower_composite_type(module)
         hcl_d.lower_fixed_to_int(module)
         hcl_d.lower_anywidth_int(module)
@@ -340,5 +340,5 @@ def build_llvm(schedule, target=None, stmt=None):
         num_results = 0
         execution_engine = ExecutionEngine(module, opt_level=0)
         hcl_module = HCLModule(name, execution_engine,
-                               "llvm", ctx, return_num=num_results)
+                               "llvm", host_src=host_src, return_num=num_results)
         return hcl_module

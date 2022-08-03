@@ -1,9 +1,14 @@
 import copy
 from multiprocessing import Process
 
+from hcl_mlir.dialects import func as func_d
+from hcl_mlir.ir import *
+
+from .context import get_context, get_location
 from .devices import Platform
 from .report import report_stats
 from .runtime import execute_fpga_backend, execute_llvm_backend
+from .utils import hcl_dtype_to_mlir
 
 
 class HCLModule(object):
@@ -30,6 +35,23 @@ class HCLModule(object):
         if isinstance(target, Platform) and target.tool.name in ["vivado_hls", "vitis_hls"]:
             self.run_hls(shell=True)
         elif target == "llvm":
+            with get_context() as ctx, get_location():
+                for op in self.host_src.body.operations:
+                    if isinstance(op, func_d.FuncOp) and op.sym_name.value == "top":
+                        # test inputs
+                        for i, arg in enumerate(op.arguments):
+                            if not MemRefType.isinstance(arg.type):
+                                continue
+                            memref_type = MemRefType(arg.type)
+                            assert memref_type.element_type == hcl_dtype_to_mlir(
+                                argv[i].dtype, signless=True)
+                        # test outputs
+                        for i, res_type in enumerate(op.type.results):
+                            if not MemRefType.isinstance(res_type):
+                                continue
+                            memref_type = MemRefType(res_type)
+                            assert memref_type.element_type == hcl_dtype_to_mlir(
+                                argv[-i-1].dtype, signless=True)
             execute_llvm_backend(self.src, self.name, self.return_num, *argv)
         else:
             raise RuntimeError("Not implemented")
