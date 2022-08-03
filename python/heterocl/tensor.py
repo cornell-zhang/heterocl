@@ -7,11 +7,7 @@ import numpy as np
 from hcl_mlir import ASTVisitor, GlobalInsertionPoint
 from hcl_mlir.dialects import affine
 from hcl_mlir.dialects import hcl as hcl_d
-<<<<<<< HEAD
 from hcl_mlir.dialects import memref
-=======
-from hcl_mlir.dialects import memref, scf
->>>>>>> Bump LLVM version
 from hcl_mlir.ir import *
 
 from .types import dtype_to_str, Int, UInt, Float, Fixed, UFixed

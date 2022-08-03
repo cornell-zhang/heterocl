@@ -1,10 +1,6 @@
 import hcl_mlir
 from hcl_mlir.dialects import func as func_d
-<<<<<<< HEAD
 from hcl_mlir import GlobalInsertionPoint
-=======
-from hcl_mlir import GlobalInsertionPoint, ASTVisitor
->>>>>>> Bump LLVM version
 from hcl_mlir.ir import *
 from .context import *
 from .utils import hcl_dtype_to_mlir
