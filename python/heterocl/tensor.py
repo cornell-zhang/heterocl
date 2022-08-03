@@ -5,9 +5,9 @@ from typing import List, Callable
 import hcl_mlir
 import numpy as np
 from hcl_mlir import ASTVisitor, GlobalInsertionPoint
-from hcl_mlir.dialects import affine, builtin
+from hcl_mlir.dialects import affine
 from hcl_mlir.dialects import hcl as hcl_d
-from hcl_mlir.dialects import memref, std, scf
+from hcl_mlir.dialects import memref
 from hcl_mlir.ir import *
 
 from .types import dtype_to_str, Int, UInt, Float, Fixed, UFixed

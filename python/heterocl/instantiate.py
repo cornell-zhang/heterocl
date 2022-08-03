@@ -1,6 +1,6 @@
 import hcl_mlir
-from hcl_mlir.dialects import std, builtin
-from hcl_mlir import GlobalInsertionPoint, ASTVisitor
+from hcl_mlir.dialects import func as func_d
+from hcl_mlir import GlobalInsertionPoint
 from hcl_mlir.ir import *
 from .context import *
 from .utils import hcl_dtype_to_mlir
@@ -65,7 +65,7 @@ class Instance(object):
         Schedule._CurrentSchedule._instance_modules.append(self.instance_sch.device_module)
 
         # Build a FuncOp with no function body as declaration
-        func_op = builtin.FuncOp(
+        func_op = func_d.FuncOp(
             name=self.name,
             type=FunctionType.get(inputs=input_types, results=result_types),
             visibility="private",

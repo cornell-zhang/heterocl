@@ -2,9 +2,10 @@ import warnings
 
 import hcl_mlir
 from hcl_mlir import GlobalInsertionPoint
-from hcl_mlir.dialects import affine, builtin
+from hcl_mlir.dialects import affine
+from hcl_mlir.dialects import func as func_d
 from hcl_mlir.dialects import hcl as hcl_d
-from hcl_mlir.dialects import scf, std
+from hcl_mlir.dialects import scf
 from hcl_mlir.ir import *
 from hcl_mlir.exceptions import *
 
@@ -272,7 +273,7 @@ def def_(shapes, dtypes=None, ret_dtype=None, name=None, arg_names=None):
         stage_func_name = "Stage_" + fname
         # here we also put the return in the input argument,
         # since commonly in C++ we should pass the array by reference
-        stage_func_op = builtin.FuncOp(
+        stage_func_op = func_d.FuncOp(
             name=stage_func_name,
             type=FunctionType.get(inputs=input_types +
                                   return_types, results=[]),
@@ -304,7 +305,7 @@ def def_(shapes, dtypes=None, ret_dtype=None, name=None, arg_names=None):
                     stage_func_op.entry_block.arguments[i].set_type(
                         IndexType.get())
             # update function type
-            stage_func_op.attributes["type"] = TypeAttr.get(
+            stage_func_op.attributes["function_type"] = TypeAttr.get(
                 FunctionType.get(inputs=input_types + return_types, results=[])
             )
 
@@ -341,7 +342,7 @@ def def_(shapes, dtypes=None, ret_dtype=None, name=None, arg_names=None):
 
             # recover from the subfunction
             if len(Schedule._DefFuncReturn) == 0:
-                ret_op = std.ReturnOp([], ip=GlobalInsertionPoint.get())
+                ret_op = func_d.ReturnOp([], ip=GlobalInsertionPoint.get())
                 GlobalInsertionPoint.restore()
                 # build call op
                 call_op = hcl_mlir.CallOp(None, stage_func_name, call_arglist)
@@ -353,7 +354,7 @@ def def_(shapes, dtypes=None, ret_dtype=None, name=None, arg_names=None):
                     new_return_types = [Schedule._DefFuncReturn[0].dtype]
                 else:
                     new_return_types = []
-                stage_func_op.attributes["type"] = TypeAttr.get(
+                stage_func_op.attributes["function_type"] = TypeAttr.get(
                     FunctionType.get(inputs=input_types,
                                      results=new_return_types)
                 )
@@ -385,7 +386,7 @@ def return_(expr=None):
         if DEF_FUNC:  # imperative
             expr = hcl_mlir.get_hcl_op(expr)
             Schedule._DefFuncReturn.append(expr)
-            ret_op = std.ReturnOp(
+            ret_op = func_d.ReturnOp(
                 [expr.result], ip=hcl_mlir.GlobalInsertionPoint.get())
             hcl_mlir.GlobalInsertionPoint.ip_stack[-1] = InsertionPoint(ret_op)
         elif (
@@ -405,7 +406,7 @@ def return_(expr=None):
             raise RuntimeError("Not recognized return value")
     else:
         Schedule._DefFuncReturn.append(None)
-        ret_op = std.ReturnOp([], ip=hcl_mlir.GlobalInsertionPoint.get())
+        ret_op = func_d.ReturnOp([], ip=hcl_mlir.GlobalInsertionPoint.get())
     return ret_op
 
 
