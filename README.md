@@ -46,11 +46,7 @@ cmake -G "Unix Makefiles" .. \
    -DLLVM_EXTERNAL_LIT=$LLVM_BUILD_DIR/bin/llvm-lit \
    -DPYTHON_BINDING=ON \
    -DOPENSCOP=OFF \
-    -DLLVM_USE_LINKER=lld \
-    -DCMAKE_C_COMPILER=clang \
-    -DCMAKE_CXX_COMPILER=clang++ \
    -DPython3_EXECUTABLE=~/.venv/hcl-dev/bin/python3
-
 make -j8
 
 # install dependencies
