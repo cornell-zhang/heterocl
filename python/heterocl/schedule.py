@@ -118,7 +118,8 @@ def build_schedule(inputs, func=None, name=""):
                 new_outputs.append(output.result)
             sch.DataflowGraph.set_leaves(outputs)
             assert len(new_outputs) == len(outputs)
-            ret_op = func_d.ReturnOp(new_outputs, ip=GlobalInsertionPoint.get())
+            ret_op = func_d.ReturnOp(
+                new_outputs, ip=GlobalInsertionPoint.get())
             GlobalInsertionPoint.restore()
 
             # let the later schedule nodes insert before ret_op
@@ -363,7 +364,7 @@ class Schedule(object):
             #     raise RuntimeError("Out-of-bound partition dimensionr. Got dim={}, but the target is of shape {}".format(dim, MemRefType(target.type).shape))
             dim = IntegerAttr.get(ui32, dim)
             res = hcl_d.PartitionOp(
-                target, partition_type, dim, factor, ip=GlobalInsertionPoint.get())
+                target, partition_kind=partition_type, dim=dim, factor=factor, ip=GlobalInsertionPoint.get())
 
     def reshape(self, target, shape):
         """Reshape a Tensor to a specified new shape
@@ -479,7 +480,7 @@ class Schedule(object):
                 fifo_depth = IntegerAttr.get(i32, fifo_depth)
                 # do .to() scheduling
                 to_op = hcl_d.InterKernelToOp(
-                    tensor, dst.stage_handle.result, fifo_depth, ip=GlobalInsertionPoint.get())
+                    tensor, dst.stage_handle.result, fifo_depth=fifo_depth, ip=GlobalInsertionPoint.get())
 
     def outline(self, *stage_list, unify=False):
         """Outline stages as a function
@@ -641,7 +642,7 @@ class Stage(object):
         with get_context(), get_location():
             i32 = IntegerType.get_unsigned(32)
             ii = IntegerAttr.get(i32, initiation_interval)
-            hcl_d.PipelineOp(var, ii, ip=GlobalInsertionPoint.get())
+            hcl_d.PipelineOp(var, ii=ii, ip=GlobalInsertionPoint.get())
 
     def unroll(self, var, factor=0):
         """Unroll the iteration.
@@ -653,7 +654,7 @@ class Stage(object):
         with get_context(), get_location():
             i32 = IntegerType.get_unsigned(32)
             factor = IntegerAttr.get(i32, factor)
-            hcl_d.UnrollOp(var, factor, ip=GlobalInsertionPoint.get())
+            hcl_d.UnrollOp(var, factor=factor, ip=GlobalInsertionPoint.get())
 
     def parallel(self, var):
         """Parallelize the iteration.
@@ -674,8 +675,7 @@ class Stage(object):
             if not isinstance(args[i], OpResult):
                 args[i] = args[i].result
         with get_context() as ctx, get_location():
-            loop_handle_type = hcl_d.LoopHandleType.get(ctx)
-            fused = hcl_d.FuseOp(loop_handle_type, args,
+            fused = hcl_d.FuseOp(args,
                                  ip=GlobalInsertionPoint.get())
         return fused
 
