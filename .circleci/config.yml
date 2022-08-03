@@ -16,14 +16,37 @@ jobs:
           command: |
             sudo apt-get update && sudo apt-get install -y build-essential cmake
       - restore_cache:
-          key: llvm-14.0.0
+          key: cmake-3.23.3
+      - run:
+          name: Install CMake
+          command: |
+            if test -d cmake-3.23.3; then 
+              echo "CMake is downloaded"
+            else
+              wget https://github.com/Kitware/CMake/releases/download/v3.23.3/cmake-3.23.3.tar.gz
+              tar -xzvf cmake-3.23.3.tar.gz
+            fi
+            cd cmake-3.23.3
+            if test -d bin; then
+              echo "CMake is built"
+            else
+              ./bootstrap
+              make
+            fi
+            sudo make install
+      - save_cache:
+          key: cmake-3.23.3
+          paths:
+            - cmake-3.23.3
+      - restore_cache:
+          key: llvm-15.0.0-rc
       - run:
           name: Build LLVM
           command: | # /home/circleci/heterocl
             if test -d llvm-project; then echo "LLVM exists"; \
               else git clone https://github.com/llvm/llvm-project.git; fi
             cd llvm-project
-            git checkout tags/llvmorg-14.0.0
+            git checkout tags/llvmorg-15.0.0-rc1
             python3 -m pip install --upgrade pip
             python3 -m pip install -r mlir/python/requirements.txt
             mkdir -p build && cd build
@@ -39,7 +62,7 @@ jobs:
             export PYTHONPATH=$(pwd)/tools/mlir/python_packages/mlir_core:${PYTHONPATH}
             cd ../..
       - save_cache:
-          key: llvm-14.0.0
+          key: llvm-15.0.0-rc
           paths:
             - llvm-project
       - run:
@@ -65,13 +88,7 @@ jobs:
       - run:
           name: Install HeteroCL Dependencies
           command: |
-            python3 -m pip install numpy==1.18.5
-            python3 -m pip install ordered_set
-            python3 -m pip install pytest==7.1.1
-            python3 -m pip install xmltodict
-            python3 -m pip install tabulate
-            python3 -m pip install pandas
-            python3 -m pip install imageio
+            python3 -m pip install -r python/requirements.txt
       - run: 
           name: HeteroCL Tests
           command: |
