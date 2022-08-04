@@ -47,7 +47,7 @@ class HCLModule(object):
                                 continue
                             memref_type = MemRefType(arg.type)
                             assert memref_type.element_type == hcl_dtype_to_mlir(
-                                argv[i].dtype, signless=True)
+                                argv[i].dtype, signless=True), "Input types: {} {}".format(memref_type.element_type, hcl_dtype_to_mlir(argv[i].dtype, signless=True))
                             if tuple(memref_type.shape) != argv[i].np_array.shape:
                                 warnings.warn(
                                     "Shape mismatch between input {} and kernel argument {}!".format(tuple(memref_type.shape), argv[i].np_array.shape))
@@ -62,17 +62,17 @@ class HCLModule(object):
                                 continue
                             memref_type = MemRefType(res_type)
                             assert memref_type.element_type == hcl_dtype_to_mlir(
-                                argv[-i-1].dtype, signless=True)
-                            if tuple(memref_type.shape) != argv[-i-1].np_array.shape:
+                                argv[len(op.arguments)+i].dtype, signless=True), "Input types: {} {}".format(memref_type.element_type, hcl_dtype_to_mlir(argv[len(op.arguments)+i].dtype, signless=True))
+                            if tuple(memref_type.shape) != argv[len(op.arguments)+i].np_array.shape:
                                 warnings.warn(
-                                    "Shape mismatch between output {} and kernel result {}!".format(tuple(memref_type.shape), argv[-i-1].np_array.shape))
+                                    "Shape mismatch between output {} and kernel result {}!".format(tuple(memref_type.shape), argv[len(op.arguments)+i].np_array.shape))
                                 pad_shape = []
-                                for dst, src in zip(memref_type.shape, argv[-i-1].np_array.shape):
+                                for dst, src in zip(memref_type.shape, argv[len(op.arguments)+i].np_array.shape):
                                     pad_shape.append((0, dst - src))
                                 original_results.append(
-                                    [argv[-i-1], argv[-i-1].np_array.shape])
-                                argv[-i-1].np_array = np.pad(
-                                    argv[-i-1].np_array, pad_shape)
+                                    [argv[len(op.arguments)+i], argv[len(op.arguments)+i].np_array.shape])
+                                argv[len(op.arguments)+i].np_array = np.pad(
+                                    argv[len(op.arguments)+i].np_array, pad_shape)
             execute_llvm_backend(self.src, self.name, self.return_num, *argv)
             for res, shape in original_results:
                 slicing = []

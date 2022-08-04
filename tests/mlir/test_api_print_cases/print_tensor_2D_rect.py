@@ -13,7 +13,7 @@ def kernel(A):
 s = hcl.create_schedule([A], kernel)
 f = hcl.build(s)
 
-np_A = np.random.randint(0, 10, size=(10, 10))
+np_A = np.random.randint(0, 10, size=(5, 10))
 hcl_A = hcl.asarray(np_A)
 
 f(hcl_A)

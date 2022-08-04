@@ -429,7 +429,7 @@ def test_set_bit_tensor():
     np_A = np.random.randint(1, size=(10,))
     np_B = np.random.randint(10, size=(10,))
     golden = (np_B & 0b1110) | np_A
-    hcl_A = hcl.asarray(np_A)
+    hcl_A = hcl.asarray(np_A, dtype=hcl.Int(1))
     hcl_B = hcl.asarray(np_B)
 
     f(hcl_A, hcl_B)
