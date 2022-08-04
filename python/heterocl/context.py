@@ -5,6 +5,9 @@ from hcl_mlir.ir import *
 
 ImperativeLoopNestCount = ContextVar("ImperativeLoopNestCount", default=1)
 ImperativeLoopDepth = ContextVar("ImperativeLoopDepth", default=0)
+# IP Pointer points to the insertion point of the loop nest's parent region
+# in GlobalInsertionPoint.ip_stack
+IPPointer = ContextVar("IPPointer", default=None)
 StageName = ContextVar("StageName", default="")
 NestedCompute = ContextVar("NestedCompute", default=0)
 BreakFlag = ContextVar("BreakFlag", default=False)

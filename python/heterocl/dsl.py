@@ -11,7 +11,7 @@ from hcl_mlir.exceptions import *
 
 from . import config
 from .context import (BreakFlag, ImperativeLoopDepth, ImperativeLoopNestCount,
-                      NestedCompute, StageName, UniqueName)
+                      NestedCompute, StageName, UniqueName, IPPointer)
 from .schedule import Schedule, Stage
 from .tensor import Tensor
 from .utils import get_extra_type_hints, hcl_dtype_to_mlir
@@ -79,6 +79,7 @@ def for_(begin, end, step=1, tag=""):
     else:
         stage_name = tag
     if depth == 0:
+        IPPointer.set(len(hcl_mlir.GlobalInsertionPoint.ip_stack) - 1)
         Schedule._CurrentStage.append(Stage(stage_name))
         Schedule._CurrentStage[-1].stage_handle = hcl_d.CreateOpHandleOp(
             StringAttr.get(stage_name), ip=GlobalInsertionPoint.get()
@@ -90,8 +91,9 @@ def for_(begin, end, step=1, tag=""):
 
     hcl_mlir.enable_build_inplace()
     loop_name = UniqueName.get("loop")
+    loop_nest_ip = IPPointer.get()
     loop_handle = hcl_d.CreateLoopHandleOp(Schedule._CurrentStage[-1].stage_handle.result, StringAttr.get(
-        loop_name), ip=hcl_mlir.GlobalInsertionPoint.ip_stack[1])
+        loop_name), ip=hcl_mlir.GlobalInsertionPoint.ip_stack[loop_nest_ip])
     loop = hcl_mlir.make_for(
         begin, end, step, name=loop_name, stage=stage_name, ip=hcl_mlir.GlobalInsertionPoint.get())
     Schedule._CurrentLoops.append(loop)
