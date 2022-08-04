@@ -91,7 +91,7 @@ def for_(begin, end, step=1, tag=""):
     hcl_mlir.enable_build_inplace()
     loop_name = UniqueName.get("loop")
     loop_handle = hcl_d.CreateLoopHandleOp(Schedule._CurrentStage[-1].stage_handle.result, StringAttr.get(
-        loop_name), ip=hcl_mlir.GlobalInsertionPoint.ip_stack[-depth-1])
+        loop_name), ip=hcl_mlir.GlobalInsertionPoint.ip_stack[1])
     loop = hcl_mlir.make_for(
         begin, end, step, name=loop_name, stage=stage_name, ip=hcl_mlir.GlobalInsertionPoint.get())
     Schedule._CurrentLoops.append(loop)
@@ -186,7 +186,7 @@ def elif_(cond):
 
 
 def while_(cond):
-    """Construct an IF branch."""
+    """Construct a while loop"""
     hcl_mlir.enable_build_inplace()
     if isinstance(cond, hcl_mlir.ExprOp):
         while_op = hcl_mlir.make_while(
