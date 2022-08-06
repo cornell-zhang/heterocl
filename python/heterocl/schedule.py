@@ -1,4 +1,5 @@
 import functools
+from typing import Callable
 import warnings
 
 import hcl_mlir
@@ -504,6 +505,15 @@ class Schedule(object):
             if not unify or i == 0:
                 results.append(StageFunction(names))
         return results if len(results) > 1 else results[0]
+
+    def apply(self, pattern: Callable[..., None], *values):
+        with get_context(), get_location():
+            GlobalInsertionPoint.save(
+                InsertionPoint.at_block_begin(self.device_module.body))
+            pattern(*values)
+            GlobalInsertionPoint.restore()
+        # print(self.device_module)
+        hcl_d.apply_transform(self.device_module)
 
 
 class StageFunction(object):

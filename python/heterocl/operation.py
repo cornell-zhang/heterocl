@@ -27,7 +27,7 @@ def placeholder(shape, name=None, dtype=None):
         name = UniqueName.get("tensor")
     if (
         not dtype == None
-        and not isinstance(dtype, (Type, str))
+        and not isinstance(dtype, (Type, Int, UInt, Float, str))
         and not hcl_mlir.is_hcl_mlir_type(dtype)
     ):
         raise RuntimeError("Type error")
@@ -204,7 +204,7 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
     shape = tuple([int(s) if isinstance(s, float) else s for s in shape])
     if name is None:
         name = UniqueName.get("tensor")
-    if not dtype == None and not isinstance(dtype, (Type, str)):
+    if not dtype == None and not isinstance(dtype, (Type, Int, UInt, Float, str)):
         raise RuntimeError("Type error")
     dtype = config.init_dtype if dtype == None else dtype
     if isinstance(dtype, str):
