@@ -1,11 +1,9 @@
-from ast import Global
-
-from numpy import dtype
 from .context import get_context, get_location
 from .utils import hcl_dtype_to_mlir
-from .types import Int, Type, UInt, Float, dtype_to_hcl
+from .types import Int, UInt, Float
 
 from typing import Callable, Sequence, Mapping, Union
+from functools import wraps
 
 from hcl_mlir import GlobalInsertionPoint
 from hcl_mlir.dialects import pdl, transform
@@ -23,8 +21,8 @@ except ImportError:
 
 
 @_ods_extend_opview_class(_ods_ext_module)
-class HCLGetParentLoopOp(OpView):
-    OPERATION_NAME = "transform.hcl.get_parent_loop"
+class HCLParentLoopOp(OpView):
+    OPERATION_NAME = "transform.hcl.parent_loop"
 
     _ODS_REGIONS = (0, True)
 
@@ -346,77 +344,55 @@ class ValueHandle(Handle):
         return self.get_expr_result("arith.cmp", [self, other], True, "ge")
 
 
-class Pattern():
-    def __init__(self, name: str, benefit: int = 0):
+def is_pattern(benefit: int = 0):
+    """
+    A decorator used for defining a pattern to match and rewrite/transform.
+    """
+    # TODO: Support to handle axis of a stage.
+    def get_handle(stage):
         with GlobalInsertionPoint.get():
-            self.pattern_op = pdl.PatternOp(benefit, name)
-        self.name = name
-        self.benefit = benefit
-        self.is_pdl_pattern = True
+            operands = [pdl.OperandsOp()]
+            types = [pdl.TypesOp()]
+            attr = pdl.AttributeOp(None, StringAttr.get(stage.name))
+            attrs = {"op_name": attr}
+            loop = pdl.OperationOp("affine.for", operands, attrs, types)
+            return OpHandle(loop)
+
+    def decorator(func: Callable[..., None]):
+        @wraps(func)
+        def wrapper(*args):
+            with GlobalInsertionPoint.get():
+                pattern_op = pdl.PatternOp(benefit, func.__name__)
+            GlobalInsertionPoint.save(
+                InsertionPoint.at_block_begin(pattern_op.body))
+            func(*(map(get_handle, args)))
+            GlobalInsertionPoint.restore()
+        return wrapper
+    return decorator
+
+
+def is_rewrite(func: Callable[..., None]):
+    """
+    A decorator used for defining a rewrite rule.
+    """
+    @wraps(func)
+    def wrapper(*args: Union[OpHandle, ValueHandle]):
+        with GlobalInsertionPoint.get():
+            rewrite = pdl.RewriteOp()
+        rewrite.add_body()
         GlobalInsertionPoint.save(
-            InsertionPoint.at_block_begin(self.pattern_op.body))
+            InsertionPoint.at_block_begin(rewrite.body))
+        func(*args)
+        GlobalInsertionPoint.restore()
+    return wrapper
 
-    def type(self, dtype):
-        """
-        Instantiate a PDL TypeOp.
-        """
-        with GlobalInsertionPoint.get():
-            mlir_type = hcl_dtype_to_mlir(dtype) if dtype else None
-            return TypeHandle(pdl.TypeOp(mlir_type).result, dtype)
 
-    def attr(self, value, dtype):
-        """
-        Instantiate a PDL AttributeOp.
-        """
-        with GlobalInsertionPoint.get():
-            attr = None
-            if isinstance(value, str):
-                attr = StringAttr.get(value)
-            elif isinstance(value, bool):
-                attr = BoolAttr.get()
-            elif isinstance(value, (int, Int, UInt)):
-                attr = IntegerAttr.get(hcl_dtype_to_mlir(dtype), value)
-            elif isinstance(value, (float, Float)):
-                attr = FloatAttr.get(hcl_dtype_to_mlir(dtype), value)
-            return AttrHandle(pdl.AttributeOp(None, attr).attr, value, dtype)
-
-    def value(self, dtype):
-        """
-        Instantiate a PDL ValueOp.
-        """
-        with GlobalInsertionPoint.get():
-            type_ssa = pdl.TypeOp(hcl_dtype_to_mlir(dtype)).result
-            value_ssa = pdl.OperandOp(type_ssa).val
-        return ValueHandle(dtype, value_ssa)
-
-    def op(self, name: str,
-           operand_handles: Sequence[Union[ValueHandle, OpHandle]] = [],
-           attr_handles: Mapping[str, AttrHandle] = {},
-           type_handles: Sequence[TypeHandle] = []):
-        """
-        Instantiate a customized PDL OperationOp.
-        """
-        with GlobalInsertionPoint.get():
-            def get_ssa(x):
-                if isinstance(x, OpHandle):
-                    return x.get_result().ssa
-                else:
-                    return x.ssa
-
-            def get_attr_ssa(x):
-                return (x[0], x[1].ssa)
-
-            operands = list(map(get_ssa, operand_handles))
-            attrs = dict(map(get_attr_ssa, attr_handles.items()))
-            types = list(map(get_ssa, type_handles)) if len(
-                type_handles) else [pdl.TypesOp()]
-            op_ssa = pdl.OperationOp(name,  operands, attrs, types).op
-            return OpHandle(op_ssa, list(map(lambda x: x.dtype, type_handles)))
-
-    def start_transform(self, target_handle):
-        """
-        Instantiate a transform.with_pdl_patterns wrapper and a transform.sequence.
-        """
+def is_transform(func: Callable[[OpHandle], None]):
+    """
+    A decorator used for defining a transform rule.
+    """
+    @wraps(func)
+    def wrapper(target_handle: Union[OpHandle, ValueHandle]):
         with GlobalInsertionPoint.get():
             rewrite = pdl.RewriteOp(
                 target_handle.get_op_ssa(), "transform.dialect")
@@ -438,83 +414,150 @@ class Pattern():
             terminator = transform.YieldOp()
 
         GlobalInsertionPoint.save(InsertionPoint(terminator))
-        self.pattern_op = trans
-        self.is_pdl_pattern = False
-        return OpHandle(target.result)
+        func(OpHandle(target.result))
+        GlobalInsertionPoint.restore()
+    return wrapper
 
-    def get_parent_loop(self, target_handle, num_loops=1):
-        """
-        Instantiate a Transform HCLGetParentLoopOp.
-        """
-        with GlobalInsertionPoint.get():
-            num_loops_attr = IntegerAttr.get(
-                IntegerType.get_signless(64), num_loops)
-            loop = HCLGetParentLoopOp(
-                target_handle.get_op_ssa(), num_loops_attr)
-            return OpHandle(loop.results[0])
 
-    def unroll(self, target_handle, factor=1):
-        """
-        Instantiate a Transform HCLUnrollOp.
-        """
-        with GlobalInsertionPoint.get():
-            factor_attr = IntegerAttr.get(
-                IntegerType.get_signless(64), factor)
-            HCLUnrollOp(target_handle.get_op_ssa(), factor_attr)
+def type(dtype):
+    """
+    Match or create an MLIR type with the given dtype.
+    Must be used within a function decorated by @is_pattern or @is_rewrite.
+    """
+    with GlobalInsertionPoint.get():
+        mlir_type = hcl_dtype_to_mlir(dtype) if dtype else None
+        return TypeHandle(pdl.TypeOp(mlir_type).result, dtype)
 
-    def split(self, target_handle, factor=1):
-        """
-        Instantiate a Transform HCLSplitOp, return the outer and inner loop
-        handle after transform.
-        """
-        with GlobalInsertionPoint.get():
-            factor_attr = IntegerAttr.get(
-                IntegerType.get_signless(64), factor)
-            split = HCLSplitOp(target_handle.get_op_ssa(), factor_attr)
-            return OpHandle(split.results[0]), OpHandle(split.results[1])
 
-    def pipeline(self, target_handle, initial_interval=1):
-        """
-        Instantiate a Transform HCLPipelineOp, return the pipelined loop.
-        """
-        with GlobalInsertionPoint.get():
-            ii_attr = IntegerAttr.get(
-                IntegerType.get_signless(64), initial_interval)
-            pipeline = HCLPipelineOp(target_handle.get_op_ssa(), ii_attr)
-            return OpHandle(pipeline.results[0])
+def attr(value, dtype):
+    """
+    Match or create an MLIR attribute with the given value and dtype.
+    Must be used within a function decorated by @is_pattern or @is_rewrite.
+    """
+    with GlobalInsertionPoint.get():
+        attr = None
+        if isinstance(value, str):
+            attr = StringAttr.get(value)
+        elif isinstance(value, bool):
+            attr = BoolAttr.get()
+        elif isinstance(value, (int, Int, UInt)):
+            attr = IntegerAttr.get(hcl_dtype_to_mlir(dtype), value)
+        elif isinstance(value, (float, Float)):
+            attr = FloatAttr.get(hcl_dtype_to_mlir(dtype), value)
+        return AttrHandle(pdl.AttributeOp(None, attr).attr, value, dtype)
 
-    def start_rewrite(self, target_handle):
-        """
-        Instantiate a PDL RewriteOp and start to describe the rewriting rule.
-        """
-        with GlobalInsertionPoint.get():
-            rewrite = pdl.RewriteOp(target_handle.get_op_ssa())
-        rewrite.add_body()
-        GlobalInsertionPoint.save(InsertionPoint.at_block_begin(rewrite.body))
 
-    def replace(self, target_handle, repl_handle):
-        """
-        Instantiate a PDL ReplaceOp.
-        """
-        with GlobalInsertionPoint.get():
-            pdl.ReplaceOp(target_handle.get_op_ssa(),
-                          with_op=repl_handle.get_op_ssa())
+def value(dtype):
+    """
+    Match or create an MLIR value with the given dtype.
+    Must be used within a function decorated by @is_pattern or @is_rewrite.
+    """
+    with GlobalInsertionPoint.get():
+        type_ssa = pdl.TypeOp(hcl_dtype_to_mlir(dtype)).result
+        value_ssa = pdl.OperandOp(type_ssa).val
+    return ValueHandle(dtype, value_ssa)
 
-    def erase(self, target_handle):
-        """
-        Instantiate a PDL EraseOp.
-        """
-        with GlobalInsertionPoint.get():
-            pdl.EraseOp(target_handle.get_op_ssa())
 
-    def require(self, predicate: Callable[..., ValueHandle], *values: ValueHandle):
-        """
-        Describe a require PDL pattern.
-        """
-        result = predicate(*values)
-        with GlobalInsertionPoint.get():
-            pdl.OperationOp("hcl.require", [result.ssa])
+def op(name: str, operand_handles: Sequence[Union[ValueHandle, OpHandle]] = [],
+       attr_handles: Mapping[str, AttrHandle] = {},
+       type_handles: Sequence[TypeHandle] = []):
+    """
+    Match an MLIR op with the given name, operands, attributes, and types.
+    Must be used within a function decorated by @is_pattern or @is_rewrite.
+    """
+    with GlobalInsertionPoint.get():
+        def get_ssa(x):
+            if isinstance(x, OpHandle):
+                return x.get_result().ssa
+            else:
+                return x.ssa
 
-    def end_transform_or_rewrite(self):
-        GlobalInsertionPoint.restore()  # Restore from sequence or rewrite region
-        GlobalInsertionPoint.restore()  # Restore from pattern region
+        def get_attr_ssa(x):
+            return (x[0], x[1].ssa)
+
+        operands = list(map(get_ssa, operand_handles))
+        attrs = dict(map(get_attr_ssa, attr_handles.items()))
+        types = list(map(get_ssa, type_handles)) if len(
+            type_handles) else [pdl.TypesOp()]
+        op_ssa = pdl.OperationOp(name,  operands, attrs, types).op
+        return OpHandle(op_ssa, list(map(lambda x: x.dtype, type_handles)))
+
+
+# def require(predicate: Callable[..., ValueHandle], *values: ValueHandle):
+#     """
+#     Match an MLIR require operation with the given predicate.
+#     Must be used within a function decorated by @is_pattern or @is_rewrite.
+#     """
+#     result = predicate(*values)
+#     with GlobalInsertionPoint.get():
+#         pdl.OperationOp("hcl.require", [result.ssa])
+
+
+def replace(target_handle: Union[ValueHandle, OpHandle],
+            repl_handle: Union[ValueHandle, OpHandle]):
+    """
+    Replace the target operation with the repl operation.
+    Must be used within a function decorated by @is_rewrite.
+    """
+    with GlobalInsertionPoint.get():
+        pdl.ReplaceOp(target_handle.get_op_ssa(),
+                      with_op=repl_handle.get_op_ssa())
+
+
+def erase(target_handle: Union[ValueHandle, OpHandle]):
+    """
+    Erase the target operation.
+    Must be used within a function decorated by @is_rewrite.
+    """
+    with GlobalInsertionPoint.get():
+        pdl.EraseOp(target_handle.get_op_ssa())
+
+
+def parent_loop(target_handle: Union[ValueHandle, OpHandle], num_loops=1):
+    """
+    Get the parent loop of the target op or value handle.
+    Must be used within a function decorated by @is_transform.
+    """
+    with GlobalInsertionPoint.get():
+        num_loops_attr = IntegerAttr.get(
+            IntegerType.get_signless(64), num_loops)
+        loop = HCLParentLoopOp(
+            target_handle.get_op_ssa(), num_loops_attr)
+        return OpHandle(loop.results[0])
+
+
+def unroll(target_handle: OpHandle, factor=1):
+    """
+    Unroll the target loop with the given factor.
+    Must be used within a function decorated by @is_transform.
+    """
+    with GlobalInsertionPoint.get():
+        factor_attr = IntegerAttr.get(
+            IntegerType.get_signless(64), factor)
+        HCLUnrollOp(target_handle.get_op_ssa(), factor_attr)
+
+
+def split(target_handle: OpHandle, factor=1):
+    """
+    Split the target loop with the given factor and return the outer and inner
+    loops after transform.
+    Must be used within a function decorated by @is_transform.
+    """
+    with GlobalInsertionPoint.get():
+        factor_attr = IntegerAttr.get(
+            IntegerType.get_signless(64), factor)
+        split = HCLSplitOp(target_handle.get_op_ssa(), factor_attr)
+        return OpHandle(split.results[0]), OpHandle(split.results[1])
+
+
+def pipeline(target_handle: OpHandle, initial_interval=1):
+    """
+    Pipeline the target loop with the given initial interval and return the
+    pipelined loop.
+    Must be used within a function decorated by @is_transform.
+    """
+    with GlobalInsertionPoint.get():
+        ii_attr = IntegerAttr.get(
+            IntegerType.get_signless(64), initial_interval)
+        pipeline = HCLPipelineOp(target_handle.get_op_ssa(), ii_attr)
+        return OpHandle(pipeline.results[0])

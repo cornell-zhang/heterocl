@@ -1,26 +1,33 @@
 import heterocl as hcl
+from heterocl.pattern import *
 
 
-def pattern1(p: hcl.Pattern):
+@is_transform
+def loop_transform(target):
+    target_loop = parent_loop(target, 1)
+    outer_loop, inner_loop = split(target_loop, 2)
+    unroll(inner_loop, 2)
+    pipeline(outer_loop, 1)
+
+
+@is_pattern(benefit=0)
+def pattern1():
     dtype = hcl.Int(32)
-
-    a = p.value(dtype)
-    b = p.value(dtype)
-    c = p.value(dtype)
+    a = value(dtype)
+    b = value(dtype)
+    c = value(dtype)
     res = a * b + c
-
-    res = p.start_transform(res)
-    target_loop = p.get_parent_loop(res, 1)
-    outer_loop, inner_loop = p.split(target_loop, 2)
-    p.unroll(inner_loop, 2)
-    p.pipeline(outer_loop, 1)
-    p.end_transform_or_rewrite()
+    loop_transform(res)
 
 
-def pattern2(p: hcl.Pattern, loop: hcl.OpHandle):
-    target_loop = p.start_transform(loop)
-    p.unroll(target_loop, 2)
-    p.end_transform_or_rewrite()
+@is_transform
+def loop_unroll(loop):
+    unroll(loop, 2)
+
+
+@is_pattern(benefit=0)
+def pattern2(loop: hcl.OpHandle):
+    loop_unroll(loop)
 
 
 def main(M=32, N=32, K=32):
@@ -36,12 +43,12 @@ def main(M=32, N=32, K=32):
 
     s = hcl.create_schedule([A, B], gemm)
 
-    p = s.apply("pattern1", 0, pattern1)
-    # p = s.apply("pattern2", 0, pattern2, s[gemm.C])
+    p = s.apply(pattern1)
+    # p = s.apply(pattern2, s[gemm.C])
     print(s.device_module)
 
-    # f = hcl.build(s, "vhls")
-    # print(f)
+    f = hcl.build(s, "vhls")
+    print(f)
 
 
 if __name__ == '__main__':
