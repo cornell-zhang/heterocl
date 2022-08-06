@@ -12,7 +12,7 @@ from hcl_mlir.dialects import pdl, transform
 from hcl_mlir.ir import *
 
 from hcl_mlir.dialects._ods_common import _cext as _ods_cext
-from hcl_mlir.dialects._ods_common import extend_opview_class as _ods_extend_opview_class, segmented_accessor as _ods_segmented_accessor, equally_sized_accessor as _ods_equally_sized_accessor, get_default_loc_context as _ods_get_default_loc_context, get_op_result_or_value as _get_op_result_or_value, get_op_results_or_values as _get_op_results_or_values
+from hcl_mlir.dialects._ods_common import extend_opview_class as _ods_extend_opview_class
 
 _ods_ir = _ods_cext.ir
 
@@ -43,8 +43,8 @@ class HCLGetParentLoopOp(OpView):
 
 
 @_ods_extend_opview_class(_ods_ext_module)
-class HCLLoopUnrollOp(OpView):
-    OPERATION_NAME = "transform.hcl.loop_unroll"
+class HCLUnrollOp(OpView):
+    OPERATION_NAME = "transform.hcl.unroll"
 
     _ODS_REGIONS = (0, True)
 
@@ -55,6 +55,46 @@ class HCLLoopUnrollOp(OpView):
         regions = None
         operands.append(target)
         attributes["factor"] = factor
+        _ods_successors = None
+        super().__init__(self.build_generic(
+            attributes=attributes, results=results, operands=operands,
+            successors=_ods_successors, regions=regions, loc=loc, ip=ip))
+
+
+@_ods_extend_opview_class(_ods_ext_module)
+class HCLSplitOp(OpView):
+    OPERATION_NAME = "transform.hcl.split"
+
+    _ODS_REGIONS = (0, True)
+
+    def __init__(self, target, factor, *, loc=None, ip=None):
+        operands = []
+        results = []
+        attributes = {}
+        regions = None
+        operands.append(target)
+        attributes["factor"] = factor
+        results.extend([operands[0].type] * 2)
+        _ods_successors = None
+        super().__init__(self.build_generic(
+            attributes=attributes, results=results, operands=operands,
+            successors=_ods_successors, regions=regions, loc=loc, ip=ip))
+
+
+@_ods_extend_opview_class(_ods_ext_module)
+class HCLPipelineOp(OpView):
+    OPERATION_NAME = "transform.hcl.pipeline"
+
+    _ODS_REGIONS = (0, True)
+
+    def __init__(self, target, initial_interval, *, loc=None, ip=None):
+        operands = []
+        results = []
+        attributes = {}
+        regions = None
+        operands.append(target)
+        attributes["initialInterval"] = initial_interval
+        results.extend([operands[0].type])
         _ods_successors = None
         super().__init__(self.build_generic(
             attributes=attributes, results=results, operands=operands,
@@ -413,14 +453,35 @@ class Pattern():
                 target_handle.get_op_ssa(), num_loops_attr)
             return OpHandle(loop.results[0])
 
-    def loop_unroll(self, target_handle, factor=1):
+    def unroll(self, target_handle, factor=1):
         """
-        Instantiate a Transform HCLLoopUnrollOp.
+        Instantiate a Transform HCLUnrollOp.
         """
         with GlobalInsertionPoint.get():
             factor_attr = IntegerAttr.get(
                 IntegerType.get_signless(64), factor)
-            HCLLoopUnrollOp(target_handle.get_op_ssa(), factor_attr)
+            HCLUnrollOp(target_handle.get_op_ssa(), factor_attr)
+
+    def split(self, target_handle, factor=1):
+        """
+        Instantiate a Transform HCLSplitOp, return the outer and inner loop
+        handle after transform.
+        """
+        with GlobalInsertionPoint.get():
+            factor_attr = IntegerAttr.get(
+                IntegerType.get_signless(64), factor)
+            split = HCLSplitOp(target_handle.get_op_ssa(), factor_attr)
+            return OpHandle(split.results[0]), OpHandle(split.results[1])
+
+    def pipeline(self, target_handle, initial_interval=1):
+        """
+        Instantiate a Transform HCLPipelineOp, return the pipelined loop.
+        """
+        with GlobalInsertionPoint.get():
+            ii_attr = IntegerAttr.get(
+                IntegerType.get_signless(64), initial_interval)
+            pipeline = HCLPipelineOp(target_handle.get_op_ssa(), ii_attr)
+            return OpHandle(pipeline.results[0])
 
     def start_rewrite(self, target_handle):
         """
