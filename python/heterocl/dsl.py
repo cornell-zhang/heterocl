@@ -82,7 +82,7 @@ def for_(begin, end, step=1, tag=""):
         IPPointer.set(len(hcl_mlir.GlobalInsertionPoint.ip_stack) - 1)
         Schedule._CurrentStage.append(Stage(stage_name))
         Schedule._CurrentStage[-1].stage_handle = hcl_d.CreateOpHandleOp(
-            StringAttr.get(stage_name), ip=GlobalInsertionPoint.get()
+            StringAttr.get(stage_name), ip=hcl_mlir.GlobalInsertionPoint.ip_stack[IPPointer.get()]
         )
         Schedule._TopFunction.__setattr__(
             stage_name, Schedule._CurrentStage[-1])
