@@ -266,7 +266,6 @@ def test_split_reorder_num_axis():
     assert "0 to 2" in str(loops[3]["body"])
 
 
-@pytest.mark.skip(reason="Verification failed: does not dominate usage")
 def test_compute_at():
     def _build_kernel():
         hcl.init()
@@ -413,7 +412,6 @@ def test_compute_at():
     test_case_6()
 
 
-@pytest.mark.skip(reason="Verification failed: does not dominate usage")
 def test_compute_at_complex():
     hcl.init()
     A = hcl.placeholder((10, 20, 30), name="A")
@@ -439,7 +437,6 @@ def test_compute_at_complex():
     np.testing.assert_allclose(d_np, d_hcl.asnumpy())
 
 
-@pytest.mark.skip(reason="Verification failed: does not dominate usage")
 def test_compute_at_complex_num_axis():
     hcl.init()
     A = hcl.placeholder((10, 20, 30), name="A")
@@ -544,7 +541,6 @@ def test_compute_at_with_reuse_2D_complex():
     np.testing.assert_array_equal(c_np, b_hcl.asnumpy())
 
 
-@pytest.mark.skip(reason="crashes pytest")
 def test_compute_at_no_dep():
     hcl.init()
     A = hcl.compute((10, 10), lambda y, x: y + x, "A")
