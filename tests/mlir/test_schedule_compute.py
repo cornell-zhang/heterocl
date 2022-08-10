@@ -462,7 +462,6 @@ def test_compute_at_complex_num_axis():
     np.testing.assert_allclose(d_np, d_hcl.asnumpy())
 
 
-@pytest.mark.skip(reason="Unable to parse module assembly")
 def test_compute_at_with_reuse_1D():
     hcl.init()
     A = hcl.compute((10, 10), lambda y, x: x + y, "A")
@@ -484,7 +483,6 @@ def test_compute_at_with_reuse_1D():
     np.testing.assert_array_equal(c_np, b_hcl.asnumpy())
 
 
-@pytest.mark.skip(reason="Unable to parse module assembly")
 def test_compute_at_with_reuse_2D():
     hcl.init()
     A = hcl.compute((10, 10), lambda y, x: x + y, name="A", dtype=hcl.Int(32))
@@ -511,7 +509,6 @@ def test_compute_at_with_reuse_2D():
     np.testing.assert_array_equal(c_np, b_hcl.asnumpy())
 
 
-@pytest.mark.skip(reason="Unable to parse module assembly")
 def test_compute_at_with_reuse_2D_complex():
     hcl.init()
     A = hcl.compute((10, 10), lambda y0, x0: x0 + y0, "A")
