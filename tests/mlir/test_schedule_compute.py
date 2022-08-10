@@ -554,7 +554,6 @@ def test_compute_at_no_dep():
     np.testing.assert_array_equal(b_np, b_hcl.asnumpy())
 
 
-@pytest.mark.skip(reason="crashes pytest")
 def test_compute_at_no_dep_diff_shape_smaller():
     hcl.init()
     A = hcl.compute((8, 8), lambda y, x: y + x, "A")
@@ -571,13 +570,17 @@ def test_compute_at_no_dep_diff_shape_smaller():
     np.testing.assert_array_equal(b_np, b_hcl.asnumpy())
 
 
-@pytest.mark.skip(reason="crashes pytest")
+"""
+Note: 
+    In Halide-based HeteroCL, A will be capped to (10, 10).
+    In MLIR-based HeteroCL, A will not be capped. 
+    i.e., compute_at does not change the algorithm.
+"""
 def test_compute_at_no_dep_diff_shape_larger():
     hcl.init()
     A = hcl.compute((12, 12), lambda y, x: y + x, "A")
     B = hcl.compute((10, 10), lambda y, x: y - x, "B")
     s = hcl.create_schedule([A, B])
-    # the outer one will be truncated
     s[A].compute_at(s[B], B.axis[1])
     f = hcl.build(s)
     a_hcl = hcl.asarray(np.zeros(A.shape, dtype="int"), dtype=hcl.Int(32))
@@ -585,10 +588,6 @@ def test_compute_at_no_dep_diff_shape_larger():
     f(a_hcl, b_hcl)
     a_np = np.fromfunction(lambda i, j: i + j, A.shape, dtype="int")
     b_np = np.fromfunction(lambda i, j: i - j, B.shape, dtype="int")
-    for i in range(0, 12):
-        for j in range(0, 12):
-            if i >= 10 or j >= 10:
-                a_np[i][j] = 0
     np.testing.assert_array_equal(a_np, a_hcl.asnumpy())
     np.testing.assert_array_equal(b_np, b_hcl.asnumpy())
 
