@@ -6,7 +6,6 @@ import os
 import pytest
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
-@pytest.mark.skip(reason="crashes pytest")
 def test_print_platform_hierarchy():
     target = import_json_platform(os.path.join(dir_path, "test_platform_spec/xilinx_u280.json"))
     target_mode = 'csyn'
