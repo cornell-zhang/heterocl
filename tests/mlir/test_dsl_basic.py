@@ -616,3 +616,25 @@ def test_slice_op():
 
     ret = hcl_B.asnumpy()
     assert np.array_equal(golden, ret)
+
+
+def test_tensor_slice():
+    hcl.init()
+    def kernel():
+        z1 = hcl.compute((2,3,4), lambda x,y,z: 0, dtype=hcl.Int(32))
+        def do(i,j,k):
+            z1[i][j][k] = i + j + k
+        hcl.mutate(z1.shape, do)
+        return z1
+    
+    s = hcl.create_schedule([], kernel)
+    hcl_res = hcl.asarray(np.zeros((2,3,4), dtype=np.int32))
+    f = hcl.build(s)
+    f(hcl_res)
+    np_res = hcl_res.asnumpy()
+    golden = np.zeros((2,3,4), dtype=np.int32)
+    for i in range(2):
+        for j in range(3):
+            for k in range(4):
+                golden[i][j][k] = i + j + k
+    assert np.array_equal(golden, np_res)
