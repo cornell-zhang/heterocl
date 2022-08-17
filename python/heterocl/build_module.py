@@ -6,6 +6,7 @@ from hcl_mlir.dialects import hcl as hcl_d
 from hcl_mlir.dialects import memref
 from hcl_mlir.dialects import func as func_d
 from hcl_mlir.execution_engine import *
+from hcl_mlir.exceptions import *
 from hcl_mlir.ir import *
 from hcl_mlir.passmanager import PassManager
 
@@ -319,8 +320,8 @@ def build_llvm(schedule, target=None, stmt=None):
                 if isinstance(op, func_d.FuncOp):
                     func = op
                     break
-            else:
-                raise RuntimeError("No function found")
+                else:
+                    raise APIError("No top-level function found in the built MLIR module")
             func.attributes['llvm.emit_c_interface'] = UnitAttr.get()
             func.attributes[name] = UnitAttr.get()
             func.attributes['sym_name'] = StringAttr.get("top")
