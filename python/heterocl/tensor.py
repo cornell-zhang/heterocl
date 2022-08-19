@@ -352,7 +352,7 @@ class Array(object):
             res_array = self.np_array.astype(np.int64)
             return res_array
         elif isinstance(self.dtype, Float):
-            res_array = self.np_array.astype(np.float)
+            res_array = self.np_array.astype(float)
             return res_array
         else:
             return self.np_array
