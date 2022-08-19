@@ -1,4 +1,5 @@
 import io
+import os
 
 import hcl_mlir
 from hcl_mlir import GlobalInsertionPoint
@@ -328,6 +329,7 @@ def build_llvm(schedule, target=None, stmt=None):
         host_src = Module.parse(str(module))
         hcl_d.lower_composite_type(module)
         hcl_d.lower_fixed_to_int(module)
+        hcl_d.lower_print_ops(module)
         hcl_d.lower_anywidth_int(module)
         # Note: lower_any_width_int should precede
         # move_return_to_input, because it uses input/output
@@ -339,7 +341,23 @@ def build_llvm(schedule, target=None, stmt=None):
         hcl_d.lower_hcl_to_llvm(module, ctx)
         # num_results = len(func.type.results)
         num_results = 0
-        execution_engine = ExecutionEngine(module, opt_level=0)
+        
+        # Add shared library
+        if os.getenv("LLVM_BUILD_DIR") is not None:
+            shared_libs = [
+                os.path.join(os.getenv("LLVM_BUILD_DIR"),
+                            'lib', 'libmlir_runner_utils.so'),
+                os.path.join(os.getenv("LLVM_BUILD_DIR"),
+                            'lib', 'libmlir_c_runner_utils.so')
+            ]
+        else:
+            APIWarning("LLVM_BUILD_DIR is not set, print memref feature is not available.").warn()
+            shared_libs = None
+
+        if shared_libs is not None:
+            execution_engine = ExecutionEngine(module, opt_level=0, shared_libs=shared_libs)
+        else:
+            execution_engine = ExecutionEngine(module, opt_level=0)
         hcl_module = HCLModule(name, execution_engine,
                                "llvm", host_src=host_src, return_num=num_results)
         return hcl_module
