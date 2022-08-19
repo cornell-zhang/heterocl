@@ -1,8 +1,8 @@
-import heterocl as hcl
-import numpy as np
 import pathlib
 import subprocess
-import pytest
+
+unwanted_char = [",", "[", "]", " ", "\n", "\t"]
+
 
 def get_stdout(filename):
     path = pathlib.Path(__file__).parent.absolute()
@@ -16,14 +16,17 @@ def test_print_number():
 
     output = get_stdout("print_number")
 
-    golden = "5.000000 2.500000"
+    golden = "5 \n2.500"
+    print(output)
 
     assert golden in str(output)
 
-@pytest.mark.skip(reason="Not implemented")
+
 def test_print_expr():
 
     outputs = get_stdout("print_expr").split("\n")
+    outputs = [x for x in outputs if not (x == "" or "mlir" in x.lower())]
+    outputs = [x.strip() for x in outputs]
 
     N = 5
     for i in range(0, N):
@@ -34,22 +37,39 @@ def test_print_tensor_1D():
 
     outputs = get_stdout("print_tensor_1D").split("\n")
 
-    assert outputs[2] == outputs[3]
+    hcl_print_output = outputs[1]
+    np_print_output = outputs[4]
+
+    for c in unwanted_char:
+        hcl_print_output = hcl_print_output.replace(c, "")
+        np_print_output = np_print_output.replace(c, "")
+
+    assert hcl_print_output == np_print_output
 
 
 def test_print_tensor_2D():
 
     outputs = get_stdout("print_tensor_2D").split("\n")
 
-    N = 10
-    for i in range(2, N + 2):
-        assert outputs[i] == outputs[i + N]
+    hcl_print_output = "".join(outputs[1:11])
+    np_print_output = "".join(outputs[13:23])
+
+    for c in unwanted_char:
+        hcl_print_output = hcl_print_output.replace(c, "")
+        np_print_output = np_print_output.replace(c, "")
+
+    assert hcl_print_output == np_print_output
 
 
 def test_print_tensor_2D_rect():
 
     outputs = get_stdout("print_tensor_2D_rect").split("\n")
 
-    N = 5
-    for i in range(2, N + 2):
-        assert outputs[i] == outputs[i + N]
+    hcl_print_output = "".join(outputs[1:6])
+    np_print_output = "".join(outputs[8:13])
+
+    for c in unwanted_char:
+        hcl_print_output = hcl_print_output.replace(c, "")
+        np_print_output = np_print_output.replace(c, "")
+
+    assert hcl_print_output == np_print_output
