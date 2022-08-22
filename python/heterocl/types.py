@@ -118,6 +118,8 @@ def dtype_to_str(dtype):
     str
         The converted data type in string format.
     """
+    if isinstance(dtype, mlir_type):
+        return mlir_type_to_str(dtype)
     if isinstance(dtype, Type):
         if isinstance(dtype, Int):
             return "int" + str(dtype.bits)
@@ -156,6 +158,9 @@ def dtype_to_hcl(dtype):
     -------
     Type
     """
+    if isinstance(dtype, mlir_type):
+        # convert mlir type to string
+        dtype = mlir_type_to_str(dtype)
     if isinstance(dtype, Type):
         return dtype
     elif isinstance(dtype, str):
@@ -189,8 +194,6 @@ def get_bitwidth(dtype):
     -------
     int
     """
-    if isinstance(dtype, mlir_type):
-        dtype = mlir_type_to_str(dtype)
     dtype = dtype_to_hcl(dtype)
     return dtype.bits
 
@@ -207,7 +210,5 @@ def get_fractional_bitwidth(dtype):
     -------
     int
     """
-    if isinstance(dtype, mlir_type):
-        dtype = mlir_type_to_str(dtype)
     dtype = dtype_to_hcl(dtype)
     return dtype.fracs
