@@ -3,6 +3,8 @@
 import numbers
 from collections import OrderedDict
 from .debug import DTypeError
+from hcl_mlir.ir import Type as mlir_type
+from hcl_mlir import mlir_type_to_str
 
 class Type(object):
     """The base class for all data types
@@ -138,7 +140,7 @@ def dtype_to_str(dtype):
             return "float" + str(dtype.bits)
     else:
         if not isinstance(dtype, str):
-            raise DTypeError("Unsupported data type format")
+            raise DTypeError("Unsupported data type format: {}".format(dtype))
         return dtype
 
 
@@ -170,9 +172,9 @@ def dtype_to_hcl(dtype):
             strs = dtype[6:].split('_')
             return UFixed(int(strs[0]), int(strs[1]))
         else:
-            raise DTypeError("Unrecognized data type")
+            raise DTypeError("Unrecognized data type: {}".format(dtype))
     else:
-        raise DTypeError("Unrecognized data type format")
+        raise DTypeError("Unrecognized data type format: {}".format(dtype))
 
 
 def get_bitwidth(dtype):
@@ -187,6 +189,8 @@ def get_bitwidth(dtype):
     -------
     int
     """
+    if isinstance(dtype, mlir_type):
+        dtype = mlir_type_to_str(dtype)
     dtype = dtype_to_hcl(dtype)
     return dtype.bits
 
@@ -203,5 +207,7 @@ def get_fractional_bitwidth(dtype):
     -------
     int
     """
+    if isinstance(dtype, mlir_type):
+        dtype = mlir_type_to_str(dtype)
     dtype = dtype_to_hcl(dtype)
     return dtype.fracs
