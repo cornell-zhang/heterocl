@@ -38,13 +38,12 @@ class Tensor(object):
         if hcl_mlir.is_build_inplace() or NestedCompute.get() > 0:
             self.build()
 
-    def init(self, signless=False):
-        self.op.dtype = hcl_dtype_to_mlir(self.dtype, signless)
+    def init(self):
+        self.op.dtype = hcl_dtype_to_mlir(self.dtype)
 
     def build(self):
-        # use signless type for build
         if self.dtype is not None:
-            self.init(signless=True)
+            self.init()
         self.op.build()
 
     def add_use(self, use):
