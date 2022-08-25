@@ -67,14 +67,9 @@ def scalar(init, name=None, dtype=None):
         init = init.op
     elif isinstance(dtype, Struct):
         if isinstance(init, tuple):
-            fields = list()
-            for idx, (fname, ftype) in enumerate(dtype.dtype_dict.items()):
-                fname = name + "_" + fname
-                expr = scalar(init[idx], fname, ftype)
-                fields.append(expr.v)
-            init = hcl_mlir.StructConstructOp(fields)
+            init = hcl_mlir.StructConstructOp(list(init))
         # TODO(Niansong): support init as a single expr
-        
+
     ret_tensor.init()  # init hcl_mlir type
     hcl_mlir.StoreOp(init, ret_tensor.op, [index])
     return ret_tensor
