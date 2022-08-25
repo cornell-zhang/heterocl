@@ -73,9 +73,10 @@ def scalar(init, name=None, dtype=None):
                 expr = scalar(init[idx], fname, ftype)
                 fields.append(expr.v)
             init = hcl_mlir.StructConstructOp(fields)
+        # TODO(Niansong): support init as a single expr
+        
     ret_tensor.init()  # init hcl_mlir type
     hcl_mlir.StoreOp(init, ret_tensor.op, [index])
-    import ipdb; ipdb.set_trace()
     return ret_tensor
 
 
