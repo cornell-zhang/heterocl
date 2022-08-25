@@ -6,7 +6,7 @@ from hcl_mlir.dialects import hcl as hcl_d
 from hcl_mlir.ir import *
 
 from . import config
-from .types import Int, Type, UInt, dtype_to_hcl
+from .types import Int, Type, UInt, Struct, dtype_to_hcl
 from .context import UniqueName
 from .dsl import for_
 from .schedule import Schedule, Stage
@@ -49,23 +49,33 @@ def asarray(np_array, dtype=None):
 
 def scalar(init, name=None, dtype=None):
     """Syntactic sugar: single-value tensor
-    - init: int, float, or expr
+    - init: int, float, expr, or tuple
     """
     hcl_mlir.enable_build_inplace()
     if name is None:
         name = UniqueName.get("scalar")
+
     ret_tensor = placeholder((1,), name=name, dtype=dtype)
     index = hcl_mlir.ConstantOp("index", 0)
     if isinstance(dtype, str):
         dtype = dtype_to_hcl(dtype)
-    dtype = config.init_dtype if dtype == None else dtype
-    dtype = hcl_dtype_to_mlir(dtype)
+    dtype = config.init_dtype if dtype == None else dtype # dtype is HeteroCL type
+    mlir_type = hcl_dtype_to_mlir(dtype)
     if isinstance(init, int) or isinstance(init, float):
-        init = hcl_mlir.ConstantOp(dtype, init)
+        init = hcl_mlir.ConstantOp(mlir_type, init)
     elif isinstance(init, Tensor):
         init = init.op
+    elif isinstance(dtype, Struct):
+        if isinstance(init, tuple):
+            fields = list()
+            for idx, (fname, ftype) in enumerate(dtype.dtype_dict.items()):
+                fname = name + "_" + fname
+                expr = scalar(init[idx], fname, ftype)
+                fields.append(expr.v)
+            init = hcl_mlir.StructConstructOp(fields)
     ret_tensor.init()  # init hcl_mlir type
     hcl_mlir.StoreOp(init, ret_tensor.op, [index])
+    import ipdb; ipdb.set_trace()
     return ret_tensor
 
 
