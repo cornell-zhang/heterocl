@@ -61,15 +61,22 @@ def scalar(init, name=None, dtype=None):
         dtype = dtype_to_hcl(dtype)
     dtype = config.init_dtype if dtype == None else dtype # dtype is HeteroCL type
     mlir_type = hcl_dtype_to_mlir(dtype)
-    if isinstance(init, int) or isinstance(init, float):
+    if isinstance(dtype, Struct):
+        if isinstance(init, tuple):
+            init = hcl_mlir.StructConstructOp(list(init))
+        elif isinstance(init, int):
+            vals = list()
+            for ftype in dtype.dtype_dict.values():
+                mask = (1 << (ftype.bits+1)) - 1
+                val = init & mask
+                init = init >> ftype.bits
+                vals.append(hcl_mlir.ConstantOp(hcl_dtype_to_mlir(ftype), val))
+            init = hcl_mlir.StructConstructOp(vals)
+        # TODO(Niansong): support init as a single expr
+    elif isinstance(init, int) or isinstance(init, float):
         init = hcl_mlir.ConstantOp(mlir_type, init)
     elif isinstance(init, Tensor):
         init = init.op
-    elif isinstance(dtype, Struct):
-        if isinstance(init, tuple):
-            init = hcl_mlir.StructConstructOp(list(init))
-        # TODO(Niansong): support init as a single expr
-
     ret_tensor.init()  # init hcl_mlir type
     hcl_mlir.StoreOp(init, ret_tensor.op, [index])
     return ret_tensor
