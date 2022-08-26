@@ -512,3 +512,24 @@ def test_sign():
     hcl_B = hcl.asarray(np.zeros((1, 6, 3, 3), dtype="int"), dtype=hcl.UInt(2))
 
     f(hcl_A, hcl_B)
+
+def test_struct_scalar():
+    hcl.init()
+    def kernel():
+        stype = hcl.Struct({"x": hcl.UInt(8), "y": hcl.UInt(8)})
+        xy = hcl.scalar(0x1234, "foo", dtype=stype).v
+
+        z1 = hcl.compute((2,), lambda i: 0, dtype=hcl.UInt(32))
+        z1[0] = xy.y
+        z1[1] = xy.x
+        return z1
+
+    s = hcl.create_schedule([], kernel)
+    hcl_res = hcl.asarray(np.zeros((2,), dtype=np.uint32), dtype=hcl.UInt(32))
+    f = hcl.build(s)
+    f(hcl_res)
+    np_res = hcl_res.asnumpy()
+    golden = np.zeros((2,), dtype=np.uint32)
+    golden[0] = 0x12
+    golden[1] = 0x34
+    assert np.array_equal(golden, np_res)
