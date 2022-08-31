@@ -54,9 +54,12 @@ class UniqueName(object):
 
 
 class GlobalContext(object):
+    in_context = False
+
     def __init__(self):
         self.ctx = None
         self.loc = None
+        GlobalContext.in_context = True
 
     def get_context(self):
         return self.ctx
@@ -69,8 +72,11 @@ class GlobalContext(object):
     def get_location(self):
         return self.loc
 
+    def exit_context(self):
+        GlobalContext.in_context = False
 
 global_ctx = GlobalContext()
 get_context = global_ctx.get_context
 set_context = global_ctx.set_context
 get_location = global_ctx.get_location
+exit_context = global_ctx.exit_context
