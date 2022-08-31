@@ -11,7 +11,7 @@ from hcl_mlir.exceptions import *
 from .devices import Device, DevMemoryPair
 from .context import (BreakFlag, ImperativeLoopDepth, ImperativeLoopNestCount,
                       NestedCompute, StageName, UniqueName, get_context,
-                      get_location, set_context)
+                      get_location, set_context, exit_context)
 from .dfg import DataflowGraph
 from .utils import get_extra_type_hints
 
@@ -143,8 +143,8 @@ def build_schedule(inputs, func=None, name=""):
         for op, stage in Stage._mapping:
             if op is not None:
                 func.__setattr__(op.name, op)
-    # clear insertion points
-    GlobalInsertionPoint.clear()
+    # exit context
+    exit_context()
     return sch
 
 
