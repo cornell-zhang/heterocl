@@ -143,6 +143,8 @@ def build_schedule(inputs, func=None, name=""):
         for op, stage in Stage._mapping:
             if op is not None:
                 func.__setattr__(op.name, op)
+    # clear insertion points
+    GlobalInsertionPoint.clear()
     return sch
 
 
