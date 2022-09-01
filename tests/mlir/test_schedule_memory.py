@@ -396,7 +396,6 @@ def test_reshape():
     ir = str(hcl.lower(s))
     assert "memref<2x5x2x5xi32>" in ir
 
-@pytest.mark.skip(reason="crashed")
 def test_conv2D_lb_wb_schedule():
     hcl.init()
     A = hcl.placeholder((10, 10))
