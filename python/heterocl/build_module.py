@@ -327,6 +327,8 @@ def build_llvm(schedule, target=None, stmt=None):
             func.attributes[name] = UnitAttr.get()
             func.attributes['sym_name'] = StringAttr.get("top")
         host_src = Module.parse(str(module))
+        # memref dce should precede lower_composite_type
+        hcl_d.memref_dce(module) 
         hcl_d.lower_composite_type(module)
         hcl_d.lower_fixed_to_int(module)
         hcl_d.lower_print_ops(module)
