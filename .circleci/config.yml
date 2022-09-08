@@ -7,69 +7,18 @@ jobs:
   build:
     working_directory: ~/heterocl
     docker:
-      - image: cimg/python:3.7  # primary container for the build job
+      - image: zzzdavid/llvm-project:15.0.0
+        auth:
+          username: $DOCKERHUB_USERNAME
+          password: $DOCKERHUB_PASSWORD
     resource_class: large
     steps:
       - checkout  # checkout source code to working directory
       - run:
-          name: Install dependency
-          command: |
-            sudo apt-get update && sudo apt-get install -y build-essential cmake
-      - restore_cache:
-          key: cmake-3.23.3
-      - run:
-          name: Install CMake
-          command: |
-            if test -d cmake-3.23.3; then 
-              echo "CMake is downloaded"
-            else
-              wget https://github.com/Kitware/CMake/releases/download/v3.23.3/cmake-3.23.3.tar.gz
-              tar -xzvf cmake-3.23.3.tar.gz
-            fi
-            cd cmake-3.23.3
-            if test -d bin; then
-              echo "CMake is built"
-            else
-              ./bootstrap
-              make
-            fi
-            sudo make install
-      - save_cache:
-          key: cmake-3.23.3
-          paths:
-            - cmake-3.23.3
-      - restore_cache:
-          key: llvm-15.0.0-rc
-      - run:
-          name: Build LLVM
-          command: | # /home/circleci/heterocl
-            if test -d llvm-project; then echo "LLVM exists"; \
-              else git clone https://github.com/llvm/llvm-project.git; fi
-            cd llvm-project
-            git checkout tags/llvmorg-15.0.0-rc1
-            python3 -m pip install --upgrade pip
-            python3 -m pip install -r mlir/python/requirements.txt
-            mkdir -p build && cd build
-            if test -d bin; \
-              then echo "Build completed"; \
-            else cmake -G "Unix Makefiles" ../llvm -DLLVM_ENABLE_PROJECTS=mlir \
-                -DLLVM_BUILD_EXAMPLES=ON -DLLVM_TARGETS_TO_BUILD="X86" \
-                -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_ASSERTIONS=ON \
-                -DLLVM_INSTALL_UTILS=ON -DMLIR_ENABLE_BINDINGS_PYTHON=ON \
-                -DPython3_EXECUTABLE=`which python3` && \
-              make -j4;
-            fi;
-            export PYTHONPATH=$(pwd)/tools/mlir/python_packages/mlir_core:${PYTHONPATH}
-            cd ../..
-      - save_cache:
-          key: llvm-15.0.0-rc
-          paths:
-            - llvm-project
-      - run:
           name: Build HCL-MLIR
           command: |
-            export BUILD_DIR=$(pwd)/llvm-project/build
-            export PREFIX=$(pwd)/llvm-project/build
+            export BUILD_DIR=/home/circleci/llvm-project/build
+            export PREFIX=/home/circleci/llvm-project/build
             git clone https://github.com/cornell-zhang/hcl-dialect-prototype.git
             cd hcl-dialect-prototype
             mkdir -p build && cd build
@@ -93,7 +42,7 @@ jobs:
           name: HeteroCL Tests
           command: |
             export HCL_HOME=$(pwd)
-            export LLVM_BUILD_DIR=$(pwd)/llvm-project/build
+            export LLVM_BUILD_DIR=/home/circleci/llvm-project/build
             export PYTHONPATH=$HCL_HOME/hcl-dialect-prototype/build/tools/hcl/python_packages/hcl_core:${PYTHONPATH}
             export PYTHONPATH=$HCL_HOME/python:$HCL_HOME/hlib/python:${PYTHONPATH}
             cd tests
