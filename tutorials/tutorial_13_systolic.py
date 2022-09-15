@@ -1,0 +1,66 @@
+"""
+Generate systolic array with AutoSA backend in HeteroCL
+=======================
+**Author**: Hecmay
+In this tutorial, we use GEMM as an example to showcase how to generate 
+a systolic array with HeteroCL's AutoSA backend 
+"""
+
+import heterocl as hcl
+import numpy as np
+import os, sys
+import argparse
+
+def autosa_systolic_array(size, systolic=True):
+    m = size
+    n = size
+    k = size
+
+    dtype=hcl.Float()
+    hcl.init(dtype)
+
+    A = hcl.placeholder((m,k), dtype=dtype, name="A")
+    B = hcl.placeholder((k,n), dtype=dtype, name="B")
+
+    def kernel(A, B):
+        Y = hcl.compute((m, n), lambda *args: 0, dtype=dtype, name="Y0")
+        with hcl.Stage("Y"):
+            with hcl.for_(0, m, name="i") as i:
+                with hcl.for_(0, n, name="j") as j:
+                    Y[i][j] = 0
+                    with hcl.for_(0, k, name="k") as r:
+                        Y[i][j] += A[i][r] * B[r][j]
+        return Y
+
+    # Note that you have to make sure `autosa` binary
+    # in on the PATH, otherwise HCL runtime will only generate a 
+    # function placeholder for the GEMM code
+    print(dir(hcl.Platform))
+    p = hcl.Platform.xilinx_zc706
+    p.config(compiler="vitis", mode="hw_sim")
+
+    s = hcl.create_schedule([A, B], kernel)
+    MM = kernel.Y
+
+    # output tensor Y0 is initialized on host
+    s.to([A, B, kernel.Y0], p.xcel)
+    s.to(kernel.Y.Y0, p.host)
+
+    if systolic:
+        s[kernel.Y].systolic()
+        s.transpose(kernel.Y.B)
+        s.pack([MM.B, MM.A, MM.Y0], factor=512)
+
+    np_A = np.random.randint(10, size=(m,k))
+    np_B = np.random.randint(10, size=(k,n))
+    np_C = np.zeros((m,n))
+    args = (np_A, np_B, np_C)
+
+    f = hcl.build(s, target=p)
+    f(args)
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--size', nargs='?', const=1024, type=int, default=1024)
+    args = parser.parse_args()
+    autosa_systolic_array(args.size)
