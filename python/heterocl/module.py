@@ -5,6 +5,7 @@ import numpy as np
 
 from hcl_mlir.dialects import func as func_d
 from hcl_mlir.ir import *
+from hcl_mlir.exceptions import *
 
 from .context import get_context, get_location
 from .devices import Platform
@@ -41,6 +42,12 @@ class HCLModule(object):
             with get_context() as ctx, get_location():
                 for op in self.host_src.body.operations:
                     if isinstance(op, func_d.FuncOp) and op.sym_name.value == "top":
+                        # check if enough args are provided
+                        correct_arg_num = len(op.arguments) + len(op.results)
+                        if len(argv) != correct_arg_num:
+                            raise APIError(
+                                "Incorrect number of arguments provided. Expected {}, got {}.".format(
+                                    correct_arg_num, len(argv)))
                         # test inputs
                         for i, arg in enumerate(op.arguments):
                             if not MemRefType.isinstance(arg.type):
