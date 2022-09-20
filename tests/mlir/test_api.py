@@ -177,16 +177,3 @@ def test_tensor_slice_shape():
     assert(A.shape == (3, 4, 5))
     assert(A[0].shape == (4, 5))
     assert(A[0][1].shape == (5,))
-
-
-def test_print():
-    hcl.init()
-    def kernel():
-        z1 = hcl.compute((2,3,4), lambda x,y,z: 0, dtype=hcl.Int(32))
-        def do(i,j,k):
-            z1[0,0,0] = 53
-        hcl.mutate(z1.shape, do)
-        hcl.print((z1[0,0,0]), "here %d\n")
-    s = hcl.create_schedule([], kernel)
-    f = hcl.build(s)
-    f()
