@@ -42,7 +42,7 @@ def placeholder(shape, name=None, dtype=None):
 
 def asarray(np_array, dtype=None):
     if isinstance(dtype, str):
-        raise RuntimeError("Should provide hcl.Type. Got string")
+        dtype = dtype_to_hcl(dtype)
     dtype = config.init_dtype if dtype == None else dtype
     return Array(np_array, dtype)
 
