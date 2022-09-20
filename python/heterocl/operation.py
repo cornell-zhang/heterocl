@@ -329,6 +329,8 @@ def cast_np(np_array, dtype):
     """
     if not isinstance(np_array, np.ndarray):
         raise RuntimeError("cast_np input must be numpy array.")
-    if not isinstance(dtype, Type):
+    if isinstance(dtype, str):
+        dtype = dtype_to_hcl(dtype)
+    elif not isinstance(dtype, Type):
         raise RuntimeError("dtype should be HeteroCL data type.")
     return asarray(np_array, dtype).asnumpy()
