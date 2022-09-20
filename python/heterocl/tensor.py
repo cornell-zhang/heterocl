@@ -1,5 +1,4 @@
 import inspect
-import warnings
 from typing import List, Callable
 
 import hcl_mlir
@@ -9,6 +8,7 @@ from hcl_mlir.dialects import affine
 from hcl_mlir.dialects import hcl as hcl_d
 from hcl_mlir.dialects import memref
 from hcl_mlir.ir import *
+from hcl_mlir.exceptions import *
 
 from .types import dtype_to_str, Int, UInt, Float, Fixed, UFixed
 from .context import get_context, get_location, NestedCompute
@@ -249,11 +249,11 @@ class ComputeOp(object):
                 if not isinstance(value, hcl_mlir.BlockArgument):
                     value = value.result
                 if value.type != write_back_elt:
-                    warnings.warn(
+                    DTypeWarning(
                         "StoreOp has different input types. Cast from {} to {}.".format(
                             value.type, write_back_elt
                         )
-                    )
+                    ).warn()
                     value = hcl_mlir.CastOp(result_expr, write_back_elt)
                     value.build()
                     result = value.result
