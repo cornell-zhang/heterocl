@@ -43,7 +43,7 @@ class HCLModule(object):
                 for op in self.host_src.body.operations:
                     if isinstance(op, func_d.FuncOp) and op.sym_name.value == "top":
                         # check if enough args are provided
-                        correct_arg_num = len(op.arguments) + len(op.results)
+                        correct_arg_num = len(op.arguments) + len(op.type.results)
                         if len(argv) != correct_arg_num:
                             raise APIError(
                                 "Incorrect number of arguments provided. Expected {}, got {}.".format(
