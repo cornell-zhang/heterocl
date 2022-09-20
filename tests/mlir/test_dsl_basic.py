@@ -962,3 +962,19 @@ def test_tensor_index_expr():
     f(hcl_A, hcl_B, hcl_x)
     ret_B = hcl_B.asnumpy()
     assert np.array_equal(golden, ret_B)
+
+def test_unused_struct_tensor():
+    hcl.init()
+    def kernel():
+        stype = hcl.Struct({"x": hcl.UInt(8), "y": hcl.UInt(8)})
+        xy = hcl.scalar(0x12, "foo", dtype=stype).v
+        r = hcl.compute((2,), lambda i: 0, dtype=hcl.UInt(32))
+        return r
+
+    s = hcl.create_schedule([], kernel)
+    hcl_res = hcl.asarray(np.zeros((2,), dtype=np.uint32), dtype=hcl.UInt(32))
+    f = hcl.build(s)
+    f(hcl_res)
+    np_res = hcl_res.asnumpy()
+    golden = np.zeros((2,), dtype=np.uint32)
+    assert np.array_equal(golden, np_res)
