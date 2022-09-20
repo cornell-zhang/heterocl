@@ -4,6 +4,7 @@ import hcl_mlir
 import numpy as np
 from hcl_mlir.dialects import hcl as hcl_d
 from hcl_mlir.ir import *
+from hcl_mlir.exceptions import *
 
 from . import config
 from .types import Int, Type, UInt, Struct, dtype_to_hcl
@@ -29,8 +30,9 @@ def placeholder(shape, name=None, dtype=None):
         not dtype == None
         and not isinstance(dtype, (Type, str))
         and not hcl_mlir.is_hcl_mlir_type(dtype)
+        and not isinstance(name, str)
     ):
-        raise RuntimeError("Type error")
+        raise APIError("Input type error, got dtype={}, name={}".format(dtype, name))
     if isinstance(dtype, str):
         dtype = dtype_to_hcl(dtype)
     if shape == ():
@@ -91,8 +93,8 @@ def reduce_axis(lower, upper, name=None):
 
 def cast(dtype, expr):
     if isinstance(expr, Tensor):
-        raise RuntimeError("Tensor is not supported in hcl.cast. " +
-                           "If you are try to cast a hcl.scalar, please use hcl.cast(scalar.v)")
+        raise APIError("Tensor is not supported in hcl.cast. " +
+                        "If you are try to cast a hcl.scalar, please use hcl.cast(scalar.v)")
     return hcl_mlir.CastOp(expr, hcl_dtype_to_mlir(dtype))
 
 
@@ -142,9 +144,9 @@ def pack(tensor, axis=0, factor=None, name=None, dtype=None):
     if factor is None and dtype is not None:
         factor = dtype.bits // tensor.dtype.bits
     if factor is None or not isinstance(factor, int):
-        raise RuntimeError("Should specify factor")
+        raise APIError("Should specify factor")
     if not isinstance(tensor.dtype, (Int, UInt)):
-        raise RuntimeError("Only support integer packing")
+        raise APIError("Only support integer packing")
     if name == None or name == "":
         name = UniqueName.get("tensor")
     bitwidth = tensor.dtype.bits
@@ -176,9 +178,9 @@ def unpack(tensor, axis=0, factor=None, name=None, dtype=None):
     if factor is None and dtype is not None:
         factor = tensor.dtype.bits // dtype.bits
     if factor is None or not isinstance(factor, int):
-        raise RuntimeError("Should specify factor")
+        raise APIError("Should specify factor")
     if not isinstance(tensor.dtype, (Int, UInt)):
-        raise RuntimeError("Only support integer packing")
+        raise APIError("Only support integer packing")
     if name == None or name == "":
         name = UniqueName.get("tensor")
     bitwidth = tensor.dtype.bits
@@ -213,12 +215,12 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
     """
     # check API correctness
     if not isinstance(shape, tuple):
-        raise RuntimeError("The shape of compute API must be a tuple")
+        raise APIError("The shape of compute API must be a tuple")
     shape = tuple([int(s) if isinstance(s, float) else s for s in shape])
     if name is None:
         name = UniqueName.get("tensor")
     if not dtype == None and not isinstance(dtype, (Type, str)):
-        raise RuntimeError("Type error")
+        raise APIError("Type error")
     dtype = config.init_dtype if dtype == None else dtype
     if isinstance(dtype, str):
         dtype = dtype_to_hcl(dtype)
@@ -236,7 +238,7 @@ def update(tensor: Tensor, fcompute, name=None):
     """
     # Check tensor type
     if not isinstance(tensor, Tensor):
-        raise RuntimeError(
+        raise APIError(
             "Unexpected argument type of the "
             + "first argument: {}, update API expects tensor as input.".format(
                 type(tensor)
@@ -273,7 +275,7 @@ def mutate(domain, fcompute, name=None):
     """
     # check API correctness
     if not isinstance(domain, tuple):
-        raise RuntimeError("The domain of mutate API must be a tuple")
+        raise APIError("The domain of mutate API must be a tuple")
     if name is None:
         name = UniqueName.get("tensor")
     ret_tensor = Tensor(domain, None, name=name,
@@ -288,11 +290,11 @@ def bitcast(tensor, dst_dtype, name=None):
     the same bitwidth with the source datatype.
     """
     if not isinstance(tensor, Tensor) and not isinstance(tensor, hcl_mlir.ExprOp):
-        raise RuntimeError("bitcast input must be HeteroCL Tensor or ExprOp.")
+        raise APIError("bitcast input must be HeteroCL Tensor or ExprOp.")
 
     # check type
     if not isinstance(dst_dtype, Type):
-        raise RuntimeError("dst_dtype should be HeteroCL data type.")
+        raise APIError("dst_dtype should be HeteroCL data type.")
 
     # check bitwidth
     if isinstance(tensor, Tensor):
@@ -301,7 +303,7 @@ def bitcast(tensor, dst_dtype, name=None):
         src_bitwidth = hcl_mlir.get_bitwidth(tensor.dtype)
     dst_bitwidth = dst_dtype.bits
     if src_bitwidth != dst_bitwidth:
-        raise RuntimeError(
+        raise APIError(
             "Destination datatype bitwidth does not match source bitwidth:"
             + f"source bitwidth: {src_bitwidth} , destination bitwidth {dst_bitwidth}."
         )
@@ -328,9 +330,9 @@ def cast_np(np_array, dtype):
     Cast a numpy array to a HeteroCL data type.
     """
     if not isinstance(np_array, np.ndarray):
-        raise RuntimeError("cast_np input must be numpy array.")
+        raise APIError("cast_np input must be numpy array.")
     if isinstance(dtype, str):
         dtype = dtype_to_hcl(dtype)
     elif not isinstance(dtype, Type):
-        raise RuntimeError("dtype should be HeteroCL data type.")
+        raise APIError("dtype should be HeteroCL data type.")
     return asarray(np_array, dtype).asnumpy()
