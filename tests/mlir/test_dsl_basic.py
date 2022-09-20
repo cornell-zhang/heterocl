@@ -978,3 +978,22 @@ def test_unused_struct_tensor():
     np_res = hcl_res.asnumpy()
     golden = np.zeros((2,), dtype=np.uint32)
     assert np.array_equal(golden, np_res)
+
+def test_tensor_slice_dtype():
+    hcl.init()
+    def kernel():
+        z1 = hcl.compute((2,3,4), lambda x,y,z: 0, dtype=hcl.Int(32))
+        def do(i,j,k):
+            z_slice = z1[0][0]
+            z_slice[0] = hcl.get_bitwidth(z_slice.dtype)
+        hcl.mutate(z1.shape, do)
+        return z1
+    
+    s = hcl.create_schedule([], kernel)
+    hcl_res = hcl.asarray(np.zeros((2,3,4), dtype=np.int32))
+    f = hcl.build(s)
+    f(hcl_res)
+    np_res = hcl_res.asnumpy()
+    golden = np.zeros((2,3,4), dtype=np.int32)
+    golden[0][0][0] = 32
+    assert np.array_equal(golden, np_res)
