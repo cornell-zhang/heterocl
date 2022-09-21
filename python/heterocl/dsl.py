@@ -1,4 +1,4 @@
-import warnings
+import inspect
 
 import hcl_mlir
 from hcl_mlir import GlobalInsertionPoint
@@ -11,10 +11,10 @@ from hcl_mlir.exceptions import *
 
 from . import config
 from .context import (BreakFlag, ImperativeLoopDepth, ImperativeLoopNestCount,
-                      NestedCompute, StageName, UniqueName, IPPointer)
+                      NestedStageLevel, StageName, UniqueName, IPPointer)
 from .schedule import Schedule, Stage
 from .tensor import Tensor
-from .utils import get_extra_type_hints, hcl_dtype_to_mlir
+from .utils import get_extra_type_hints, hcl_dtype_to_mlir, get_func_obj
 
 
 class WithScope(object):
@@ -110,11 +110,32 @@ def for_(begin, end, step=1, tag=""):
             hcl_mlir.GlobalInsertionPoint.restore()
             BreakFlag.set(False)
         hcl_mlir.GlobalInsertionPoint.restore()
+        ImperativeLoopDepth.set(ImperativeLoopDepth.get() - 1)
         if depth == 0:
-            # itself
+            # Setting the stage output, i.e. .op attribute as the stage itself
             Schedule._CurrentStage[-1].set_output(Schedule._CurrentStage[-1])
             Schedule._CurrentStage[-1].done()
-        ImperativeLoopDepth.set(ImperativeLoopDepth.get() - 1)
+            # attach this stage to the caller function
+            if Schedule._TopFunction is None:
+                raise APIError("No top function is found. Imperative function must be called by a top-level function.")
+            caller_func_name = inspect.stack()[1].function
+            called_from_top = caller_func_name == Schedule._TopFunction.__name__
+            caller_func = get_func_obj(caller_func_name)
+            if not called_from_top:
+                # Caller function up one level
+                caller_parent_func_name = inspect.stack()[2].function
+                caller_parent_func = get_func_obj(caller_parent_func_name)
+                # If haven't already, attach the caller function
+                # to its parent function as an attribute
+                if not hasattr(caller_parent_func, caller_func_name):
+                    caller_parent_func.__setattr__(caller_func_name, caller_func)
+            stage = Schedule._CurrentStage[-1]
+            caller_func.__setattr__(stage.name, stage)
+            # Set up a list of stages for the caller function
+            if not hasattr(caller_func, "_stages"):
+                caller_func.__setattr__("_stages", [stage])
+            else:
+                caller_func._stages.append(stage)    
 
     return WithScope(iter_var, _exit_cb)
 
