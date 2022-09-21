@@ -1,10 +1,9 @@
-import sys
 import inspect
-import gc
 from collections import OrderedDict
 
 import hcl_mlir
 import numpy as np
+import re
 from hcl_mlir.dialects import hcl as hcl_d
 from hcl_mlir.ir import *
 from hcl_mlir.exceptions import *
@@ -412,3 +411,34 @@ def cast_np(np_array, dtype):
     elif not isinstance(dtype, Type):
         raise APIError("dtype should be HeteroCL data type.")
     return asarray(np_array, dtype).asnumpy()
+
+
+def match(scope, pattern):
+    """Match the pattern in the given scope.
+    Parameters
+    ----------
+    scope : Scope
+        The scope to be matched. Either a function or a stage.
+    pattern : Pattern
+        The pattern to be matched. Python regular expression.
+    Returns
+    -------
+    matched : list
+        A list of matched stages.
+    """
+    # Check if scope is a function or a stage
+    if not inspect.isfunction(scope) and not isinstance(scope, Stage):
+        raise APIError("The scope of match API must be a function or a stage.")
+    # Check if pattern is a valid regular expression
+    try:
+        re.compile(pattern)
+    except re.error:
+        raise APIError("The pattern of match API must be a valid regular expression.")
+
+    # Check if scope is the top function
+    if inspect.isfunction(scope) and scope == Schedule._TopFunction:
+        # Use global stage list to match
+        matched = []
+        for tensor, stage in Stage._mapping:
+            if re.match(pattern, stage.name):
+                matched.append(stage)
