@@ -10,7 +10,7 @@ from hcl_mlir.exceptions import *
 
 from .devices import Device, DevMemoryPair
 from .context import (BreakFlag, ImperativeLoopDepth, ImperativeLoopNestCount,
-                      NestedCompute, StageName, UniqueName, get_context,
+                      NestedStageLevel, StageName, UniqueName, get_context,
                       get_location, set_context, exit_context)
 from .dfg import DataflowGraph
 from .utils import get_extra_type_hints
@@ -149,7 +149,7 @@ def customize(inputs, func=None, name=""):
         raise e
     finally:
         hcl_mlir.reset_build_inplace()
-        NestedCompute.set(0)
+        NestedStageLevel.set(0)
 
 
 def create_schedule(inputs, func=None, name=""):
@@ -552,6 +552,9 @@ class Stage(object):
         # auxiliary attributes
         self.op = None
         self.ir_node = None
+        # We allow nested stages when imperative and
+        # declarative programming are mixed
+        self._nested_stages = []
 
     def done(self):
         # create stage handle

@@ -11,7 +11,7 @@ from hcl_mlir.ir import *
 from hcl_mlir.exceptions import *
 
 from .types import dtype_to_str, Int, UInt, Float, Fixed, UFixed
-from .context import get_context, get_location, NestedCompute
+from .context import get_context, get_location, NestedStageLevel
 from .schedule import Schedule, Stage
 from .utils import get_extra_type_hints, hcl_dtype_to_mlir
 
@@ -35,7 +35,7 @@ class Tensor(object):
         self.uses = []
         self.name = name
 
-        if hcl_mlir.is_build_inplace() or NestedCompute.get() > 0:
+        if hcl_mlir.is_build_inplace() or NestedStageLevel.get() > 0:
             self.build()
 
     def init(self):
@@ -168,7 +168,7 @@ class ComputeOp(object):
         self.stage.stage_handle = hcl_d.CreateOpHandleOp(
             StringAttr.get(self.stage.name), ip=GlobalInsertionPoint.get()
         )
-        NestedCompute.set(NestedCompute.get() + 1)
+        NestedStageLevel.set(NestedStageLevel.get() + 1)
         input_types = []
         for in_tensor in self.inputs:  # hcl.Tensor -> hcl_mlir.TensorOp
             input_types.append(in_tensor.memref_type)
@@ -283,7 +283,7 @@ class ComputeOp(object):
                 Schedule._CurrentSchedule.DataflowGraph.create_node(
                     self.output)
 
-        NestedCompute.set(NestedCompute.get() - 1)
+        NestedStageLevel.set(NestedStageLevel.get() - 1)
         Schedule._CurrentStage.pop()
         return self.output
 

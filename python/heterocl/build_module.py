@@ -12,7 +12,7 @@ from hcl_mlir.ir import *
 from hcl_mlir.passmanager import PassManager
 
 from .devices import Platform
-from .context import NestedCompute, get_context, get_location, set_context
+from .context import NestedStageLevel, get_context, get_location, set_context
 from .module import HCLModule, HCLSuperModule
 from .operation import placeholder
 from .runtime import copy_build_files
@@ -74,7 +74,7 @@ def build(schedule, target=None, stmt=None, top=None):
         raise e
     finally:
         hcl_mlir.reset_build_inplace()
-        NestedCompute.set(0)
+        NestedStageLevel.set(0)
 
 
 def separate_host_device(schedule):
