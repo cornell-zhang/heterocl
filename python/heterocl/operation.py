@@ -251,7 +251,7 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
             caller_parent_func.__setattr__(caller_func_name, caller_func)
     stage = ret_tensor.op.stage
     if Schedule._TopFunction != None:
-        caller_func.__setattr__(stage.name, stage)
+        caller_func.__setattr__(stage.name, stage.op)
         # Set up a list of stages for the caller function
         if not hasattr(caller_func, "_stages"):
             caller_func.__setattr__("_stages", [stage])
@@ -350,7 +350,7 @@ def mutate(domain, fcompute, name=None):
             caller_parent_func.__setattr__(caller_func_name, caller_func)
     stage = ret_tensor.op.stage
     if Schedule._TopFunction != None:
-        caller_func.__setattr__(stage.name, stage)
+        caller_func.__setattr__(stage.name, stage.op)
         # Set up a list of stages for the caller function
         if not hasattr(caller_func, "_stages"):
             caller_func.__setattr__("_stages", [stage])
