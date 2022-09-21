@@ -1,3 +1,5 @@
+import gc
+import inspect
 import hcl_mlir
 from hcl_mlir.dialects import hcl as hcl_d
 from hcl_mlir.ir import *
@@ -5,6 +7,11 @@ from hcl_mlir.ir import *
 from .config import init_dtype
 from .types import Fixed, Float, Int, Type, UFixed, UInt, Struct, dtype_to_str
 
+def get_func_obj(func_name):
+    for o in gc.get_objects():
+        if inspect.isfunction(o) and o.__name__ == func_name:
+            return o
+    return None
 
 def hcl_dtype_to_mlir(dtype, signless=False):
     if hcl_mlir.is_hcl_mlir_type(dtype):

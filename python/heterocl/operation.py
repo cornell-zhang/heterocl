@@ -1,3 +1,6 @@
+import sys
+import inspect
+import gc
 from collections import OrderedDict
 
 import hcl_mlir
@@ -12,7 +15,7 @@ from .context import UniqueName
 from .dsl import for_
 from .schedule import Schedule, Stage
 from .tensor import Array, Tensor
-from .utils import get_dtype_str, hcl_dtype_to_mlir
+from .utils import get_dtype_str, hcl_dtype_to_mlir, get_func_obj
 from .context import get_context, get_location
 
 
@@ -236,6 +239,19 @@ def update(tensor: Tensor, fcompute, name=None):
     fcompute: function, callable
     name: str
     """
+    # Check the caller function
+    caller_func_name = inspect.stack()[1].function
+    called_from_top = caller_func_name == Schedule._TopFunction.__name__
+    if not called_from_top:
+        caller_func = get_func_obj(caller_func_name)
+        # Caller function up one level
+        caller_parent_func_name = inspect.stack()[2].function
+        caller_parent_func = get_func_obj(caller_parent_func_name)
+        # If haven't already, attach the caller function
+        # to its parent function as an attribute
+        if not hasattr(caller_parent_func, caller_func_name):
+            caller_parent_func.__setattr__(caller_func_name, caller_func)
+
     # Check tensor type
     if not isinstance(tensor, Tensor):
         raise APIError(
@@ -258,6 +274,7 @@ def update(tensor: Tensor, fcompute, name=None):
     tensor.add_use(new_tensor)
     Schedule._CurrentSchedule.DataflowGraph.add_edge(
         tensor, new_tensor, stateful=True)
+
     if Schedule._TopFunction != None:
         stage = Stage(name)
         with get_context() as ctx, get_location() as loc:
@@ -265,7 +282,11 @@ def update(tensor: Tensor, fcompute, name=None):
                 StringAttr.get(name), ip=hcl_mlir.GlobalInsertionPoint.get()
             )
         Schedule._CurrentStage.append(stage)
-        Schedule._TopFunction.__setattr__(name, stage)
+        # Attach the stage to the caller function as an attribute
+        if called_from_top:
+            Schedule._TopFunction.__setattr__(name, stage)
+        else:
+            caller_func.__setattr__(name, stage)
         stage.__setattr__(tensor.name, new_tensor)
 
 
