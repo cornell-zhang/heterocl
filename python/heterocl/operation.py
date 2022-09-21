@@ -227,12 +227,38 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
     dtype = config.init_dtype if dtype == None else dtype
     if isinstance(dtype, str):
         dtype = dtype_to_hcl(dtype)
+
     ret_tensor = Tensor(shape, dtype, name=name,
                         fcompute=fcompute, impl="compute")
     for tensor in ret_tensor.op.inputs:
         tensor.add_use(ret_tensor)
-    return ret_tensor
 
+
+    # Check the caller function
+    caller_func_name = inspect.stack()[1].function
+    if Schedule._TopFunction is None:
+        called_from_top = False
+    else:
+        called_from_top = caller_func_name == Schedule._TopFunction.__name__
+    caller_func = get_func_obj(caller_func_name)
+    if not called_from_top:
+        # Caller function up one level
+        caller_parent_func_name = inspect.stack()[2].function
+        caller_parent_func = get_func_obj(caller_parent_func_name)
+        # If haven't already, attach the caller function
+        # to its parent function as an attribute
+        if not hasattr(caller_parent_func, caller_func_name):
+            caller_parent_func.__setattr__(caller_func_name, caller_func)
+    stage = ret_tensor.op.stage
+    if Schedule._TopFunction != None:
+        caller_func.__setattr__(stage.name, stage)
+        # Set up a list of stages for the caller function
+        if not hasattr(caller_func, "_stages"):
+            caller_func.__setattr__("_stages", [stage])
+        else:
+            caller_func._stages.append(stage)    
+    
+    return ret_tensor
 
 def update(tensor: Tensor, fcompute, name=None):
     """
@@ -241,9 +267,12 @@ def update(tensor: Tensor, fcompute, name=None):
     """
     # Check the caller function
     caller_func_name = inspect.stack()[1].function
-    called_from_top = caller_func_name == Schedule._TopFunction.__name__
+    if Schedule._TopFunction is None:
+        called_from_top = False
+    else:
+        called_from_top = caller_func_name == Schedule._TopFunction.__name__
+    caller_func = get_func_obj(caller_func_name)
     if not called_from_top:
-        caller_func = get_func_obj(caller_func_name)
         # Caller function up one level
         caller_parent_func_name = inspect.stack()[2].function
         caller_parent_func = get_func_obj(caller_parent_func_name)
@@ -283,11 +312,13 @@ def update(tensor: Tensor, fcompute, name=None):
             )
         Schedule._CurrentStage.append(stage)
         # Attach the stage to the caller function as an attribute
-        if called_from_top:
-            Schedule._TopFunction.__setattr__(name, stage)
-        else:
-            caller_func.__setattr__(name, stage)
+        caller_func.__setattr__(name, stage)
         stage.__setattr__(tensor.name, new_tensor)
+        # Set up a list of stages for the caller function
+        if not hasattr(caller_func, "_stages"):
+            caller_func.__setattr__("_stages", [stage])
+        else:
+            caller_func._stages.append(stage)
 
 
 def mutate(domain, fcompute, name=None):
@@ -301,6 +332,30 @@ def mutate(domain, fcompute, name=None):
         name = UniqueName.get("tensor")
     ret_tensor = Tensor(domain, None, name=name,
                         fcompute=fcompute, impl="compute")
+
+    # Check the caller function
+    caller_func_name = inspect.stack()[1].function
+    if Schedule._TopFunction is None:
+        called_from_top = False
+    else:
+        called_from_top = caller_func_name == Schedule._TopFunction.__name__
+    caller_func = get_func_obj(caller_func_name)
+    if not called_from_top:
+        # Caller function up one level
+        caller_parent_func_name = inspect.stack()[2].function
+        caller_parent_func = get_func_obj(caller_parent_func_name)
+        # If haven't already, attach the caller function
+        # to its parent function as an attribute
+        if not hasattr(caller_parent_func, caller_func_name):
+            caller_parent_func.__setattr__(caller_func_name, caller_func)
+    stage = ret_tensor.op.stage
+    if Schedule._TopFunction != None:
+        caller_func.__setattr__(stage.name, stage)
+        # Set up a list of stages for the caller function
+        if not hasattr(caller_func, "_stages"):
+            caller_func.__setattr__("_stages", [stage])
+        else:
+            caller_func._stages.append(stage)    
     return ret_tensor
 
 

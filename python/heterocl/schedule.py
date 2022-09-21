@@ -138,12 +138,6 @@ def build_schedule(inputs, func=None, name=""):
             GlobalInsertionPoint.restore()
             GlobalInsertionPoint.save(InsertionPoint(ret_op))
 
-    # let each stage's output be an attribute of the function
-    if func != None:
-        for op, stage in Stage._mapping:
-            if op is not None:
-                func.__setattr__(op.name, op)
-    # exit context
     exit_context()
     return sch
 
@@ -541,8 +535,8 @@ class Stage(object):
     """A Stage represents schedule for one operation.
     """
 
-    # TODO: Need to find a hashable way to create dict
-    _mapping = []  # operation->stage
+    # A global list of all stages
+    _mapping = []  # (Tensor, Stage)
 
     def __init__(self, name=None):
         if name is None:
