@@ -446,27 +446,39 @@ def match(scope, pattern):
     # Check if scope is a function or a stage
     if not inspect.isfunction(scope) and not isinstance(scope, Stage):
         raise APIError("The scope of match API must be a function or a stage.")
-    # Check if pattern is a valid regular expression
-    try:
-        re.compile(pattern)
-    except re.error:
-        raise APIError("The pattern of match API must be a valid regular expression.")
-
+    if not isinstance(pattern, str) and not inspect.isfunction(pattern):
+        raise APIError("The pattern of match API must be a string or a lambda function.")
+    
     matched = []
+    if isinstance(pattern, str):
+        # Check if pattern is a valid regular expression
+        try:
+            re.compile(pattern)
+        except re.error:
+            raise APIError("The pattern of match API must be a valid regular expression.")
+
+    def _ismatch(pattern, stage):
+        if isinstance(pattern, str):
+            return re.match(pattern, stage.name)
+        else:
+            return pattern(stage)
+
     # Check if scope is the top function
     if inspect.isfunction(scope):
         if scope == Schedule._TopFunction:
-            # Use global stage list to match
+            # search in the top function
             for _, stage in Stage._mapping:
-                if re.match(pattern, stage.name):
-                    matched.append(stage)
-        else:
+                if _ismatch(pattern, stage):
+                    if stage not in matched:
+                        matched.append(stage)
+        else: # search in local function
             for stage in scope._stages:
-                if re.match(pattern, stage.name):
-                    matched.append(stage)
-    else:
+                if _ismatch(pattern, stage):
+                    if stage not in matched:
+                        matched.append(stage)
+    else: # search in stage
         for stage in scope._sub_stages:
-            if re.match(pattern, stage.name):
-                matched.append(stage)
-
+            if _ismatch(pattern, stage):
+                if stage not in matched:
+                    matched.append(stage)
     return matched
