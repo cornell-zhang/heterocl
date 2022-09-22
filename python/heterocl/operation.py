@@ -452,10 +452,21 @@ def match(scope, pattern):
     except re.error:
         raise APIError("The pattern of match API must be a valid regular expression.")
 
+    matched = []
     # Check if scope is the top function
-    if inspect.isfunction(scope) and scope == Schedule._TopFunction:
-        # Use global stage list to match
-        matched = []
-        for tensor, stage in Stage._mapping:
+    if inspect.isfunction(scope):
+        if scope == Schedule._TopFunction:
+            # Use global stage list to match
+            for _, stage in Stage._mapping:
+                if re.match(pattern, stage.name):
+                    matched.append(stage)
+        else:
+            for stage in scope._stages:
+                if re.match(pattern, stage.name):
+                    matched.append(stage)
+    else:
+        for stage in scope._sub_stages:
             if re.match(pattern, stage.name):
                 matched.append(stage)
+
+    return matched
