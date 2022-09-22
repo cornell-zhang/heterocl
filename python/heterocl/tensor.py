@@ -249,9 +249,10 @@ class ComputeOp(object):
                 if not isinstance(value, hcl_mlir.BlockArgument):
                     value = value.result
                 if value.type != write_back_elt:
+                    fn, ln = hcl_mlir.get_line_number(4)
                     DTypeWarning(
-                        "StoreOp has different input types. Cast from {} to {}.".format(
-                            value.type, write_back_elt
+                        "[{} line {}], StoreOp has different input types. Cast from {} to {}.".format(
+                            fn, ln, value.type, write_back_elt
                         )
                     ).warn()
                     value = hcl_mlir.CastOp(result_expr, write_back_elt)
