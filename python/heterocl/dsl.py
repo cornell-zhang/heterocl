@@ -67,12 +67,13 @@ def not_(arg):
     return hcl_mlir.LogicalNotOp(arg)
 
 
-def for_(begin, end, step=1, tag=""):
+def for_(begin, end, step=1, tag=None):
     """Construct a FOR loop.
 
     Be careful: should not be used with other compute APIs like sum
     """
     depth = ImperativeLoopDepth.get()
+    ImperativeLoopDepth.set(ImperativeLoopDepth.get() + 1)
     count = ImperativeLoopNestCount.get()
     if tag == None:
         stage_name = StageName.get()
@@ -84,10 +85,29 @@ def for_(begin, end, step=1, tag=""):
         Schedule._CurrentStage[-1].stage_handle = hcl_d.CreateOpHandleOp(
             StringAttr.get(stage_name), ip=hcl_mlir.GlobalInsertionPoint.ip_stack[IPPointer.get()]
         )
-        Schedule._TopFunction.__setattr__(
-            stage_name, Schedule._CurrentStage[-1])
         ImperativeLoopNestCount.set(count + 1)
-    ImperativeLoopDepth.set(depth + 1)
+        NestedStageLevel.set(NestedStageLevel.get() + 1)
+        # attach this stage to the caller function
+        if Schedule._TopFunction is None:
+            raise APIError("No top function is found. Imperative function must be called by a top-level function.")
+        caller_func_name = inspect.stack()[1].function
+        called_from_top = caller_func_name == Schedule._TopFunction.__name__
+        caller_func = get_func_obj(caller_func_name)
+        if not called_from_top:
+            # Caller function up one level
+            caller_parent_func_name = inspect.stack()[2].function
+            caller_parent_func = get_func_obj(caller_parent_func_name)
+            # If haven't already, attach the caller function
+            # to its parent function as an attribute
+            if not hasattr(caller_parent_func, caller_func_name):
+                caller_parent_func.__setattr__(caller_func_name, caller_func)
+        stage = Schedule._CurrentStage[-1]
+        caller_func.__setattr__(stage.name, stage)
+        # Set up a list of stages for the caller function
+        if not hasattr(caller_func, "_stages"):
+            caller_func.__setattr__("_stages", [stage])
+        else:
+            caller_func._stages.append(stage)    
 
     hcl_mlir.enable_build_inplace()
     loop_name = UniqueName.get("loop")
@@ -112,30 +132,10 @@ def for_(begin, end, step=1, tag=""):
         hcl_mlir.GlobalInsertionPoint.restore()
         ImperativeLoopDepth.set(ImperativeLoopDepth.get() - 1)
         if depth == 0:
+            NestedStageLevel.set(NestedStageLevel.get() - 1)
             # Setting the stage output, i.e. .op attribute as the stage itself
             Schedule._CurrentStage[-1].set_output(Schedule._CurrentStage[-1])
             Schedule._CurrentStage[-1].done()
-            # attach this stage to the caller function
-            if Schedule._TopFunction is None:
-                raise APIError("No top function is found. Imperative function must be called by a top-level function.")
-            caller_func_name = inspect.stack()[1].function
-            called_from_top = caller_func_name == Schedule._TopFunction.__name__
-            caller_func = get_func_obj(caller_func_name)
-            if not called_from_top:
-                # Caller function up one level
-                caller_parent_func_name = inspect.stack()[2].function
-                caller_parent_func = get_func_obj(caller_parent_func_name)
-                # If haven't already, attach the caller function
-                # to its parent function as an attribute
-                if not hasattr(caller_parent_func, caller_func_name):
-                    caller_parent_func.__setattr__(caller_func_name, caller_func)
-            stage = Schedule._CurrentStage[-1]
-            caller_func.__setattr__(stage.name, stage)
-            # Set up a list of stages for the caller function
-            if not hasattr(caller_func, "_stages"):
-                caller_func.__setattr__("_stages", [stage])
-            else:
-                caller_func._stages.append(stage)    
 
     return WithScope(iter_var, _exit_cb)
 

@@ -10,7 +10,7 @@ from hcl_mlir.exceptions import *
 
 from . import config
 from .types import Int, Type, UInt, Struct, dtype_to_hcl
-from .context import UniqueName
+from .context import NestedStageLevel, UniqueName
 from .dsl import for_
 from .schedule import Schedule, Stage
 from .tensor import Array, Tensor
@@ -239,7 +239,7 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
         called_from_top = False
     else:
         called_from_top = caller_func_name == Schedule._TopFunction.__name__
-    caller_func = get_func_obj(caller_func_name)
+    caller_func = Schedule._TopFunction if called_from_top else get_func_obj(caller_func_name)
     if not called_from_top:
         # Caller function up one level
         caller_parent_func_name = inspect.stack()[2].function
@@ -250,12 +250,18 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
             caller_parent_func.__setattr__(caller_func_name, caller_func)
     stage = ret_tensor.op.stage
     if Schedule._TopFunction != None:
-        caller_func.__setattr__(stage.name, stage.op)
-        # Set up a list of stages for the caller function
-        if not hasattr(caller_func, "_stages"):
-            caller_func.__setattr__("_stages", [stage])
+        if NestedStageLevel.get() > 0:
+            # Attach the stage to the parent stage
+            # TODO(Niansong): test this
+            Schedule._CurrentStage[-1].__setattr__(name, stage)
+            Schedule._CurrentStage[-1]._sub_stages.append(stage)
         else:
-            caller_func._stages.append(stage)    
+            caller_func.__setattr__(stage.name, stage.op)
+            # Set up a list of stages for the caller function
+            if not hasattr(caller_func, "_stages"):
+                caller_func.__setattr__("_stages", [stage])
+            else:
+                caller_func._stages.append(stage)    
     
     return ret_tensor
 
@@ -305,19 +311,24 @@ def update(tensor: Tensor, fcompute, name=None):
 
     if Schedule._TopFunction != None:
         stage = Stage(name)
+        stage.__setattr__(tensor.name, new_tensor)
         with get_context() as ctx, get_location() as loc:
             stage.stage_handle = hcl_d.CreateOpHandleOp(
                 StringAttr.get(name), ip=hcl_mlir.GlobalInsertionPoint.get()
             )
         Schedule._CurrentStage.append(stage)
-        # Attach the stage to the caller function as an attribute
-        caller_func.__setattr__(name, stage)
-        stage.__setattr__(tensor.name, new_tensor)
-        # Set up a list of stages for the caller function
-        if not hasattr(caller_func, "_stages"):
-            caller_func.__setattr__("_stages", [stage])
+        if NestedStageLevel.get() > 0:
+            # Attach the stage to the parent stage
+            Schedule._CurrentStage[-2].__setattr__(name, stage)
+            Schedule._CurrentStage[-2]._sub_stages.append(stage)
         else:
-            caller_func._stages.append(stage)
+            # Attach the stage to the caller function as an attribute
+            caller_func.__setattr__(name, stage)
+            # Set up a list of stages for the caller function
+            if not hasattr(caller_func, "_stages"):
+                caller_func.__setattr__("_stages", [stage])
+            else:
+                caller_func._stages.append(stage)
 
 
 def mutate(domain, fcompute, name=None):
@@ -349,12 +360,18 @@ def mutate(domain, fcompute, name=None):
             caller_parent_func.__setattr__(caller_func_name, caller_func)
     stage = ret_tensor.op.stage
     if Schedule._TopFunction != None:
-        caller_func.__setattr__(stage.name, stage.op)
-        # Set up a list of stages for the caller function
-        if not hasattr(caller_func, "_stages"):
-            caller_func.__setattr__("_stages", [stage])
+        if NestedStageLevel.get() > 0:
+            # Attach the stage to the parent stage
+            # TODO(Niansong): test this
+            Schedule._CurrentStage[-1].__setattr__(name, stage)
+            Schedule._CurrentStage[-1]._sub_stages.append(stage)
         else:
-            caller_func._stages.append(stage)    
+            caller_func.__setattr__(stage.name, stage.op)
+            # Set up a list of stages for the caller function
+            if not hasattr(caller_func, "_stages"):
+                caller_func.__setattr__("_stages", [stage])
+            else:
+                caller_func._stages.append(stage)    
     return ret_tensor
 
 

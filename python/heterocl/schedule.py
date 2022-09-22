@@ -546,15 +546,13 @@ class Stage(object):
         # wait for setting axes
         self._axis = []
         StageName.set(name)
-        ImperativeLoopDepth.set(0)
-        ImperativeLoopNestCount.set(0)
         BreakFlag.set(False)
         # auxiliary attributes
         self.op = None
         self.ir_node = None
         # We allow nested stages when imperative and
         # declarative programming are mixed
-        self._nested_stages = []
+        self._sub_stages = []
 
     def done(self):
         # create stage handle
