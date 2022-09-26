@@ -94,6 +94,8 @@ def reduce_axis(lower, upper, name=None):
 
 
 def cast(dtype, expr):
+    if isinstance(dtype, str):
+        dtype = dtype_to_hcl(dtype)
     if isinstance(expr, Tensor):
         raise APIError("Tensor is not supported in hcl.cast. " +
                         "If you are try to cast a hcl.scalar, please use hcl.cast(scalar.v)")
