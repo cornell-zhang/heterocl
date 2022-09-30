@@ -298,6 +298,8 @@ def update(tensor: Tensor, fcompute, name=None):
         )
     if name is None:
         name = tensor.name + "_updated"
+
+    # Create a new Tensor, along with its stage
     new_tensor = Tensor(
         tensor.shape,
         tensor.dtype,
@@ -312,7 +314,7 @@ def update(tensor: Tensor, fcompute, name=None):
         tensor, new_tensor, stateful=True)
 
     if Schedule._TopFunction != None:
-        stage = Stage(name)
+        stage = new_tensor.op.stage
         stage.__setattr__(tensor.name, new_tensor)
         with get_context() as ctx, get_location() as loc:
             stage.stage_handle = hcl_d.CreateOpHandleOp(
