@@ -73,10 +73,9 @@ def for_(begin, end, step=1, tag=None):
     Be careful: should not be used with other compute APIs like sum
     """
     depth = ImperativeLoopDepth.get()
-    ImperativeLoopDepth.set(ImperativeLoopDepth.get() + 1)
     count = ImperativeLoopNestCount.get()
     if tag == None:
-        stage_name = StageName.get()
+        stage_name = UniqueName.get("stage")
     else:
         stage_name = tag
     if depth == 0:
@@ -109,6 +108,7 @@ def for_(begin, end, step=1, tag=None):
         else:
             caller_func._stages.append(stage)    
 
+    ImperativeLoopDepth.set(ImperativeLoopDepth.get() + 1)
     hcl_mlir.enable_build_inplace()
     loop_name = UniqueName.get("loop")
     loop_nest_ip = IPPointer.get()
