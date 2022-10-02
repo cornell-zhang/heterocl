@@ -161,6 +161,7 @@ class ComputeOp(object):
             self.kind = "update"
             self.output = output
         self.stage.set_output(self.output)
+        self.stage.update_mapping(self.kind)
         self.arg_names = arg_names
 
     def build(self):
@@ -270,10 +271,8 @@ class ComputeOp(object):
 
             # recover insertion point from inner-most loop body
             GlobalInsertionPoint.restore()
-
             self.stage.set_ir_node(loops[0])
-
-        self.stage.done()
+        self.stage.update_mapping(self.kind)
         if Schedule._TopFunction != None:
             hcl_mlir.enable_build_inplace()
         if self.output is not None:

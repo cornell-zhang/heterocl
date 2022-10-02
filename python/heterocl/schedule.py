@@ -562,15 +562,37 @@ class Stage(object):
         # declarative programming are mixed
         self._sub_stages = []
 
-    def done(self):
-        # create stage handle
-        if self.op is None:
-            # pseudo return tensor for stage with no return value
-            from .operation import placeholder
-            op = placeholder((1,), name=self.name)
-            Stage._mapping.append((op, self))
-        elif Schedule._TopFunction == None and (self.op, self) not in Stage._mapping:
-            Stage._mapping.append((self.op, self))
+
+    def update_mapping(self, kind):
+        """Update global stage mapping Stage._mapping
+
+        Stage._mapping is a list of (Tensor, Stage) tuples
+        or (Stage, Stage) tuples to keep track of all stages
+        and their corresponding tensors. 
+        For compute and mutate, we attach (Tensor, Stage) tuples
+        For update and imperative, we attach (Stage, Stage) tuples
+
+        Parameters
+        ----------
+        kind : str
+            "update", "imperative", or "compute"
+        
+        Returns
+        -------
+        None
+        """
+        if kind == "update" or kind == "imperative":
+            pair = (self, self)
+            if pair not in Stage._mapping:
+                Stage._mapping.append(pair)
+        else: # compute and mutate
+            if self.op is None:
+                # pseudo return tensor for stage with no return value
+                from .operation import placeholder
+                op = placeholder((1,), name=self.name)
+                Stage._mapping.append((op, self))
+            elif (self.op, self) not in Stage._mapping:
+                Stage._mapping.append((self.op, self))
 
     def add_axis(self, axis):
         self._axis.append(axis)
@@ -580,9 +602,7 @@ class Stage(object):
         return self._axis
 
     def set_output(self, output):
-        # output: TensorOp or imperative stage
         self.op = output
-        Stage._mapping.append((self.op, self))
 
     def set_ir_node(self, ir_node):
         self.ir_node = ir_node

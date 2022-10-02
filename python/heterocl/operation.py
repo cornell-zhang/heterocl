@@ -298,7 +298,6 @@ def update(tensor: Tensor, fcompute, name=None):
         )
     if name is None:
         name = tensor.name + "_updated"
-
     # Create a new Tensor, along with its stage
     new_tensor = Tensor(
         tensor.shape,

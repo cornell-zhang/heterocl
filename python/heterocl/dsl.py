@@ -135,7 +135,7 @@ def for_(begin, end, step=1, tag=None):
             NestedStageLevel.set(NestedStageLevel.get() - 1)
             # Setting the stage output, i.e. .op attribute as the stage itself
             Schedule._CurrentStage[-1].set_output(Schedule._CurrentStage[-1])
-            Schedule._CurrentStage[-1].done()
+            Schedule._CurrentStage[-1].update_mapping("imperative")
 
     return WithScope(iter_var, _exit_cb)
 
