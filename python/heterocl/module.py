@@ -119,7 +119,7 @@ class HCLModule(object):
                     slicing.append(slice(0, s))
                 res.np_array = res.np_array[tuple(slicing)]
         else:
-            raise NotImpelementedError("Backend {} is not implemented".format(target))
+            raise HCLNotImplementedError("Backend {} is not implemented".format(target))
 
     def report(self):
         """Get tool report"""
@@ -136,7 +136,7 @@ class HCLModule(object):
                     )
                 )
         else:
-            raise NotImpelementedError(
+            raise HCLNotImplementedError(
                 "target tool {} not supported".format(target.tool.name)
             )
         return report_stats(target, target.project)
