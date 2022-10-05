@@ -29,6 +29,10 @@ def lower(schedule,
     """Lowering step before build into target
        by applying optimization pass
     """
+    if schedule.is_lowered():
+        raise APIError(
+                "The module has been lowered. Please apply schedule primitives before the lowering process."
+            )
     hcl_d.loop_transformation(schedule.device_module)
     pipeline = (
         f"func.func"
@@ -39,6 +43,7 @@ def lower(schedule,
             PassManager.parse(pipeline).run(schedule.device_module)
     except:
         print(schedule.device_module)
+    schedule.set_lowered()
     return schedule.device_module
 
 

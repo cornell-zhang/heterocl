@@ -186,6 +186,7 @@ class Schedule(object):
 
     def __init__(self, name, inputs, func=None):
         self.name = name
+        self.lowered = False
         # Device-agnostic module:
         # used for transformation
         self._device_module = Module.create(get_location())
@@ -323,6 +324,12 @@ class Schedule(object):
     def instance_modules(self):
         return self._instance_modules
 
+    def set_lowered(self):
+        self.lowered = True
+
+    def is_lowered(self):
+        return self.lowered
+
     def __getitem__(self, target):
         """Return a Stage
         """
@@ -336,6 +343,8 @@ class Schedule(object):
     def partition(self, target, partition_type=Partition.Complete, dim=0, factor=0):
         """Partition a Tensor into smaller Tensors or even registers
         """
+        if self.is_lowered():
+            raise APIError(".partition() must be called before lowering")
         if partition_type > 2:
             raise RuntimeError("Invalid partition type")
         if dim < 0:
@@ -373,8 +382,8 @@ class Schedule(object):
     def replace(self, src, dst):
         """Replace a Tensor with another Tensor
         """
-        # src = src.tensor
-        # dst = dst.tensor
+        if self.is_lowered():
+            raise APIError(".replace() must be called before lowering")
         if not isinstance(src, OpResult):
             src = src.result
         if not isinstance(dst, OpResult):
@@ -386,6 +395,8 @@ class Schedule(object):
     def reshape(self, target, shape):
         """Reshape a Tensor to a specified new shape
         """
+        if self.is_lowered():
+            raise APIError(".reshape() must be called before lowering")
         try:
             target = target.tensor
         except (AttributeError, ValueError):
@@ -405,6 +416,8 @@ class Schedule(object):
     def reform(self, target, layout):
         """Change the layout of a tensor
         """
+        if self.is_lowered():
+            raise APIError(".reform() must be called before lowering")
         try:
             target = target.tensor
         except (AttributeError, ValueError):
@@ -424,6 +437,8 @@ class Schedule(object):
     def reuse_at(self, target, parent, axis, name=None):
         """Create a reuse buffer reusing the output of current stage
         """
+        if self.is_lowered():
+            raise APIError(".reuse_at() must be called before lowering")
         try:
             target = target.tensor
         except (AttributeError, ValueError):
@@ -447,6 +462,8 @@ class Schedule(object):
 
     def buffer_at(self, target, parent, axis, name=None):
         """Create a write buffer reusing the output of current stage"""
+        if self.is_lowered():
+            raise APIError(".buffer_at() must be called before lowering")
         try:
             target = target.tensor
         except (AttributeError, ValueError):
@@ -470,6 +487,8 @@ class Schedule(object):
         return res.result
 
     def to(self, tensor, dst=None, fifo_depth=-1):
+        if self.is_lowered():
+            raise APIError(".to() must be called before lowering")
         # host-device data movement
         if isinstance(dst, (Device, DevMemoryPair)):
             # only do annotation not mutation here
@@ -504,7 +523,8 @@ class Schedule(object):
 
         e.g., s.outline([s0,s1], [s2], [s3,s4])
         """
-
+        if self.is_lowered():
+            raise APIError(".outline() must be called before lowering")
         results = []
         for i, stages in enumerate(stage_list):
             if isinstance(stages, list):
@@ -623,6 +643,8 @@ class Stage(object):
     def reorder(self, *args):
         """reorder the arguments in the specified order.
         """
+        if Schedule._CurrentSchedule.is_lowered():
+            raise APIError(".reorder() must be called before lowering")
         args = list(args)
         for i in range(0, len(args)):
             if isinstance(args[i], int):
@@ -636,6 +658,8 @@ class Stage(object):
     def split(self, parent, factor=None, nparts=None, mode="transform"):
         """Split the stage either by factor providing outer scope, or both
         """
+        if Schedule._CurrentSchedule.is_lowered():
+            raise APIError(".split() must be called before lowering")
         if nparts != None or mode != "transform":
             raise RuntimeError("Not supported")
         if isinstance(parent, int):
@@ -657,6 +681,8 @@ class Stage(object):
     def tile(self, x_parent, y_parent, x_factor, y_factor):
         """ Perform tiling on two dimensions
         """
+        if Schedule._CurrentSchedule.is_lowered():
+            raise APIError(".tile() must be called before lowering")
         idx = self.op.axis.index(x_parent)
         with get_context() as ctx, get_location():
             i32 = IntegerType.get_unsigned(32)
@@ -673,6 +699,8 @@ class Stage(object):
     def pipeline(self, var, initiation_interval=1):
         """Pipeline the iteration.
         """
+        if Schedule._CurrentSchedule.is_lowered():
+            raise APIError(".pipeline() must be called before lowering")
         if isinstance(var, int):
             var = self.op.axis[var]
         if isinstance(var, hcl_d.CreateLoopHandleOp):
@@ -685,6 +713,8 @@ class Stage(object):
     def unroll(self, var, factor=0):
         """Unroll the iteration.
         """
+        if Schedule._CurrentSchedule.is_lowered():
+            raise APIError(".unroll() must be called before lowering")
         if isinstance(var, int):
             var = self.op.axis[var]
         if isinstance(var, hcl_d.CreateLoopHandleOp):
@@ -697,6 +727,8 @@ class Stage(object):
     def parallel(self, var):
         """Parallelize the iteration.
         """
+        if Schedule._CurrentSchedule.is_lowered():
+            raise APIError(".parallel() must be called before lowering")
         if isinstance(var, int):
             var = self.op.axis[var]
         with get_context(), get_location():
@@ -705,6 +737,8 @@ class Stage(object):
     def fuse(self, *args):
         """Fuse multiple consecutive iteration variables into a single iteration variable.
         """
+        if Schedule._CurrentSchedule.is_lowered():
+            raise APIError(".fuse() must be called before lowering")
         assert len(args) >= 1, "Length of the arguments must be >=1 for fuse."
         args = list(args)
         for i in range(0, len(args)):
@@ -720,6 +754,8 @@ class Stage(object):
     def compute_at(self, parent, scope):
         """Attach the stage at parent's scope
         """
+        if Schedule._CurrentSchedule.is_lowered():
+            raise APIError(".compute_at() must be called before lowering")
         if isinstance(scope, int):
             scope = parent.op.axis[scope]
         with get_context() as ctx, get_location():
@@ -729,7 +765,8 @@ class Stage(object):
     def outline(self, axis=None, unify=None):
         """Outline a stage as a function
         """
-
+        if Schedule._CurrentSchedule.is_lowered():
+            raise APIError(".outline() must be called before lowering")
         with get_context() as ctx, get_location() as loc:
             op = hcl_d.OutlineOp([self.stage_handle.result],
                                  ip=GlobalInsertionPoint.get())
