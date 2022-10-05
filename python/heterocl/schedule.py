@@ -368,6 +368,19 @@ class Schedule(object):
             res = hcl_d.PartitionOp(
                 target, partition_kind=partition_type, dim=dim, factor=factor, ip=GlobalInsertionPoint.get())
 
+    def replace(self, src, dst):
+        """Replace a Tensor with another Tensor
+        """
+        # src = src.tensor
+        # dst = dst.tensor
+        if not isinstance(src, OpResult):
+            src = src.result
+        if not isinstance(dst, OpResult):
+            dst = dst.result
+
+        with get_context() as ctx, get_location():
+            hcl_d.ReplaceOp(src, dst, ip=GlobalInsertionPoint.get())
+
     def reshape(self, target, shape):
         """Reshape a Tensor to a specified new shape
         """
