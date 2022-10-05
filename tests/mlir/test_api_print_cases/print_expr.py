@@ -105,3 +105,14 @@ hcl_A = hcl.asarray(np_A)
 f(hcl_A)
 
 print(str(np_A[5]) + " " + str(np_A[6]))
+
+
+def test_print_emptytuple():
+    hcl.init()
+    def kernel():
+        hcl.print((), "print empty tuple success\n")
+    s = hcl.create_schedule([], kernel)
+    f = hcl.build(s)
+    f()
+
+test_print_emptytuple()

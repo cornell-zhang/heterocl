@@ -10,8 +10,8 @@ from hcl_mlir.exceptions import *
 
 from .devices import Device, DevMemoryPair
 from .context import (BreakFlag, ImperativeLoopDepth, ImperativeLoopNestCount,
-                      NestedCompute, StageName, UniqueName, get_context,
-                      get_location, set_context, exit_context)
+                      NestedStageLevel, StageName, UniqueName, StageAttachGlobal,
+                      get_context, get_location, set_context, exit_context)
 from .dfg import DataflowGraph
 from .utils import get_extra_type_hints
 
@@ -139,11 +139,13 @@ def build_schedule(inputs, func=None, name=""):
             GlobalInsertionPoint.save(InsertionPoint(ret_op))
 
     # let each stage's output be an attribute of the function
-    if func != None:
-        for op, stage in Stage._mapping:
-            if op is not None:
-                func.__setattr__(op.name, op)
-    # exit context
+    if StageAttachGlobal.get():
+        if func != None:
+            func.__dict__.clear()
+            for op, stage in Stage._mapping:
+                if op is not None:
+                    func.__setattr__(op.name, op)
+
     exit_context()
     return sch
 
@@ -155,7 +157,7 @@ def customize(inputs, func=None, name=""):
         raise e
     finally:
         hcl_mlir.reset_build_inplace()
-        NestedCompute.set(0)
+        NestedStageLevel.set(0)
 
 
 def create_schedule(inputs, func=None, name=""):
@@ -554,8 +556,8 @@ class Stage(object):
     """A Stage represents schedule for one operation.
     """
 
-    # TODO: Need to find a hashable way to create dict
-    _mapping = []  # operation->stage
+    # A global list of all stages
+    _mapping = []  # (Tensor, Stage)
 
     def __init__(self, name=None):
         if name is None:
@@ -565,22 +567,45 @@ class Stage(object):
         # wait for setting axes
         self._axis = []
         StageName.set(name)
-        ImperativeLoopDepth.set(0)
-        ImperativeLoopNestCount.set(0)
         BreakFlag.set(False)
         # auxiliary attributes
         self.op = None
         self.ir_node = None
+        # We allow nested stages when imperative and
+        # declarative programming are mixed
+        self._sub_stages = []
 
-    def done(self):
-        # create stage handle
-        if self.op is None:
-            # pseudo return tensor for stage with no return value
-            from .operation import placeholder
-            op = placeholder((1,), name=self.name)
-            Stage._mapping.append((op, self))
-        elif Schedule._TopFunction == None and (self.op, self) not in Stage._mapping:
-            Stage._mapping.append((self.op, self))
+
+    def update_mapping(self, kind):
+        """Update global stage mapping Stage._mapping
+
+        Stage._mapping is a list of (Tensor, Stage) tuples
+        or (Stage, Stage) tuples to keep track of all stages
+        and their corresponding tensors. 
+        For compute and mutate, we attach (Tensor, Stage) tuples
+        For update and imperative, we attach (Stage, Stage) tuples
+
+        Parameters
+        ----------
+        kind : str
+            "update", "imperative", or "compute"
+        
+        Returns
+        -------
+        None
+        """
+        if kind == "update" or kind == "imperative":
+            pair = (self, self)
+            if pair not in Stage._mapping:
+                Stage._mapping.append(pair)
+        else: # compute and mutate
+            if self.op is None:
+                # pseudo return tensor for stage with no return value
+                from .operation import placeholder
+                op = placeholder((1,), name=self.name)
+                Stage._mapping.append((op, self))
+            elif (self.op, self) not in Stage._mapping:
+                Stage._mapping.append((self.op, self))
 
     def add_axis(self, axis):
         self._axis.append(axis)
@@ -590,9 +615,7 @@ class Stage(object):
         return self._axis
 
     def set_output(self, output):
-        # output: TensorOp or imperative stage
         self.op = output
-        Stage._mapping.append((self.op, self))
 
     def set_ir_node(self, ir_node):
         self.ir_node = ir_node

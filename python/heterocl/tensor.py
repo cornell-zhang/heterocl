@@ -1,5 +1,4 @@
 import inspect
-import warnings
 from typing import List, Callable
 
 import hcl_mlir
@@ -9,9 +8,10 @@ from hcl_mlir.dialects import affine
 from hcl_mlir.dialects import hcl as hcl_d
 from hcl_mlir.dialects import memref
 from hcl_mlir.ir import *
+from hcl_mlir.exceptions import *
 
 from .types import dtype_to_str, Int, UInt, Float, Fixed, UFixed
-from .context import get_context, get_location, NestedCompute
+from .context import get_context, get_location, NestedStageLevel
 from .schedule import Schedule, Stage
 from .utils import get_extra_type_hints, hcl_dtype_to_mlir
 
@@ -35,7 +35,7 @@ class Tensor(object):
         self.uses = []
         self.name = name
 
-        if hcl_mlir.is_build_inplace() or NestedCompute.get() > 0:
+        if hcl_mlir.is_build_inplace() or NestedStageLevel.get() > 0:
             self.build()
 
     def init(self):
@@ -161,6 +161,7 @@ class ComputeOp(object):
             self.kind = "update"
             self.output = output
         self.stage.set_output(self.output)
+        self.stage.update_mapping(self.kind)
         self.arg_names = arg_names
 
     def build(self):
@@ -168,7 +169,7 @@ class ComputeOp(object):
         self.stage.stage_handle = hcl_d.CreateOpHandleOp(
             StringAttr.get(self.stage.name), ip=GlobalInsertionPoint.get()
         )
-        NestedCompute.set(NestedCompute.get() + 1)
+        NestedStageLevel.set(NestedStageLevel.get() + 1)
         input_types = []
         for in_tensor in self.inputs:  # hcl.Tensor -> hcl_mlir.TensorOp
             input_types.append(in_tensor.memref_type)
@@ -249,11 +250,12 @@ class ComputeOp(object):
                 if not isinstance(value, hcl_mlir.BlockArgument):
                     value = value.result
                 if value.type != write_back_elt:
-                    warnings.warn(
-                        "StoreOp has different input types. Cast from {} to {}.".format(
-                            value.type, write_back_elt
+                    fn, ln = hcl_mlir.get_line_number(4)
+                    DTypeWarning(
+                        "[{} line {}], StoreOp has different input types. Cast from {} to {}.".format(
+                            fn, ln, value.type, write_back_elt
                         )
-                    )
+                    ).warn()
                     value = hcl_mlir.CastOp(result_expr, write_back_elt)
                     value.build()
                     result = value.result
@@ -269,10 +271,8 @@ class ComputeOp(object):
 
             # recover insertion point from inner-most loop body
             GlobalInsertionPoint.restore()
-
             self.stage.set_ir_node(loops[0])
-
-        self.stage.done()
+        self.stage.update_mapping(self.kind)
         if Schedule._TopFunction != None:
             hcl_mlir.enable_build_inplace()
         if self.output is not None:
@@ -283,7 +283,7 @@ class ComputeOp(object):
                 Schedule._CurrentSchedule.DataflowGraph.create_node(
                     self.output)
 
-        NestedCompute.set(NestedCompute.get() - 1)
+        NestedStageLevel.set(NestedStageLevel.get() - 1)
         Schedule._CurrentStage.pop()
         return self.output
 

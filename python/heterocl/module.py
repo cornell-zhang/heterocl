@@ -1,10 +1,10 @@
 import copy
 from multiprocessing import Process
-import warnings
 import numpy as np
 
 from hcl_mlir.dialects import func as func_d
 from hcl_mlir.ir import *
+from hcl_mlir.exceptions import *
 
 from .context import get_context, get_location
 from .devices import Platform
@@ -14,7 +14,6 @@ from .utils import hcl_dtype_to_mlir
 
 
 class HCLModule(object):
-
     def __init__(self, name, src, target, host_src=None, context=None, return_num=0):
         self.name = name
         self.src = src  # device src
@@ -30,49 +29,89 @@ class HCLModule(object):
 
     def __call__(self, *argv):
         if "target" not in self.__dict__.keys():
-            raise RuntimeError("No attached target!")
+            raise APIError("No attached target!")
         if "name" not in self.__dict__.keys():
-            raise RuntimeError("No module name specified!")
+            raise APIError("No module name specified!")
         target = self.target
-        if isinstance(target, Platform) and target.tool.name in ["vivado_hls", "vitis_hls"]:
+        if isinstance(target, Platform) and target.tool.name in [
+            "vivado_hls",
+            "vitis_hls",
+        ]:
             self.run_hls(shell=True)
         elif target == "llvm":
             original_results = []
             with get_context() as ctx, get_location():
                 for op in self.host_src.body.operations:
                     if isinstance(op, func_d.FuncOp) and op.sym_name.value == "top":
+                        # check if enough args are provided
+                        correct_arg_num = len(op.arguments) + len(op.type.results)
+                        if len(argv) != correct_arg_num:
+                            raise APIError(
+                                "Incorrect number of arguments provided. Expected {}, got {}.".format(
+                                    correct_arg_num, len(argv)
+                                )
+                            )
                         # test inputs
                         for i, arg in enumerate(op.arguments):
                             if not MemRefType.isinstance(arg.type):
                                 continue
                             memref_type = MemRefType(arg.type)
                             assert memref_type.element_type == hcl_dtype_to_mlir(
-                                argv[i].dtype, signless=True), "Input types: {} {}".format(memref_type.element_type, hcl_dtype_to_mlir(argv[i].dtype, signless=True))
+                                argv[i].dtype, signless=True
+                            ), "Input types: {} {}".format(
+                                memref_type.element_type,
+                                hcl_dtype_to_mlir(argv[i].dtype, signless=True),
+                            )
                             if tuple(memref_type.shape) != argv[i].np_array.shape:
-                                warnings.warn(
-                                    "Shape mismatch between input {} and kernel argument {}!".format(tuple(memref_type.shape), argv[i].np_array.shape))
+                                APIWarning(
+                                    "Shape mismatch between input {} and kernel argument {}!".format(
+                                        tuple(memref_type.shape), argv[i].np_array.shape
+                                    )
+                                ).warn()
                                 pad_shape = []
-                                for dst, src in zip(memref_type.shape, argv[i].np_array.shape):
+                                for dst, src in zip(
+                                    memref_type.shape, argv[i].np_array.shape
+                                ):
                                     pad_shape.append((0, dst - src))
-                                argv[i].np_array = np.pad(
-                                    argv[i].np_array, pad_shape)
+                                argv[i].np_array = np.pad(argv[i].np_array, pad_shape)
                         # test outputs
                         for i, res_type in enumerate(op.type.results):
                             if not MemRefType.isinstance(res_type):
                                 continue
                             memref_type = MemRefType(res_type)
                             assert memref_type.element_type == hcl_dtype_to_mlir(
-                                argv[len(op.arguments)+i].dtype, signless=True), "Input types: {} {}".format(memref_type.element_type, hcl_dtype_to_mlir(argv[len(op.arguments)+i].dtype, signless=True))
-                            if tuple(memref_type.shape) != argv[len(op.arguments)+i].np_array.shape:
-                                warnings.warn(
-                                    "Shape mismatch between output {} and kernel result {}!".format(tuple(memref_type.shape), argv[len(op.arguments)+i].np_array.shape))
+                                argv[len(op.arguments) + i].dtype, signless=True
+                            ), "Input types: {} {}".format(
+                                memref_type.element_type,
+                                hcl_dtype_to_mlir(
+                                    argv[len(op.arguments) + i].dtype, signless=True
+                                ),
+                            )
+                            if (
+                                tuple(memref_type.shape)
+                                != argv[len(op.arguments) + i].np_array.shape
+                            ):
+                                APIWarning(
+                                    "Shape mismatch between output {} and kernel result {}!".format(
+                                        tuple(memref_type.shape),
+                                        argv[len(op.arguments) + i].np_array.shape,
+                                    )
+                                ).warn()
                                 pad_shape = []
-                                for dst, src in zip(memref_type.shape, argv[len(op.arguments)+i].np_array.shape):
+                                for dst, src in zip(
+                                    memref_type.shape,
+                                    argv[len(op.arguments) + i].np_array.shape,
+                                ):
                                     pad_shape.append((0, dst - src))
                                 original_results.append(
-                                    [argv[len(op.arguments)+i], argv[len(op.arguments)+i].np_array.shape])
-                                argv[len(op.arguments)+i].np_array = np.pad(
-                                    argv[len(op.arguments)+i].np_array, pad_shape)
+                                    [
+                                        argv[len(op.arguments) + i],
+                                        argv[len(op.arguments) + i].np_array.shape,
+                                    ]
+                                )
+                                argv[len(op.arguments) + i].np_array = np.pad(
+                                    argv[len(op.arguments) + i].np_array, pad_shape
+                                )
             execute_llvm_backend(self.src, self.name, self.return_num, *argv)
             for res, shape in original_results:
                 slicing = []
@@ -80,27 +119,30 @@ class HCLModule(object):
                     slicing.append(slice(0, s))
                 res.np_array = res.np_array[tuple(slicing)]
         else:
-            raise RuntimeError("Not implemented")
+            raise HCLNotImplementedError("Backend {} is not implemented".format(target))
 
     def report(self):
-        """Get tool report
-        """
+        """Get tool report"""
         if "target" not in self.__dict__.keys():
-            raise RuntimeError("No attached target!")
+            raise APIError("No attached target!")
         if "name" not in self.__dict__.keys():
-            raise RuntimeError("No module name specified!")
+            raise APIError("No module name specified!")
         target = self.target
         if target.tool.name == "vivado_hls":
             if "csyn" not in target.tool.mode and target.tool.mode != "debug":
-                raise RuntimeError(
-                    "Not supported mode {}. Use csyn mode to retrieve the report instead.".format(target.tool.mode))
+                raise APIError(
+                    "Not supported mode {}. Use csyn mode to retrieve the report instead.".format(
+                        target.tool.mode
+                    )
+                )
         else:
-            raise RuntimeError("Not implemented")
+            raise HCLNotImplementedError(
+                "target tool {} not supported".format(target.tool.name)
+            )
         return report_stats(target, target.project)
 
 
 class HCLSuperModule(object):
-
     def __init__(self, modules):
         self.modules = modules
 

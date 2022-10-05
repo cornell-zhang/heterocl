@@ -9,8 +9,9 @@ ImperativeLoopDepth = ContextVar("ImperativeLoopDepth", default=0)
 # in GlobalInsertionPoint.ip_stack
 IPPointer = ContextVar("IPPointer", default=None)
 StageName = ContextVar("StageName", default="")
-NestedCompute = ContextVar("NestedCompute", default=0)
+NestedStageLevel = ContextVar("NestedStageLevel", default=0)
 BreakFlag = ContextVar("BreakFlag", default=False)
+StageAttachGlobal = ContextVar("StageAttachGlobal", default=True)
 
 class UniqueName(object):
     scalar_idx = 0

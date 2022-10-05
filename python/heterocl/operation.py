@@ -1,17 +1,20 @@
+import inspect
 from collections import OrderedDict
 
 import hcl_mlir
 import numpy as np
+import re
 from hcl_mlir.dialects import hcl as hcl_d
 from hcl_mlir.ir import *
+from hcl_mlir.exceptions import *
 
 from . import config
 from .types import Int, Type, UInt, Struct, dtype_to_hcl
-from .context import UniqueName
+from .context import NestedStageLevel, UniqueName
 from .dsl import for_
 from .schedule import Schedule, Stage
 from .tensor import Array, Tensor
-from .utils import get_dtype_str, hcl_dtype_to_mlir
+from .utils import get_dtype_str, hcl_dtype_to_mlir, get_func_obj
 from .context import get_context, get_location
 
 
@@ -29,8 +32,9 @@ def placeholder(shape, name=None, dtype=None):
         not dtype == None
         and not isinstance(dtype, (Type, str))
         and not hcl_mlir.is_hcl_mlir_type(dtype)
+        and not isinstance(name, str)
     ):
-        raise RuntimeError("Type error")
+        raise APIError("Input type error, got dtype={}, name={}".format(dtype, name))
     if isinstance(dtype, str):
         dtype = dtype_to_hcl(dtype)
     if shape == ():
@@ -42,7 +46,7 @@ def placeholder(shape, name=None, dtype=None):
 
 def asarray(np_array, dtype=None):
     if isinstance(dtype, str):
-        raise RuntimeError("Should provide hcl.Type. Got string")
+        dtype = dtype_to_hcl(dtype)
     dtype = config.init_dtype if dtype == None else dtype
     return Array(np_array, dtype)
 
@@ -90,9 +94,11 @@ def reduce_axis(lower, upper, name=None):
 
 
 def cast(dtype, expr):
+    if isinstance(dtype, str):
+        dtype = dtype_to_hcl(dtype)
     if isinstance(expr, Tensor):
-        raise RuntimeError("Tensor is not supported in hcl.cast. " +
-                           "If you are try to cast a hcl.scalar, please use hcl.cast(scalar.v)")
+        raise APIError("Tensor is not supported in hcl.cast. " +
+                        "If you are try to cast a hcl.scalar, please use hcl.cast(scalar.v)")
     return hcl_mlir.CastOp(expr, hcl_dtype_to_mlir(dtype))
 
 
@@ -142,9 +148,9 @@ def pack(tensor, axis=0, factor=None, name=None, dtype=None):
     if factor is None and dtype is not None:
         factor = dtype.bits // tensor.dtype.bits
     if factor is None or not isinstance(factor, int):
-        raise RuntimeError("Should specify factor")
+        raise APIError("Should specify factor")
     if not isinstance(tensor.dtype, (Int, UInt)):
-        raise RuntimeError("Only support integer packing")
+        raise APIError("Only support integer packing")
     if name == None or name == "":
         name = UniqueName.get("tensor")
     bitwidth = tensor.dtype.bits
@@ -176,9 +182,9 @@ def unpack(tensor, axis=0, factor=None, name=None, dtype=None):
     if factor is None and dtype is not None:
         factor = tensor.dtype.bits // dtype.bits
     if factor is None or not isinstance(factor, int):
-        raise RuntimeError("Should specify factor")
+        raise APIError("Should specify factor")
     if not isinstance(tensor.dtype, (Int, UInt)):
-        raise RuntimeError("Only support integer packing")
+        raise APIError("Only support integer packing")
     if name == None or name == "":
         name = UniqueName.get("tensor")
     bitwidth = tensor.dtype.bits
@@ -213,30 +219,78 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
     """
     # check API correctness
     if not isinstance(shape, tuple):
-        raise RuntimeError("The shape of compute API must be a tuple")
+        raise APIError("The shape of compute API must be a tuple")
     shape = tuple([int(s) if isinstance(s, float) else s for s in shape])
     if name is None:
         name = UniqueName.get("tensor")
     if not dtype == None and not isinstance(dtype, (Type, str)):
-        raise RuntimeError("Type error")
+        raise APIError("Type error")
     dtype = config.init_dtype if dtype == None else dtype
     if isinstance(dtype, str):
         dtype = dtype_to_hcl(dtype)
+
     ret_tensor = Tensor(shape, dtype, name=name,
                         fcompute=fcompute, impl="compute")
     for tensor in ret_tensor.op.inputs:
         tensor.add_use(ret_tensor)
-    return ret_tensor
 
+
+    # Check the caller function
+    caller_func_name = inspect.stack()[1].function
+    if Schedule._TopFunction is None:
+        called_from_top = False
+    else:
+        called_from_top = caller_func_name == Schedule._TopFunction.__name__
+    caller_func = Schedule._TopFunction if called_from_top else get_func_obj(caller_func_name)
+    if not called_from_top:
+        # Caller function up one level
+        caller_parent_func_name = inspect.stack()[2].function
+        caller_parent_func = get_func_obj(caller_parent_func_name)
+        # If haven't already, attach the caller function
+        # to its parent function as an attribute
+        if not hasattr(caller_parent_func, caller_func_name):
+            caller_parent_func.__setattr__(caller_func_name, caller_func)
+    stage = ret_tensor.op.stage
+    if Schedule._TopFunction != None:
+        if NestedStageLevel.get() > 0:
+            # Attach the stage to the parent stage
+            # TODO(Niansong): test this
+            Schedule._CurrentStage[-1].__setattr__(name, stage)
+            Schedule._CurrentStage[-1]._sub_stages.append(stage)
+        else:
+            caller_func.__setattr__(stage.name, stage.op)
+            # Set up a list of stages for the caller function
+            if not hasattr(caller_func, "_stages"):
+                caller_func.__setattr__("_stages", [stage])
+            else:
+                caller_func._stages.append(stage)    
+    
+    return ret_tensor
 
 def update(tensor: Tensor, fcompute, name=None):
     """
     fcompute: function, callable
     name: str
     """
+    # Check the caller function
+    caller_func_name = inspect.stack()[1].function
+    if Schedule._TopFunction is None:
+        called_from_top = False
+    else:
+        called_from_top = caller_func_name == Schedule._TopFunction.__name__
+    caller_func = get_func_obj(caller_func_name)
+    if not called_from_top:
+        # Caller function up one level
+        caller_parent_func_name = inspect.stack()[2].function
+        caller_parent_func = get_func_obj(caller_parent_func_name)
+        # If haven't already, attach the caller function
+        # to its parent function as an attribute
+        if not hasattr(caller_parent_func, caller_func_name):
+            caller_parent_func.__setattr__(caller_func_name, caller_func)
+
     # Check tensor type
     if not isinstance(tensor, Tensor):
-        raise RuntimeError(
+        raise APIError(
             "Unexpected argument type of the "
             + "first argument: {}, update API expects tensor as input.".format(
                 type(tensor)
@@ -244,6 +298,7 @@ def update(tensor: Tensor, fcompute, name=None):
         )
     if name is None:
         name = tensor.name + "_updated"
+    # Create a new Tensor, along with its stage
     new_tensor = Tensor(
         tensor.shape,
         tensor.dtype,
@@ -256,15 +311,27 @@ def update(tensor: Tensor, fcompute, name=None):
     tensor.add_use(new_tensor)
     Schedule._CurrentSchedule.DataflowGraph.add_edge(
         tensor, new_tensor, stateful=True)
+
     if Schedule._TopFunction != None:
-        stage = Stage(name)
+        stage = new_tensor.op.stage
+        stage.__setattr__(tensor.name, new_tensor)
         with get_context() as ctx, get_location() as loc:
             stage.stage_handle = hcl_d.CreateOpHandleOp(
                 StringAttr.get(name), ip=hcl_mlir.GlobalInsertionPoint.get()
             )
         Schedule._CurrentStage.append(stage)
-        Schedule._TopFunction.__setattr__(name, stage)
-        stage.__setattr__(tensor.name, new_tensor)
+        if NestedStageLevel.get() > 0:
+            # Attach the stage to the parent stage
+            Schedule._CurrentStage[-2].__setattr__(name, stage)
+            Schedule._CurrentStage[-2]._sub_stages.append(stage)
+        else:
+            # Attach the stage to the caller function as an attribute
+            caller_func.__setattr__(name, stage)
+            # Set up a list of stages for the caller function
+            if not hasattr(caller_func, "_stages"):
+                caller_func.__setattr__("_stages", [stage])
+            else:
+                caller_func._stages.append(stage)
 
 
 def mutate(domain, fcompute, name=None):
@@ -273,11 +340,41 @@ def mutate(domain, fcompute, name=None):
     """
     # check API correctness
     if not isinstance(domain, tuple):
-        raise RuntimeError("The domain of mutate API must be a tuple")
+        raise APIError("The domain of mutate API must be a tuple")
     if name is None:
         name = UniqueName.get("tensor")
     ret_tensor = Tensor(domain, None, name=name,
                         fcompute=fcompute, impl="compute")
+
+    # Check the caller function
+    caller_func_name = inspect.stack()[1].function
+    if Schedule._TopFunction is None:
+        called_from_top = False
+    else:
+        called_from_top = caller_func_name == Schedule._TopFunction.__name__
+    caller_func = get_func_obj(caller_func_name)
+    if not called_from_top:
+        # Caller function up one level
+        caller_parent_func_name = inspect.stack()[2].function
+        caller_parent_func = get_func_obj(caller_parent_func_name)
+        # If haven't already, attach the caller function
+        # to its parent function as an attribute
+        if not hasattr(caller_parent_func, caller_func_name):
+            caller_parent_func.__setattr__(caller_func_name, caller_func)
+    stage = ret_tensor.op.stage
+    if Schedule._TopFunction != None:
+        if NestedStageLevel.get() > 0:
+            # Attach the stage to the parent stage
+            # TODO(Niansong): test this
+            Schedule._CurrentStage[-1].__setattr__(name, stage)
+            Schedule._CurrentStage[-1]._sub_stages.append(stage)
+        else:
+            caller_func.__setattr__(stage.name, stage.op)
+            # Set up a list of stages for the caller function
+            if not hasattr(caller_func, "_stages"):
+                caller_func.__setattr__("_stages", [stage])
+            else:
+                caller_func._stages.append(stage)    
     return ret_tensor
 
 
@@ -288,11 +385,11 @@ def bitcast(tensor, dst_dtype, name=None):
     the same bitwidth with the source datatype.
     """
     if not isinstance(tensor, Tensor) and not isinstance(tensor, hcl_mlir.ExprOp):
-        raise RuntimeError("bitcast input must be HeteroCL Tensor or ExprOp.")
+        raise APIError("bitcast input must be HeteroCL Tensor or ExprOp.")
 
     # check type
     if not isinstance(dst_dtype, Type):
-        raise RuntimeError("dst_dtype should be HeteroCL data type.")
+        raise APIError("dst_dtype should be HeteroCL data type.")
 
     # check bitwidth
     if isinstance(tensor, Tensor):
@@ -301,7 +398,7 @@ def bitcast(tensor, dst_dtype, name=None):
         src_bitwidth = hcl_mlir.get_bitwidth(tensor.dtype)
     dst_bitwidth = dst_dtype.bits
     if src_bitwidth != dst_bitwidth:
-        raise RuntimeError(
+        raise APIError(
             "Destination datatype bitwidth does not match source bitwidth:"
             + f"source bitwidth: {src_bitwidth} , destination bitwidth {dst_bitwidth}."
         )
@@ -328,7 +425,63 @@ def cast_np(np_array, dtype):
     Cast a numpy array to a HeteroCL data type.
     """
     if not isinstance(np_array, np.ndarray):
-        raise RuntimeError("cast_np input must be numpy array.")
-    if not isinstance(dtype, Type):
-        raise RuntimeError("dtype should be HeteroCL data type.")
+        raise APIError("cast_np input must be numpy array.")
+    if isinstance(dtype, str):
+        dtype = dtype_to_hcl(dtype)
+    elif not isinstance(dtype, Type):
+        raise APIError("dtype should be HeteroCL data type.")
     return asarray(np_array, dtype).asnumpy()
+
+
+def match(scope, pattern):
+    """Match the pattern in the given scope.
+    Parameters
+    ----------
+    scope : Scope
+        The scope to be matched. Either a function or a stage.
+    pattern : Pattern
+        The pattern to be matched. Python regular expression.
+    Returns
+    -------
+    matched : list
+        A list of matched stages.
+    """
+    # Check if scope is a function or a stage
+    if not inspect.isfunction(scope) and not isinstance(scope, Stage):
+        raise APIError("The scope of match API must be a function or a stage.")
+    if not isinstance(pattern, str) and not inspect.isfunction(pattern):
+        raise APIError("The pattern of match API must be a string or a lambda function.")
+    
+    matched = []
+    if isinstance(pattern, str):
+        # Check if pattern is a valid regular expression
+        try:
+            re.compile(pattern)
+        except re.error:
+            raise APIError("The pattern of match API must be a valid regular expression.")
+
+    def _ismatch(pattern, stage):
+        if isinstance(pattern, str):
+            return re.match(pattern, stage.name)
+        else:
+            return pattern(stage)
+
+    # Check if scope is the top function
+    if inspect.isfunction(scope):
+        if scope == Schedule._TopFunction:
+            # search in the top function
+            for _, stage in Stage._mapping:
+                if _ismatch(pattern, stage):
+                    if stage not in matched:
+                        matched.append(stage)
+        else: # search in local function
+            for stage in scope._stages:
+                if _ismatch(pattern, stage):
+                    if stage not in matched:
+                        matched.append(stage)
+    else: # search in stage
+        for stage in scope._sub_stages:
+            if _ismatch(pattern, stage):
+                if stage not in matched:
+                    matched.append(stage)
+    return matched
