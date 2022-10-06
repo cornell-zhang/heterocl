@@ -67,11 +67,16 @@ def not_(arg):
     return hcl_mlir.LogicalNotOp(arg)
 
 
-def for_(begin, end, step=1, tag=None):
+def for_(begin, end, step=1, tag=None, name=None):
     """Construct a FOR loop.
 
     Be careful: should not be used with other compute APIs like sum
     """
+    if name is not None:
+        HCLDeprecationWarning(
+            "The `name` argument is deprecated. Please use `tag` to label a loop" +
+            "nest as a stage."
+        ).warn()
     depth = ImperativeLoopDepth.get()
     count = ImperativeLoopNestCount.get()
     if tag == None:
