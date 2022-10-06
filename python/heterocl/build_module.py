@@ -20,6 +20,18 @@ from .schedule import Schedule, Stage
 from .utils import get_extra_type_hints
 
 
+def apply_customizations(schedule):
+    hcl_d.loop_transformation(schedule.device_module)
+    pipeline = (
+        f"func.func"
+        f"(affine-loop-normalize, cse, affine-simplify-structures)"
+    )
+    try:
+        with get_context():
+            PassManager.parse(pipeline).run(schedule.device_module)
+    except:
+        print(schedule.device_module)
+
 def lower(schedule,
           name="top",
           binds=None,
@@ -33,16 +45,7 @@ def lower(schedule,
         raise APIError(
                 "The module has been lowered. Please apply schedule primitives before the lowering process."
             )
-    hcl_d.loop_transformation(schedule.device_module)
-    pipeline = (
-        f"func.func"
-        f"(affine-loop-normalize, cse, affine-simplify-structures)"
-    )
-    try:
-        with get_context():
-            PassManager.parse(pipeline).run(schedule.device_module)
-    except:
-        print(schedule.device_module)
+    apply_customizations(schedule)
     schedule.set_lowered()
     return schedule.device_module
 
@@ -54,7 +57,7 @@ def build(schedule, target=None, stmt=None, top=None):
         if isinstance(target, Platform) and str(target.tool.mode) != "debug":
             for op, stage in Stage._mapping:
                 stage.outline()
-        lowered_module = lower(schedule)
+        apply_customizations(schedule)
         if top is not None:
             if not isinstance(top, list):
                 top = [top]
