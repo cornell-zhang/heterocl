@@ -7,11 +7,17 @@ def test_single_load_cond_if():
     rshape = (1,)
     def kernel():
         inst_id = hcl.scalar(0, "inst_id", dtype=hcl.UInt(16)).v
+        add_expr = hcl.scalar(1, 'id', dtype=hcl.UInt(16)).v + 1
+        mul_expr = add_expr * 2
         r = hcl.compute(rshape, lambda _:0, dtype=hcl.UInt(32))
         with hcl.if_(inst_id == 0):
             r[0] = 1
         with hcl.if_(inst_id == 1):
             r[0] = 2
+        with hcl.if_(add_expr == 1):
+            r[0] = 3
+        with hcl.if_(mul_expr == 0):
+            r[0] = 4
         return r
     s = hcl.create_schedule([], kernel)
     hcl_res = hcl.asarray(np.zeros(rshape, dtype=np.uint32), dtype=hcl.UInt(32))
