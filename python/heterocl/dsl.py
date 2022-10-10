@@ -191,6 +191,7 @@ def elif_(cond):
     if len(Schedule._IfElseStack) == 0:
         raise RuntimeError(
             "There is no if_ or elif_ in front of the elif_ branch")
+    first_if_op = Schedule._IfElseStack[0]
     last_if_op = Schedule._IfElseStack.pop()
     last_if_op.regions[1].blocks.append(*[])
     if isinstance(last_if_op, affine.AffineIfOp):
@@ -200,7 +201,7 @@ def elif_(cond):
     hcl_mlir.GlobalInsertionPoint.save(last_if_op.else_block.operations[0])
 
     if isinstance(cond, hcl_mlir.ExprOp):
-        if_op = hcl_mlir.make_if(cond, ip=hcl_mlir.GlobalInsertionPoint.get())
+        if_op = hcl_mlir.make_if(cond, ip=hcl_mlir.GlobalInsertionPoint.get(), cond_pos=first_if_op)
     else:
         raise RuntimeError("Not implemented")
     hcl_mlir.GlobalInsertionPoint.save(if_op.then_block.operations[0])
