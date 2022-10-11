@@ -29,6 +29,16 @@ def print(vals, format_str=""):
         # When vals is an tuple
         if isinstance(vals, tuple):
             vals = list(vals)
+        # Check if all elements are int/float or expression
+        for i, val in enumerate(vals):
+            if isinstance(val, int) or isinstance(val, float):
+                continue
+            elif isinstance(val, hcl_mlir.build_ir.ExprOp):
+                continue
+            else:
+                raise HCLValueError(
+                    "Unsupported type of element in tuple: {} of type {}"
+                    .format(val, type(val)))
         # when vals is empty
         if len(vals) == 0:
             value = hcl_mlir.ConstantOp('int32', 0)
