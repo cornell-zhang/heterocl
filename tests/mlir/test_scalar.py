@@ -113,3 +113,23 @@ def test_if_struct_access():
         return res
     s = hcl.create_schedule([], kernel)
     hcl.lower(s)
+
+# Related to issue #155
+def test_print_before_if():
+    hcl.init()
+    rshape = (1,)
+    def kernel():
+        stype = hcl.Struct({"x": hcl.UInt(8), "y": hcl.UInt(8)})
+        xy = hcl.scalar(0x1234, "foo", dtype=stype).v
+        hcl.print((xy.x, xy.y), "match 0: %d %d\n") 
+        with hcl.if_(xy.x == 0):
+            pass
+        r = hcl.compute(rshape, lambda _:0, dtype=hcl.Int(32))
+        return r
+    s = hcl.create_schedule([], kernel)
+    hcl_res = hcl.asarray(np.zeros(rshape, dtype=np.uint32), dtype=hcl.UInt(32))
+    f = hcl.build(s)
+    f(hcl_res)
+    np_res = hcl_res.asnumpy()
+    golden = np.zeros(rshape, dtype=np.int32)
+    assert np.array_equal(golden, np_res)
