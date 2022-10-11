@@ -35,11 +35,20 @@ def print(vals, format_str=""):
             vals = [value]
         if format_str == "":
             for v in vals:
-                if "int" in get_dtype_str(v.dtype):
+                if isinstance(v, int):
+                    format_str += "%d "
+                elif isinstance(v, float):
+                    format_str += "%.3f "
+                elif "int" in get_dtype_str(v.dtype):
                     format_str += "%d "
                 else:
                     format_str += "%.3f "
             format_str += "\n"
+        # when v in vals is int or float
+        for i, v in enumerate(vals):
+            if isinstance(v, int) or isinstance(v, float):
+                dtype = Int(64) if isinstance(v, int) else Float(64)
+                vals[i] = hcl_mlir.ConstantOp(get_dtype_str(dtype), v)
         printOp = hcl_mlir.PrintOp(vals, format_str)
     else:
         raise HCLValueError(f"Unsupported type for print: {vals}")
