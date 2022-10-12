@@ -154,6 +154,7 @@ def if_(cond):
         raise RuntimeError("Not implemented")
     hcl_mlir.GlobalInsertionPoint.save(if_op.then_block.operations[0])
     Schedule._IfElseStack.append(if_op)
+    Schedule._CurrentIf += 1
 
     def _exit_cb():
         if BreakFlag.get():
@@ -162,6 +163,9 @@ def if_(cond):
                 ip_stack[-1]]
         else:
             hcl_mlir.GlobalInsertionPoint.restore()
+            if len(Schedule._IfElseStack) > Schedule._CurrentIf:
+                Schedule._IfElseStack.pop()
+            Schedule._CurrentIf -= 1
 
     return WithScope(None, _exit_cb)
 

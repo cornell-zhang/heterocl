@@ -183,6 +183,7 @@ class Schedule(object):
     _CurrentLoops = []  # only used in imperative DSL
     _TopFunction = None
     _ScheduleStack = []
+    _CurrentIf = 0 # ptr in _IfElseStack
 
     def __init__(self, name, inputs, func=None):
         self.name = name
@@ -218,6 +219,7 @@ class Schedule(object):
         Schedule._TopFunction = func
         Schedule._IfElseStack = []
         Schedule._DefFuncReturn = []
+        Schedule._CurrentIf = 0
         self.DataflowGraph = DataflowGraph(name, inputs)
 
         # create top-level function
