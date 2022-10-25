@@ -153,8 +153,11 @@ def if_(cond):
     else:
         raise RuntimeError("Not implemented")
     hcl_mlir.GlobalInsertionPoint.save(if_op.then_block.operations[0])
+    if len(Schedule._IfElseStack) > Schedule._CurrentIf:
+        Schedule._IfElseStack.pop()
     Schedule._IfElseStack.append(if_op)
     Schedule._CurrentIf += 1
+    assert len(Schedule._IfElseStack) == Schedule._CurrentIf
 
     def _exit_cb():
         if BreakFlag.get():
