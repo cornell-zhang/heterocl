@@ -13,7 +13,7 @@ from .context import (BreakFlag, ImperativeLoopDepth, ImperativeLoopNestCount,
                       NestedStageLevel, StageName, UniqueName, StageAttachGlobal,
                       get_context, get_location, set_context, exit_context)
 from .dfg import DataflowGraph
-from .utils import get_extra_type_hints
+from .utils import get_extra_type_hints, remove_moved_attr
 
 # By default, Python ignores deprecation warnings.
 # we have to enable it to see the warning.
@@ -147,6 +147,7 @@ def build_schedule(inputs, func=None, name=""):
                     func.__setattr__(op.name, op)
 
     exit_context()
+    remove_moved_attr(sch.device_module)
     return sch
 
 
