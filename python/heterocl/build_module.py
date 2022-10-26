@@ -41,7 +41,8 @@ def lower(schedule,
     try:
         with get_context():
             PassManager.parse(pipeline).run(schedule.device_module)
-    except:
+    except Exception as e:
+        PassWarning(str(e)).warn()
         print(schedule.device_module)
     schedule.set_lowered()
     return schedule.device_module
@@ -314,6 +315,18 @@ def build_fpga_kernel(schedule, target=None, stmt=None):
 
 
 def build_llvm(schedule, target=None, stmt=None):
+    # General MLIR Pass pipeline 
+    pipeline = (
+        f"func.func"
+        f"(buffer-loop-hoisting)"
+    )
+    try:
+        with get_context():
+            PassManager.parse(pipeline).run(schedule.device_module)
+    except Exception as e:
+        PassWarning(str(e)).warn()
+        print(schedule.device_module)
+    # HeteroCL specific pass pipeline
     name = 'top'
     with get_context() as ctx, get_location():
         if isinstance(schedule, Schedule):
