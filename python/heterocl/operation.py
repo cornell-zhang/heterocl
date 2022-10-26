@@ -12,10 +12,11 @@ from . import config
 from .types import Int, Type, UInt, Struct, dtype_to_hcl
 from .context import NestedStageLevel, UniqueName
 from .dsl import for_
-from .schedule import Schedule, Stage
+from .schedule import Schedule, Stage, scope
 from .tensor import Array, Tensor
-from .utils import get_dtype_str, hcl_dtype_to_mlir, get_func_obj
+from .utils import get_dtype_str, hcl_dtype_to_mlir, get_func_obj, get_src_loc
 from .context import get_context, get_location
+from .ir.intermediate import *
 
 
 def init(init_dtype=Int(32), raise_assert_exception=True):
@@ -40,8 +41,10 @@ def placeholder(shape, name=None, dtype=None):
     if shape == ():
         shape = (1,)
     dtype = config.init_dtype if dtype == None else dtype
-    tensor = Tensor(shape, dtype, name=name, impl="tensor")
-    return tensor
+    filename, lineno = get_src_loc(frame=1)
+    alloc = AllocOp(name, shape, get_dtype_str(dtype), Location(filename, lineno))
+    Schedule._IR.add_op(alloc) # placeholder is always on top-level
+    return alloc
 
 
 def asarray(np_array, dtype=None):
@@ -214,6 +217,25 @@ def unpack(tensor, axis=0, factor=None, name=None, dtype=None):
 
 
 def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
+    if not isinstance(shape, tuple):
+        raise APIError("The shape of compute API must be a tuple")
+    shape = tuple([int(s) if isinstance(s, float) else s for s in shape])
+    if name is None:
+        name = UniqueName.get("tensor")
+    if not dtype == None and not isinstance(dtype, (Type, str)):
+        raise APIError("Type error")
+    dtype = config.init_dtype if dtype == None else dtype
+    if isinstance(dtype, str):
+        dtype = dtype_to_hcl(dtype)
+
+    # Generate a ComputeOp
+    filename, lineno = get_src_loc()
+    op = ComputeOp(name, shape, fcompute, get_dtype_str(dtype), Location(filename, lineno))
+    region = scope.get()
+    region.append(op)
+    return op.tensor
+
+def old_compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
     """
     This function call does not directly build IR, it only creates a node
     """

@@ -19,8 +19,57 @@ from .utils import get_extra_type_hints, remove_moved_attr
 # we have to enable it to see the warning.
 warnings.simplefilter('always', DeprecationWarning)
 
+class IR(object):
+    def __init__(self):
+        self.top_func = list()
+
+    def add_op(self, op):
+        self.top_func.append(op)
+
+    def __repr__(self):
+        ir_str = ""
+        for op in self.top_func:
+            ir_str += str(op)
+            ir_str += "\n"
+        return ir_str
+
+class Scope(object):
+    """
+    Insertion scope stack for
+    intermediate operations
+    """
+    def __init__(self):
+        self.stack = list()
+
+    def push(self, scope):
+        self.stack.append(scope)
+
+    def pop(self):
+        return self.stack.pop()
+
+    def get(self):
+        return self.stack[-1]
+
+    def __repr__(self):
+        return str(self.stack)
+
+scope = Scope()
 
 def build_schedule(inputs, func=None, name=""):
+    """Build a schedule for compute optimizations.
+    inputs: list of Tensor
+    """
+    # create a new context
+    set_context()
+    # create a new schedule
+    s = Schedule(name, inputs, func)
+    scope.push(s._IR.top_func)
+    ret = func(*inputs)
+    # exit the current context
+    exit_context()
+    return s
+
+def build_schedule_old(inputs, func=None, name=""):
     """Create a schedule for compute optimizations.
     inputs: list of Tensor
     """
@@ -185,6 +234,7 @@ class Schedule(object):
     _TopFunction = None
     _ScheduleStack = []
     _CurrentIf = 0 # ptr in _IfElseStack
+    _IR = IR()
 
     def __init__(self, name, inputs, func=None):
         self.name = name
@@ -221,28 +271,28 @@ class Schedule(object):
         Schedule._IfElseStack = []
         Schedule._DefFuncReturn = []
         Schedule._CurrentIf = 0
-        self.DataflowGraph = DataflowGraph(name, inputs)
+        # self.DataflowGraph = DataflowGraph(name, inputs)
 
         # create top-level function
-        itypes = ""
-        with get_context() as ctx, get_location() as loc:
-            input_types = []
-            for tensor in inputs:
-                if not isinstance(tensor.op, hcl_mlir.TensorOp):
-                    continue
-                    # raise RuntimeError("Inputs should be hcl_mlir.TensorOp")
-                tensor.init()
-                input_types.append(tensor.op.memref_type)
-                itypes += get_extra_type_hints(tensor.op.dtype)
-            device_top = func_d.FuncOp(name="top", type=FunctionType.get(
-                inputs=input_types, results=[]), ip=InsertionPoint(self._device_module.body))
-            device_top.attributes["itypes"] = StringAttr.get(
-                itypes)
-            device_top.attributes["otypes"] = StringAttr.get("")
-            device_top.add_entry_block()
-        GlobalInsertionPoint.save(InsertionPoint(device_top))
-        GlobalInsertionPoint.save(InsertionPoint(device_top.entry_block))
-        self._device_top = device_top
+        # itypes = ""
+        # with get_context() as ctx, get_location() as loc:
+        #     input_types = []
+        #     for tensor in inputs:
+        #         if not isinstance(tensor.op, hcl_mlir.TensorOp):
+        #             continue
+        #             # raise RuntimeError("Inputs should be hcl_mlir.TensorOp")
+        #         tensor.init()
+        #         input_types.append(tensor.op.memref_type)
+        #         itypes += get_extra_type_hints(tensor.op.dtype)
+        #     device_top = func_d.FuncOp(name="top", type=FunctionType.get(
+        #         inputs=input_types, results=[]), ip=InsertionPoint(self._device_module.body))
+        #     device_top.attributes["itypes"] = StringAttr.get(
+        #         itypes)
+        #     device_top.attributes["otypes"] = StringAttr.get("")
+        #     device_top.add_entry_block()
+        # GlobalInsertionPoint.save(InsertionPoint(device_top))
+        # GlobalInsertionPoint.save(InsertionPoint(device_top.entry_block))
+        # self._device_top = device_top
 
     def create_host_module(self):
         set_context()

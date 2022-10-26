@@ -12,9 +12,10 @@ from hcl_mlir.exceptions import *
 from . import config
 from .context import (BreakFlag, ImperativeLoopDepth, ImperativeLoopNestCount,
                       NestedStageLevel, StageName, UniqueName, IPPointer)
-from .schedule import Schedule, Stage
+from .schedule import Schedule, Stage, scope
 from .tensor import Tensor
-from .utils import get_extra_type_hints, hcl_dtype_to_mlir, get_func_obj
+from .utils import get_extra_type_hints, hcl_dtype_to_mlir, get_func_obj, get_src_loc
+from .ir.intermediate import *
 
 
 class WithScope(object):
@@ -145,7 +146,7 @@ def for_(begin, end, step=1, tag=None, name=None):
     return WithScope(iter_var, _exit_cb)
 
 
-def if_(cond):
+def old_if_(cond):
     """Construct an IF branch."""
     hcl_mlir.enable_build_inplace()
     if isinstance(cond, hcl_mlir.ExprOp):
@@ -172,6 +173,18 @@ def if_(cond):
 
     return WithScope(None, _exit_cb)
 
+
+def if_(cond):
+    region = scope.get()
+    filename, lineno = get_src_loc()
+    ifOp = IfOp(cond, Location(filename, lineno))
+    region.append(ifOp)
+    scope.push(ifOp.body)
+
+    def _exit_cb():
+        scope.pop()
+
+    return WithScope(None, _exit_cb)
 
 def else_():
     """Construct an ELSE branch."""
