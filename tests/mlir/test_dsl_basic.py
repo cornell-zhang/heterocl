@@ -92,6 +92,33 @@ def test_else():
     ret_A = hcl_A.asnumpy()
     assert np.array_equal(golden_A, ret_A)
 
+def test_if_scope():
+    hcl.init()
+    rshape = (1,)
+    def kernel():
+        false = hcl.scalar(0, "false", dtype='uint32')
+        true = hcl.scalar(1, "true", dtype='uint32')
+        res = hcl.compute(rshape, lambda x: 0, "res")
+        with hcl.if_(true.v == 1): # op a
+            with hcl.if_(false.v == 1): # op b
+                res[0] = -1
+        # op b should be popped from Schedule._IfElseStack here
+        # in op a's __exit__ method
+        # because it is not closed by elif or else
+        with hcl.else_(): # op c
+            res[0] = 3
+        return res
+    s = hcl.create_schedule([], kernel)
+    # if hcl.else has the right scope 
+    # res should not be updated
+    # otherwise, res should be updated to 3
+    golden = np.array([0])
+    f = hcl.build(s)
+    ret = hcl.asarray(np.zeros(rshape))
+    f(ret)
+    np.allclose(ret.asnumpy(), golden)
+
+
 def test_cond_all():
     def kernel(A):
         with hcl.if_(A[0] > 5):

@@ -67,11 +67,16 @@ def not_(arg):
     return hcl_mlir.LogicalNotOp(arg)
 
 
-def for_(begin, end, step=1, tag=None):
+def for_(begin, end, step=1, tag=None, name=None):
     """Construct a FOR loop.
 
     Be careful: should not be used with other compute APIs like sum
     """
+    if name is not None:
+        HCLDeprecationWarning(
+            "The `name` argument is deprecated. Please use `tag` to label a loop" +
+            "nest as a stage."
+        ).warn()
     depth = ImperativeLoopDepth.get()
     count = ImperativeLoopNestCount.get()
     if tag == None:
@@ -148,7 +153,11 @@ def if_(cond):
     else:
         raise RuntimeError("Not implemented")
     hcl_mlir.GlobalInsertionPoint.save(if_op.then_block.operations[0])
+    if len(Schedule._IfElseStack) > Schedule._CurrentIf:
+        Schedule._IfElseStack.pop()
     Schedule._IfElseStack.append(if_op)
+    Schedule._CurrentIf += 1
+    assert len(Schedule._IfElseStack) == Schedule._CurrentIf
 
     def _exit_cb():
         if BreakFlag.get():
@@ -157,6 +166,9 @@ def if_(cond):
                 ip_stack[-1]]
         else:
             hcl_mlir.GlobalInsertionPoint.restore()
+            if len(Schedule._IfElseStack) > Schedule._CurrentIf:
+                Schedule._IfElseStack.pop()
+            Schedule._CurrentIf -= 1
 
     return WithScope(None, _exit_cb)
 
@@ -186,6 +198,7 @@ def elif_(cond):
     if len(Schedule._IfElseStack) == 0:
         raise RuntimeError(
             "There is no if_ or elif_ in front of the elif_ branch")
+    first_if_op = Schedule._IfElseStack[0]
     last_if_op = Schedule._IfElseStack.pop()
     last_if_op.regions[1].blocks.append(*[])
     if isinstance(last_if_op, affine.AffineIfOp):
@@ -195,7 +208,7 @@ def elif_(cond):
     hcl_mlir.GlobalInsertionPoint.save(last_if_op.else_block.operations[0])
 
     if isinstance(cond, hcl_mlir.ExprOp):
-        if_op = hcl_mlir.make_if(cond, ip=hcl_mlir.GlobalInsertionPoint.get())
+        if_op = hcl_mlir.make_if(cond, ip=hcl_mlir.GlobalInsertionPoint.get(), cond_pos=first_if_op)
     else:
         raise RuntimeError("Not implemented")
     hcl_mlir.GlobalInsertionPoint.save(if_op.then_block.operations[0])

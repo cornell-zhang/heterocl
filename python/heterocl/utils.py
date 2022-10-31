@@ -3,6 +3,7 @@ import inspect
 import hcl_mlir
 from hcl_mlir.dialects import hcl as hcl_d
 from hcl_mlir.ir import *
+from hcl_mlir.exceptions import *
 
 from .config import init_dtype
 from .types import Fixed, Float, Int, Type, UFixed, UInt, Struct, dtype_to_str
@@ -38,7 +39,7 @@ def hcl_dtype_to_mlir(dtype, signless=False):
         types = [hcl_dtype_to_mlir(t) for t in dtype.dtype_dict.values()]
         return hcl_d.StructType.get(types)
     else:
-        raise RuntimeError("Not supported type")
+        raise DTypeError(f"unknown type in hcl_dtype_to_mlir: {dtype} of type {type(dtype)}")
 
 
 def get_mlir_dtype_str(dtype):
@@ -93,3 +94,17 @@ def get_extra_type_hints(dtype):
             return "s"
     else:
         return "_"
+
+def remove_moved_attr(module):
+    def _visit_region(region):
+        if hasattr(region, "blocks"):
+            for block in region.blocks:
+                for op in block.operations:
+                    _visit_op(op)
+    def _visit_op(op):
+        if 'moved' in op.attributes:
+            op.attributes.__delitem__('moved')
+        if hasattr(op, 'body'):
+            _visit_region(op.body)
+    for func_op in module.body.operations:
+        _visit_op(func_op)

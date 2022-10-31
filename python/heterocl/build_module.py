@@ -41,7 +41,8 @@ def lower(schedule,
     try:
         with get_context():
             PassManager.parse(pipeline).run(schedule.device_module)
-    except:
+    except Exception as e:
+        PassWarning(str(e)).warn()
         print(schedule.device_module)
     schedule.set_lowered()
     return schedule.device_module
@@ -54,7 +55,8 @@ def build(schedule, target=None, stmt=None, top=None):
         if isinstance(target, Platform) and str(target.tool.mode) != "debug":
             for op, stage in Stage._mapping:
                 stage.outline()
-        lowered_module = lower(schedule)
+        if not schedule.is_lowered():
+            lower(schedule)
         if top is not None:
             if not isinstance(top, list):
                 top = [top]
@@ -313,6 +315,7 @@ def build_fpga_kernel(schedule, target=None, stmt=None):
 
 
 def build_llvm(schedule, target=None, stmt=None):
+    # HeteroCL specific pass pipeline
     name = 'top'
     with get_context() as ctx, get_location():
         if isinstance(schedule, Schedule):
@@ -345,8 +348,19 @@ def build_llvm(schedule, target=None, stmt=None):
         hcl_d.lower_bit_ops(module)
         hcl_d.legalize_cast(module)
         hcl_d.remove_stride_map(module)
+        pipeline = (
+            f"lower-affine,"
+            f"func.func"
+            f"(buffer-loop-hoisting)"
+        )
+        try:
+            with get_context():
+                PassManager.parse(pipeline).run(module)
+        except Exception as e:
+            PassWarning(str(e)).warn()
+            print(module)
+        
         hcl_d.lower_hcl_to_llvm(module, ctx)
-        # num_results = len(func.type.results)
         num_results = 0
         
         # Add shared library
