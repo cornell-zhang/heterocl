@@ -244,10 +244,10 @@ def popcnt(x):
     #     x = (x + (x >> 4)) & 0x0F0F
     #     return (x * 0x0101) >> 8
     elif x.dtype.width == 32:
-        x -= (x >> 1) & 0x55555555
-        x = (x & 0x33333333) + ((x >> 2) & 0x33333333)
-        x = (x + (x >> 4)) & 0x0F0F0F0F
-        return (x * 0x01010101) >> 24
+        # x -= (x >> 1) & 0x55555555
+        # x = (x & 0x33333333) + ((x >> 2) & 0x33333333)
+        # x = (x + (x >> 4)) & 0x0F0F0F0F
+        # return (x * 0x01010101) >> 24
         x -= (x >> 1) & 0x55555555
         x = (x & 0x33333333) + ((x >> 2) & 0x33333333)
         x = (x + (x >> 4)) & 0x0F0F0F0F
@@ -255,10 +255,10 @@ def popcnt(x):
         x += x >> 16
         return (x & 0x3F)
     else:
-        x -= (x >> 1) & 0x5555555555555555
-        x = (x & 0x3333333333333333) + ((x >> 2) & 0x3333333333333333)
-        x = (x + (x >> 4)) & 0x0F0F0F0F0F0F0F0F
-        return ((x * 0x0101010101010101) >> 56) & 0xFF
+        # x -= (x >> 1) & 0x5555555555555555
+        # x = (x & 0x3333333333333333) + ((x >> 2) & 0x3333333333333333)
+        # x = (x + (x >> 4)) & 0x0F0F0F0F0F0F0F0F
+        # return ((x * 0x0101010101010101) >> 56) & 0xFF
         x -= (x >> 1) & 0x5555555555555555
         x = (x & 0x3333333333333333) + ((x >> 2) & 0x3333333333333333)
         x = (x + (x >> 4)) & 0x0F0F0F0F0F0F0F0F
@@ -307,7 +307,7 @@ def packed_conv2d_nchw(
     out_width = (in_width - dilated_kernel_w +
                  pad_left + pad_right) // stride_w + 1
     # compute graph
-    if padding != [0, 0]:
+    if list(padding) != [0, 0]:
         temp = pad_nchw(Input, padding, name=name +
                         "_pad", dtype=hcl.UInt(bitwidth))
     else:
@@ -317,41 +317,76 @@ def packed_conv2d_nchw(
     rc = hcl.reduce_axis(0, in_channel, name=name + "_rc")
     ry = hcl.reduce_axis(0, kernel_h, name=name + "_ry")
     rx = hcl.reduce_axis(0, kernel_w, name=name + "_rx")
+    rb = hcl.reduce_axis(0, bitwidth, name=name + "_rb")
     # assert stride_h == 1 and stride_w == 1
     assert dilation_h == 1 and dilation_w == 1
-    out = hcl.compute(
-        (batch, out_channel, out_height, out_width),
-        lambda nn, ff, yy, xx: hcl.sum(
-            hcl.select(
-                if_mac(
-                    yy * stride_h + ry,
-                    xx * stride_w + rx,
-                    pad_in_height,
-                    pad_in_width,
-                    pad_top,
-                    pad_left,
-                    pad_down,
-                    pad_right,
-                ),  # neglect padding pixels in mac
-                hcl.cast(
-                    out_dtype,
-                    (
-                        bitwidth - (popcnt(
-                            temp[nn, rc, yy * stride_h + ry,
-                                 xx * stride_w + rx]
-                            ^ Filter[ff, rc, ry, rx]
-                        ) << 1)
+    if bitwidth in [8, 32, 64]:
+        out = hcl.compute(
+            (batch, out_channel, out_height, out_width),
+            lambda nn, ff, yy, xx: hcl.sum(
+                hcl.select(
+                    if_mac(
+                        yy * stride_h + ry,
+                        xx * stride_w + rx,
+                        pad_in_height,
+                        pad_in_width,
+                        pad_top,
+                        pad_left,
+                        pad_down,
+                        pad_right,
+                    ),  # neglect padding pixels in mac
+                    hcl.cast(
+                        out_dtype,
+                        (
+                            bitwidth - (popcnt(
+                                temp[nn, rc, yy * stride_h + ry,
+                                    xx * stride_w + rx]
+                                ^ Filter[ff, rc, ry, rx]
+                            ) << 1)
+                        ),
                     ),
+                    hcl.cast(out_dtype, 0),
                 ),
-                hcl.cast(out_dtype, 0),
+                axis=[rc, ry, rx],
+                dtype=out_dtype,
+                name=name + "_sum",
             ),
-            axis=[rc, ry, rx],
+            name=name,
             dtype=out_dtype,
-            name=name + "_sum",
-        ),
-        name=name,
-        dtype=out_dtype,
-    )
+        )
+    else:
+        out = hcl.compute(
+            (batch, out_channel, out_height, out_width),
+            lambda nn, ff, yy, xx: hcl.sum(
+                hcl.select(
+                    if_mac(
+                        yy * stride_h + ry,
+                        xx * stride_w + rx,
+                        pad_in_height,
+                        pad_in_width,
+                        pad_top,
+                        pad_left,
+                        pad_down,
+                        pad_right,
+                    ),  # neglect padding pixels in mac
+                    hcl.cast(
+                        out_dtype,
+                        (
+                            1 - ((temp[nn, rc, yy * stride_h + ry,
+                                    xx * stride_w + rx]
+                                ^ Filter[ff, rc, ry, rx]
+                            )[rb] << 1)
+                        ),
+                    ),
+                    hcl.cast(out_dtype, 0),
+                ),
+                axis=[rc, ry, rx, rb],
+                dtype=out_dtype,
+                name=name + "_sum",
+            ),
+            name=name,
+            dtype=out_dtype,
+        )
     return out
 
 
