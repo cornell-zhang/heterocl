@@ -12,9 +12,9 @@ from hcl_mlir.exceptions import *
 
 from .types import dtype_to_str, Int, UInt, Float, Fixed, UFixed
 from .context import get_context, get_location, NestedStageLevel
-from .schedule import Schedule, Stage
-from .utils import get_extra_type_hints, hcl_dtype_to_mlir
-
+# from .schedule import Schedule, Stage
+from .utils import get_extra_type_hints, hcl_dtype_to_mlir, get_dtype_str
+from .ir import intermediate as itmd
 
 class Tensor(object):
     """A wrapper class for hcl-mlir tensor-related operations
@@ -27,7 +27,7 @@ class Tensor(object):
         self.dtype = dtype
         if impl == "tensor":
             self.op = hcl_mlir.TensorOp(
-                shape, memref.AllocOp, dtype, name=name)
+                shape, memref.AllocOp, get_dtype_str(dtype), name=name)
         elif impl == "compute":
             self.op = ComputeOp(shape, fcompute, dtype, name, output)
         else:
@@ -140,15 +140,14 @@ class ComputeOp(object):
                 elif isinstance(var, Callable):
                     get_inputs(var)
 
-        self.inputs: List[Tensor] = []
+        self.inputs = list()
         self.reduce_var = []
         get_inputs(fcompute)
-
         self.shape = shape
         self.fcompute = fcompute
         self.dtype = dtype
         self.name = name
-        self.stage = Stage(self.name)
+        # self.stage = Stage(self.name)
         if output == None:
             if dtype == None:  # mutate
                 self.kind = "mutate"
@@ -157,18 +156,19 @@ class ComputeOp(object):
                 self.kind = "compute"
                 self.output = Tensor(self.shape, self.dtype,
                                      name=self.name, impl="tensor")  # placeholder
+                self.output.build()
         else:  # update
             self.kind = "update"
             self.output = output
-        self.stage.set_output(self.output)
-        self.stage.update_mapping(self.kind)
+        # self.stage.set_output(self.output)
+        # self.stage.update_mapping(self.kind)
         self.arg_names = arg_names
 
     def build(self):
-        Schedule._CurrentStage.append(self.stage)
-        self.stage.stage_handle = hcl_d.CreateOpHandleOp(
-            StringAttr.get(self.stage.name), ip=GlobalInsertionPoint.get()
-        )
+        # Schedule._CurrentStage.append(self.stage)
+        # self.stage.stage_handle = hcl_d.CreateOpHandleOp(
+            # StringAttr.get(self.stage.name), ip=GlobalInsertionPoint.get()
+        # )
         NestedStageLevel.set(NestedStageLevel.get() + 1)
         input_types = []
         for in_tensor in self.inputs:  # hcl.Tensor -> hcl_mlir.TensorOp
@@ -179,22 +179,22 @@ class ComputeOp(object):
         # Start building loop-nest
         with get_context() as ctx, get_location() as loc:
             # create loop handles in the top function
-            with GlobalInsertionPoint.get():
-                loop_handles = []
-                for loop_name in self.arg_names:
-                    loop_handles.append(
-                        hcl_d.CreateLoopHandleOp(
-                            self.stage.stage_handle.result, StringAttr.get(loop_name))
-                    )
-                for var in self.reduce_var:
-                    loop_handles.append(
-                        hcl_d.CreateLoopHandleOp(self.stage.stage_handle.result, StringAttr.get(var.name)))
+            # with GlobalInsertionPoint.get():
+                # loop_handles = []
+                # for loop_name in self.arg_names:
+                #     loop_handles.append(
+                #         hcl_d.CreateLoopHandleOp(
+                #             self.stage.stage_handle.result, StringAttr.get(loop_name))
+                #     )
+                # for var in self.reduce_var:
+                #     loop_handles.append(
+                #         hcl_d.CreateLoopHandleOp(self.stage.stage_handle.result, StringAttr.get(var.name)))
             # set loop handles
-            if self.output is not None:
-                self.stage.op.set_axis(loop_handles)
+            # if self.output is not None:
+                # self.stage.op.set_axis(loop_handles)
             # build output tensor
-            if self.kind == "compute" and Schedule._TopFunction == None:
-                self.output.build()
+            # if self.kind == "compute" and Schedule._TopFunction == None:
+            #     self.output.build()
 
             # main computation part
             func_ip = GlobalInsertionPoint.get()
@@ -270,21 +270,21 @@ class ComputeOp(object):
                 ret_val.attributes["to"] = StringAttr.get(self.output.op.name)
 
             # recover insertion point from inner-most loop body
-            GlobalInsertionPoint.restore()
-            self.stage.set_ir_node(loops[0])
-        self.stage.update_mapping(self.kind)
-        if Schedule._TopFunction != None:
-            hcl_mlir.enable_build_inplace()
-        if self.output is not None:
-            if len(self.inputs) != 0:
-                Schedule._CurrentSchedule.DataflowGraph.add_edges(
-                    self.inputs, self.output)
-            else:  # const_tensor
-                Schedule._CurrentSchedule.DataflowGraph.create_node(
-                    self.output)
+            # GlobalInsertionPoint.restore()
+            # self.stage.set_ir_node(loops[0])
+        # self.stage.update_mapping(self.kind)
+        # if Schedule._TopFunction != None:
+        #     hcl_mlir.enable_build_inplace()
+        # if self.output is not None:
+        #     if len(self.inputs) != 0:
+        #         Schedule._CurrentSchedule.DataflowGraph.add_edges(
+        #             self.inputs, self.output)
+        #     else:  # const_tensor
+        #         Schedule._CurrentSchedule.DataflowGraph.create_node(
+        #             self.output)
 
-        NestedStageLevel.set(NestedStageLevel.get() - 1)
-        Schedule._CurrentStage.pop()
+        # NestedStageLevel.set(NestedStageLevel.get() - 1)
+        # Schedule._CurrentStage.pop()
         return self.output
 
 
