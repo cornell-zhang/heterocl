@@ -13,47 +13,13 @@ from .context import (BreakFlag, ImperativeLoopDepth, ImperativeLoopNestCount,
                       NestedStageLevel, StageName, UniqueName, StageAttachGlobal,
                       get_context, get_location, set_context, exit_context)
 from .dfg import DataflowGraph
-from .utils import get_extra_type_hints, remove_moved_attr
+from .utils import get_extra_type_hints, remove_moved_attr, get_src_loc
+from .ir.intermediate import *
+from .ir.ir_builder import IRBuilder
 
 # By default, Python ignores deprecation warnings.
 # we have to enable it to see the warning.
 warnings.simplefilter('always', DeprecationWarning)
-
-class IR(object):
-    def __init__(self):
-        self.top_func = list()
-
-    def add_op(self, op):
-        self.top_func.append(op)
-
-    def __repr__(self):
-        ir_str = ""
-        for op in self.top_func:
-            ir_str += str(op)
-            ir_str += "\n"
-        return ir_str
-
-class Scope(object):
-    """
-    Insertion scope stack for
-    intermediate operations
-    """
-    def __init__(self):
-        self.stack = list()
-
-    def push(self, scope):
-        self.stack.append(scope)
-
-    def pop(self):
-        return self.stack.pop()
-
-    def get(self):
-        return self.stack[-1]
-
-    def __repr__(self):
-        return str(self.stack)
-
-scope = Scope()
 
 def build_schedule(inputs, func=None, name=""):
     """Build a schedule for compute optimizations.
@@ -63,8 +29,11 @@ def build_schedule(inputs, func=None, name=""):
     set_context()
     # create a new schedule
     s = Schedule(name, inputs, func)
-    scope.push(s._IR.top_func)
+    scope.push(s._IR.top_func.body)
     ret = func(*inputs)
+    ir_builder = IRBuilder(s._IR)
+    # ir_builder.build()
+    # print(ir_builder.module)
     # exit the current context
     exit_context()
     return s
@@ -252,6 +221,7 @@ class Schedule(object):
         self._xcel_top = None
         self._host_ret = None
         self._xcel_ret = None
+        self._IR.top_func.args = inputs
 
         # Instance modules for hierarchical construction
         self._instance_modules = []
@@ -343,7 +313,8 @@ class Schedule(object):
 
     @property
     def device_module(self):
-        return self._device_module
+        # return self._device_module
+        return self._IR.module
 
     @property
     def device_top(self):
