@@ -68,7 +68,7 @@ def not_(arg):
     return hcl_mlir.LogicalNotOp(arg)
 
 
-def for_(begin, end, step=1, tag=None, name=None):
+def old_for_(begin, end, step=1, tag=None, name=None):
     """Construct a FOR loop.
 
     Be careful: should not be used with other compute APIs like sum
@@ -145,6 +145,32 @@ def for_(begin, end, step=1, tag=None, name=None):
 
     return WithScope(iter_var, _exit_cb)
 
+def for_(begin, end, step=1, tag=None, name=None):
+    """Construct a FOR loop.
+
+    Be careful: should not be used with other compute APIs like sum
+    """
+    if name is not None:
+        HCLDeprecationWarning(
+            "The `name` argument is deprecated. Please use `tag` to label a loop" +
+            "nest as a stage."
+        ).warn()
+
+    # TODO(Niansong): use unique naming for
+    # loops without tag or name
+
+    region = scope.get()
+    filename, lineno = get_src_loc()
+    loc = Location(filename, lineno)
+    forOp = ForOp(tag, begin, end, step, loc)
+    region.append(forOp)
+    scope.push(forOp.body)
+
+    def _exit_cb():
+        scope.pop()
+
+    return WithScope(forOp.iter_var, _exit_cb)
+
 
 def old_if_(cond):
     """Construct an IF branch."""
@@ -186,7 +212,7 @@ def if_(cond):
 
     return WithScope(None, _exit_cb)
 
-def else_():
+def old_else_():
     """Construct an ELSE branch."""
     hcl_mlir.enable_build_inplace()
     if len(Schedule._IfElseStack) == 0:
@@ -201,6 +227,18 @@ def else_():
 
     def _exit_cb():
         hcl_mlir.GlobalInsertionPoint.restore()
+
+    return WithScope(None, _exit_cb)
+
+def else_():
+    region = scope.get()
+    filename, lineno = get_src_loc()
+    elseOp = ElseOp(Location(filename, lineno))
+    region.append(elseOp)
+    scope.push(elseOp.body)
+
+    def _exit_cb():
+        scope.pop()
 
     return WithScope(None, _exit_cb)
 
@@ -230,6 +268,18 @@ def elif_(cond):
     def _exit_cb():
         hcl_mlir.GlobalInsertionPoint.restore()
         hcl_mlir.GlobalInsertionPoint.restore()
+
+    return WithScope(None, _exit_cb)
+
+def elif_(cond):
+    region = scope.get()
+    filename, lineno = get_src_loc()
+    elifOp = ElifOp(cond, Location(filename, lineno))
+    region.append(elifOp)
+    scope.push(elifOp.body)
+
+    def _exit_cb():
+        scope.pop()
 
     return WithScope(None, _exit_cb)
 
