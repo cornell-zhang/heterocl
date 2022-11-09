@@ -42,9 +42,10 @@ def placeholder(shape, name=None, dtype=None):
         shape = (1,)
     dtype = config.init_dtype if dtype == None else dtype
     filename, lineno = get_src_loc(frame=1)
-    alloc = AllocOp(name, shape, get_dtype_str(dtype), Location(filename, lineno))
-    Schedule._IR.add_op(alloc) # placeholder is always on top-level
+    alloc = AllocOp(name, shape, dtype, Location(filename, lineno))
     return alloc
+    # tensor = Tensor(shape, dtype, name=name, impl="tensor")
+    # return tensor
 
 
 def asarray(np_array, dtype=None):
@@ -230,7 +231,7 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
 
     # Generate a ComputeOp
     filename, lineno = get_src_loc()
-    op = ComputeOp(name, shape, fcompute, get_dtype_str(dtype), Location(filename, lineno))
+    op = ComputeOp(name, shape, fcompute, dtype, Location(filename, lineno))
     region = scope.get()
     region.append(op)
     return op.tensor
