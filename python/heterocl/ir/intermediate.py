@@ -102,16 +102,16 @@ class Expr(object):
         return self.name
 
     def __add__(self, other):
-        return BinaryOp("+", self, other, self.loc)
+        return Add(self, other, self.loc)
 
     def __sub__(self, other):
-        return BinaryOp("-", self, other, self.loc)
+        return Sub(self, other, self.loc)
 
     def __mul__(self, other):
-        return BinaryOp("*", self, other, self.loc)
+        return Mul(self, other, self.loc)
     
     def __div__(self, other):
-        return BinaryOp("/", self, other, self.loc)
+        return Div(self, other, self.loc)
 
     def __gt__(self, other):
         return BinaryOp(">", self, other, self.loc)

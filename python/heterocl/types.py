@@ -226,6 +226,15 @@ def sort_type_classes(types):
     list of Type
         The sorted list of types.
     """
+    if isinstance(types, tuple):
+        types = list(types)
+    elif not isinstance(types, list):
+        raise DTypeError(f"sort_type_classes input should be a list or tuple, got {type(types)}")
+    for t in types:
+        if not isinstance(t, type):
+            raise DTypeError(f"sort_type_classes input should be a list of types, got a list of {t} : {type(t)}")
+        elif not issubclass(t, Type):
+            raise DTypeError(f"sort_type_classes input should be a list of Type subclass, got {t}")
     type_classes = [Int, UInt, Fixed, UFixed, Float, Struct]
     type_classes = [t.__name__ for t in type_classes]
     return sorted(types, key=lambda t: type_classes.index(t.__name__))
@@ -300,18 +309,14 @@ class TypeRule(object):
         Type
             The inferred output type
         """
-        # check argument types
-        if isinstance(args, tuple):
-            args = list(args)
-        elif not isinstance(args, list):
-            raise TypeError(f"args must be a tuple or a list, not {type(args)}")
-        itypes = sort_type_classes(args)
-        if itypes not in self.inf_rules:
-            raise APIError(f"Typing rule is not defined for {self.OpClass} with input types {itypes}")
-        rule = self.inf_rules[itypes]
-        res_type = rule(*itypes)
+        itype_classes = sort_type_classes([type(t) for t in args])
+        itype_classes = tuple(itype_classes)
+        if itype_classes not in self.inf_rules:
+            raise APIError(f"Typing rule is not defined for {self.OpClass} with input types {itype_classes}")
+        rule = self.inf_rules[itype_classes]
+        res_type = rule(*args)
         return res_type
 
-    def __repr__(self):
+    # def __repr__(self):
         # TODO: make type rule printable
-        pass
+        # pass

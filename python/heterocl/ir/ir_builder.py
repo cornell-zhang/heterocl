@@ -19,8 +19,25 @@ from ..type_infer import TypeInfer
 from hcl_mlir.dialects import \
     func as func_d, hcl as hcl_d, \
     scf as scf_d, memref as memref_d, \
-    affine as affine_d
+    affine as affine_d, arith as arith_d
 from hcl_mlir.exceptions import *
+
+
+def get_op_class(op, typ):
+    """Get the class of the given op"""
+    if isinstance(op, itmd.Add):
+        if isinstance(typ, (htypes.Int, htypes.UInt)):
+            return arith_d.AddIOp
+        elif isinstance(typ, htypes.Float):
+            return arith_d.AddFOp
+        elif isinstance(typ, (htypes.Fixed, htypes.UFixed)):
+            return hcl_d.AddFixedOp
+        else:
+            raise APIError("Unsupported type for AddOp: {}".format(typ))
+    elif isinstance(op, itmd.SubOp):
+        pass
+    else:
+        raise APIError("Unsupported op in get_op_class: {}".format(op))
 
 class IRBuilder(object):
     """IRBuilder class to build MLIR
@@ -126,14 +143,19 @@ class IRBuilder(object):
 
         # Step 2: cast lhs and rhs to the same type
         t = self.tinf_engine.infer(op)
-        lhs = itmd.CastOp(op.lhs, t, op.loc)
-        rhs = itmd.CastOp(op.rhs, t, op.loc)
+        lhs = itmd.CastOp(op.lhs, t, loc)
+        rhs = itmd.CastOp(op.rhs, t, loc)
         self.build_visitor(lhs, ip)
         self.build_visitor(rhs, ip)
 
         # Step 3: build binary op
+        OpClass = get_op_class(op, t)
+        binary_op = OpClass(lhs.result, rhs.result, ip=ip, loc=loc)
+        op.result = binary_op.result
 
         # Step 4: attach necessary attributes
+        if isinstance(t, (htypes.UInt, htypes.UFixed)):
+            binary_op.attributes["unsigned"] = UnitAttr.get()
 
     def build_load_op(self, op : itmd.LoadOp, ip):
         index_exprs = []
@@ -228,7 +250,7 @@ class IRBuilder(object):
             return self.build_affine_expr(expr.val)
         lhs = self.build_affine_expr(expr.lhs)
         rhs = self.build_affine_expr(expr.rhs)
-        if isinstance(expr, itmd.AddOp):
+        if isinstance(expr, itmd.Add):
             return lhs + rhs
         elif isinstance(expr, itmd.SubOp):
             return lhs - rhs

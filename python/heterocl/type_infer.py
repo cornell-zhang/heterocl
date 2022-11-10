@@ -3,8 +3,8 @@
 # Copyright 2021-2022 The HCL-MLIR Authors.
 #
 # ===----------------------------------------------------------------------=== #
-from ir import intermediate as itmd
-from type_rules import *
+from .ir import intermediate as itmd
+from .type_rules import *
 
 class TypeInfer(object):
     """A type inference engine for HeteroCL programs.
@@ -28,9 +28,17 @@ class TypeInfer(object):
     def infer(self, expr):
         """Infer the type of an expression
         """
-        if isinstance(expr, itmd.AddOp):
-            self.infer_add(expr)
+        if isinstance(expr, itmd.LoadOp):
+            return self.infer_load(expr)
+        elif isinstance(expr, itmd.Add):
+            return self.infer_add(expr)
+        elif isinstance(expr, itmd.Sub):
+            pass
+        else:
+            raise APIError(f"Type inference not defined for expression of type: {type(expr)}")
 
+    def infer_load(self, expr):
+        return expr.tensor.dtype
 
     def infer_add(self, expr):
         """Infer the type of an add operation
@@ -41,6 +49,5 @@ class TypeInfer(object):
         if type(expr) not in self._rule_dict:
             raise APIError(f"Typing rules not defined for operation type: {type(expr)}")
         type_rule = self._rule_dict[type(expr)]
-        itypes = [lhs_type, rhs_type]
-        res_type = type_rule(itypes)
+        res_type = type_rule(lhs_type, rhs_type)
         return res_type

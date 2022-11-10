@@ -9,7 +9,7 @@ from .types import *
 
 """ Type inference rules """
 def add_sub_rule():
-    ops = (itmd.AddOp, itmd.SubOp)
+    ops = (itmd.Add, itmd.Sub)
     int_rules = {
         (Int, Int) : lambda t1, t2: Int(max(t1.bits, t2.bits)),
         (Int, UInt): lambda t1, t2: Int(max(t1.bits, t2.bits))
