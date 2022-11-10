@@ -13,6 +13,7 @@ from ..tensor import Tensor
 import hcl_mlir
 from ..utils import hcl_dtype_to_mlir
 from .. import types as htypes
+from ..type_infer import TypeInfer
 # Import MLIR dialects
 # Naming rule: import dialect as dialect_d 
 from hcl_mlir.dialects import \
@@ -29,6 +30,7 @@ class IRBuilder(object):
         self._intermediate = intermediate
         self.module = Module.create(get_location())
         self.iv = [] # TODO(Niansong): what is this list of iv for?
+        self.tinf_engine = TypeInfer()
 
     def build(self):
         """Builder entry point
@@ -116,14 +118,20 @@ class IRBuilder(object):
         op.result = memref_d.AllocOp(memref_type, [], [], ip=ip, loc=loc).result
 
     def build_binary_op(self, op, ip):
+        loc = Location.file(op.loc.filename, op.loc.lineno, 0)
+
         # Step 1: build lhs and rhs
         self.build_visitor(op.lhs, ip)
         self.build_visitor(op.rhs, ip)
 
         # Step 2: cast lhs and rhs to the same type
+        t = self.tinf_engine.infer(op)
+        lhs = itmd.CastOp(op.lhs, t, op.loc)
+        rhs = itmd.CastOp(op.rhs, t, op.loc)
+        self.build_visitor(lhs, ip)
+        self.build_visitor(rhs, ip)
 
         # Step 3: build binary op
-        loc = Location.file(op.loc.filename, op.loc.lineno, 0)
 
         # Step 4: attach necessary attributes
 
