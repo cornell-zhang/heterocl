@@ -225,6 +225,12 @@ class Cmp(BinaryOp):
     def __init__(self, op, lhs, rhs, loc):
         super().__init__(op, lhs, rhs, loc)
 
+class LeftShiftOp(BinaryOp):
+    """Left shift operation.
+    """
+    def __init__(self, lhs, rhs, loc):
+        super().__init__("<<", lhs, rhs, loc)
+
 class ConstantOp(Expr):
     """Constant operation.
     """
@@ -259,6 +265,65 @@ class StoreOp(Operation):
         code_str = ""
         code_str = print_indent(code_str, self.level)
         code_str += f"{self.tensor.name}[{self.index}] = {self.value}"
+        return code_str
+
+class GetBitOp(Expr):
+    """Get bit operation
+    """
+    def __init__(self, tensor, index, loc):
+        super().__init__("getbit", loc)
+        self.tensor = tensor
+        self.index = index
+        self.dtype = tensor.dtype
+
+    def __repr__(self):
+        return f"{self.tensor.name}[{self.index}]"
+
+class SetBitOp(Operation):
+    """Set bit operation
+    """
+    def __init__(self, tensor, index, value, loc):
+        super().__init__("setbit", loc)
+        self.tensor = tensor
+        self.index = index
+        self.value = value
+        self.level = len(scope)
+
+    def __repr__(self):
+        code_str = ""
+        code_str = print_indent(code_str, self.level)
+        code_str += f"{self.tensor.name}[{self.index}] = {self.value}"
+        return code_str
+
+class GetSliceOp(Expr):
+    """Get slice operation
+    """
+    def __init__(self, tensor, start, end, loc):
+        super().__init__("getslice", loc)
+        self.tensor = tensor
+        self.start = start
+        self.end = end
+        self.dtype = tensor.dtype
+
+    def __repr__(self):
+        return f"{self.tensor.name}[{self.start}:{self.end}]"
+
+
+class SetSliceOp(Operation):
+    """Set slice operation
+    """
+    def __init__(self, tensor, start, end, value, loc):
+        super().__init__("setslice", loc)
+        self.tensor = tensor
+        self.start = start
+        self.end = end
+        self.value = value
+        self.level = len(scope)
+
+    def __repr__(self):
+        code_str = ""
+        code_str = print_indent(code_str, self.level)
+        code_str += f"{self.tensor.name}[{self.start}:{self.end}] = {self.value}"
         return code_str
 
 

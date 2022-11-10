@@ -197,6 +197,8 @@ class IRBuilder(object):
         index_exprs = []
         flag = True
         store_op = None
+        casted_expr = itmd.CastOp(op.value, op.tensor.dtype, op.loc)
+        self.build_visitor(casted_expr, ip)
         for index in op.index:
             try:
                 affine_expr = self.build_affine_expr(index)
@@ -210,7 +212,7 @@ class IRBuilder(object):
             )
             affine_attr = AffineMapAttr.get(affine_map)
             store_op = affine_d.AffineStoreOp(
-                op.value.result,
+                casted_expr.result,
                 op.tensor.result,
                 [idx.result for idx in op.index],
                 affine_attr,
@@ -220,7 +222,7 @@ class IRBuilder(object):
             new_indices = []
             for index in op.index:
                 new_indices.append(index.result)
-            store_op = memref_d.StoreOp(op.value.result, op.tensor.result, new_indices, ip=ip)
+            store_op = memref_d.StoreOp(casted_expr.result, op.tensor.result, new_indices, ip=ip)
         # we don't need to set the result of store op
         # because store op doesn't have a result
         store_op.attributes["to"] = StringAttr.get(op.tensor.name)
@@ -252,12 +254,12 @@ class IRBuilder(object):
         elif isinstance(src_type, htypes.Float) and isinstance(res_type, htypes.UInt):
             CastOpClass = arith_d.FPToUIOp
         elif isinstance(src_type, (htypes.Int, htypes.UInt)) and isinstance(res_type, (htypes.Int, htypes.UInt)):
-            if src_type.width > res_type.width:
+            if src_type.bits > res_type.bits:
                 CastOpClass = arith_d.TruncIOp
-            elif src_type.width == res_type.width:
+            elif src_type.bits == res_type.bits:
                 op.result = op.expr.result
                 return
-            else: # src_type.width < res_type.width
+            else: # src_type.bits < res_type.bits
                 if (
                     isinstance(op.expr, (itmd.GetBitOp, itmd.GetSliceOp, itmd.LeftShiftOp))
                     or src_type.bits == 1
