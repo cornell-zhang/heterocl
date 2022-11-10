@@ -55,6 +55,16 @@ class UInt(Type):
         return "UInt(" + str(self.bits) + ")"
 
 
+class Index(UInt):
+    """Index type"""
+
+    def __init__(self):
+        super(Index, self).__init__(32)
+
+    def __repr__(self):
+        return "Index"
+
+
 class Float(Type):
     """Floating points"""
 

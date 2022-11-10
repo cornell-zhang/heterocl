@@ -38,7 +38,7 @@ def hcl_dtype_to_mlir(dtype, signless=False):
         elif dtype.bits == 64:
             return F64Type.get()
     elif isinstance(dtype, Struct):
-        types = [hcl_dtype_to_mlir(t) for t in dtype.dtype_dict.values()]
+        types = [hcl_dtype_to_mlir(t, signless) for t in dtype.dtype_dict.values()]
         return hcl_d.StructType.get(types)
     else:
         raise DTypeError(f"unknown type in hcl_dtype_to_mlir: {dtype} of type {type(dtype)}")

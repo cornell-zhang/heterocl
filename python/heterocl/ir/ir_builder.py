@@ -94,6 +94,8 @@ class IRBuilder(object):
             self.build_store_op(op, ip)
         elif isinstance(op, itmd.ConstantOp):
             self.build_constant_op(op, ip)
+        elif isinstance(op, itmd.CastOp):
+            self.build_cast_op(op, ip)
         else:
             raise HCLNotImplementedError(f"{type(op)}'s build visitor is not implemented yet.")
 
@@ -228,6 +230,123 @@ class IRBuilder(object):
     def build_constant_op(self, op, ip):
         pass
 
+
+    def build_cast_op(self, op, ip):
+        res_type = op.dtype
+        src_type = self.tinf_engine.infer(op.expr)
+        # determine cast op
+        CastOpClass = None
+        if res_type == src_type:
+            op.result = op.expr.result
+            return
+        elif isinstance(src_type, (htypes.Int, htypes.UInt)) and isinstance(res_type, htypes.Index):
+            CastOpClass = arith_d.IndexCastOp
+        elif isinstance(src_type, htypes.Index) and isinstance(res_type, (htypes.Int, htypes.UInt)):
+            CastOpClass = arith_d.IndexCastOp
+        elif isinstance(src_type, htypes.Int) and isinstance(res_type, htypes.Float):
+            CastOpClass = arith_d.SIToFPOp
+        elif isinstance(src_type, htypes.UInt) and isinstance(res_type, htypes.Float):
+            CastOpClass = arith_d.UIToFPOp
+        elif isinstance(src_type, htypes.Float) and isinstance(res_type, htypes.Int):
+            CastOpClass = arith_d.FPToSIOp
+        elif isinstance(src_type, htypes.Float) and isinstance(res_type, htypes.UInt):
+            CastOpClass = arith_d.FPToUIOp
+        elif isinstance(src_type, (htypes.Int, htypes.UInt)) and isinstance(res_type, (htypes.Int, htypes.UInt)):
+            if src_type.width > res_type.width:
+                CastOpClass = arith_d.TruncIOp
+            elif src_type.width == res_type.width:
+                op.result = op.expr.result
+                return
+            else: # src_type.width < res_type.width
+                if (
+                    isinstance(op.expr, (itmd.GetBitOp, itmd.GetSliceOp, itmd.LeftShiftOp))
+                    or src_type.bits == 1
+                ):
+                    CastOpClass = arith_d.ExtUIOp
+                elif isinstance(src_type, htypes.UInt):
+                    CastOpClass = arith_d.ExtUIOp
+                else:
+                    CastOpClass = arith_d.ExtSIOp
+        elif isinstance(src_type, htypes.Float) and isinstance(res_type, htypes.Float):
+            if res_type.bits < src_type.bits:
+                CastOpClass = arith_d.TruncFOp
+            elif res_type.bits > src_type.bits:
+                CastOpClass = arith_d.ExtFOp
+            else:
+                op.result = op.expr.result
+                return
+        elif isinstance(src_type, htypes.Float) and isinstance(res_type, (htypes.Fixed, htypes.UFixed)):
+            CastOpClass = hcl_d.FloatToFixedOp
+        elif isinstance(src_type, (htypes.Fixed, htypes.UFixed)) and isinstance(res_type, htypes.Float):
+            CastOpClass = hcl_d.FixedToFloatOp
+        elif isinstance(src_type, (htypes.Fixed, htypes.UFixed)) and isinstance(res_type, (htypes.Int, htypes.UInt)):
+            CastOpClass = hcl_d.FixedToIntOp
+        elif isinstance(src_type, (htypes.Int, htypes.UInt)) and isinstance(res_type, (htypes.Fixed, htypes.UFixed)):
+            CastOpClass = hcl_d.IntToFixedOp
+        elif isinstance(src_type, (htypes.Fixed, htypes.UFixed)) and isinstance(res_type, (htypes.Fixed, htypes.UFixed)):
+            if src_type == res_type:
+                op.result = op.expr.result
+                return
+            else:
+                CastOpClass = hcl_d.FixedToFixedOp
+        elif isinstance(src_type, htypes.Struct) and isinstance(res_type, htypes.Struct):
+            # We don't actually cast between struct types,
+            # here we check if two structs are identical when all
+            # integer fields are signless.
+            if len(src_type.dtype_dict) != len(res_type.dtype_dict):
+                raise DTypeError(
+                    "Casting between structs with different number of fields. " +
+                    f"src type: {src_type}, dst type: {res_type}"
+                )
+            for res_ftype, src_ftype in zip(res_type.dtype_dict.values(), src_type.dtype_dict.values()):
+                if isinstance(src_ftype, (htypes.Int, htypes.UInt)) and isinstance(res_ftype, (htypes.Int, htypes.UInt)):
+                    if src_ftype.width != res_ftype.width:
+                        raise DTypeError(
+                            "Casting between structs with different field width. " +
+                            f"src type: {src_type}, dst type: {res_type}"
+                        )
+                else:
+                    raise DTypeError(
+                        "Casting between structs with different field types. " +
+                        f"src type: {src_type}, dst type: {res_type}"
+                    )
+            op.result = op.expr.result
+            return
+        elif isinstance(src_type, htypes.Struct) and isinstance(res_type, (htypes.Int, htypes.UInt)):
+            all_field_int = True
+            total_width = 0
+            for ftype in src_type.dtype_dict.values():
+                if not isinstance(ftype, (htypes.Int, htypes.UInt)):
+                    all_field_int = False
+                    break
+                total_width += ftype.bits
+            if not all_field_int:
+                raise DTypeError(
+                        "Casting from integer to struct with non-integer fields. " +
+                        f"src type: {src_type}, dst type: {res_type}"
+                    )
+            if total_width != res_type.bits:
+                raise DTypeError(
+                        "Casting from integer to struct with different width. " +
+                        f"src type: {src_type}, dst type: {res_type}"
+                    )
+            CastOpClass = hcl_d.IntToStructOp
+        else:
+            raise DTypeError(
+                "Casting between unsupported types. " +
+                f"src type: {src_type}, dst type: {res_type}"
+            )
+
+        # build the cast op
+        if isinstance(res_type, (htypes.Int, htypes.UInt, htypes.Struct)):
+            mlir_type = hcl_dtype_to_mlir(res_type, signless=True)
+            cast_op = CastOpClass(mlir_type, op.expr.result, ip=ip)
+            if isinstance(res_type, (htypes.UInt, htypes.Struct)):
+                cast_op.attributes["unsigned"] = UnitAttr.get()
+        else:
+            mlir_type = hcl_dtype_to_mlir(res_type)
+            cast_op = CastOpClass(mlir_type, op.expr.result, ip=ip)
+        op.result = cast_op.result
 
     def build_affine_expr(self, expr):
         """Build affine expression.
