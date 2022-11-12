@@ -230,7 +230,42 @@ class IRBuilder(object):
             store_op.attributes["unsigned"] = UnitAttr.get()        
 
     def build_constant_op(self, op, ip):
-        pass
+        loc = Location.file(op.loc.filename, op.loc.lineno, 0)
+        dtype = hcl_dtype_to_mlir(op.dtype)
+        if isinstance(op.dtype, (htypes.Int, htypes.UInt)):
+            if isinstance(op.dtype, htypes.Index):
+                value_attr = IntegerAttr.get(IndexType.get(), op.value)
+            elif op.dtype.bits == 1:
+                value_attr = BoolAttr.get(op.value)
+            else:
+                attr_type = IntegerType.get_signless(op.dtype.bits)
+                value_attr = IntegerAttr.get(attr_type, op.value)
+            const_op = arith_d.ConstantOp(dtype, value_attr, ip=ip, loc=loc)
+        elif isinstance(op.dtype, htypes.Float):
+            if op.dtype.bits == 16:
+                value_attr = FloatAttr.get(F16Type.get(), op.value)
+            elif op.dtype.bits == 32:
+                value_attr = FloatAttr.get(F32Type.get(), op.value)
+            elif op.dtype.bits == 64:
+                value_attr = FloatAttr.get(F64Type.get(), op.value)
+            else:
+                raise DTypeError("Unsupported float type: {}".format(op.dtype))
+            const_op = arith_d.ConstantOp(dtype, value_attr, ip=ip, loc=loc)
+        elif isinstance(op.dtype, (htypes.Fixed, htypes.UFixed)):
+            # assume the value is converted to integer base
+            if not isinstance(op.value, int):
+                raise DTypeError("Fixed point value must be converted to integer base")
+            attr_type = IntegerType.get_signless(op.dtype.bits)
+            value_attr = IntegerAttr.get(attr_type, op.value)
+            const_op = arith_d.ConstantOp(dtype, value_attr, ip=ip, loc=loc)
+        else:
+            raise DTypeError("Unsupported type: {}".format(op.dtype))
+        
+        op.result = const_op.result
+
+        # attach necessary attributes
+        if isinstance(op.dtype, (htypes.UInt, htypes.UFixed)):
+            const_op.attributes["unsigned"] = UnitAttr.get()
 
 
     def build_cast_op(self, op, ip):

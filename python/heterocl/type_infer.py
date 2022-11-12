@@ -34,11 +34,10 @@ class TypeInfer(object):
             return self.infer_add(expr)
         elif isinstance(expr, itmd.Sub):
             pass
+        elif isinstance(expr, itmd.ConstantOp):
+            return self.infer_const(expr)
         else:
             raise APIError(f"Type inference not defined for expression of type: {type(expr)}")
-
-    def infer_load(self, expr):
-        return expr.tensor.dtype
 
     def infer_add(self, expr):
         """Infer the type of an add operation
@@ -51,3 +50,12 @@ class TypeInfer(object):
         type_rule = self._rule_dict[type(expr)]
         res_type = type_rule(lhs_type, rhs_type)
         return res_type
+
+    """
+        Operations that do not require type inference
+    """
+    def infer_load(self, expr):
+        return expr.tensor.dtype
+
+    def infer_const(self, expr):
+        return expr.dtype

@@ -31,9 +31,9 @@ def build_schedule(inputs, func=None, name=""):
     s = Schedule(name, inputs, func)
     scope.push(s._IR.top_func.body)
     ret = func(*inputs)
-    ir_builder = IRBuilder(s._IR)
-    ir_builder.build()
-    print(ir_builder.module)
+    # ir_builder = IRBuilder(s._IR)
+    # ir_builder.build()
+    # print(ir_builder.module)
     # exit the current context
     exit_context()
     return s

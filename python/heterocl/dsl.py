@@ -243,7 +243,7 @@ def else_():
     return WithScope(None, _exit_cb)
 
 
-def elif_(cond):
+def old_elif_(cond):
     """Construct an ELIF branch."""
     hcl_mlir.enable_build_inplace()
     if len(Schedule._IfElseStack) == 0:
@@ -274,7 +274,7 @@ def elif_(cond):
 def elif_(cond):
     region = scope.get()
     filename, lineno = get_src_loc()
-    elifOp = ElifOp(cond, Location(filename, lineno))
+    elifOp = ElseIfOp(cond, Location(filename, lineno))
     region.append(elifOp)
     scope.push(elifOp.body)
 

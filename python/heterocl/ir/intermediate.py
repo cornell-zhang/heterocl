@@ -232,11 +232,20 @@ class LeftShiftOp(BinaryOp):
         super().__init__("<<", lhs, rhs, loc)
 
 class ConstantOp(Expr):
-    """Constant operation.
+    """Constant scalar operation.
     """
     def __init__(self, value, dtype, loc):
         super().__init__(str(value), loc)
         self.value = value
+        self.dtype = dtype
+
+class ConstantTensorOp(Expr):
+    """Constant tensor operation.
+    """
+    # TODO(Niansong): handle overflow
+    def __init__(self, values, name, dtype, loc):
+        super().__init__(name, loc)
+        self.values = values
         self.dtype = dtype
 
 class LoadOp(Expr):
