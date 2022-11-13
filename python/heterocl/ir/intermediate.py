@@ -493,7 +493,9 @@ class IfOp(Operation):
         super().__init__('if', loc)
         self.cond = cond
         self.body = list()
+        self.else_body = list()
         self.level = len(scope)
+        self.else_branch_valid = False
 
     def __repr__(self):
         code_str = ""
@@ -503,6 +505,12 @@ class IfOp(Operation):
             code_str += f"{stmt}\n"
         code_str = print_indent(code_str, self.level)
         code_str += "}"
+        if self.else_branch_valid:
+            code_str += " else {\n"
+            for stmt in self.else_body:
+                code_str += f"{stmt}\n"
+            code_str = print_indent(code_str, self.level)
+            code_str += "}"
         return code_str
 
 class ElseOp(Operation):

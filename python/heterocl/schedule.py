@@ -16,6 +16,7 @@ from .dfg import DataflowGraph
 from .utils import get_extra_type_hints, remove_moved_attr, get_src_loc
 from .ir.intermediate import *
 from .ir.ir_builder import IRBuilder
+from .ir.itmd_pass import NestElseIf
 
 # By default, Python ignores deprecation warnings.
 # we have to enable it to see the warning.
@@ -31,6 +32,8 @@ def build_schedule(inputs, func=None, name=""):
     s = Schedule(name, inputs, func)
     scope.push(s._IR.top_func.body)
     ret = func(*inputs)
+    nest_elif_pass = NestElseIf(s._IR)
+    nest_elif_pass.apply()
     # ir_builder = IRBuilder(s._IR)
     # ir_builder.build()
     # print(ir_builder.module)
