@@ -34,9 +34,9 @@ def build_schedule(inputs, func=None, name=""):
     ret = func(*inputs)
     nest_elif_pass = NestElseIf(s._IR)
     nest_elif_pass.apply()
-    # ir_builder = IRBuilder(s._IR)
-    # ir_builder.build()
-    # print(ir_builder.module)
+    ir_builder = IRBuilder(s._IR)
+    ir_builder.build()
+    print(ir_builder.module)
     # exit the current context
     exit_context()
     return s

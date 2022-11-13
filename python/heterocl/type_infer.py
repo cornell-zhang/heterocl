@@ -34,6 +34,8 @@ class TypeInfer(object):
             return self.infer_add(expr)
         elif isinstance(expr, itmd.Sub):
             pass
+        elif isinstance(expr, itmd.Cmp):
+            return self.infer_cmp(expr)
         elif isinstance(expr, itmd.ConstantOp):
             return self.infer_const(expr)
         else:
@@ -42,6 +44,16 @@ class TypeInfer(object):
     def infer_add(self, expr):
         """Infer the type of an add operation
         """
+        lhs_type = self.infer(expr.lhs)    
+        rhs_type = self.infer(expr.rhs)
+        # find the rule set based on the operation type
+        if type(expr) not in self._rule_dict:
+            raise APIError(f"Typing rules not defined for operation type: {type(expr)}")
+        type_rule = self._rule_dict[type(expr)]
+        res_type = type_rule(lhs_type, rhs_type)
+        return res_type
+
+    def infer_cmp(self, expr):
         lhs_type = self.infer(expr.lhs)    
         rhs_type = self.infer(expr.rhs)
         # find the rule set based on the operation type

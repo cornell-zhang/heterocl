@@ -113,8 +113,29 @@ class Expr(object):
     def __div__(self, other):
         return Div(self, other, self.loc)
 
+    def __lt__(self, other):
+        if other is None:
+            return False
+        return Cmp("lt", self, other, self.loc)
+
+    def __le__(self, other):
+        return Cmp("le", self, other, self.loc)
+
+    def __eq__(self, other):
+        if other is None:
+            return False
+        return Cmp("eq", self, other, self.loc)
+
+    def __ne__(self, other):
+        if other is None:
+            return True
+        return Cmp("ne", self, other, self.loc)
+    
     def __gt__(self, other):
-        return BinaryOp(">", self, other, self.loc)
+        return Cmp("gt", self, other, self.loc)
+
+    def __ge__(self, other):
+        return Cmp("ge", self, other, self.loc)
 
 class UnaryOp(Expr):
     """Base class for all unary operations.

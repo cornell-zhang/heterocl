@@ -8,7 +8,7 @@ from hcl_mlir.ir import *
 from hcl_mlir.exceptions import *
 
 from .config import init_dtype
-from .types import Fixed, Float, Int, Type, UFixed, UInt, Struct, dtype_to_str
+from .types import Fixed, Float, Int, Type, UFixed, UInt, Struct, Index, dtype_to_str
 
 def get_func_obj(func_name):
     for o in gc.get_objects():
@@ -19,6 +19,8 @@ def get_func_obj(func_name):
 def hcl_dtype_to_mlir(dtype, signless=False):
     if hcl_mlir.is_hcl_mlir_type(dtype):
         return dtype
+    elif isinstance(dtype, Index):
+        return hcl_mlir.IndexType.get()
     elif isinstance(dtype, Int):
         return IntegerType.get_signless(dtype.bits)
     elif isinstance(dtype, UInt):

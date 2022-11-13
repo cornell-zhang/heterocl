@@ -9,10 +9,10 @@ from .types import *
 
 """ Type inference rules """
 def add_sub_rule():
-    ops = (itmd.Add, itmd.Sub)
+    ops = (itmd.Add, itmd.Sub, itmd.Cmp)
     int_rules = {
-        (Int, Int) : lambda t1, t2: Int(max(t1.bits, t2.bits) + 1),
-        (Int, UInt): lambda t1, t2: Int(max(t1.bits, t2.bits) + 1)
+        (Int, Int) : lambda t1, t2: Int(max(t1.bits, t2.bits)),
+        (Int, UInt): lambda t1, t2: Int(max(t1.bits, t2.bits))
     }
     float_rules = {
         (Float, Float) : lambda t1, t2: Float(max(t1.bits, t2.bits)),

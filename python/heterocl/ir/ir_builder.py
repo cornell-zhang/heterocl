@@ -86,6 +86,8 @@ class IRBuilder(object):
             self.build_compute(op, ip)
         elif isinstance(op, itmd.AllocOp):
             self.build_alloc_op(op, ip)
+        elif isinstance(op, itmd.Cmp):
+            self.build_cmp_op(op, ip)
         elif isinstance(op, itmd.BinaryOp):
             self.build_binary_op(op, ip)
         elif isinstance(op, itmd.LoadOp):
@@ -96,6 +98,8 @@ class IRBuilder(object):
             self.build_constant_op(op, ip)
         elif isinstance(op, itmd.CastOp):
             self.build_cast_op(op, ip)
+        elif isinstance(op, itmd.IfOp):
+            self.build_if_op(op, ip)
         else:
             raise HCLNotImplementedError(f"{type(op)}'s build visitor is not implemented yet.")
 
@@ -159,6 +163,125 @@ class IRBuilder(object):
         if isinstance(t, (htypes.UInt, htypes.UFixed)):
             binary_op.attributes["unsigned"] = UnitAttr.get()
 
+    def build_cmp_op(self, op : itmd.Cmp, ip):
+        """
+        # Check mlir/Dialect/Arithmetic/IR/ArithmeticBase.td
+        # s/u: signed/unsigned
+        # o/u: ordered/unordered
+        #      ordered means only one of < = > cases is true
+        #      unordered happens for floating points with NaN
+        // Opcode              U L G E    Intuitive operation
+        FCMP_FALSE =  0,  ///< 0 0 0 0    Always false (always folded)
+        FCMP_OEQ   =  1,  ///< 0 0 0 1    True if ordered and equal
+        FCMP_OGT   =  2,  ///< 0 0 1 0    True if ordered and greater than
+        FCMP_OGE   =  3,  ///< 0 0 1 1    True if ordered and greater than or equal
+        FCMP_OLT   =  4,  ///< 0 1 0 0    True if ordered and less than
+        FCMP_OLE   =  5,  ///< 0 1 0 1    True if ordered and less than or equal
+        FCMP_ONE   =  6,  ///< 0 1 1 0    True if ordered and operands are unequal
+        FCMP_ORD   =  7,  ///< 0 1 1 1    True if ordered (no nans)
+        FCMP_UNO   =  8,  ///< 1 0 0 0    True if unordered: isnan(X) | isnan(Y)
+        FCMP_UEQ   =  9,  ///< 1 0 0 1    True if unordered or equal
+        FCMP_UGT   = 10,  ///< 1 0 1 0    True if unordered or greater than
+        FCMP_UGE   = 11,  ///< 1 0 1 1    True if unordered, greater than, or equal
+        FCMP_ULT   = 12,  ///< 1 1 0 0    True if unordered or less than
+        FCMP_ULE   = 13,  ///< 1 1 0 1    True if unordered, less than, or equal
+        FCMP_UNE   = 14,  ///< 1 1 1 0    True if unordered or not equal
+        FCMP_TRUE  = 15,  ///< 1 1 1 1    Always true (always folded)
+        """
+        ATTR_MAP = {
+            "int": {
+                "eq": 0,
+                "ne": 1,
+                "slt": 2,
+                "sle": 3,
+                "sgt": 4,
+                "sge": 5,
+                "ult": 6,
+                "ule": 7,
+                "ugt": 8,
+                "uge": 9,
+            },
+            "float": {
+                "false": 0,
+                "oeq": 1,
+                "ogt": 2,
+                "oge": 3,
+                "olt": 4,
+                "ole": 5,
+                "one": 6,
+                "ord": 7,
+                "ueq": 8,
+                "ugt": 9,
+                "uge": 10,
+                "ult": 11,
+                "ule": 12,
+                "une": 13,
+                "uno": 14,
+                "true": 15,
+            },
+            "fixed": {
+                "eq": 0,
+                "ne": 1,
+                "slt": 2,
+                "sle": 3,
+                "sgt": 4,
+                "sge": 5,
+                "ult": 6,
+                "ule": 7,
+                "ugt": 8,
+                "uge": 9,
+            },
+        }
+        loc = Location.file(op.loc.filename, op.loc.lineno, 0)
+        
+        # Step 1: build lhs and rhs
+        self.build_visitor(op.lhs, ip)
+        self.build_visitor(op.rhs, ip)
+
+        # Step 2: cast lhs and rhs to the same type
+        t = self.tinf_engine.infer(op)
+        lhs = itmd.CastOp(op.lhs, t, loc)
+        rhs = itmd.CastOp(op.rhs, t, loc)
+        self.build_visitor(lhs, ip)
+        self.build_visitor(rhs, ip)
+
+        # Step 3: build binary op
+        if isinstance(t, (htypes.Int, htypes.Index)):
+            OpClass = arith_d.CmpIOp
+            attr = ATTR_MAP["int"][
+                "s" + op.name if op.name not in ["eq", "ne"] else op.name
+            ]
+        elif isinstance(t, htypes.UInt):
+            OpClass = arith_d.CmpIOp
+            attr = ATTR_MAP["int"][
+                "u" + op.name if op.name not in ["eq", "ne"] else op.name
+            ]
+        elif isinstance(t, htypes.Float):
+            OpClass = arith_d.CmpFOp
+            attr = ATTR_MAP["float"]['o' + op.name]
+        elif isinstance(t, htypes.Fixed):
+            OpClass = hcl_d.CmpFixedOp
+            attr = ATTR_MAP["fixed"][
+                's' + op.name if op.name not in ["eq", "ne"] else op.name
+            ]
+        elif isinstance(t, htypes.UFixed):
+            OpClass = hcl_d.CmpFixedOp
+            attr = ATTR_MAP["fixed"][
+                'u' + op.name if op.name not in ["eq", "ne"] else op.name
+            ]
+        else:
+            raise NotImplementedError(f"Unsupported type for CmpOp build: {t}")
+
+        # dtype = hcl_dtype_to_mlir(t)
+        dtype = IntegerType.get_signless(1)
+        cmp_attr = IntegerAttr.get(IntegerType.get_signless(64), attr)
+        cmp_op = OpClass(dtype, cmp_attr, lhs.result, rhs.result, ip=ip, loc=loc)
+        op.result = cmp_op.result
+
+        # Step 4: attach necessary attributes
+        if isinstance(t, (htypes.UInt, htypes.UFixed)):
+            cmp_op.attributes["unsigned"] = UnitAttr.get()
+
     def build_load_op(self, op : itmd.LoadOp, ip):
         index_exprs = []
         flag = True
@@ -185,6 +308,10 @@ class IRBuilder(object):
         else:
             new_indices = []
             for index in op.index:
+                self.build_visitor(index, ip)
+                # cast to index type
+                index = itmd.CastOp(index, htypes.Index(), index.loc)
+                self.build_visitor(index, ip)
                 new_indices.append(index.result)
             load_op = memref_d.LoadOp(op.tensor.result, new_indices, ip=ip)
             op.result = load_op.result
@@ -273,7 +400,7 @@ class IRBuilder(object):
         src_type = self.tinf_engine.infer(op.expr)
         # determine cast op
         CastOpClass = None
-        if res_type == src_type:
+        if type(res_type) == type(src_type) and res_type == src_type:
             op.result = op.expr.result
             return
         elif isinstance(src_type, (htypes.Int, htypes.UInt)) and isinstance(res_type, htypes.Index):
@@ -418,3 +545,21 @@ class IRBuilder(object):
             return lhs % rhs
         else:
             raise HCLValueError("Not an affine index!")
+
+    def build_if_op(self, op : itmd.IfOp, ip):
+        """Build IfOp"""
+        # build condition
+        self.build_visitor(op.cond, ip)
+        has_else = op.else_branch_valid
+        if_op = scf_d.IfOp(op.cond.result, hasElse=has_else, results_=[], ip=ip)
+        # build then body
+        ip = InsertionPoint(if_op.then_block)
+        for body_op in op.body:
+            self.build_visitor(body_op, ip)
+        scf_d.YieldOp([], ip=ip)
+        # build else body
+        if has_else:
+            ip = InsertionPoint(if_op.else_block)
+            for body_op in op.else_body:
+                self.build_visitor(body_op, ip)
+            scf_d.YieldOp([], ip=ip)
