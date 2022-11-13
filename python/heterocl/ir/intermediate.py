@@ -358,9 +358,8 @@ class SetSliceOp(Operation):
 
 
 class TensorSlice(Expr):
-    def __init__(self, full_shape, op, dtype, parent, indices, loc, name=None):
-        super().__init__(op)
-        self.op = op
+    def __init__(self, full_shape, dtype, parent, indices, loc, name=None):
+        super().__init__(name, loc)
         self.full_shape = full_shape
         self.dtype = dtype
         self.name = name
@@ -396,7 +395,6 @@ class TensorSlice(Expr):
         if len(self.indices + indices) < len(self.full_shape):
             return TensorSlice(
                 self.full_shape,
-                self.op,
                 self.dtype,
                 self.parent,
                 self.indices + indices,
@@ -454,7 +452,7 @@ class AllocOp(Expr):
         # if we are slicing tensor
         if len(indices) < len(self.shape):
             return TensorSlice(
-                self.shape, self.op, self.dtype, self, indices, self.loc, self.name
+                self.shape, self.dtype, self, indices, self.loc, self.name
             )
         # if we are loading a value from the tensor
         elif len(indices) == len(self.shape):

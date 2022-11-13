@@ -283,6 +283,7 @@ class IRBuilder(object):
             cmp_op.attributes["unsigned"] = UnitAttr.get()
 
     def build_load_op(self, op : itmd.LoadOp, ip):
+        loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         index_exprs = []
         flag = True
         load_op = None
@@ -298,11 +299,18 @@ class IRBuilder(object):
                 dim_count=len(op.index), symbol_count=0, exprs=index_exprs
             )
             affine_attr = AffineMapAttr.get(affine_map)
+            indices = list()
+            for i in op.index:
+                self.build_visitor(i, ip)
+                i = itmd.CastOp(i, htypes.Index(), loc)
+                self.build_visitor(i, ip)
+                indices.append(i.result)
             load_op = affine_d.AffineLoadOp(
                 op.tensor.result,
-                [idx.result for idx in op.index],
+                indices,
                 affine_attr,
-                ip=ip
+                ip=ip,
+                loc=loc
             )
             op.result = load_op.result
         else:
@@ -310,10 +318,10 @@ class IRBuilder(object):
             for index in op.index:
                 self.build_visitor(index, ip)
                 # cast to index type
-                index = itmd.CastOp(index, htypes.Index(), index.loc)
+                index = itmd.CastOp(index, htypes.Index(), loc)
                 self.build_visitor(index, ip)
                 new_indices.append(index.result)
-            load_op = memref_d.LoadOp(op.tensor.result, new_indices, ip=ip)
+            load_op = memref_d.LoadOp(op.tensor.result, new_indices, ip=ip, loc=loc)
             op.result = load_op.result
 
         load_op.attributes["from"] = StringAttr.get(op.tensor.name)
@@ -324,6 +332,7 @@ class IRBuilder(object):
         index_exprs = []
         flag = True
         store_op = None
+        self.build_visitor(op.value, ip)
         casted_expr = itmd.CastOp(op.value, op.tensor.dtype, op.loc)
         self.build_visitor(casted_expr, ip)
         for index in op.index:
@@ -338,16 +347,25 @@ class IRBuilder(object):
                 dim_count=len(op.index), symbol_count=0, exprs=index_exprs
             )
             affine_attr = AffineMapAttr.get(affine_map)
+            indices = list()
+            for i in op.index:
+                self.build_visitor(i, ip)
+                i = itmd.CastOp(i, htypes.Index(), i.loc)
+                self.build_visitor(i, ip)
+                indices.append(i.result)
             store_op = affine_d.AffineStoreOp(
                 casted_expr.result,
                 op.tensor.result,
-                [idx.result for idx in op.index],
+                indices,
                 affine_attr,
                 ip=ip
             )
         else:
             new_indices = []
             for index in op.index:
+                self.build_visitor(index, ip)
+                index = itmd.CastOp(index, htypes.Index(), op.loc)
+                self.build_visitor(index, ip)
                 new_indices.append(index.result)
             store_op = memref_d.StoreOp(casted_expr.result, op.tensor.result, new_indices, ip=ip)
         # we don't need to set the result of store op
@@ -396,6 +414,8 @@ class IRBuilder(object):
 
 
     def build_cast_op(self, op, ip):
+        if op.expr.result is None:
+            raise APIError("Cast op operand `expr` must be built first: {}".format(op.expr))
         res_type = op.dtype
         src_type = self.tinf_engine.infer(op.expr)
         # determine cast op
@@ -528,9 +548,9 @@ class IRBuilder(object):
             else:
                 return AffineExpr.get_dim(self.iv.index(expr.op))
         elif isinstance(expr, itmd.ConstantOp):
-            return AffineExpr.get_constant(expr.val)
+            return AffineExpr.get_constant(expr.value)
         elif isinstance(expr, itmd.CastOp):
-            return self.build_affine_expr(expr.val)
+            return self.build_affine_expr(expr.expr)
         lhs = self.build_affine_expr(expr.lhs)
         rhs = self.build_affine_expr(expr.rhs)
         if isinstance(expr, itmd.Add):
