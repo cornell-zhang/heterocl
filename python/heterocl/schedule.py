@@ -26,6 +26,8 @@ def build_schedule(inputs, func=None, name=""):
     """Build a schedule for compute optimizations.
     inputs: list of Tensor
     """
+    if not isinstance(inputs, list):
+        inputs = [inputs]
     # create a new context
     set_context()
     # create a new schedule
@@ -219,7 +221,7 @@ class Schedule(object):
     _TopFunction = None
     _ScheduleStack = []
     _CurrentIf = 0 # ptr in _IfElseStack
-    _IR = IR()
+    _IR = None
 
     def __init__(self, name, inputs, func=None):
         self.name = name
@@ -237,6 +239,7 @@ class Schedule(object):
         self._xcel_top = None
         self._host_ret = None
         self._xcel_ret = None
+        self._IR = IR()
         self._IR.top_func.args = inputs
 
         # Instance modules for hierarchical construction
