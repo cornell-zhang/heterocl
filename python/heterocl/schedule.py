@@ -32,13 +32,24 @@ def build_schedule(inputs, func=None, name=""):
     s = Schedule(name, inputs, func)
     scope.push(s._IR.top_func.body)
     ret = func(*inputs)
+    if ret is None:
+        outputs = list()
+    elif isinstance(ret, tuple):
+        outputs = list(ret)
+    else:
+        outputs = [ret]
+    s._IR.top_func.return_tensors.extend(outputs)
+    # run passes
     nest_elif_pass = NestElseIf(s._IR)
     nest_elif_pass.apply()
     ir_builder = IRBuilder(s._IR)
     ir_builder.build()
-    print(ir_builder.module)
     # exit the current context
     exit_context()
+
+    # set device module and top func
+    s._device_module = ir_builder.module
+    s._device_top = s._IR.top_func
     return s
 
 def build_schedule_old(inputs, func=None, name=""):
@@ -213,7 +224,7 @@ class Schedule(object):
         self.lowered = False
         # Device-agnostic module:
         # used for transformation
-        self._device_module = Module.create(get_location())
+        self._device_module = None
         self._device_top = None
 
         # Device-aware module:
@@ -316,8 +327,7 @@ class Schedule(object):
 
     @property
     def device_module(self):
-        # return self._device_module
-        return self._IR.module
+        return self._device_module
 
     @property
     def device_top(self):

@@ -48,6 +48,7 @@ class IRBuilder(object):
         self.module = Module.create(get_location())
         self.iv = [] # TODO(Niansong): what is this list of iv for?
         self.tinf_engine = TypeInfer()
+        self.tensor_dict = dict() # tensor name -> memref.allocOp
 
     def build(self):
         """Builder entry point
@@ -58,6 +59,7 @@ class IRBuilder(object):
         with get_context(), get_location():
             input_types = []
             for tensor in top_func.args:
+                self.tensor_dict[tensor.name] = tensor
                 ele_type = hcl_dtype_to_mlir(tensor.dtype)
                 memref_type = MemRefType.get(tensor.shape, ele_type)
                 input_types.append(memref_type)
@@ -74,7 +76,9 @@ class IRBuilder(object):
             ip = InsertionPoint(func.entry_block)
             for op in top_func.body:
                 self.build_visitor(op, ip)
-            func_d.ReturnOp([], ip=ip)
+            return_names = [tensor.name for tensor in top_func.return_tensors]
+            returns = [self.tensor_dict[name].result for name in return_names]
+            func_d.ReturnOp(returns, ip=ip)
 
 
     def build_visitor(self, op, ip):
@@ -109,8 +113,9 @@ class IRBuilder(object):
         arg_names = ["i%d" % i for i in range(len(op.shape))]
         with get_context(), get_location():
             # build output tensor
-            allocOp = itmd.AllocOp(op.name, op.shape, op.dtype, op.loc)
-            self.build_visitor(allocOp, ip)
+            alloc_op = itmd.AllocOp(op.name, op.shape, op.dtype, op.loc)
+            self.build_visitor(alloc_op, ip)
+            op.result = alloc_op.result
             
             loops = list()
             for i, (ub, loop_name) in enumerate(zip(op.shape, arg_names)):
@@ -127,18 +132,23 @@ class IRBuilder(object):
 
             iter_var = [hcl_mlir.IterVar(loop.induction_variable, name=loop_name)
                 for loop, loop_name in zip(loops, arg_names)]
-            result_expr = op.body(*iter_var)
+            result_expr = op.fcompute(*iter_var)
             # visit the result expression
             # here ip is the innermost loop
             self.build_visitor(result_expr, ip)
-            store_op = itmd.StoreOp(allocOp, iter_var, result_expr, op.loc)
+            store_op = itmd.StoreOp(alloc_op, iter_var, result_expr, op.loc)
             self.build_visitor(store_op, ip)
 
     def build_alloc_op(self, op, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         ele_type = hcl_dtype_to_mlir(op.dtype)
         memref_type = MemRefType.get(op.shape, ele_type)
-        op.result = memref_d.AllocOp(memref_type, [], [], ip=ip, loc=loc).result
+        alloc_op = memref_d.AllocOp(memref_type, [], [], ip=ip, loc=loc)
+        op.result = alloc_op.result
+        # assume no name conflict
+        if op.name in self.tensor_dict:
+            raise APIError("Tensor name conflict: {}".format(op.name))
+        self.tensor_dict[op.name] = alloc_op
 
     def build_binary_op(self, op, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
@@ -295,12 +305,15 @@ class IRBuilder(object):
                 flag = False
                 break
         if flag:
+            dim_count = len([i for i in op.index if not isinstance(i, itmd.ConstantOp)])
             affine_map = AffineMap.get(
-                dim_count=len(op.index), symbol_count=0, exprs=index_exprs
+                dim_count=dim_count, symbol_count=0, exprs=index_exprs
             )
             affine_attr = AffineMapAttr.get(affine_map)
             indices = list()
             for i in op.index:
+                if isinstance(i, (itmd.ConstantOp, hcl_mlir.IterVar)):
+                    continue
                 self.build_visitor(i, ip)
                 i = itmd.CastOp(i, htypes.Index(), loc)
                 self.build_visitor(i, ip)
@@ -343,12 +356,15 @@ class IRBuilder(object):
                 flag = False
                 break
         if flag:
+            dim_count = len([i for i in op.index if not isinstance(i, itmd.ConstantOp)])
             affine_map = AffineMap.get(
-                dim_count=len(op.index), symbol_count=0, exprs=index_exprs
+                dim_count=dim_count, symbol_count=0, exprs=index_exprs
             )
             affine_attr = AffineMapAttr.get(affine_map)
             indices = list()
             for i in op.index:
+                if isinstance(i, (itmd.ConstantOp, hcl_mlir.IterVar)):
+                    continue
                 self.build_visitor(i, ip)
                 i = itmd.CastOp(i, htypes.Index(), i.loc)
                 self.build_visitor(i, ip)
@@ -568,6 +584,7 @@ class IRBuilder(object):
 
     def build_if_op(self, op : itmd.IfOp, ip):
         """Build IfOp"""
+        # TODO: support affine if
         # build condition
         self.build_visitor(op.cond, ip)
         has_else = op.else_branch_valid

@@ -491,9 +491,9 @@ class AllocOp(Expr):
 class ComputeOp(Operation):
     """Compute operation
     """
-    def __init__(self, name, shape, body, dtype, loc):
+    def __init__(self, name, shape, fcompute, dtype, loc):
         super().__init__(name, loc)
-        self.body = body
+        self.fcompute = fcompute
         self.shape = shape
         self.dtype = dtype
         self.name = name
@@ -503,7 +503,7 @@ class ComputeOp(Operation):
     def __repr__(self):
         code_str = ""
         code_str = print_indent(code_str, self.level)
-        code_str += inspect.getsourcelines(self.body)[0][0].strip()
+        code_str += inspect.getsourcelines(self.fcompute)[0][0].strip()
         return code_str
 
 
@@ -605,6 +605,7 @@ class FuncOp(Operation):
         self.name = name
         self.args = args
         self.body = body
+        self.return_tensors = list()
         self.level = len(scope)
         self.body_ip = None
 
@@ -614,6 +615,8 @@ class FuncOp(Operation):
         code_str += "func {}({}) {{\n".format(self.name, ", ".join([v.name for v in self.args]))
         for stmt in self.body:
             code_str += f"{stmt}\n"
+        code_str = print_indent(code_str, self.level + 1)
+        code_str += "return {}\n".format(", ".join([v.name for v in self.return_tensors]))
         code_str = print_indent(code_str, self.level)
         code_str += "}"
         return code_str
