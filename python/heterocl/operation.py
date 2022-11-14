@@ -44,8 +44,6 @@ def placeholder(shape, name=None, dtype=None):
     filename, lineno = get_src_loc(frame=1)
     alloc = AllocOp(name, shape, dtype, Location(filename, lineno))
     return alloc
-    # tensor = Tensor(shape, dtype, name=name, impl="tensor")
-    # return tensor
 
 
 def asarray(np_array, dtype=None):

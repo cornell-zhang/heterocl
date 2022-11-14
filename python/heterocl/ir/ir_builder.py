@@ -325,7 +325,6 @@ class IRBuilder(object):
         else:
             raise NotImplementedError(f"Unsupported type for CmpOp build: {t}")
 
-        # dtype = hcl_dtype_to_mlir(t)
         dtype = IntegerType.get_signless(1)
         cmp_attr = IntegerAttr.get(IntegerType.get_signless(64), attr)
         cmp_op = OpClass(dtype, cmp_attr, lhs.result, rhs.result, ip=ip, loc=loc)
