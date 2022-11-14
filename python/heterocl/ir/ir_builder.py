@@ -11,7 +11,7 @@ from . import intermediate as itmd
 from ..context import *
 from ..tensor import Tensor
 import hcl_mlir
-from ..utils import hcl_dtype_to_mlir
+from ..utils import hcl_dtype_to_mlir, get_extra_type_hints
 from .. import types as htypes
 from ..type_infer import TypeInfer
 # Import MLIR dialects
@@ -58,14 +58,24 @@ class IRBuilder(object):
         top_func = self._intermediate.top_func
         with get_context(), get_location():
             input_types = []
+            input_typehints = []
             for tensor in top_func.args:
                 self.tensor_dict[tensor.name] = tensor
                 ele_type = hcl_dtype_to_mlir(tensor.dtype)
+                input_typehints.append(get_extra_type_hints(ele_type))
                 memref_type = MemRefType.get(tensor.shape, ele_type)
                 input_types.append(memref_type)
+            return_types = []
+            output_typehints = []
+            for tensor in top_func.return_tensors:
+                ele_type = hcl_dtype_to_mlir(tensor.dtype)
+                output_typehints.append(get_extra_type_hints(ele_type))
+                memref_type = MemRefType.get(tensor.shape, ele_type)
+                return_types.append(memref_type)
             ip = InsertionPoint(self.module.body)
-            func = func_d.FuncOp(name=top_func.name, type=FunctionType.get(
-                inputs=input_types, results=[]), ip=ip)
+            func_type = FunctionType.get(input_types, return_types)
+            func = func_d.FuncOp(name=top_func.name, type=func_type, ip=ip)
+            top_func.ir_op = func
             func.add_entry_block()
 
             # Set alloc op's result as function block arg
@@ -79,6 +89,16 @@ class IRBuilder(object):
             return_names = [tensor.name for tensor in top_func.return_tensors]
             returns = [self.tensor_dict[name].result for name in return_names]
             func_d.ReturnOp(returns, ip=ip)
+            
+            # attach attributes
+            # if program has bit operations
+            # func.attributes["bit"] = UnitAttr.get()
+            func.attributes["function_type"] = TypeAttr.get(func_type)
+            # attach type hints
+            otypes = "".join(output_typehints)
+            itypes = "".join(input_typehints)
+            func.attributes["otypes"] = StringAttr.get(otypes)
+            func.attributes["itypes"] = StringAttr.get(itypes)
 
 
     def build_visitor(self, op, ip):
@@ -86,6 +106,9 @@ class IRBuilder(object):
         
         Build MLIR operation from intermediate layer
         """
+        if op.result is not None:
+            APIWarning("Build visitor called on an op with result: {}".format(op))
+            return
         if isinstance(op, itmd.ComputeOp):
             self.build_compute(op, ip)
         elif isinstance(op, itmd.AllocOp):
@@ -116,6 +139,7 @@ class IRBuilder(object):
             alloc_op = itmd.AllocOp(op.name, op.shape, op.dtype, op.loc)
             self.build_visitor(alloc_op, ip)
             op.result = alloc_op.result
+            op.ir_op = alloc_op
             
             loops = list()
             for i, (ub, loop_name) in enumerate(zip(op.shape, arg_names)):
@@ -145,6 +169,7 @@ class IRBuilder(object):
         memref_type = MemRefType.get(op.shape, ele_type)
         alloc_op = memref_d.AllocOp(memref_type, [], [], ip=ip, loc=loc)
         op.result = alloc_op.result
+        op.ir_op = alloc_op
         # assume no name conflict
         if op.name in self.tensor_dict:
             raise APIError("Tensor name conflict: {}".format(op.name))
@@ -168,6 +193,7 @@ class IRBuilder(object):
         OpClass = get_op_class(op, t)
         binary_op = OpClass(lhs.result, rhs.result, ip=ip, loc=loc)
         op.result = binary_op.result
+        op.ir_op = binary_op
 
         # Step 4: attach necessary attributes
         if isinstance(t, (htypes.UInt, htypes.UFixed)):
@@ -287,6 +313,7 @@ class IRBuilder(object):
         cmp_attr = IntegerAttr.get(IntegerType.get_signless(64), attr)
         cmp_op = OpClass(dtype, cmp_attr, lhs.result, rhs.result, ip=ip, loc=loc)
         op.result = cmp_op.result
+        op.ir_op = cmp_op
 
         # Step 4: attach necessary attributes
         if isinstance(t, (htypes.UInt, htypes.UFixed)):
@@ -299,6 +326,7 @@ class IRBuilder(object):
         load_op = None
         for index in op.index:
             try:
+                self.iv.clear() # clear iv
                 affine_expr = self.build_affine_expr(index)
                 index_exprs.append(affine_expr)
             except:
@@ -312,7 +340,10 @@ class IRBuilder(object):
             affine_attr = AffineMapAttr.get(affine_map)
             indices = list()
             for i in op.index:
-                if isinstance(i, (itmd.ConstantOp, hcl_mlir.IterVar)):
+                if isinstance(i, itmd.ConstantOp):
+                    continue
+                if isinstance(i, hcl_mlir.IterVar):
+                    indices.append(i.result)
                     continue
                 self.build_visitor(i, ip)
                 i = itmd.CastOp(i, htypes.Index(), loc)
@@ -326,6 +357,7 @@ class IRBuilder(object):
                 loc=loc
             )
             op.result = load_op.result
+            op.ir_op = load_op
         else:
             new_indices = []
             for index in op.index:
@@ -336,6 +368,7 @@ class IRBuilder(object):
                 new_indices.append(index.result)
             load_op = memref_d.LoadOp(op.tensor.result, new_indices, ip=ip, loc=loc)
             op.result = load_op.result
+            op.ir_op = load_op
 
         load_op.attributes["from"] = StringAttr.get(op.tensor.name)
         if isinstance(op.dtype, htypes.UInt):
@@ -345,11 +378,13 @@ class IRBuilder(object):
         index_exprs = []
         flag = True
         store_op = None
-        self.build_visitor(op.value, ip)
+        if op.value is None:
+            raise ValueError("Value of store op is not built: {}".format(op))
         casted_expr = itmd.CastOp(op.value, op.tensor.dtype, op.loc)
         self.build_visitor(casted_expr, ip)
         for index in op.index:
             try:
+                self.iv.clear() # clear iv
                 affine_expr = self.build_affine_expr(index)
                 index_exprs.append(affine_expr)
             except:
@@ -363,7 +398,10 @@ class IRBuilder(object):
             affine_attr = AffineMapAttr.get(affine_map)
             indices = list()
             for i in op.index:
-                if isinstance(i, (itmd.ConstantOp, hcl_mlir.IterVar)):
+                if isinstance(i, itmd.ConstantOp):
+                    continue
+                if isinstance(i, hcl_mlir.IterVar):
+                    indices.append(i.result)
                     continue
                 self.build_visitor(i, ip)
                 i = itmd.CastOp(i, htypes.Index(), i.loc)
@@ -423,6 +461,7 @@ class IRBuilder(object):
             raise DTypeError("Unsupported type: {}".format(op.dtype))
         
         op.result = const_op.result
+        op.ir_op = const_op
 
         # attach necessary attributes
         if isinstance(op.dtype, (htypes.UInt, htypes.UFixed)):
@@ -431,13 +470,14 @@ class IRBuilder(object):
 
     def build_cast_op(self, op, ip):
         if op.expr.result is None:
-            raise APIError("Cast op operand `expr` must be built first: {}".format(op.expr))
+            self.build_visitor(op.expr, ip)
         res_type = op.dtype
         src_type = self.tinf_engine.infer(op.expr)
         # determine cast op
         CastOpClass = None
         if type(res_type) == type(src_type) and res_type == src_type:
             op.result = op.expr.result
+            op.ir_op = op.expr.ir_op
             return
         elif isinstance(src_type, (htypes.Int, htypes.UInt)) and isinstance(res_type, htypes.Index):
             CastOpClass = arith_d.IndexCastOp
@@ -456,6 +496,7 @@ class IRBuilder(object):
                 CastOpClass = arith_d.TruncIOp
             elif src_type.bits == res_type.bits:
                 op.result = op.expr.result
+                op.ir_op = op.expr.ir_op
                 return
             else: # src_type.bits < res_type.bits
                 if (
@@ -474,6 +515,7 @@ class IRBuilder(object):
                 CastOpClass = arith_d.ExtFOp
             else:
                 op.result = op.expr.result
+                op.ir_op = op.expr.ir_op
                 return
         elif isinstance(src_type, htypes.Float) and isinstance(res_type, (htypes.Fixed, htypes.UFixed)):
             CastOpClass = hcl_d.FloatToFixedOp
@@ -486,6 +528,7 @@ class IRBuilder(object):
         elif isinstance(src_type, (htypes.Fixed, htypes.UFixed)) and isinstance(res_type, (htypes.Fixed, htypes.UFixed)):
             if src_type == res_type:
                 op.result = op.expr.result
+                op.ir_op = op.expr.ir_op
                 return
             else:
                 CastOpClass = hcl_d.FixedToFixedOp
@@ -511,6 +554,7 @@ class IRBuilder(object):
                         f"src type: {src_type}, dst type: {res_type}"
                     )
             op.result = op.expr.result
+            op.ir_op = op.expr.ir_op
             return
         elif isinstance(src_type, htypes.Struct) and isinstance(res_type, (htypes.Int, htypes.UInt)):
             all_field_int = True
@@ -547,6 +591,7 @@ class IRBuilder(object):
             mlir_type = hcl_dtype_to_mlir(res_type)
             cast_op = CastOpClass(mlir_type, op.expr.result, ip=ip)
         op.result = cast_op.result
+        op.ir_op = cast_op
 
     def build_affine_expr(self, expr):
         """Build affine expression.

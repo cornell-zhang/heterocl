@@ -29,27 +29,29 @@ def build_schedule(inputs, func=None, name=""):
     # create a new context
     set_context()
     # create a new schedule
-    s = Schedule(name, inputs, func)
-    scope.push(s._IR.top_func.body)
-    ret = func(*inputs)
-    if ret is None:
-        outputs = list()
-    elif isinstance(ret, tuple):
-        outputs = list(ret)
+    if func is None:
+        pass
     else:
-        outputs = [ret]
-    s._IR.top_func.return_tensors.extend(outputs)
-    # run passes
-    nest_elif_pass = NestElseIf(s._IR)
-    nest_elif_pass.apply()
-    ir_builder = IRBuilder(s._IR)
-    ir_builder.build()
+        s = Schedule(name, inputs, func)
+        scope.push(s._IR.top_func.body)
+        ret = func(*inputs)
+        if ret is None:
+            outputs = list()
+        elif isinstance(ret, tuple):
+            outputs = list(ret)
+        else:
+            outputs = [ret]
+        s._IR.top_func.return_tensors.extend(outputs)
+        # run passes
+        nest_elif_pass = NestElseIf(s._IR)
+        nest_elif_pass.apply()
+        ir_builder = IRBuilder(s._IR)
+        ir_builder.build()
     # exit the current context
     exit_context()
-
     # set device module and top func
     s._device_module = ir_builder.module
-    s._device_top = s._IR.top_func
+    s._device_top = s._IR.top_func.ir_op
     return s
 
 def build_schedule_old(inputs, func=None, name=""):

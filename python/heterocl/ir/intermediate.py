@@ -77,6 +77,9 @@ class Operation(object):
     def __init__(self, name, loc):
         self.name = name
         self.loc = loc
+        # the MLIR operation
+        self.ir_op = None
+        # the MLIR operation's result
         # when an operation is built, its result will be set
         self.result = None
 
