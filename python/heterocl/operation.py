@@ -56,6 +56,22 @@ def asarray(np_array, dtype=None):
 
 
 def scalar(init, name=None, dtype=None):
+    if name is None:
+        name = UniqueName.get("scalar")
+    if isinstance(dtype, str):
+        dtype = dtype_to_hcl(dtype)
+    dtype = config.init_dtype if dtype == None else dtype # dtype is HeteroCL type
+    if isinstance(dtype, Struct):
+        raise HCLNotImplementedError("Struct scalar is not supported yet")
+
+    # Generate a ComputeOp
+    filename, lineno = get_src_loc()
+    op = ComputeOp(name, (1,), lambda _ : init, dtype, Location(filename, lineno))
+    region = scope.get()
+    region.append(op)
+    return op.tensor
+
+def scalar_old(init, name=None, dtype=None):
     """Syntactic sugar: single-value tensor
     - init: int, float, expr, or tuple
     """

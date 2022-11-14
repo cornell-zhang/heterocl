@@ -490,6 +490,25 @@ class AllocOp(Expr):
         else:
             raise TensorError("Indices length > # of array dimensions")
 
+    @property
+    def axis(self):
+        raise HCLNotImplementedError("TODO axis is not supported for AllocOp")
+
+    @property
+    def v(self):
+        if len(self.shape) == 1 and self.shape[0] == 1:
+            return self[0]
+        else:
+            raise TensorError(".v can only be used on scalars")
+    
+    @v.setter
+    def v(self, value):
+        if len(self.shape) == 1 and self.shape[0] == 1:
+            value = immediate_to_constant(value, self.loc)
+            self[0] = value
+        else:
+            raise TensorError(".v can only be used on scalars")
+
 
 class ComputeOp(Operation):
     """Compute operation

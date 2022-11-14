@@ -18,3 +18,15 @@ def add_sub_rule():
         (Float, Float) : lambda t1, t2: Float(max(t1.bits, t2.bits)),
     }
     return TypeRule(ops, [int_rules, float_rules])
+
+
+def mul_rule():
+    ops = (itmd.Mul)
+    int_rules = {
+        (Int, Int) : lambda t1, t2: Int(t1.bits * t2.bits),
+        (Int, UInt): lambda t1, t2: Int(t1.bits * t2.bits)
+    }
+    float_rules = {
+        (Float, Float) : lambda t1, t2: Float(max(t1.bits, t2.bits)),
+    }
+    return TypeRule(ops, [int_rules, float_rules])

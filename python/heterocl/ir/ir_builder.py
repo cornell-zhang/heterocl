@@ -34,8 +34,24 @@ def get_op_class(op, typ):
             return hcl_d.AddFixedOp
         else:
             raise APIError("Unsupported type for AddOp: {}".format(typ))
-    elif isinstance(op, itmd.SubOp):
-        pass
+    elif isinstance(op, itmd.Sub):
+        if isinstance(typ, (htypes.Int, htypes.UInt)):
+            return arith_d.SubIOp
+        elif isinstance(typ, htypes.Float):
+            return arith_d.SubFOp
+        elif isinstance(typ, (htypes.Fixed, htypes.UFixed)):
+            return hcl_d.SubFixedOp
+        else:
+            raise APIError("Unsupported type for SubOp: {}".format(typ))
+    elif isinstance(op, itmd.Mul):
+        if isinstance(typ, (htypes.Int, htypes.UInt)):
+            return arith_d.MulIOp
+        elif isinstance(typ, htypes.Float):
+            return arith_d.MulFOp
+        elif isinstance(typ, (htypes.Fixed, htypes.UFixed)):
+            return hcl_d.MulFixedOp
+        else:
+            raise APIError("Unsupported type for MulOp: {}".format(typ))
     else:
         raise APIError("Unsupported op in get_op_class: {}".format(op))
 
@@ -61,14 +77,14 @@ class IRBuilder(object):
             input_typehints = []
             for tensor in top_func.args:
                 self.tensor_dict[tensor.name] = tensor
-                ele_type = hcl_dtype_to_mlir(tensor.dtype)
+                ele_type = hcl_dtype_to_mlir(tensor.dtype, signless=True)
                 input_typehints.append(get_extra_type_hints(ele_type))
                 memref_type = MemRefType.get(tensor.shape, ele_type)
                 input_types.append(memref_type)
             return_types = []
             output_typehints = []
             for tensor in top_func.return_tensors:
-                ele_type = hcl_dtype_to_mlir(tensor.dtype)
+                ele_type = hcl_dtype_to_mlir(tensor.dtype, signless=True)
                 output_typehints.append(get_extra_type_hints(ele_type))
                 memref_type = MemRefType.get(tensor.shape, ele_type)
                 return_types.append(memref_type)
@@ -136,7 +152,7 @@ class IRBuilder(object):
         arg_names = ["i%d" % i for i in range(len(op.shape))]
         with get_context(), get_location():
             # build output tensor
-            alloc_op = itmd.AllocOp(op.name, op.shape, op.dtype, op.loc)
+            alloc_op = op.tensor
             self.build_visitor(alloc_op, ip)
             op.result = alloc_op.result
             op.ir_op = alloc_op
@@ -157,6 +173,7 @@ class IRBuilder(object):
             iter_var = [hcl_mlir.IterVar(loop.induction_variable, name=loop_name)
                 for loop, loop_name in zip(loops, arg_names)]
             result_expr = op.fcompute(*iter_var)
+            result_expr = itmd.immediate_to_constant(result_expr, op.loc)
             # visit the result expression
             # here ip is the innermost loop
             self.build_visitor(result_expr, ip)
@@ -165,7 +182,7 @@ class IRBuilder(object):
 
     def build_alloc_op(self, op, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
-        ele_type = hcl_dtype_to_mlir(op.dtype)
+        ele_type = hcl_dtype_to_mlir(op.dtype, signless=True)
         memref_type = MemRefType.get(op.shape, ele_type)
         alloc_op = memref_d.AllocOp(memref_type, [], [], ip=ip, loc=loc)
         op.result = alloc_op.result
