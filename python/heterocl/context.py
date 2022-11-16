@@ -21,6 +21,7 @@ class UniqueName(object):
     schedule_idx = 0
     reduction_axis_idx = 0
     instance_idx = 0
+    op_idx = 0
 
     def __init__(self):
         pass
@@ -49,6 +50,9 @@ class UniqueName(object):
         elif case == "instance":
             name = "instance_" + str(cls.instance_idx)
             cls.instance_idx += 1
+        elif case == "op":
+            name = "op_" + str(cls.op_idx)
+            cls.op_idx += 1
         else:
             raise RuntimeError(f"Unrecognized case in get_unique_name: {case}")
         return name

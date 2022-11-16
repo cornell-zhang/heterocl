@@ -16,7 +16,7 @@ from .schedule import Schedule, Stage, scope
 from .tensor import Array, Tensor
 from .utils import get_dtype_str, hcl_dtype_to_mlir, get_func_obj, get_src_loc
 from .context import get_context, get_location
-from .ir.intermediate import *
+from .ir import intermediate as itmd
 
 
 def init(init_dtype=Int(32), raise_assert_exception=True):
@@ -42,7 +42,7 @@ def placeholder(shape, name=None, dtype=None):
         shape = (1,)
     dtype = config.init_dtype if dtype == None else dtype
     filename, lineno = get_src_loc(frame=1)
-    alloc = AllocOp(name, shape, dtype, Location(filename, lineno))
+    alloc = itmd.AllocOp(name, shape, dtype, itmd.Location(filename, lineno))
     return alloc
 
 
@@ -64,7 +64,7 @@ def scalar(init, name=None, dtype=None):
 
     # Generate a ComputeOp
     filename, lineno = get_src_loc()
-    op = ComputeOp(name, (1,), lambda _ : init, dtype, Location(filename, lineno))
+    op = itmd.ComputeOp(name, (1,), lambda _ : init, dtype, itmd.Location(filename, lineno))
     region = scope.get()
     region.append(op)
     return op.tensor
@@ -108,7 +108,10 @@ def reduce_axis(lower, upper, name=None):
     """Create a reduction axis for reduction operations."""
     if name is None:
         name = UniqueName.get("reduction_axis")
-    return hcl_mlir.ReduceVar(None, bound=(lower, upper), name=name)
+    # return hcl_mlir.ReduceVar(None, bound=(lower, upper), name=name)
+    filename, lineno = get_src_loc()
+    loc = itmd.Location(filename, lineno)
+    return itmd.ReduceVar(name, parent_loop=None, loc=loc, bound=(lower, upper))
 
 
 def cast(dtype, expr):
@@ -139,12 +142,27 @@ def copy(values, name=None, dtype=None):
 
 
 def select(cond, true_val, false_val):
-    return hcl_mlir.SelectOp(cond, true_val, false_val)
+    # return hcl_mlir.SelectOp(cond, true_val, false_val)
+    raise HCLNotImplementedError("select is not implemented yet")
 
 
-def sum(data, axis=None, dtype=None, name=""):
+def sum(expr, axis=None, dtype=None, name=None):
+    if name is None:
+        name = UniqueName.get("op")
+    if axis is None:
+        raise HCLNotImplementedError("sum with axis=None is not supported")
+    if isinstance(axis, tuple):
+        axis = list(axis)
+    elif isinstance(axis, itmd.ReduceVar):
+        axis = [axis]
+    elif not isinstance(axis, list):
+        raise APIError("axis must be a list of reduction axis")
     dtype = config.init_dtype if dtype == None else dtype
-    return hcl_mlir.SumOp(data, axis, get_dtype_str(dtype))
+    if isinstance(dtype, str):
+        dtype = dtype_to_hcl(dtype)
+    filename, lineno = get_src_loc()
+    loc = itmd.Location(filename, lineno)
+    return itmd.SumOp(name, expr, axis, dtype, loc)
 
 
 def max(data, axis=None, dtype=None, name=""):
@@ -229,7 +247,67 @@ def unpack(tensor, axis=0, factor=None, name=None, dtype=None):
         return result[0]
 
     return compute(tuple(new_shape), assign_val, name, new_type)
+    
 
+def compute_body(name, shape, fcompute, dtype, loc, tensor):
+    """ Create an itmd.ComputeOp and its body operations
+
+    Parameters
+    ----------
+    name : str
+        The name of the compute op
+    shape: tuple
+        The shape of the compute op
+    fcompute: function
+        The compute function
+    dtype: hcl.dtype
+        The data type of the compute op
+    tensor: itmd.AllocOp, None, or "no_alloc"
+        The tensor to store the result of the compute op
+        - itmd.AllocOp: hcl.update
+        - None: hcl.compute, ComputeOp will allocate new tensor
+        - "no_alloc": hcl.mutate, no tensor will be allocated
+
+    Returns
+    -------
+    itmd.ComputeOp
+        The compute op
+    """
+    # Generate a ComputeOp
+    compute_op = itmd.ComputeOp(name, shape, fcompute, dtype, loc, tensor)
+    region = scope.get()
+    region.append(compute_op)
+    # Build AST for fcompute body
+    axis_names = ["i" + str(i) for i in range(len(shape))]
+    iter_vars = [itmd.IterVar(name, None, loc) for name in axis_names]
+    # attach iter_vars to the compute op
+    # iter_var's parent_loop will be set in ir.ir_builder.build_compute
+    compute_op.iter_vars.extend(iter_vars)
+    scope.push(compute_op.body)
+    if tensor is None:
+        # hcl.compute
+        res_expr = fcompute(*iter_vars)
+        res_expr = itmd.immediate_to_constant(res_expr, loc)
+        store_op = itmd.StoreOp(compute_op.tensor, compute_op.iter_vars, res_expr, loc)
+        compute_op.body.append(store_op)
+        scope.pop()
+    elif isinstance(tensor, itmd.AllocOp):
+        # hcl.update
+        res_expr = fcompute(*iter_vars)
+        res_expr = itmd.immediate_to_constant(res_expr, loc)
+        store_op = itmd.StoreOp(tensor, iter_vars, res_expr, loc)
+        compute_op.body.append(store_op)
+        scope.pop()
+    elif isinstance(tensor, str) and tensor == "no_alloc":
+        # hcl.mutate
+        res_expr = fcompute(*iter_vars)
+        if res_expr is not None:
+            raise APIError("hcl.mutate does not support return value")
+        scope.pop()
+    else:
+        raise APIError("Invalid tensor type")
+
+    return compute_op
 
 def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
     if not isinstance(shape, tuple):
@@ -245,10 +323,9 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
 
     # Generate a ComputeOp
     filename, lineno = get_src_loc()
-    op = ComputeOp(name, shape, fcompute, dtype, Location(filename, lineno))
-    region = scope.get()
-    region.append(op)
-    return op.tensor
+    loc = itmd.Location(filename, lineno)
+    compute_op = compute_body(name, shape, fcompute, dtype, loc, None)
+    return compute_op.tensor
 
 def old_compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
     """
@@ -304,7 +381,18 @@ def old_compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
     
     return ret_tensor
 
-def update(tensor: Tensor, fcompute, name=None):
+def update(tensor, fcompute, name=None):
+    if not isinstance(tensor, itmd.AllocOp):
+        raise APIError("The input of update API must be an allocated tensor")
+    if name is None:
+        name = tensor.name + "_updated"
+    
+    filename, lineno = get_src_loc()
+    loc = itmd.Location(filename, lineno)
+    compute_body(name, tensor.shape, fcompute, tensor.dtype, loc, tensor)
+    return tensor
+
+def old_update(tensor: Tensor, fcompute, name=None):
     """
     fcompute: function, callable
     name: str
@@ -372,6 +460,18 @@ def update(tensor: Tensor, fcompute, name=None):
 
 
 def mutate(domain, fcompute, name=None):
+    if not isinstance(domain, tuple):
+        raise APIError("The domain of mutate API must be a tuple")
+    if name is None:
+        name = UniqueName.get("tensor")
+    
+    # Generate a ComputeOp
+    filename, lineno = get_src_loc()
+    loc = itmd.Location(filename, lineno)
+    compute_body(name, domain, fcompute, None, loc, "no_alloc")
+    return
+
+def old_mutate(domain, fcompute, name=None):
     """
     For now, assume no return value
     """

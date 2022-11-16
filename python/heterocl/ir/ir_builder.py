@@ -62,7 +62,7 @@ class IRBuilder(object):
     def __init__(self, intermediate):
         self._intermediate = intermediate
         self.module = Module.create(get_location())
-        self.iv = [] # TODO(Niansong): what is this list of iv for?
+        self.iv = [] # a list to keep track of affine expression's induction variables
         self.tinf_engine = TypeInfer()
         self.tensor_dict = dict() # tensor name -> memref.allocOp
 
@@ -123,10 +123,14 @@ class IRBuilder(object):
         Build MLIR operation from intermediate layer
         """
         if op.result is not None:
-            APIWarning("Build visitor called on an op with result: {}".format(op))
+            APIWarning("Build visitor called on an op with result: {}".format(op)).warn()
             return
         if isinstance(op, itmd.ComputeOp):
             self.build_compute(op, ip)
+        elif isinstance(op, itmd.IterVar):
+            self.build_iter_var(op, ip)
+        elif isinstance(op, itmd.ReduceOp):
+            self.build_reduce(op, ip)
         elif isinstance(op, itmd.AllocOp):
             self.build_alloc_op(op, ip)
         elif isinstance(op, itmd.Cmp):
@@ -146,19 +150,25 @@ class IRBuilder(object):
         else:
             raise HCLNotImplementedError(f"{type(op)}'s build visitor is not implemented yet.")
 
+    def build_iter_var(self, iv, ip):
+        """Build IterVar"""
+        if iv.parent_loop is None:
+            raise APIError("IterVar {} parent loop has not been set".format(iv))
+        iv.result = iv.parent_loop.induction_variable
 
     def build_compute(self, op, ip):
-        # TODO(Niansong): use real loop names
-        arg_names = ["i%d" % i for i in range(len(op.shape))]
+        iv_names = [iv.name for iv in op.iter_vars]
         with get_context(), get_location():
             # build output tensor
             alloc_op = op.tensor
-            self.build_visitor(alloc_op, ip)
-            op.result = alloc_op.result
-            op.ir_op = alloc_op
+            if alloc_op is not None:
+                self.build_visitor(alloc_op, ip)
+                op.result = alloc_op.result
+                op.ir_op = alloc_op
             
             loops = list()
-            for i, (ub, loop_name) in enumerate(zip(op.shape, arg_names)):
+            for i, (ub, loop_name) in enumerate(zip(op.shape, iv_names)):
+                # TODO(Niansong): merge make_for with build_for?
                 loop = hcl_mlir.make_for(
                     0,
                     ub,
@@ -169,16 +179,10 @@ class IRBuilder(object):
                 )
                 loops.append(loop)
                 ip = InsertionPoint(loop.body.operations[0])
-
-            iter_var = [hcl_mlir.IterVar(loop.induction_variable, name=loop_name)
-                for loop, loop_name in zip(loops, arg_names)]
-            result_expr = op.fcompute(*iter_var)
-            result_expr = itmd.immediate_to_constant(result_expr, op.loc)
-            # visit the result expression
-            # here ip is the innermost loop
-            self.build_visitor(result_expr, ip)
-            store_op = itmd.StoreOp(alloc_op, iter_var, result_expr, op.loc)
-            self.build_visitor(store_op, ip)
+            for iter_var, loop in zip(op.iter_vars, loops):
+                iter_var.parent_loop = loop
+            for body_op in op.body:
+                self.build_visitor(body_op, ip)
 
     def build_alloc_op(self, op, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
@@ -340,34 +344,23 @@ class IRBuilder(object):
         index_exprs = []
         flag = True
         load_op = None
+        self.iv.clear() # clear iv
         for index in op.index:
             try:
-                self.iv.clear() # clear iv
                 affine_expr = self.build_affine_expr(index)
                 index_exprs.append(affine_expr)
             except:
                 flag = False
                 break
         if flag:
-            dim_count = len([i for i in op.index if not isinstance(i, itmd.ConstantOp)])
+            dim_count = len(self.iv)
             affine_map = AffineMap.get(
                 dim_count=dim_count, symbol_count=0, exprs=index_exprs
             )
             affine_attr = AffineMapAttr.get(affine_map)
-            indices = list()
-            for i in op.index:
-                if isinstance(i, itmd.ConstantOp):
-                    continue
-                if isinstance(i, hcl_mlir.IterVar):
-                    indices.append(i.result)
-                    continue
-                self.build_visitor(i, ip)
-                i = itmd.CastOp(i, htypes.Index(), loc)
-                self.build_visitor(i, ip)
-                indices.append(i.result)
             load_op = affine_d.AffineLoadOp(
                 op.tensor.result,
-                indices,
+                self.iv,
                 affine_attr,
                 ip=ip,
                 loc=loc
@@ -394,39 +387,28 @@ class IRBuilder(object):
         index_exprs = []
         flag = True
         store_op = None
-        if op.value is None:
-            raise ValueError("Value of store op is not built: {}".format(op))
+        if op.value.result is None:
+            self.build_visitor(op.value, ip)
         casted_expr = itmd.CastOp(op.value, op.tensor.dtype, op.loc)
         self.build_visitor(casted_expr, ip)
+        self.iv.clear() # clear iv
         for index in op.index:
             try:
-                self.iv.clear() # clear iv
                 affine_expr = self.build_affine_expr(index)
                 index_exprs.append(affine_expr)
             except:
                 flag = False
                 break
         if flag:
-            dim_count = len([i for i in op.index if not isinstance(i, itmd.ConstantOp)])
+            dim_count = len(self.iv)
             affine_map = AffineMap.get(
                 dim_count=dim_count, symbol_count=0, exprs=index_exprs
             )
             affine_attr = AffineMapAttr.get(affine_map)
-            indices = list()
-            for i in op.index:
-                if isinstance(i, itmd.ConstantOp):
-                    continue
-                if isinstance(i, hcl_mlir.IterVar):
-                    indices.append(i.result)
-                    continue
-                self.build_visitor(i, ip)
-                i = itmd.CastOp(i, htypes.Index(), i.loc)
-                self.build_visitor(i, ip)
-                indices.append(i.result)
             store_op = affine_d.AffineStoreOp(
                 casted_expr.result,
                 op.tensor.result,
-                indices,
+                self.iv,
                 affine_attr,
                 ip=ip
             )
@@ -614,16 +596,16 @@ class IRBuilder(object):
         * Should all be binary op
         * AffineExpr can be automatically simplied
         """
-        if not isinstance(expr, (hcl_mlir.IterVar, itmd.IterVar, itmd.ConstantOp, itmd.CastOp, itmd.BinaryOp)):
-            raise HCLValueError("Not an affine index!")
-        if isinstance(expr, hcl_mlir.IterVar):
-            if isinstance(expr.op.owner.owner, scf_d.ForOp):
-                raise HCLValueError("Outer loop is not affine!")
-            if expr.op not in self.iv:
-                self.iv.append(expr.op)  # BlockArgument
+        if not isinstance(expr, (itmd.IterVar, itmd.ConstantOp, itmd.CastOp, itmd.BinaryOp)):
+            raise HCLValueError(f"{expr} is not an affine index")
+        if isinstance(expr, itmd.IterVar):
+            if isinstance(expr.parent_loop, scf_d.ForOp):
+                raise HCLValueError(f"loop {expr.parent_loop} is not affine")
+            if expr.parent_loop.induction_variable not in self.iv:
+                self.iv.append(expr.parent_loop.induction_variable)  # BlockArgument
                 return AffineExpr.get_dim(len(self.iv) - 1)
             else:
-                return AffineExpr.get_dim(self.iv.index(expr.op))
+                return AffineExpr.get_dim(self.iv.index(expr.parent_loop.induction_variable))
         elif isinstance(expr, itmd.ConstantOp):
             return AffineExpr.get_constant(expr.value)
         elif isinstance(expr, itmd.CastOp):
@@ -638,10 +620,10 @@ class IRBuilder(object):
             return lhs * rhs
         elif isinstance(expr, itmd.DivOp):
             return AffineExpr.get_floor_div(lhs, rhs)  # or get_ceil_div
-        elif isinstance(expr, itmd.RemOp):
+        elif isinstance(expr, itmd.ModOp):
             return lhs % rhs
         else:
-            raise HCLValueError("Not an affine index!")
+            raise HCLValueError(f"{expr} is not an affine index!")
 
     def build_if_op(self, op : itmd.IfOp, ip):
         """Build IfOp"""
@@ -661,3 +643,56 @@ class IRBuilder(object):
             for body_op in op.else_body:
                 self.build_visitor(body_op, ip)
             scf_d.YieldOp([], ip=ip)
+
+
+    def build_reduce(self, op: itmd.ReduceOp, ip):
+        """Build ReduceOp"""
+        # scalar to hold the reduction result
+        self.build_visitor(op.scalar, ip)
+        # store the init value to the scalar
+        init = itmd.immediate_to_constant(op.init, op.loc)
+        self.build_visitor(init, ip)
+        zero_idx = itmd.ConstantOp(0, htypes.Index(), op.loc)
+        self.build_visitor(zero_idx, ip)
+        store_op = itmd.StoreOp(op.scalar, (zero_idx,), init, op.loc)
+        self.build_visitor(store_op, ip)
+        body_ip = ip
+
+        # build loop nest
+        loops = list()
+        for axis in op.axis:
+            lb, ub = axis.bound
+            loop = hcl_mlir.make_for(
+                lb, ub, step=1,
+                reduction=True,
+                name=axis.name,
+                ip=body_ip
+            )
+            axis.parent_loop = loop
+            loops.append(loop)
+            body_ip = InsertionPoint(loop.body.operations[0])
+
+        # load from the input tensor
+        self.build_visitor(op.expr, body_ip)
+        # load from scalar
+        load_scalar = itmd.LoadOp(op.scalar, (zero_idx,), op.loc)
+        # build the reduction op
+        if op.reduce_op == "sum":
+            reduce_op = itmd.Add(op.expr, load_scalar, op.loc)
+        elif op.reduce_op == "max":
+            pass
+        elif op.reduce_op == "min":
+            pass
+        else:
+            raise HCLValueError(f"Unsupported reduction op {op.reduce_op}")
+
+        self.build_visitor(reduce_op, body_ip)
+        # store to the scalar
+        store_res = itmd.StoreOp(op.scalar, (zero_idx,), reduce_op, op.loc)
+        self.build_visitor(store_res, body_ip)
+
+        # load from the scalar
+        load_op = itmd.LoadOp(op.scalar, (zero_idx,), op.loc)
+        self.build_visitor(load_op, ip)
+        op.ir_op = load_op
+        op.result = load_op.result

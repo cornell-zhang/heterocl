@@ -12,7 +12,8 @@ def add_sub_rule():
     ops = (itmd.Add, itmd.Sub, itmd.Cmp)
     int_rules = {
         (Int, Int) : lambda t1, t2: Int(max(t1.bits, t2.bits)),
-        (Int, UInt): lambda t1, t2: Int(max(t1.bits, t2.bits))
+        (Int, UInt): lambda t1, t2: Int(max(t1.bits, t2.bits)),
+        (Index, Index): lambda t1, t2: Index()
     }
     float_rules = {
         (Float, Float) : lambda t1, t2: Float(max(t1.bits, t2.bits)),

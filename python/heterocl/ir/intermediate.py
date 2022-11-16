@@ -107,14 +107,62 @@ class Expr(object):
     def __add__(self, other):
         return Add(self, other, self.loc)
 
+    def __radd__(self, other):
+        return Add(other, self, self.loc)
+
     def __sub__(self, other):
         return Sub(self, other, self.loc)
 
+    def __rsub__(self, other):
+        return Sub(other, self, self.loc)
+
     def __mul__(self, other):
         return Mul(self, other, self.loc)
+
+    def __rmul__(self, other):
+        return Mul(other, self, self.loc)
     
     def __div__(self, other):
         return Div(self, other, self.loc)
+
+    def __rdiv__(self, other):
+        return Div(other, self, self.loc)
+
+    def __truediv__(self, other):
+        return Div(self, other, self.loc)
+
+    def __rtruediv__(self, other):
+        return Div(other, self, self.loc)
+
+    def __floordiv__(self, other):
+        return FloorDiv(self, other, self.loc)
+
+    def __rfloordiv__(self, other):
+        return FloorDiv(other, self, self.loc)
+
+    def __mod__(self, other):
+        return Mod(self, other, self.loc)
+
+    def __neg__(self):
+        return Neg(self, self.loc)
+
+    def __lshift__(self, other):
+        return LeftShiftOp(self, other, self.loc)
+
+    def __rshift__(self, other):
+        return RightShiftOp(self, other, self.loc)
+
+    def __and__(self, other):
+        return And(self, other, self.loc)
+
+    def __or__(self, other):
+        return Or(self, other, self.loc)
+
+    def __xor__(self, other):
+        return XOr(self, other, self.loc)
+
+    def __invert__(self):
+        return Invert(self, self.loc)
 
     def __lt__(self, other):
         if other is None:
@@ -139,6 +187,107 @@ class Expr(object):
 
     def __ge__(self, other):
         return Cmp("ge", self, other, self.loc)
+
+    def __getitem__(self, key):
+        """Bit slicing and bit selection
+        """
+        if not isinstance(self.dtype, (Int, UInt)):
+            raise APIError("Only integers can access the bits")
+        if isinstance(indices, slice):
+            lo, hi = indices.start, indices.stop
+            if isinstance(lo, int) and isinstance(hi, int):
+                if lo > hi:
+                    raise APIError(
+                        "Lower bound should be smaller than upper bound. Use `.reverse()` if you want to reverse the bits"
+                    )
+                elif lo == hi:
+                    return self
+                else:
+                    return GetSliceOp(self, hi - 1, lo)
+            else:
+                return GetSliceOp(self, hi - 1, lo)
+        else:
+            if not isinstance(indices, tuple):
+                indices = (indices,)
+            if not len(indices) == 1:
+                raise APIError("Can only access one bit of the integer")
+            index = indices[0]
+            return GetBitOp(self, index)
+
+    def __setitem__(self, indices, expr):
+        if not isinstance(self.dtype, (Int, UInt)):
+            raise APIError("Only integers can access the bits")
+        if isinstance(indices, slice):
+            lo, hi = indices.start, indices.stop
+            if isinstance(lo, int) and isinstance(hi, int):
+                if lo > hi:
+                    raise APIError(
+                        "Lower bound should be smaller than upper bound. Use `.reverse()` if you want to reverse the bits"
+                    )
+                elif lo == hi:  # e.g. [2:2]
+                    if not isinstance(expr, LoadOp):
+                        raise APIError(
+                            "Please check the expression to make sure the lower bound not equal to the upper bound"
+                        )
+                    else:
+                        return StoreOp(expr, self.tensor, self.indices)
+                else:
+                    return SetSliceOp(self, hi - 1, lo, expr)
+            else:
+                return SetSliceOp(self, hi - 1, lo, expr)
+        else:
+            if not isinstance(indices, tuple):
+                indices = (indices,)
+            if not len(indices) == 1:
+                raise APIError("Can only access one bit of the integer")
+            indices = indices[0]
+            return SetBitOp(self, indices, expr)
+
+    def reverse(self):
+        if not isinstance(self.dtype, (Int, UInt)):
+            raise APIError("Only integers can reverse the bits")
+        return BitReverseOp(self)
+
+    def __nonzero__(self):
+        raise APIError(
+            "1) Cannot use and / or / not operator to Expr, "
+            + "2) Cannot compare NumPy numbers with HeteroCL exprs, "
+            + "hint: swap the operands"
+        )
+
+    def __bool__(self):
+        return self.__nonzero__()
+
+    def equal(self, other):
+        # TODO(Niansong): not sure when this should be called
+        # throw an error for now
+        raise HCLNotImplementedError("equal is not implemented yet")
+
+    def astype(self, dtype):
+        return CastOp(self, dtype)
+
+    def __getattr__(self, key):
+        """Access a field of a struct value
+        """
+         # bypass the attribute lookup to avoid infinite recursion
+        if key in self.__dict__.keys():
+            return self.__dict__[key]
+        elif key == "result":
+            if self.built_op is None:
+                self.build()
+            return self.result
+        elif isinstance(self, LoadOp):
+            # access a field from a struct tensor
+            key_list = [k for k in self.tensor.hcl_dtype.dtype_dict.keys()]
+            if key not in key_list:
+                raise HCLValueError("No such field: " + key)
+            key_idx = key_list.index(key)
+            return StructGetOp(self, key_idx)
+        else:
+            # We don't throw an error here
+            # because the user may be trying to test if
+            # an attribute exists with hasattr().
+            return
 
 class UnaryOp(Expr):
     """Base class for all unary operations.
@@ -268,28 +417,34 @@ class Cmp(BinaryOp):
         super().__init__(op, lhs, rhs, loc)
 
 class And(BinaryOp):
-    """Logical and operation.
+    """Bitwise and operation.
     """
     def __init__(self, lhs, rhs, loc):
         super().__init__("&", lhs, rhs, loc)
 
 class Or(BinaryOp):
-    """Logical or operation.
+    """Bitwise or operation.
     """
     def __init__(self, lhs, rhs, loc):
         super().__init__("|", lhs, rhs, loc)
 
 class XOr(BinaryOp):
-    """Logical xor operation.
+    """Bitwise xor operation.
     """
     def __init__(self, lhs, rhs, loc):
         super().__init__("^", lhs, rhs, loc)
 
-class Not(UnaryOp):
-    """Logical not operation.
+class Invert(UnaryOp):
+    """Bitwise invert operation, e.g. 0b1011 -> 0b0100.
     """
     def __init__(self, expr, loc):
-        super().__init__("!", expr, loc)
+        super().__init__("~", expr, loc)
+
+class Neg(UnaryOp):
+    """Negate operation, i.e. -x for any expression x.
+    """
+    def __init__(self, expr, loc):
+        super().__init__("neg", expr, loc)
 
 class BitReverseOp(UnaryOp):
     """Bit reverse operation.
@@ -649,19 +804,33 @@ class AllocOp(Expr):
 class ComputeOp(Operation):
     """Compute operation
     """
-    def __init__(self, name, shape, fcompute, dtype, loc):
+    def __init__(self, name, shape, fcompute, dtype, loc, tensor=None):
         super().__init__(name, loc)
         self.fcompute = fcompute
         self.shape = shape
         self.dtype = dtype
         self.name = name
-        self.tensor = AllocOp(name, shape, dtype, loc)
+        if tensor is None: # hcl.compute, which creates a new tensor
+            self.tensor = AllocOp(name, shape, dtype, loc)
+        elif isinstance(tensor, str) and tensor == "no_alloc": # hcl.mutate, which doesn't create a new tensor
+            self.tensor = None
+        elif isinstance(tensor, AllocOp): # hcl.update, which updates an existing tensor
+            self.tensor = tensor
+        else:
+            raise HCLValueError("tensor must be either None, 'no_alloc', or an AllocOp")
+        self.body = list()
+        self.iter_vars = list()
         self.level = len(scope)
 
     def __repr__(self):
+        #TODO: Print body as well for compute op
         code_str = ""
         code_str = print_indent(code_str, self.level)
-        code_str += f"{self.name} = compute({self.shape}, {self.dtype})"
+        code_str += f"{self.name} = compute({self.shape}, {self.dtype}) {{\n"
+        for op in self.body:
+            code_str += f"{op}\n"
+        code_str = print_indent(code_str, self.level)
+        code_str += "}\n"
         return code_str
 
 
@@ -839,33 +1008,35 @@ class StructGetOp(Expr):
 
 
 class ReduceOp(Expr):
-    def __init__(self, name, axis, dtype, prefix, init, loc):
+    def __init__(self, name, expr, reduce_op, axis, dtype, init, loc):
         super().__init__('reduce', loc)
         self.name = name
+        self.expr = expr
+        self.scalar = AllocOp(name, (1,), dtype, loc)
+        self.reduce_op = reduce_op
         self.axis = axis
         self.dtype = dtype
-        self.prefix = prefix
         self.init = init
         self.level = len(scope)
 
     def __repr__(self):
-        return "{} = {}({}, {}, {}, {})".format(
-            self.name, self.reduce_op, self.prefix, self.init, self.axis, self.dtype)
+        return "{}({}, {}, {}, {})".format(
+            self.reduce_op, self.init, self.axis, self.dtype, self.name)
 
 
 class SumOp(ReduceOp):
-    def __init__(self, name, axis, dtype, loc):
-        super().__init__(name, axis, dtype, 'sum', 0, loc)
+    def __init__(self, name, expr, axis, dtype, loc):
+        super().__init__(name, expr, 'sum', axis, dtype, 0, loc)
 
 
 class MinOp(ReduceOp):
-    def __init__(self, name, axis, dtype, loc):
+    def __init__(self, name, expr, axis, dtype, loc):
         #TODO(Niansong): why init is 0x3F3F3F3F?
-        super().__init__(name, axis, dtype, 'min', 0x3F3F3F3F, loc)
+        super().__init__(name, expr, 'min', axis, dtype, 0x3F3F3F3F, loc)
 
 class MaxOp(ReduceOp):
-    def __init__(self, name, axis, dtype, loc):
-        super().__init__(name, axis, dtype, 'max', 0x3F3F3F3F, loc)
+    def __init__(self, name, expr, axis, dtype, loc):
+        super().__init__(name, expr, 'max', axis, dtype, 0x3F3F3F3F, loc)
 
 
 class IR(object):

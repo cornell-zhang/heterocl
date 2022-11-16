@@ -35,6 +35,13 @@ class TypeInfer(object):
             return self.infer_binary(expr)
         elif isinstance(expr, itmd.ConstantOp):
             return self.infer_const(expr)
+        elif isinstance(expr, itmd.IterVar):
+            return Index()
+        elif isinstance(expr, itmd.CastOp):
+            return expr.dtype
+        elif isinstance(expr, itmd.SumOp):
+            # TODO: infer the type of the reduction
+            return expr.dtype
         else:
             raise APIError(f"Type inference not defined for expression of type: {type(expr)}")
 

@@ -35,7 +35,7 @@ def build_schedule(inputs, func=None, name=""):
         pass
     else:
         s = Schedule(name, inputs, func)
-        scope.push(s._IR.top_func.body)
+        scope.push(s.itmd.top_func.body)
         ret = func(*inputs)
         if ret is None:
             outputs = list()
@@ -43,17 +43,17 @@ def build_schedule(inputs, func=None, name=""):
             outputs = list(ret)
         else:
             outputs = [ret]
-        s._IR.top_func.return_tensors.extend(outputs)
+        s.itmd.top_func.return_tensors.extend(outputs)
         # run passes
-        nest_elif_pass = NestElseIf(s._IR)
+        nest_elif_pass = NestElseIf(s.itmd)
         nest_elif_pass.apply()
-        ir_builder = IRBuilder(s._IR)
+        ir_builder = IRBuilder(s.itmd)
         ir_builder.build()
     # exit the current context
     exit_context()
     # set device module and top func
     s._device_module = ir_builder.module
-    s._device_top = s._IR.top_func.ir_op
+    s._device_top = s.itmd.top_func.ir_op
     return s
 
 def build_schedule_old(inputs, func=None, name=""):
@@ -221,7 +221,7 @@ class Schedule(object):
     _TopFunction = None
     _ScheduleStack = []
     _CurrentIf = 0 # ptr in _IfElseStack
-    _IR = None
+    _Intermediate = None
 
     def __init__(self, name, inputs, func=None):
         self.name = name
@@ -239,8 +239,8 @@ class Schedule(object):
         self._xcel_top = None
         self._host_ret = None
         self._xcel_ret = None
-        self._IR = IR()
-        self._IR.top_func.args = inputs
+        self._Intermediate = IR()
+        self._Intermediate.top_func.args = inputs
 
         # Instance modules for hierarchical construction
         self._instance_modules = []
@@ -361,6 +361,10 @@ class Schedule(object):
     @property
     def extern_top(self):
         return self._extern_top
+
+    @property
+    def itmd(self):
+        return self._Intermediate
 
     @property
     def instance_modules(self):

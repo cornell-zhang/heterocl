@@ -245,7 +245,7 @@ def sort_type_classes(types):
             raise DTypeError(f"sort_type_classes input should be a list of types, got a list of {t} : {type(t)}")
         elif not issubclass(t, Type):
             raise DTypeError(f"sort_type_classes input should be a list of Type subclass, got {t}")
-    type_classes = [Int, UInt, Fixed, UFixed, Float, Struct]
+    type_classes = [Int, UInt, Index, Fixed, UFixed, Float, Struct]
     type_classes = [t.__name__ for t in type_classes]
     return sorted(types, key=lambda t: type_classes.index(t.__name__))
 
