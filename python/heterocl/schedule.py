@@ -14,6 +14,7 @@ from .context import (BreakFlag, ImperativeLoopDepth, ImperativeLoopNestCount,
                       get_context, get_location, set_context, exit_context)
 from .dfg import DataflowGraph
 from .utils import get_extra_type_hints, remove_moved_attr, get_src_loc
+from .ir import intermediate as itmd
 from .ir.intermediate import *
 from .ir.ir_builder import IRBuilder
 from .ir.itmd_pass import NestElseIf
@@ -31,10 +32,14 @@ def build_schedule(inputs, func=None, name=""):
     # create a new context
     set_context()
     # create a new schedule
+    s = Schedule(name, inputs, func)
     if func is None:
-        pass
+        # All operations have inserted in scope!
+        outputs = list()
+        for op in scope.pop():
+            s.itmd.add_op(op)
     else:
-        s = Schedule(name, inputs, func)
+        scope.pop()
         scope.push(s.itmd.top_func.body)
         ret = func(*inputs)
         if ret is None:
@@ -43,12 +48,12 @@ def build_schedule(inputs, func=None, name=""):
             outputs = list(ret)
         else:
             outputs = [ret]
-        s.itmd.top_func.return_tensors.extend(outputs)
-        # run passes
-        nest_elif_pass = NestElseIf(s.itmd)
-        nest_elif_pass.apply()
-        ir_builder = IRBuilder(s.itmd)
-        ir_builder.build()
+    s.itmd.top_func.return_tensors.extend(outputs)
+    # run passes
+    nest_elif_pass = NestElseIf(s.itmd)
+    nest_elif_pass.apply()
+    ir_builder = IRBuilder(s.itmd)
+    ir_builder.build()
     # exit the current context
     exit_context()
     # set device module and top func

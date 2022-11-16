@@ -64,6 +64,12 @@ class Scope(object):
         return len(self.stack)
 
 scope = Scope()
+# this list is for operations
+# that are not enclosed in a top-level function
+# in the case that there is a top-level function,
+# this list will be poped and the operations will
+# be inserted into the top-level function body scope
+scope.push(list())
 
 class Operation(object):
     """Base class for all operations.
@@ -736,6 +742,9 @@ class AllocOp(Expr):
         super().__init__(name, loc)
         self.shape = shape
         self.dtype = dtype
+        # uses is a list of ComputeOp that uses the tensor produced by this op
+        # we need such list to support create_schedule without an enclosing function
+        self.uses = list()
     
     def __repr__(self):
         return f"{self.name} = alloc({self.shape}, {self.dtype})"
@@ -823,7 +832,6 @@ class ComputeOp(Operation):
         self.level = len(scope)
 
     def __repr__(self):
-        #TODO: Print body as well for compute op
         code_str = ""
         code_str = print_indent(code_str, self.level)
         code_str += f"{self.name} = compute({self.shape}, {self.dtype}) {{\n"

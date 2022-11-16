@@ -166,16 +166,19 @@ def sum(expr, axis=None, dtype=None, name=None):
 
 
 def max(data, axis=None, dtype=None, name=""):
+    raise HCLNotImplementedError("max is not implemented yet")
     dtype = config.init_dtype if dtype == None else dtype
     return hcl_mlir.MaxOp(data, axis, get_dtype_str(dtype))
 
 
 def min(data, axis=None, dtype=None, name=""):
+    raise HCLNotImplementedError("min is not implemented yet")
     dtype = config.init_dtype if dtype == None else dtype
     return hcl_mlir.MinOp(data, axis, get_dtype_str(dtype))
 
 
 def reduce(data, init_val, reduce_op, axis=None, dtype=None, name=""):
+    raise HCLNotImplementedError("reduce is not implemented yet")
     return hcl_mlir.ReduceOp(data, axis, get_dtype_str(dtype), prefix=name, init_val=init_val, reduce_op={"si": reduce_op})
 
 
@@ -277,6 +280,12 @@ def compute_body(name, shape, fcompute, dtype, loc, tensor):
     compute_op = itmd.ComputeOp(name, shape, fcompute, dtype, loc, tensor)
     region = scope.get()
     region.append(compute_op)
+    # Analyze input tensors, and update uses for those tensors
+    closure_var = inspect.getclosurevars(fcompute).nonlocals
+    input_tensors = [v for v in closure_var.values() if isinstance(v, itmd.AllocOp)]
+    for t in input_tensors:
+        t.uses.append(compute_op)
+
     # Build AST for fcompute body
     axis_names = ["i" + str(i) for i in range(len(shape))]
     iter_vars = [itmd.IterVar(name, None, loc) for name in axis_names]
