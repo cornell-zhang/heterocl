@@ -283,6 +283,7 @@ def compute_body(name, shape, fcompute, dtype, loc, tensor):
     # Analyze input tensors, and update uses for those tensors
     closure_var = inspect.getclosurevars(fcompute).nonlocals
     input_tensors = [v for v in closure_var.values() if isinstance(v, itmd.AllocOp)]
+    reduce_vars = [v for v in closure_var.values() if isinstance(v, itmd.ReduceVar)]
     for t in input_tensors:
         t.uses.append(compute_op)
 
@@ -292,6 +293,7 @@ def compute_body(name, shape, fcompute, dtype, loc, tensor):
     # attach iter_vars to the compute op
     # iter_var's parent_loop will be set in ir.ir_builder.build_compute
     compute_op.iter_vars.extend(iter_vars)
+    compute_op.reduce_vars.extend(reduce_vars)
     scope.push(compute_op.body)
     if tensor is None:
         # hcl.compute

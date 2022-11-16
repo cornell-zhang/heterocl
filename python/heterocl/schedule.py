@@ -17,7 +17,7 @@ from .utils import get_extra_type_hints, remove_moved_attr, get_src_loc
 from .ir import intermediate as itmd
 from .ir.intermediate import *
 from .ir.ir_builder import IRBuilder
-from .ir.itmd_pass import NestElseIf
+from .ir.itmd_pass import Pass, NestElseIf
 
 # By default, Python ignores deprecation warnings.
 # we have to enable it to see the warning.
@@ -50,15 +50,22 @@ def build_schedule(inputs, func=None, name=""):
             outputs = [ret]
     s.itmd.top_func.return_tensors.extend(outputs)
     # run passes
+    # TODO: get a pass manager
     nest_elif_pass = NestElseIf(s.itmd)
     nest_elif_pass.apply()
+    
     ir_builder = IRBuilder(s.itmd)
     ir_builder.build()
+    
+    create_stage_pass = CreateStage(s.itmd, s)
+    create_stage_pass.apply()
+
     # exit the current context
     exit_context()
     # set device module and top func
     s._device_module = ir_builder.module
     s._device_top = s.itmd.top_func.ir_op
+    s._customize_ip = InsertionPoint.at_block_terminator(s._device_top.entry_block)
     return s
 
 def build_schedule_old(inputs, func=None, name=""):
@@ -200,6 +207,7 @@ def customize(inputs, func=None, name=""):
     finally:
         hcl_mlir.reset_build_inplace()
         NestedStageLevel.set(0)
+        scope.push(list())
 
 
 def create_schedule(inputs, func=None, name=""):
@@ -265,6 +273,8 @@ class Schedule(object):
         Schedule._IfElseStack = []
         Schedule._DefFuncReturn = []
         Schedule._CurrentIf = 0
+        # the insertion point of customization operations
+        self._customize_ip = None
         # self.DataflowGraph = DataflowGraph(name, inputs)
 
         # create top-level function
@@ -402,15 +412,6 @@ class Schedule(object):
             raise RuntimeError("Invalid dimension")
         if factor < 0:
             raise RuntimeError("Invalid factor")
-        try:
-            target = target.tensor
-        except (AttributeError, ValueError):
-            try:
-                target = target._op
-            except AttributeError:
-                pass
-        if not isinstance(target, OpResult):
-            target = target.result
 
         with get_context() as ctx, get_location():
             i32 = IntegerType.get_signless(32)
@@ -428,33 +429,21 @@ class Schedule(object):
             #     raise RuntimeError("Out-of-bound partition dimensionr. Got dim={}, but the target is of shape {}".format(dim, MemRefType(target.type).shape))
             dim = IntegerAttr.get(ui32, dim)
             res = hcl_d.PartitionOp(
-                target, partition_kind=partition_type, dim=dim, factor=factor, ip=GlobalInsertionPoint.get())
+                target.result, partition_kind=partition_type, dim=dim, factor=factor, ip=self._customize_ip)
 
     def replace(self, src, dst):
         """Replace a Tensor with another Tensor
         """
         if self.is_lowered():
             raise APIError(".replace() must be called before lowering")
-        if not isinstance(src, OpResult):
-            src = src.result
-        if not isinstance(dst, OpResult):
-            dst = dst.result
-
         with get_context() as ctx, get_location():
-            hcl_d.ReplaceOp(src, dst, ip=GlobalInsertionPoint.get())
+            hcl_d.ReplaceOp(src.result, dst.result, ip=self._customize_ip)
 
     def reshape(self, target, shape):
         """Reshape a Tensor to a specified new shape
         """
         if self.is_lowered():
             raise APIError(".reshape() must be called before lowering")
-        try:
-            target = target.tensor
-        except (AttributeError, ValueError):
-            try:
-                target = target._op
-            except AttributeError:
-                pass
         ori_size = functools.reduce(lambda a, b: a*b, target.shape, 1)
         new_size = functools.reduce(lambda a, b: a*b, shape, 1)
         if ori_size != new_size:
@@ -462,27 +451,20 @@ class Schedule(object):
                 "The reshaped tensor should have the same total size with the original tensor")
         with get_context() as ctx, get_location():
             res = hcl_d.ReshapeOp(MemRefType.get(
-                shape, target.op.dtype), target.result, ip=GlobalInsertionPoint.get())
+                shape, target.ir_op.dtype), target.result, ip=self._customize_ip)
 
     def reform(self, target, layout):
         """Change the layout of a tensor
         """
         if self.is_lowered():
             raise APIError(".reform() must be called before lowering")
-        try:
-            target = target.tensor
-        except (AttributeError, ValueError):
-            try:
-                target = target._op
-            except AttributeError:
-                pass
         with get_context() as ctx, get_location():
             if layout == "nhwc":
                 attr = AffineMap.get_permutation([0, 2, 3, 1])
             else:
                 raise RuntimeError("Not supported layout")
             res = hcl_d.ReformOp(MemRefType.get(
-                target.shape, target.op.dtype), target.result, ip=GlobalInsertionPoint.get())
+                target.shape, target.ir_op.dtype), target.result, ip=self._customize_ip)
             res.attributes["layout"] = AffineMapAttr.get(attr)
 
     def reuse_at(self, target, parent, axis, name=None):
@@ -490,52 +472,27 @@ class Schedule(object):
         """
         if self.is_lowered():
             raise APIError(".reuse_at() must be called before lowering")
-        try:
-            target = target.tensor
-        except (AttributeError, ValueError):
-            try:
-                target = target._op
-            except AttributeError:
-                pass
-        if not isinstance(target, OpResult):
-            target = target.result
-        if not isinstance(axis, OpResult):
-            axis = axis.result
-
         with get_context() as ctx, get_location() as loc:
-            i32 = IntegerType.get_signless(32)
             f32 = F32Type.get(ctx)
             # TODO: Need to do shape inference
+            # return type of hcl_d.reuse_at op
             memref_type = MemRefType.get((1,), f32, loc=loc)
-            res = hcl_d.ReuseAtOp(memref_type, target,
-                                  axis, ip=GlobalInsertionPoint.get())
-        return res.result
+            res = hcl_d.ReuseAtOp(memref_type, target.result,
+                                  axis.result, ip=self._customize_ip)
+        return res
 
     def buffer_at(self, target, parent, axis, name=None):
         """Create a write buffer reusing the output of current stage"""
         if self.is_lowered():
             raise APIError(".buffer_at() must be called before lowering")
-        try:
-            target = target.tensor
-        except (AttributeError, ValueError):
-            try:
-                target = target._op
-            except AttributeError:
-                pass
-        if not isinstance(target, OpResult):
-            shape = target.shape
-            target = target.result
-        if not isinstance(axis, OpResult):
-            axis = axis.result
-
         with get_context() as ctx, get_location() as loc:
             i32 = IntegerType.get_signless(32)
             f32 = F32Type.get(ctx)
             # TODO: Need to do shape inference
             memref_type = MemRefType.get(shape, f32, loc=loc)
-            res = hcl_d.BufferAtOp(memref_type, target,
-                                   axis, ip=GlobalInsertionPoint.get())
-        return res.result
+            res = hcl_d.BufferAtOp(memref_type, target.result,
+                                   axis.result, ip=self._customize_ip)
+        return res
 
     def to(self, tensor, dst=None, fifo_depth=-1):
         if self.is_lowered():
@@ -586,7 +543,7 @@ class Schedule(object):
                 names = [stages.name]
             with get_context() as ctx, get_location() as loc:
                 op = hcl_d.OutlineOp(handles,
-                                     ip=GlobalInsertionPoint.get())
+                                     ip=self._customize_ip)
                 if unify and i > 0:
                     op.attributes["unify"] = StringAttr.get(results[0].name)
             if not unify or i == 0:
@@ -636,7 +593,11 @@ class Stage(object):
         self.name = name
         self.stage_handle = None
         # wait for setting axes
-        self._axis = []
+        # TODO(Niansong): remove this? 
+        # axes are attached to tensors
+        # and this is not used anywhere
+        # self._axis = []
+        
         StageName.set(name)
         BreakFlag.set(False)
         # auxiliary attributes
@@ -678,8 +639,8 @@ class Stage(object):
             elif (self.op, self) not in Stage._mapping:
                 Stage._mapping.append((self.op, self))
 
-    def add_axis(self, axis):
-        self._axis.append(axis)
+    # def add_axis(self, axis):
+    #     self._axis.append(axis)
 
     @property
     def axis(self):
@@ -845,3 +806,59 @@ class Stage(object):
 
     def __exit__(self, ptype, value, trace):
         pass
+
+
+class CreateStage(Pass):
+    """Create HeteroCL stages, stage and loop handles.
+
+    This pass does three things:
+    1. Create stage and loop handles and set tensor.axis for all stage's tensors
+    2. Attach tensors to Python functions as attributes
+    3. Create a mapping from tensor to stage in Schedule
+    """
+
+    def __init__(self, intermediate, schedule):
+        super().__init__("create_stage", intermediate)
+        self.sch = schedule
+        self.ip = InsertionPoint.at_block_terminator(self.itmd.top_func.ir_op.entry_block)
+
+    def visit(self, op):
+        self.create_stage(op)
+        if hasattr(op, "body"):
+            for op in op.body:
+                # recursively visit the body
+                self.visit(op)
+
+    def create_stage(self, op):
+        if isinstance(op, itmd.ComputeOp):
+            self.create_compute_stage(op)
+        else:
+            pass
+            # raise HCLNotImplementedError("create_stage method not implemented for op type: " + type(op))
+
+
+    def create_compute_stage(self, op : itmd.ComputeOp):
+        tensor = op.tensor if op.kind == "compute" else op.aux_tensor
+        # Step 1: create stage and loop handles
+        with get_context(), get_location():
+            stage_hdl = hcl_d.CreateOpHandleOp(StringAttr.get(op.name), ip=self.ip)
+            for iter_var in op.iter_vars:
+                loop_hdl = hcl_d.CreateLoopHandleOp(stage_hdl.result, StringAttr.get(iter_var.name), ip=self.ip)
+                tensor.axis.append(loop_hdl)
+            for reduce_var in op.reduce_vars:
+                loop_hdl = hcl_d.CreateLoopHandleOp(stage_hdl.result, StringAttr.get(reduce_var.name), ip=self.ip)
+                tensor.axis.append(loop_hdl)
+
+        # Step 2: attach tensors to top Python function
+        top_func = Schedule._TopFunction
+        if top_func is not None:
+            top_func.__setattr__(tensor.name, tensor)
+
+        # Step 3: create a mapping from tensor to stage
+        Stage._mapping.append((tensor, Stage(op.name)))
+
+
+    def apply(self):
+        """Pass entry point"""
+        top_func = self.itmd.top_func
+        self.visit(top_func)

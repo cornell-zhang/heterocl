@@ -6,6 +6,7 @@
 
 from . import intermediate as itmd
 from hcl_mlir.exceptions import *
+from hcl_mlir.ir import *
 
 class Pass(object):
     """Base class for all intermediate pass.
@@ -30,18 +31,19 @@ class NestElseIf(Pass):
     """
 
     def __init__(self, intermediate):
-        super().__init__("NestElseIf", intermediate)
+        super().__init__("nest_else_if", intermediate)
 
     def visit(self, op):
         if hasattr(op, "body"):
             self.nest_elif(op)
             for op in op.body:
-                # recursively visit the body
+                # recursively visit the body operations
                 self.visit(op)
 
     def apply(self):
         """ Pass entry point
         """
+        # TODO: simplify this
         top_func = self.itmd.top_func
         self.nest_elif(top_func)
         for op in top_func.body:

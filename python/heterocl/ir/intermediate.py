@@ -745,6 +745,8 @@ class AllocOp(Expr):
         # uses is a list of ComputeOp that uses the tensor produced by this op
         # we need such list to support create_schedule without an enclosing function
         self.uses = list()
+        # Axes, a list of loop handles corresponding to the loop axes
+        self.axis = list()
     
     def __repr__(self):
         return f"{self.name} = alloc({self.shape}, {self.dtype})"
@@ -790,9 +792,6 @@ class AllocOp(Expr):
         else:
             raise TensorError("Indices length > # of array dimensions")
 
-    @property
-    def axis(self):
-        raise HCLNotImplementedError("TODO axis is not supported for AllocOp")
 
     @property
     def v(self):
@@ -821,15 +820,22 @@ class ComputeOp(Operation):
         self.name = name
         if tensor is None: # hcl.compute, which creates a new tensor
             self.tensor = AllocOp(name, shape, dtype, loc)
+            self.kind = "compute"
         elif isinstance(tensor, str) and tensor == "no_alloc": # hcl.mutate, which doesn't create a new tensor
             self.tensor = None
+            self.kind = "mutate"
         elif isinstance(tensor, AllocOp): # hcl.update, which updates an existing tensor
             self.tensor = tensor
+            self.kind = "update"
         else:
             raise HCLValueError("tensor must be either None, 'no_alloc', or an AllocOp")
         self.body = list()
         self.iter_vars = list()
+        self.reduce_vars = list()
         self.level = len(scope)
+        # For stages that do not produce a tensor
+        # we use an auxiliary tensor to attach loop axis
+        self.aux_tensor = AllocOp(name, shape, dtype, loc)
 
     def __repr__(self):
         code_str = ""
