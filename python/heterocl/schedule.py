@@ -584,73 +584,24 @@ class Stage(object):
     """A Stage represents schedule for one operation.
     """
 
-    # A global list of all stages
-    _mapping = []  # (Tensor, Stage)
+    """ 
+    obsolete note:
+    Stage._mapping is a list of (Tensor, Stage) tuples
+    or (Stage, Stage) tuples to keep track of all stages
+    and their corresponding tensors. 
+    For compute and mutate, we attach (Tensor, Stage) tuples
+    For update and imperative, we attach (Stage, Stage) tuples
+    """
+    _mapping = []
 
     def __init__(self, name=None):
         if name is None:
             name = UniqueName.get("stage")
         self.name = name
+        self.tensor = None
         self.stage_handle = None
-        # wait for setting axes
-        # TODO(Niansong): remove this? 
-        # axes are attached to tensors
-        # and this is not used anywhere
-        # self._axis = []
-        
-        StageName.set(name)
-        BreakFlag.set(False)
-        # auxiliary attributes
-        self.op = None
-        self.ir_node = None
-        # We allow nested stages when imperative and
-        # declarative programming are mixed
-        self._sub_stages = []
+        self.ip = None
 
-
-    def update_mapping(self, kind):
-        """Update global stage mapping Stage._mapping
-
-        Stage._mapping is a list of (Tensor, Stage) tuples
-        or (Stage, Stage) tuples to keep track of all stages
-        and their corresponding tensors. 
-        For compute and mutate, we attach (Tensor, Stage) tuples
-        For update and imperative, we attach (Stage, Stage) tuples
-
-        Parameters
-        ----------
-        kind : str
-            "update", "imperative", or "compute"
-        
-        Returns
-        -------
-        None
-        """
-        if kind == "update" or kind == "imperative":
-            pair = (self, self)
-            if pair not in Stage._mapping:
-                Stage._mapping.append(pair)
-        else: # compute and mutate
-            if self.op is None:
-                # pseudo return tensor for stage with no return value
-                from .operation import placeholder
-                op = placeholder((1,), name=self.name)
-                Stage._mapping.append((op, self))
-            elif (self.op, self) not in Stage._mapping:
-                Stage._mapping.append((self.op, self))
-
-    # def add_axis(self, axis):
-    #     self._axis.append(axis)
-
-    @property
-    def axis(self):
-        return self._axis
-
-    def set_output(self, output):
-        self.op = output
-
-    def set_ir_node(self, ir_node):
-        self.ir_node = ir_node
 
     def reorder(self, *args):
         """reorder the arguments in the specified order.
@@ -660,12 +611,11 @@ class Stage(object):
         args = list(args)
         for i in range(0, len(args)):
             if isinstance(args[i], int):
-                args[i] = self.op.axis[args[i]]
+                args[i] = self.tensor.axis[args[i]]
             if not isinstance(args[i], OpResult):
                 args[i] = args[i].result
         with get_context(), get_location():
-            hcl_d.ReorderOp(args,
-                            ip=GlobalInsertionPoint.get())
+            hcl_d.ReorderOp(args, ip=self.ip)
 
     def split(self, parent, factor=None, nparts=None, mode="transform"):
         """Split the stage either by factor providing outer scope, or both
@@ -675,19 +625,15 @@ class Stage(object):
         if nparts != None or mode != "transform":
             raise RuntimeError("Not supported")
         if isinstance(parent, int):
-            parent = self.op.axis[parent]
-        idx = self.op.axis.index(parent)
+            parent = self.tensor.axis[parent]
         if isinstance(parent, hcl_d.CreateLoopHandleOp):
             var = parent.result
         else:
             var = parent
-        with get_context() as ctx, get_location():
+        with get_context(), get_location():
             i32 = IntegerType.get_unsigned(32)
             factor = IntegerAttr.get(i32, factor)
-            split_op = hcl_d.SplitOp(
-                var, factor, ip=GlobalInsertionPoint.get())
-        # self.op.axis[idx] = split_op.results[0]
-        # self.op.axis.insert(idx+1, split_op.results[1])
+            split_op = hcl_d.SplitOp(var, factor, ip=self.ip)
         return split_op.results[0], split_op.results[1]
 
     def tile(self, x_parent, y_parent, x_factor, y_factor):
@@ -695,8 +641,7 @@ class Stage(object):
         """
         if Schedule._CurrentSchedule.is_lowered():
             raise APIError(".tile() must be called before lowering")
-        idx = self.op.axis.index(x_parent)
-        with get_context() as ctx, get_location():
+        with get_context(), get_location():
             i32 = IntegerType.get_unsigned(32)
             x_factor = IntegerAttr.get(i32, x_factor)
             y_factor = IntegerAttr.get(i32, y_factor)
@@ -705,7 +650,7 @@ class Stage(object):
             if isinstance(y_parent, hcl_d.CreateLoopHandleOp):
                 y_parent = y_parent.result
             tile_op = hcl_d.TileOp(
-                x_parent, y_parent, x_factor, y_factor, ip=GlobalInsertionPoint.get())
+                x_parent, y_parent, x_factor, y_factor, ip=self.ip)
         return tile_op.results[0], tile_op.results[1], tile_op.results[2], tile_op.results[3]
 
     def pipeline(self, var, initiation_interval=1):
@@ -714,13 +659,13 @@ class Stage(object):
         if Schedule._CurrentSchedule.is_lowered():
             raise APIError(".pipeline() must be called before lowering")
         if isinstance(var, int):
-            var = self.op.axis[var]
+            var = self.tensor.axis[var]
         if isinstance(var, hcl_d.CreateLoopHandleOp):
             var = var.result
         with get_context(), get_location():
             i32 = IntegerType.get_unsigned(32)
             ii = IntegerAttr.get(i32, initiation_interval)
-            hcl_d.PipelineOp(var, ii=ii, ip=GlobalInsertionPoint.get())
+            hcl_d.PipelineOp(var, ii=ii, ip=self.ip)
 
     def unroll(self, var, factor=0):
         """Unroll the iteration.
@@ -728,13 +673,13 @@ class Stage(object):
         if Schedule._CurrentSchedule.is_lowered():
             raise APIError(".unroll() must be called before lowering")
         if isinstance(var, int):
-            var = self.op.axis[var]
+            var = self.tensor.axis[var]
         if isinstance(var, hcl_d.CreateLoopHandleOp):
             var = var.result
         with get_context(), get_location():
             i32 = IntegerType.get_unsigned(32)
             factor = IntegerAttr.get(i32, factor)
-            hcl_d.UnrollOp(var, factor=factor, ip=GlobalInsertionPoint.get())
+            hcl_d.UnrollOp(var, factor=factor, ip=self.ip)
 
     def parallel(self, var):
         """Parallelize the iteration.
@@ -742,9 +687,9 @@ class Stage(object):
         if Schedule._CurrentSchedule.is_lowered():
             raise APIError(".parallel() must be called before lowering")
         if isinstance(var, int):
-            var = self.op.axis[var]
+            var = self.tensor.axis[var]
         with get_context(), get_location():
-            hcl_d.ParallelOp(var.result, ip=GlobalInsertionPoint.get())
+            hcl_d.ParallelOp(var.result, ip=self.ip)
 
     def fuse(self, *args):
         """Fuse multiple consecutive iteration variables into a single iteration variable.
@@ -755,33 +700,30 @@ class Stage(object):
         args = list(args)
         for i in range(0, len(args)):
             if isinstance(args[i], int):
-                args[i] = self.op.axis[args[i]]
+                args[i] = self.tensor.axis[args[i]]
             if not isinstance(args[i], OpResult):
                 args[i] = args[i].result
-        with get_context() as ctx, get_location():
-            fused = hcl_d.FuseOp(args,
-                                 ip=GlobalInsertionPoint.get())
+        with get_context(), get_location():
+            fused = hcl_d.FuseOp(args, ip=self.ip)
         return fused
 
-    def compute_at(self, parent, scope):
+    def compute_at(self, parent, axis):
         """Attach the stage at parent's scope
         """
         if Schedule._CurrentSchedule.is_lowered():
             raise APIError(".compute_at() must be called before lowering")
-        if isinstance(scope, int):
-            scope = parent.op.axis[scope]
-        with get_context() as ctx, get_location():
-            compute_at = hcl_d.ComputeAtOp(
-                self.stage_handle.result, parent.stage_handle.result, scope.result, ip=GlobalInsertionPoint.get())
+        if isinstance(axis, int):
+            axis = parent.tensor.axis[axis]
+        with get_context(), get_location():
+            hcl_d.ComputeAtOp(self.stage_handle.result, parent.stage_handle.result, axis.result, ip=self.ip)
 
     def outline(self, axis=None, unify=None):
         """Outline a stage as a function
         """
         if Schedule._CurrentSchedule.is_lowered():
             raise APIError(".outline() must be called before lowering")
-        with get_context() as ctx, get_location() as loc:
-            op = hcl_d.OutlineOp([self.stage_handle.result],
-                                 ip=GlobalInsertionPoint.get())
+        with get_context(), get_location():
+            op = hcl_d.OutlineOp([self.stage_handle.result], ip=self.ip)
             if axis is not None:
                 if isinstance(axis, str):
                     op.attributes["axis"] = StringAttr.get(axis)
@@ -792,13 +734,15 @@ class Stage(object):
         if unify is not None:
             return unify
         else:
+            # TODO(Niansong): think more about StageFunction
+            # is it necessary?
             return StageFunction(self.name)
 
     def systolic(self):
         """Wrap the current stage as a systolic array
         """
-        with get_context() as ctx:
-            self.ir_node.attributes["systolic"] = UnitAttr.get()
+        with get_context():
+            self.tensor.ir_op.attributes["systolic"] = UnitAttr.get()
 
     def __enter__(self):
         HCLDeprecationWarning(
@@ -855,7 +799,11 @@ class CreateStage(Pass):
             top_func.__setattr__(tensor.name, tensor)
 
         # Step 3: create a mapping from tensor to stage
-        Stage._mapping.append((tensor, Stage(op.name)))
+        stage = Stage(op.name)
+        stage.ip = self.ip
+        stage.tensor = tensor
+        stage.stage_handle = stage_hdl
+        Stage._mapping.append((tensor, stage))
 
 
     def apply(self):
