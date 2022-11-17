@@ -490,6 +490,7 @@ def max_pool2d_nchw(
 ):
     assert len(data.shape) == 4, "only support 4-dim pooling"
     assert len(stride) == 2, "only support 2-dim stride"
+    assert data.dtype.bits == 1, "only support binary input data"
     pooling_h, pooling_w = pooling
     stride_h, stride_w = stride
     batch, channel, height, width = data.shape
@@ -508,23 +509,21 @@ def max_pool2d_nchw(
     out_width = (width - pooling_w + pad_left + pad_right) // stride_w + 1
     dheight = hcl.reduce_axis(0, pooling_h, "rh")
     dwidth = hcl.reduce_axis(0, pooling_w, "rw")
+    from hcl_mlir.dialects import arith
+
     return hcl.compute(
         (batch, channel, out_height, out_width),
-        lambda i, c, h, w: hcl.select(
-            hcl.max(
-                data[i, c, h * stride_h + dheight, w * stride_w + dwidth],
-                axis=[dheight, dwidth],
-                dtype=data.dtype,
-                name=name + "_max",
-            )
-            > hcl.cast(data.dtype, 0),
-            hcl.cast(qtype_bit, 1),
-            hcl.cast(qtype_bit, 0),
+        lambda i, c, h, w: hcl.reduce(
+            data[i, c, h * stride_h + dheight, w * stride_w + dwidth],
+            init_val=0,
+            reduce_op=arith.OrIOp,
+            name=name + "_max",
+            dtype=data.dtype,
+            axis=[dheight, dwidth],
         ),
+        dtype=data.dtype,
         name=name,
-        dtype=qtype_bit,
     )
-
 
 def packed_max_pool2d_nhwc(
     data,
