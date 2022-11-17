@@ -288,7 +288,8 @@ def compute_body(name, shape, fcompute, dtype, loc, tensor):
         t.uses.append(compute_op)
 
     # Build AST for fcompute body
-    axis_names = ["i" + str(i) for i in range(len(shape))]
+    argspec = inspect.getfullargspec(fcompute)
+    axis_names = argspec.args
     iter_vars = [itmd.IterVar(name, None, loc) for name in axis_names]
     # attach iter_vars to the compute op
     # iter_var's parent_loop will be set in ir.ir_builder.build_compute
