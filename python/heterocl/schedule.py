@@ -38,6 +38,8 @@ def build_schedule(inputs, func=None, name=""):
         outputs = list()
         for op in scope.pop():
             s.itmd.add_op(op)
+        if len(s.itmd.top_func.body) == 0:
+            raise APIError("received an empty algorithm specification, no operations present")
     else:
         scope.pop()
         scope.push(s.itmd.top_func.body)
@@ -205,6 +207,7 @@ def customize(inputs, func=None, name=""):
     except Exception as e:
         raise e
     finally:
+        # TODO: remove uneeded reset logics
         hcl_mlir.reset_build_inplace()
         NestedStageLevel.set(0)
         scope.push(list())
@@ -263,8 +266,10 @@ class Schedule(object):
         self._extern_module = None
         self._extern_top = None
 
+        # Clear stage mapping
+        Stage._mapping.clear()
+
         # Other facilities
-        Stage._mapping = []  # operation->stage
         Schedule._CurrentSchedule = self
         Schedule._ScheduleStack.append(self)
         Schedule._CurrentStage = []
