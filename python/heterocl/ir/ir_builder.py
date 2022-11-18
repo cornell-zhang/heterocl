@@ -87,14 +87,14 @@ class IRBuilder(object):
             for tensor in top_func.args:
                 self.tensor_dict[tensor.name] = tensor
                 ele_type = hcl_dtype_to_mlir(tensor.dtype, signless=True)
-                input_typehints.append(get_extra_type_hints(ele_type))
+                input_typehints.append(get_extra_type_hints(tensor.dtype))
                 memref_type = MemRefType.get(tensor.shape, ele_type)
                 input_types.append(memref_type)
             return_types = []
             output_typehints = []
             for tensor in top_func.return_tensors:
                 ele_type = hcl_dtype_to_mlir(tensor.dtype, signless=True)
-                output_typehints.append(get_extra_type_hints(ele_type))
+                output_typehints.append(get_extra_type_hints(tensor.dtype))
                 memref_type = MemRefType.get(tensor.shape, ele_type)
                 return_types.append(memref_type)
             ip = InsertionPoint(self.module.body)

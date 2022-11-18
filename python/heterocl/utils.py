@@ -87,15 +87,14 @@ def get_dtype_str(dtype):
 
 def get_extra_type_hints(dtype):
     """
-    dtype: MLIR type
+    dtype: HeteroCL type
     """
-    if not hcl_mlir.is_hcl_mlir_type(dtype):
-        raise RuntimeError("Not MLIR type!")
-    if isinstance(dtype, IntegerType):
-        if dtype.is_unsigned:
-            return "u"
-        elif dtype.is_signed or dtype.is_signless:
-            return "s"
+    if not isinstance(dtype, Type):
+        raise TypeError("get_extra_type_hints input dtype must be a HeteroCL type, got {}".format(type(dtype)))
+    if isinstance(dtype, Int):
+        return "s"
+    elif isinstance(dtype, UInt):
+        return "u"
     else:
         return "_"
 

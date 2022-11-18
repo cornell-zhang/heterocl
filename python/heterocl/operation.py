@@ -64,9 +64,8 @@ def scalar(init, name=None, dtype=None):
 
     # Generate a ComputeOp
     filename, lineno = get_src_loc()
-    op = itmd.ComputeOp(name, (1,), lambda _ : init, dtype, itmd.Location(filename, lineno))
-    region = scope.get()
-    region.append(op)
+    loc = itmd.Location(filename, lineno)
+    op = compute_body(name, (1,), lambda x : init, dtype, loc, None)
     return op.tensor
 
 def scalar_old(init, name=None, dtype=None):

@@ -23,26 +23,49 @@ from .ir.itmd_pass import Pass, NestElseIf
 # we have to enable it to see the warning.
 warnings.simplefilter('always', DeprecationWarning)
 
+def create_schedule_from_itmd(itmd, inputs, func, name):
+    """Create a schedule from an intermediate representation.
+    """
+    s = Schedule(name, inputs, func)
+    s._Intermediate = itmd
+    
+    # run passes
+    nest_elif_pass = NestElseIf(s.itmd)
+    nest_elif_pass.apply()
+    
+    set_context() # set MLIR context
+    ir_builder = IRBuilder(s.itmd)
+    ir_builder.build()
+    exit_context() # exit MLIR context
+    
+    create_stage_pass = CreateStage(s.itmd, s)
+    create_stage_pass.apply()
+
+    # set device module and top func
+    s._device_module = ir_builder.module
+    s._device_top = s.itmd.top_func.ir_op
+    s._customize_ip = InsertionPoint.at_block_terminator(s._device_top.entry_block)
+
+    return s
+
 def build_schedule(inputs, func=None, name=""):
     """Build a schedule for compute optimizations.
     inputs: list of Tensor
     """
     if not isinstance(inputs, list):
         inputs = [inputs]
-    # create a new context
-    set_context()
-    # create a new schedule
-    s = Schedule(name, inputs, func)
+    itmd = IR()
+    itmd.top_func.args = inputs
     if func is None:
         # All operations have inserted in scope!
         outputs = list()
         for op in scope.pop():
-            s.itmd.add_op(op)
-        if len(s.itmd.top_func.body) == 0:
+            itmd.add_op(op)
+        if len(itmd.top_func.body) == 0:
             raise APIError("received an empty algorithm specification, no operations present")
     else:
         scope.pop()
-        scope.push(s.itmd.top_func.body)
+        scope.push(itmd.top_func.body)
         ret = func(*inputs)
         if ret is None:
             outputs = list()
@@ -50,24 +73,8 @@ def build_schedule(inputs, func=None, name=""):
             outputs = list(ret)
         else:
             outputs = [ret]
-    s.itmd.top_func.return_tensors.extend(outputs)
-    # run passes
-    # TODO: get a pass manager
-    nest_elif_pass = NestElseIf(s.itmd)
-    nest_elif_pass.apply()
-    
-    ir_builder = IRBuilder(s.itmd)
-    ir_builder.build()
-    
-    create_stage_pass = CreateStage(s.itmd, s)
-    create_stage_pass.apply()
-
-    # exit the current context
-    exit_context()
-    # set device module and top func
-    s._device_module = ir_builder.module
-    s._device_top = s.itmd.top_func.ir_op
-    s._customize_ip = InsertionPoint.at_block_terminator(s._device_top.entry_block)
+    itmd.top_func.return_tensors.extend(outputs)
+    s = create_schedule_from_itmd(itmd, inputs, func, name)
     return s
 
 def build_schedule_old(inputs, func=None, name=""):
@@ -255,8 +262,7 @@ class Schedule(object):
         self._xcel_top = None
         self._host_ret = None
         self._xcel_ret = None
-        self._Intermediate = IR()
-        self._Intermediate.top_func.args = inputs
+        self._Intermediate = None
 
         # Instance modules for hierarchical construction
         self._instance_modules = []
@@ -455,8 +461,9 @@ class Schedule(object):
             raise RuntimeError(
                 "The reshaped tensor should have the same total size with the original tensor")
         with get_context() as ctx, get_location():
-            res = hcl_d.ReshapeOp(MemRefType.get(
-                shape, target.ir_op.dtype), target.result, ip=self._customize_ip)
+            eletype = hcl_dtype_to_mlir(target.dtype)
+            memreftype = MemRefType.get(shape, eletype)
+            res = hcl_d.ReshapeOp(memreftype, target.result, ip=self._customize_ip)
 
     def reform(self, target, layout):
         """Change the layout of a tensor
@@ -477,13 +484,25 @@ class Schedule(object):
         """
         if self.is_lowered():
             raise APIError(".reuse_at() must be called before lowering")
+        if isinstance(axis, hcl_d.CreateLoopHandleOp):
+            axis = axis.result
+        elif isinstance(axis, OpResult):
+            pass
+        else:
+            raise DTypeError("reuse_at() got invalid axis of type {}, please input CreateLoopHandleOp or its result".format(type(axis)))
+        
+        if isinstance(target, (itmd.AllocOp, hcl_d.ReuseAtOp)):
+            target = target.result
+        elif isinstance(target, OpResult):
+            pass
+        else:
+            raise DTypeError("reuse_at() got invalid target of type {}, please input AllocOp or its result".format(type(target)))
         with get_context() as ctx, get_location() as loc:
             f32 = F32Type.get(ctx)
             # TODO: Need to do shape inference
             # return type of hcl_d.reuse_at op
             memref_type = MemRefType.get((1,), f32, loc=loc)
-            res = hcl_d.ReuseAtOp(memref_type, target.result,
-                                  axis.result, ip=self._customize_ip)
+            res = hcl_d.ReuseAtOp(memref_type, target, axis, ip=self._customize_ip)
         return res
 
     def buffer_at(self, target, parent, axis, name=None):
@@ -494,6 +513,7 @@ class Schedule(object):
             i32 = IntegerType.get_signless(32)
             f32 = F32Type.get(ctx)
             # TODO: Need to do shape inference
+            shape = (1,)
             memref_type = MemRefType.get(shape, f32, loc=loc)
             res = hcl_d.BufferAtOp(memref_type, target.result,
                                    axis.result, ip=self._customize_ip)
