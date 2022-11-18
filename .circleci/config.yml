@@ -46,4 +46,3 @@ jobs:
             export PYTHONPATH=$HCL_HOME/hcl-dialect-prototype/build/tools/hcl/python_packages/hcl_core:${PYTHONPATH}
             export PYTHONPATH=$HCL_HOME/python:$HCL_HOME/hlib/python:${PYTHONPATH}
             cd tests
-            python3 -m pytest mlir -v
