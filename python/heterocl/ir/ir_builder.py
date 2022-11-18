@@ -52,6 +52,15 @@ def get_op_class(op, typ):
             return hcl_d.MulFixedOp
         else:
             raise APIError("Unsupported type for MulOp: {}".format(typ))
+    elif isinstance(op, itmd.Mod):
+        if isinstance(typ, htypes.Int):
+            return arith_d.RemSIOp
+        elif isinstance(typ, htypes.UInt):
+            return arith_d.RemUIOp
+        elif isinstance(typ, htypes.Float):
+            return arith_d.RemFOp
+        else:
+            raise APIError("Unsupported type for ModOp: {}".format(typ))
     else:
         raise APIError("Unsupported op in get_op_class: {}".format(op))
 
@@ -189,6 +198,7 @@ class IRBuilder(object):
         ele_type = hcl_dtype_to_mlir(op.dtype, signless=True)
         memref_type = MemRefType.get(op.shape, ele_type)
         alloc_op = memref_d.AllocOp(memref_type, [], [], ip=ip, loc=loc)
+        alloc_op.attributes["name"] = StringAttr.get(op.name)
         op.result = alloc_op.result
         op.ir_op = alloc_op
         # assume no name conflict

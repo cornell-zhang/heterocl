@@ -31,3 +31,20 @@ def mul_rule():
         (Float, Float) : lambda t1, t2: Float(max(t1.bits, t2.bits)),
     }
     return TypeRule(ops, [int_rules, float_rules])
+
+
+def mod_rule():
+    ops = (itmd.Mod)
+    int_rules = {
+        (Int, Int) : lambda t1, t2: Int(max(t1.bits, t2.bits)),
+        (Int, UInt): lambda t1, t2: Int(max(t1.bits, t2.bits)),
+        (Index, Index): lambda t1, t2: Index()
+    }
+    return TypeRule(ops, [int_rules])
+
+def get_type_rules():
+    rules = list()
+    rules.append(add_sub_rule())
+    rules.append(mul_rule())
+    rules.append(mod_rule())
+    return rules

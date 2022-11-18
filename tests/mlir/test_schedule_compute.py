@@ -311,9 +311,6 @@ def test_compute_at():
         A, B, C = _build_kernel()
         s1 = hcl.create_schedule([A, C])
         s1[B].compute_at(s1[C], C.axis[1])
-        ir = str(s1.device_module)
-        with open("/home/nz264/shared/mlir/debug/intermediate/compute_at.mlir", "w") as f:
-            f.write(ir)
         ir1 = hcl.lower(s1)
         loop = hcl_mlir.get_affine_loop_nests(s1.device_top)[0][1]["body"]
         assert "m" in str(loop.body.operations[0].attributes["loop_name"])
@@ -321,15 +318,15 @@ def test_compute_at():
         assert "mm" in str(loop.body.operations[1].attributes["loop_name"])
         assert "0 to 30" in str(loop.body.operations[1])
         _verify_build(s1)
-        # # axis 2
-        # A, B, C = _build_kernel()
-        # s2 = hcl.create_schedule([A, C])
-        # s2[B].compute_at(s2[C], C.axis[2])
-        # ir2 = hcl.lower(s2)
-        # loop = hcl_mlir.get_affine_loop_nests(s2.device_top)[0][2]["body"]
-        # assert "mm" in str(loop.attributes["loop_name"])
-        # assert "0 to 30" in str(loop)
-        # _verify_build(s2)
+        # axis 2
+        A, B, C = _build_kernel()
+        s2 = hcl.create_schedule([A, C])
+        s2[B].compute_at(s2[C], C.axis[2])
+        ir2 = hcl.lower(s2)
+        loop = hcl_mlir.get_affine_loop_nests(s2.device_top)[0][2]["body"]
+        assert "mm" in str(loop.attributes["loop_name"])
+        assert "0 to 30" in str(loop)
+        _verify_build(s2)
 
     def test_case_2():
         A, B, C = _build_kernel()
@@ -420,13 +417,12 @@ def test_compute_at():
         _verify_build(s)
 
     test_case_1()
-    # test_case_2()
-    # test_case_3()
-    # test_case_4()
-    # test_case_5()
-    # test_case_6()
+    test_case_2()
+    test_case_3()
+    test_case_4()
+    test_case_5()
+    test_case_6()
 
-test_compute_at()
 
 def test_compute_at_complex():
     hcl.init()
@@ -434,7 +430,7 @@ def test_compute_at_complex():
     B = hcl.compute(A.shape, lambda i, j, m: A[i, j, m] * 2, name="B")
     C = hcl.compute(B.shape, lambda ii, jj, mm: B[ii, jj, mm] + 1, name="C")
     D = hcl.compute(C.shape, lambda iii, jjj, mmm: C[iii, jjj, mmm] % 3, name="D")
-    s = hcl.create_schedule([A])
+    s = hcl.create_schedule([A, D])
     s[B].compute_at(s[C], C.axis[1])
     s[C].compute_at(s[D], D.axis[2])
     ir = hcl.lower(s)
@@ -452,14 +448,13 @@ def test_compute_at_complex():
     d_np = (a_np * 2 + 1) % 3
     np.testing.assert_allclose(d_np, d_hcl.asnumpy())
 
-
 def test_compute_at_complex_num_axis():
     hcl.init()
     A = hcl.placeholder((10, 20, 30), name="A")
     B = hcl.compute(A.shape, lambda i, j, m: A[i, j, m] * 2, name="B")
     C = hcl.compute(B.shape, lambda ii, jj, mm: B[ii, jj, mm] + 1, name="C")
     D = hcl.compute(C.shape, lambda iii, jjj, mmm: C[iii, jjj, mmm] % 3, name="D")
-    s = hcl.create_schedule([A])
+    s = hcl.create_schedule([A, D])
     s[B].compute_at(s[C], 1)
     s[C].compute_at(s[D], 2)
     ir = hcl.lower(s)
@@ -482,8 +477,9 @@ def test_compute_at_with_reuse_1D():
     hcl.init()
     A = hcl.compute((10, 10), lambda y, x: x + y, "A")
     B = hcl.compute((10, 8), lambda y, x: A[y, x] + A[y, x + 1] + A[y, x + 2], "B")
-    s = hcl.create_schedule([A])
+    s = hcl.create_schedule([A, B])
     s[A].compute_at(s[B], B.axis[1])
+    print(s.device_module)
     ir = hcl.lower(s)
     loops = hcl_mlir.get_affine_loop_nests(s.device_top)
     assert len(loops) == 1
@@ -494,10 +490,12 @@ def test_compute_at_with_reuse_1D():
     for y in range(0, 10):
         for x in range(0, 8):
             c_np[y][x] = a_np[y][x] + a_np[y][x + 1] + a_np[y][x + 2]
+    a_hcl = hcl.asarray(a_np)
     b_hcl = hcl.asarray(b_np)
-    f(b_hcl)
+    f(a_hcl, b_hcl)
     np.testing.assert_array_equal(c_np, b_hcl.asnumpy())
 
+test_compute_at_with_reuse_1D()
 
 def test_compute_at_with_reuse_2D():
     hcl.init()

@@ -4,16 +4,14 @@
 #
 # ===----------------------------------------------------------------------=== #
 from .ir import intermediate as itmd
-from .type_rules import *
+from .types import *
+from .type_rules import get_type_rules, TypeRule
 
 class TypeInfer(object):
     """A type inference engine for HeteroCL programs.
     """
     def __init__(self):
-        self._rules = []
-        self._rules.append(add_sub_rule())
-        self._rules.append(mul_rule())
-        # ...
+        self._rules = get_type_rules()
         self.build_rule_dict()
 
     def build_rule_dict(self):
