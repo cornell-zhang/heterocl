@@ -475,11 +475,14 @@ def test_compute_at_complex_num_axis():
 
 def test_compute_at_with_reuse_1D():
     hcl.init()
-    A = hcl.compute((10, 10), lambda y, x: x + y, "A")
-    B = hcl.compute((10, 8), lambda y, x: A[y, x] + A[y, x + 1] + A[y, x + 2], "B")
-    s = hcl.create_schedule([A, B])
+    def _kernel():
+        A = hcl.compute((10, 10), lambda y, x: x + y, "A")
+        B = hcl.compute((10, 8), lambda y, x: A[y, x] + A[y, x + 1] + A[y, x + 2], "B")
+        return B
+    s = hcl.create_schedule([], _kernel)
+    A = _kernel.A
+    B = _kernel.B
     s[A].compute_at(s[B], B.axis[1])
-    print(s.device_module)
     ir = hcl.lower(s)
     loops = hcl_mlir.get_affine_loop_nests(s.device_top)
     assert len(loops) == 1
@@ -490,23 +493,25 @@ def test_compute_at_with_reuse_1D():
     for y in range(0, 10):
         for x in range(0, 8):
             c_np[y][x] = a_np[y][x] + a_np[y][x + 1] + a_np[y][x + 2]
-    a_hcl = hcl.asarray(a_np)
     b_hcl = hcl.asarray(b_np)
-    f(a_hcl, b_hcl)
+    f(b_hcl)
     np.testing.assert_array_equal(c_np, b_hcl.asnumpy())
 
-test_compute_at_with_reuse_1D()
 
 def test_compute_at_with_reuse_2D():
     hcl.init()
-    A = hcl.compute((10, 10), lambda y, x: x + y, name="A", dtype=hcl.Int(32))
-    B = hcl.compute(
-        (8, 8),
-        lambda y, x: A[y, x] + A[y + 1, x + 1] + A[y + 2, x + 2],
-        name="B",
-        dtype=hcl.Int(32),
-    )
-    s = hcl.create_schedule([A])
+    def _kernel():
+        A = hcl.compute((10, 10), lambda y, x: x + y, name="A", dtype=hcl.Int(32))
+        B = hcl.compute(
+            (8, 8),
+            lambda y, x: A[y, x] + A[y + 1, x + 1] + A[y + 2, x + 2],
+            name="B",
+            dtype=hcl.Int(32),
+        )
+        return B
+    s = hcl.create_schedule([], _kernel)
+    A = _kernel.A
+    B = _kernel.B
     s[A].compute_at(s[B], B.axis[1])
     ir = hcl.lower(s)
     loops = hcl_mlir.get_affine_loop_nests(s.device_top)
@@ -525,11 +530,15 @@ def test_compute_at_with_reuse_2D():
 
 def test_compute_at_with_reuse_2D_complex():
     hcl.init()
-    A = hcl.compute((10, 10), lambda y0, x0: x0 + y0, "A")
-    B = hcl.compute(
-        (8, 8), lambda y, x: A[y, x] + A[y + 1, x + 1] + A[y + 2, x + 2], "B"
-    )
-    s = hcl.create_schedule([A])
+    def _kernel():
+        A = hcl.compute((10, 10), lambda y0, x0: x0 + y0, "A")
+        B = hcl.compute(
+            (8, 8), lambda y, x: A[y, x] + A[y + 1, x + 1] + A[y + 2, x + 2], "B"
+        )
+        return B
+    s = hcl.create_schedule([], _kernel)
+    A = _kernel.A
+    B = _kernel.B
     s[A].compute_at(s[B], B.axis[1])
     s[B].split(B.axis[1], 4)
     ir = hcl.lower(s)

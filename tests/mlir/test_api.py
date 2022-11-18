@@ -103,6 +103,8 @@ def test_resize():
     for i in range(10):
         assert _B[i] == (a[i] + 1) % 4
 
+test_resize()
+
 
 def test_select():
     hcl.init(hcl.Float())
