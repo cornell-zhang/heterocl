@@ -937,6 +937,18 @@ class ReduceVar(IterVar):
     @property
     def upper_bound(self):
         return self.bound[1]
+        
+class ReturnOp(Operation):
+    def __init__(self, expr, loc):
+        super().__init__('return', loc)
+        self.expr = expr
+        self.level = len(scope)
+
+    def __repr__(self):
+        code_str = ""
+        code_str = print_indent(code_str, self.level)
+        code_str += "return {}".format(self.expr)
+        return code_str
 
 class ForOp(Operation):
     def __init__(self, tag, name, low, high, step, loc):

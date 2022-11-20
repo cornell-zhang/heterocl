@@ -478,6 +478,14 @@ def def_(shapes, dtypes=None, ret_dtype=None, name=None, arg_names=None):
 
 
 def return_(expr=None):
+    filename, lineno = get_src_loc()
+    loc = itmd.Location(filename, lineno)
+    return_op = itmd.ReturnOp(expr, loc)
+    region = scope.get()
+    region.append(return_op)
+
+
+def old_return_(expr=None):
     if len(Schedule._IfElseStack) > 0:
         raise RuntimeError(
             "hcl.return_ statement cannot be in a nested region due to MLIR's limitation. Please rewrite your program and use .outline() to create a new function.")

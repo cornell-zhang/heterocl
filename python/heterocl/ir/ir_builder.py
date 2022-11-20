@@ -925,18 +925,8 @@ class IRBuilder(object):
         end = itmd.CastOp(op.end, htypes.Index(), op.loc)
         self.build_visitor(end, ip)
 
-        # build get slice op
-        if isinstance(op.start, int) and isinstance(op.end, int):
-            width = op.end - op.start + 1
-        else: 
-            width = self.build_affine_expr(op.end - op.start + 1)
-        try: 
-            width = int(str(width))
-        except:
-            raise APIError(f"Get slice couldn't infer result type width: {op.end - op.start + 1}")
-        res_dtype = htypes.UInt(width)
-        op.dtype = res_dtype
-        res_dtype = hcl_dtype_to_mlir(res_dtype, signless=True)
+        res_dtype = hcl_dtype_to_mlir(expr_dtype, signless=True)
+        op.dtype = expr_dtype
         getbit_op = hcl_d.GetIntSliceOp(res_dtype, op.expr.result, end.result, start.result, ip=ip, loc=loc)
         op.ir_op = getbit_op
         op.result = getbit_op.result
@@ -980,29 +970,6 @@ class IRBuilder(object):
             raise APIError(
                 "Set bit operation only supports integer type expr"
             )
-        # check if value is int type
-        value_dtype = self.tinf_engine.infer(op.value)
-        if not isinstance(value_dtype, (htypes.Int, htypes.UInt)):
-            raise APIError(
-                "Set bit operation only supports integer type value"
-            )
-        # check if start, end indices are int
-        if isinstance(op.start, int) and isinstance(op.end, int):
-            width = op.end - op.start + 1
-        else: 
-            width = self.build_affine_expr(op.end - op.start + 1)
-        try: 
-            width = int(str(width))
-        except:
-            raise APIError(f"Set slice couldn't infer result type width: {op.end - op.start + 1}")
-
-        # cast value to UInt(end - start + 1)
-        if value_dtype.bits != width:
-            DTypeWarning(f"Set slice operation value type {value_dtype} " +
-                "is not consistent with slice size: {op.end - op.start + 1}").warn()
-        value_dtype = htypes.UInt(width)
-        value = itmd.CastOp(op.value, value_dtype, op.loc)
-        self.build_visitor(value, ip)
 
         # cast start, end indices to index type
         start = itmd.CastOp(op.start, htypes.Index(), op.loc)
@@ -1012,7 +979,7 @@ class IRBuilder(object):
 
         # build set bit op
         setbit_op = hcl_d.SetIntSliceOp(op.expr.result, 
-            end.result, start.result, value.result, ip=ip, loc=loc)
+            end.result, start.result, op.value.result, ip=ip, loc=loc)
         op.ir_op = setbit_op
         
         # if expr is a LoadOp, we need to update the value in the tensor
