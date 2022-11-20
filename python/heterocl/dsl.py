@@ -158,11 +158,12 @@ def for_(begin, end, step=1, tag=None, name=None):
 
     # TODO(Niansong): use unique naming for
     # loops without tag or name
+    loop_axis = UniqueName.get("loop")
 
     region = scope.get()
     filename, lineno = get_src_loc()
     loc = itmd.Location(filename, lineno)
-    forOp = itmd.ForOp(tag, begin, end, step, loc)
+    forOp = itmd.ForOp(tag, loop_axis, begin, end, step, loc)
     region.append(forOp)
     scope.push(forOp.body)
 

@@ -44,6 +44,12 @@ class TypeInfer(object):
             return expr.dtype
         elif isinstance(expr, itmd.BitCastOp):
             return expr.dtype
+        elif isinstance(expr, itmd.GetBitOp):
+            return UInt(1)
+        elif isinstance(expr, itmd.GetSliceOp):
+            return expr.dtype
+        elif isinstance(expr, itmd.BitReverseOp):
+            return self.infer(expr.expr)
         else:
             raise APIError(f"Type inference not defined for expression of type: {type(expr)}")
 

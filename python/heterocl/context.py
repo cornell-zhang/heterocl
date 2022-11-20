@@ -33,7 +33,7 @@ class UniqueName(object):
             name = "stage_" + str(cls.stage_idx)
             cls.stage_idx += 1
         elif case == "loop":
-            name = "loop_" + str(cls.loop_idx)
+            name = "i" + str(cls.loop_idx)
             cls.loop_idx += 1
         elif case == "scalar":
             name = "scalar_" + str(cls.scalar_idx)

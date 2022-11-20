@@ -14,6 +14,7 @@ def add_sub_rule():
         (Int, Int) : lambda t1, t2: Int(max(t1.bits, t2.bits)),
         (Int, UInt): lambda t1, t2: Int(max(t1.bits, t2.bits)),
         (UInt, UInt): lambda t1, t2: UInt(max(t1.bits, t2.bits)),
+        (Int, Index): lambda t1, t2: Int(max(t1.bits, t2.bits)),
         (Index, Index): lambda t1, t2: Index()
     }
     float_rules = {
@@ -50,15 +51,31 @@ def and_or_rule():
     return TypeRule(ops, [int_rules])
 
 
-
 def mul_rule():
     ops = (itmd.Mul)
     int_rules = {
-        (Int, Int) : lambda t1, t2: Int(t1.bits * t2.bits),
-        (Int, UInt): lambda t1, t2: Int(t1.bits * t2.bits)
+        (Int, Int) : lambda t1, t2: Int(max(t1.bits, t2.bits)),
+        (Int, UInt): lambda t1, t2: Int(max(t1.bits, t2.bits)),
+        (Int, Index) : lambda t1, t2: Int(max(t1.bits, t2.bits)),
     }
     float_rules = {
         (Float, Float) : lambda t1, t2: Float(max(t1.bits, t2.bits)),
+    }
+    return TypeRule(ops, [int_rules, float_rules])
+
+def div_rule():
+    ops = (itmd.Div, itmd.FloorDiv)
+    int_rules = {
+        (Int, Int) : lambda t1, t2: Int(max(t1.bits, t2.bits)),
+        (Int, UInt): lambda t1, t2: Int(max(t1.bits, t2.bits)),
+        (Int, Index): lambda t1, t2: Int(max(t1.bits, t2.bits)),
+        (UInt, UInt): lambda t1, t2: UInt(max(t1.bits, t2.bits)),
+        (Index, Index): lambda t1, t2: Index()
+    }
+    float_rules = {
+        (Float, Float) : lambda t1, t2: Float(max(t1.bits, t2.bits)),
+        (Float, Int) : lambda t1, t2 : t1 if isinstance(t1, Float) else t2,
+        (Float, UInt) : lambda t1, t2 : t1 if isinstance(t1, Float) else t2,
     }
     return TypeRule(ops, [int_rules, float_rules])
 
@@ -68,6 +85,7 @@ def mod_rule():
     int_rules = {
         (Int, Int) : lambda t1, t2: Int(max(t1.bits, t2.bits)),
         (Int, UInt): lambda t1, t2: Int(max(t1.bits, t2.bits)),
+        (Int, Index): lambda t1, t2: Int(max(t1.bits, t2.bits)),
         (Index, Index): lambda t1, t2: Index()
     }
     return TypeRule(ops, [int_rules])
@@ -91,4 +109,5 @@ def get_type_rules():
     rules.append(and_or_rule())
     rules.append(logic_op_rule())
     rules.append(cmp_rule())
+    rules.append(div_rule())
     return rules

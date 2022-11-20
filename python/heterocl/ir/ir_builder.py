@@ -55,6 +55,22 @@ def get_op_class(op, typ):
             return hcl_d.MulFixedOp
         else:
             raise APIError("Unsupported type for MulOp: {}".format(typ))
+    elif isinstance(op, itmd.Div):
+        if isinstance(typ, htypes.Int):
+            return arith_d.DivSIOp
+        elif isinstance(typ, htypes.UInt):
+            return arith_d.DivUIOp
+        elif isinstance(typ, htypes.Float):
+            return arith_d.DivFOp
+        elif isinstance(typ, (htypes.Fixed, htypes.UFixed)):
+            return hcl_d.DivFixedOp
+        else:
+            raise APIError("Unsupported type for DivOp: {}".format(typ))
+    elif isinstance(op,itmd.FloorDiv):
+        if isinstance(typ, htypes.Int):
+            return arith_d.FloorDivSIOp
+        else:
+            raise APIError("Unsupported type for FloorDivOp: {}".format(typ))
     elif isinstance(op, itmd.Mod):
         if isinstance(typ, htypes.Int):
             return arith_d.RemSIOp
@@ -116,6 +132,7 @@ class IRBuilder(object):
         self.iv = [] # a list to keep track of affine expression's induction variables
         self.tinf_engine = TypeInfer()
         self.tensor_dict = dict() # tensor name -> memref.allocOp
+        self.BIT_OPS = False
 
     def build(self):
         """Builder entry point
@@ -166,6 +183,8 @@ class IRBuilder(object):
             itypes = "".join(input_typehints)
             func.attributes["otypes"] = StringAttr.get(otypes)
             func.attributes["itypes"] = StringAttr.get(itypes)
+            if self.BIT_OPS:
+                func.attributes["bit"] = UnitAttr.get()
 
 
     def build_visitor(self, op, ip):
@@ -199,12 +218,29 @@ class IRBuilder(object):
             self.build_cast_op(op, ip)
         elif isinstance(op, itmd.IfOp):
             self.build_if_op(op, ip)
+        elif isinstance(op, itmd.ForOp):
+            self.build_for_op(op, ip)
         elif isinstance(op, itmd.SelectOp):
             self.build_select_op(op, ip)
         elif isinstance(op, itmd.PrintOp):
             self.build_print_op(op, ip)
         elif isinstance(op, itmd.PrintTensorOp):
             self.build_print_tensor_op(op, ip)
+        elif isinstance(op, itmd.GetBitOp):
+            self.BIT_OPS = True
+            self.build_get_bit_op(op, ip)
+        elif isinstance(op, itmd.GetSliceOp):
+            self.BIT_OPS = True
+            self.build_get_slice_op(op, ip)
+        elif isinstance(op, itmd.SetBitOp):
+            self.BIT_OPS = True
+            self.build_set_bit_op(op, ip)
+        elif isinstance(op, itmd.SetSliceOp):
+            self.BIT_OPS = True
+            self.build_set_slice_op(op, ip)
+        elif isinstance(op, itmd.BitReverseOp):
+            self.BIT_OPS = True
+            self.build_bit_reverse_op(op, ip)
         else:
             raise HCLNotImplementedError(f"{type(op)}'s build visitor is not implemented yet.")
 
@@ -215,8 +251,9 @@ class IRBuilder(object):
         iv.result = iv.parent_loop.induction_variable
 
     def build_compute(self, op, ip):
+        loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         iv_names = [iv.name for iv in op.iter_vars]
-        with get_context(), get_location():
+        with get_context(), loc:
             # build output tensor
             alloc_op = op.tensor
             if alloc_op is not None:
@@ -239,6 +276,16 @@ class IRBuilder(object):
                 ip = InsertionPoint(loop.body.operations[0])
             for iter_var, loop in zip(op.iter_vars, loops):
                 iter_var.parent_loop = loop
+            for body_op in op.body:
+                self.build_visitor(body_op, ip)
+
+    def build_for_op(self, op : itmd.ForOp, ip):
+        loc = Location.file(op.loc.filename, op.loc.lineno, 0)
+        with get_context(), loc:
+            loop = hcl_mlir.make_for(
+                op.low, op.high, op.step, op.name, stage="", ip=ip)
+            ip = InsertionPoint(loop.body.operations[0])
+            op.iter_var.parent_loop = loop
             for body_op in op.body:
                 self.build_visitor(body_op, ip)
 
@@ -677,16 +724,17 @@ class IRBuilder(object):
         rhs = self.build_affine_expr(expr.rhs)
         if isinstance(expr, itmd.Add):
             return lhs + rhs
-        elif isinstance(expr, itmd.SubOp):
+        elif isinstance(expr, itmd.Sub):
             return lhs - rhs
-        elif isinstance(expr, itmd.MulOp):
+        elif isinstance(expr, itmd.Mul):
             return lhs * rhs
-        elif isinstance(expr, itmd.DivOp):
+        elif isinstance(expr, itmd.Div):
             return AffineExpr.get_floor_div(lhs, rhs)  # or get_ceil_div
-        elif isinstance(expr, itmd.ModOp):
+        elif isinstance(expr, itmd.Mod):
             return lhs % rhs
         else:
             raise HCLValueError(f"{expr} is not an affine index!")
+
 
     def build_if_op(self, op : itmd.IfOp, ip):
         """Build IfOp"""
@@ -840,3 +888,149 @@ class IRBuilder(object):
         self.build_visitor(op.tensor, ip)
         print_op = hcl_d.PrintMemRefOp(op.tensor.result, ip=ip, loc=loc)
         op.ir_op = print_op
+
+    def build_get_bit_op(self, op, ip):
+        loc = Location.file(op.loc.filename, op.loc.lineno, 0)
+        self.build_visitor(op.expr, ip)
+        # check if expr is int type
+        expr_dtype = self.tinf_engine.infer(op.expr)
+        if not isinstance(expr_dtype, (htypes.Int, htypes.UInt)):
+            raise APIError(
+                "Get bit operation only supports integer type"
+            )
+        # cast index to index type
+        index = itmd.CastOp(op.index, htypes.Index(), op.loc)
+        self.build_visitor(index, ip)
+
+        # build get bit op
+        res_dtype = hcl_dtype_to_mlir(htypes.UInt(1), signless=True)
+        getbit_op = hcl_d.GetIntBitOp(res_dtype, op.expr.result, index.result, ip=ip, loc=loc)
+        op.ir_op = getbit_op
+        op.result = getbit_op.result
+
+    
+    def build_get_slice_op(self, op : itmd.GetSliceOp, ip):
+        loc = Location.file(op.loc.filename, op.loc.lineno, 0)
+        self.build_visitor(op.expr, ip)
+        # check if expr is int type
+        expr_dtype = self.tinf_engine.infer(op.expr)
+        if not isinstance(expr_dtype, (htypes.Int, htypes.UInt)):
+            raise APIError(
+                "Get bit operation only supports integer type"
+            )
+        # cast start index to index type
+        start = itmd.CastOp(op.start, htypes.Index(), op.loc)
+        self.build_visitor(start, ip)
+        # cast end index to index type
+        end = itmd.CastOp(op.end, htypes.Index(), op.loc)
+        self.build_visitor(end, ip)
+
+        # build get slice op
+        if isinstance(op.start, int) and isinstance(op.end, int):
+            width = op.end - op.start + 1
+        else: 
+            width = self.build_affine_expr(op.end - op.start + 1)
+        try: 
+            width = int(str(width))
+        except:
+            raise APIError(f"Get slice couldn't infer result type width: {op.end - op.start + 1}")
+        res_dtype = htypes.UInt(width)
+        op.dtype = res_dtype
+        res_dtype = hcl_dtype_to_mlir(res_dtype, signless=True)
+        getbit_op = hcl_d.GetIntSliceOp(res_dtype, op.expr.result, end.result, start.result, ip=ip, loc=loc)
+        op.ir_op = getbit_op
+        op.result = getbit_op.result
+
+    def build_set_bit_op(self, op, ip):
+        loc = Location.file(op.loc.filename, op.loc.lineno, 0)
+        self.build_visitor(op.expr, ip)
+        self.build_visitor(op.value, ip)
+        # check if expr is int type
+        expr_dtype = self.tinf_engine.infer(op.expr)
+        if not isinstance(expr_dtype, (htypes.Int, htypes.UInt)):
+            raise APIError(
+                "Set bit operation only supports integer type"
+            )
+        expr_dtype = hcl_dtype_to_mlir(expr_dtype, signless=True)
+        # cast index to index type
+        index = itmd.CastOp(op.index, htypes.Index(), op.loc)
+        self.build_visitor(index, ip)
+        # cast value to uint1
+        value = itmd.CastOp(op.value, htypes.UInt(1), op.loc)
+        self.build_visitor(value, ip)
+
+        # build set bit op
+        setbit_op = hcl_d.SetIntBitOp(op.expr.result, index.result, value.result, ip=ip, loc=loc)
+        op.ir_op = setbit_op
+
+        # if expr is a LoadOp, we need to update the value in the tensor
+        if isinstance(op.expr, itmd.LoadOp):
+            # build store op
+            load_op = op.expr
+            store_op = itmd.StoreOp(load_op.tensor, load_op.index, op.expr, op.loc)
+            self.build_visitor(store_op, ip)
+
+    def build_set_slice_op(self, op : itmd.SetSliceOp, ip):
+        loc = Location.file(op.loc.filename, op.loc.lineno, 0)
+        self.build_visitor(op.expr, ip)
+        self.build_visitor(op.value, ip)
+        # check if expr is int type
+        expr_dtype = self.tinf_engine.infer(op.expr)
+        if not isinstance(expr_dtype, (htypes.Int, htypes.UInt)):
+            raise APIError(
+                "Set bit operation only supports integer type expr"
+            )
+        # check if value is int type
+        value_dtype = self.tinf_engine.infer(op.value)
+        if not isinstance(value_dtype, (htypes.Int, htypes.UInt)):
+            raise APIError(
+                "Set bit operation only supports integer type value"
+            )
+        # check if start, end indices are int
+        if isinstance(op.start, int) and isinstance(op.end, int):
+            width = op.end - op.start + 1
+        else: 
+            width = self.build_affine_expr(op.end - op.start + 1)
+        try: 
+            width = int(str(width))
+        except:
+            raise APIError(f"Set slice couldn't infer result type width: {op.end - op.start + 1}")
+
+        # cast value to UInt(end - start + 1)
+        if value_dtype.bits != width:
+            DTypeWarning(f"Set slice operation value type {value_dtype} " +
+                "is not consistent with slice size: {op.end - op.start + 1}").warn()
+        value_dtype = htypes.UInt(width)
+        value = itmd.CastOp(op.value, value_dtype, op.loc)
+        self.build_visitor(value, ip)
+
+        # cast start, end indices to index type
+        start = itmd.CastOp(op.start, htypes.Index(), op.loc)
+        self.build_visitor(start, ip)
+        end = itmd.CastOp(op.end, htypes.Index(), op.loc)
+        self.build_visitor(end, ip)
+
+        # build set bit op
+        setbit_op = hcl_d.SetIntSliceOp(op.expr.result, 
+            end.result, start.result, value.result, ip=ip, loc=loc)
+        op.ir_op = setbit_op
+        
+        # if expr is a LoadOp, we need to update the value in the tensor
+        if isinstance(op.expr, itmd.LoadOp):
+            # build store op
+            load_op = op.expr
+            store_op = itmd.StoreOp(load_op.tensor, load_op.index, op.expr, op.loc)
+            self.build_visitor(store_op, ip)
+
+    def build_bit_reverse_op(self, op : itmd.BitReverseOp, ip):
+        loc = Location.file(op.loc.filename, op.loc.lineno, 0)
+        self.build_visitor(op.expr, ip)
+        # check if expr is int type
+        expr_dtype = self.tinf_engine.infer(op.expr)
+        if not isinstance(expr_dtype, (htypes.Int, htypes.UInt)):
+            raise APIError(
+                "Bit reverse operation only supports integer type"
+            )
+        bitreverse_op = hcl_d.BitReverseOp(op.expr.result, ip=ip, loc=loc)
+        op.ir_op = bitreverse_op
+        op.result = bitreverse_op.result

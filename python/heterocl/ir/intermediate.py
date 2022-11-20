@@ -194,11 +194,9 @@ class Expr(object):
     def __ge__(self, other):
         return Cmp("ge", self, other, self.loc)
 
-    def __getitem__(self, key):
+    def __getitem__(self, indices):
         """Bit slicing and bit selection
         """
-        if not isinstance(self.dtype, (Int, UInt)):
-            raise APIError("Only integers can access the bits")
         if isinstance(indices, slice):
             lo, hi = indices.start, indices.stop
             if isinstance(lo, int) and isinstance(hi, int):
@@ -209,20 +207,19 @@ class Expr(object):
                 elif lo == hi:
                     return self
                 else:
-                    return GetSliceOp(self, hi - 1, lo)
+                    return GetSliceOp(self, lo, hi - 1, self.loc)
             else:
-                return GetSliceOp(self, hi - 1, lo)
+                return GetSliceOp(self, lo, hi - 1, self.loc)
         else:
             if not isinstance(indices, tuple):
                 indices = (indices,)
             if not len(indices) == 1:
                 raise APIError("Can only access one bit of the integer")
             index = indices[0]
-            return GetBitOp(self, index)
+            return GetBitOp(self, index, self.loc)
 
     def __setitem__(self, indices, expr):
-        if not isinstance(self.dtype, (Int, UInt)):
-            raise APIError("Only integers can access the bits")
+        region = scope.get()
         if isinstance(indices, slice):
             lo, hi = indices.start, indices.stop
             if isinstance(lo, int) and isinstance(hi, int):
@@ -236,23 +233,25 @@ class Expr(object):
                             "Please check the expression to make sure the lower bound not equal to the upper bound"
                         )
                     else:
-                        return StoreOp(expr, self.tensor, self.indices)
+                        store_op = StoreOp(expr, self.tensor, self.indices, self.loc)
+                        region.append(store_op)
                 else:
-                    return SetSliceOp(self, hi - 1, lo, expr)
+                    setslice_op = SetSliceOp(self, lo, hi - 1, expr, self.loc)
+                    region.append(setslice_op)
             else:
-                return SetSliceOp(self, hi - 1, lo, expr)
+                setslice_op = SetSliceOp(self, lo, hi - 1, expr, self.loc)
+                region.append(setslice_op)
         else:
             if not isinstance(indices, tuple):
                 indices = (indices,)
             if not len(indices) == 1:
                 raise APIError("Can only access one bit of the integer")
             indices = indices[0]
-            return SetBitOp(self, indices, expr)
+            setbit_op = SetBitOp(self, indices, expr, self.loc)
+            region.append(setbit_op)
 
     def reverse(self):
-        if not isinstance(self.dtype, (Int, UInt)):
-            raise APIError("Only integers can reverse the bits")
-        return BitReverseOp(self)
+        return BitReverseOp(self, self.loc)
 
     def __nonzero__(self):
         raise APIError(
@@ -607,21 +606,20 @@ class StoreOp(Operation):
 class GetBitOp(Expr):
     """Get bit operation
     """
-    def __init__(self, tensor, index, loc):
+    def __init__(self, expr, index, loc):
         super().__init__("getbit", loc)
-        self.tensor = tensor
+        self.expr = expr
         self.index = index
-        self.dtype = tensor.dtype
 
     def __repr__(self):
-        return f"{self.tensor.name}[{self.index}]"
+        return f"{self.expr}[{self.index}]"
 
 class SetBitOp(Operation):
     """Set bit operation
     """
-    def __init__(self, tensor, index, value, loc):
+    def __init__(self, expr, index, value, loc):
         super().__init__("setbit", loc)
-        self.tensor = tensor
+        self.expr = expr
         self.index = index
         self.value = value
         self.level = len(scope)
@@ -629,29 +627,28 @@ class SetBitOp(Operation):
     def __repr__(self):
         code_str = ""
         code_str = print_indent(code_str, self.level)
-        code_str += f"{self.tensor.name}[{self.index}] = {self.value}"
+        code_str += f"{self.expr}[{self.index}] = {self.value}"
         return code_str
 
 class GetSliceOp(Expr):
     """Get slice operation
     """
-    def __init__(self, tensor, start, end, loc):
+    def __init__(self, expr, start, end, loc):
         super().__init__("getslice", loc)
-        self.tensor = tensor
+        self.expr = expr
         self.start = start
         self.end = end
-        self.dtype = tensor.dtype
 
     def __repr__(self):
-        return f"{self.tensor.name}[{self.start}:{self.end}]"
+        return f"{self.expr}[{self.start}:{self.end}]"
 
 
 class SetSliceOp(Operation):
     """Set slice operation
     """
-    def __init__(self, tensor, start, end, value, loc):
+    def __init__(self, expr, start, end, value, loc):
         super().__init__("setslice", loc)
-        self.tensor = tensor
+        self.expr = expr 
         self.start = start
         self.end = end
         self.value = value
@@ -660,7 +657,7 @@ class SetSliceOp(Operation):
     def __repr__(self):
         code_str = ""
         code_str = print_indent(code_str, self.level)
-        code_str += f"{self.tensor.name}[{self.start}:{self.end}] = {self.value}"
+        code_str += f"{self.expr}[{self.start}:{self.end}] = {self.value}"
         return code_str
 
 
@@ -731,7 +728,9 @@ class TensorSlice(Expr):
                 if isinstance(index, int):
                     index = ConstantOp(IndexType.get(), index)
                 new_indices.append(index)
-            return StoreOp(self.parent, list(self.indices) + new_indices, expr, self.loc)
+            store_op = StoreOp(self.parent, list(self.indices) + new_indices, expr, self.loc)
+            region = scope.get()
+            region.append(store_op)
         else:
             raise TensorError("Indices length > # of array dimensions," \
                 + f"indices=[{self.indices + indices}], shape={self.full_shape}")
@@ -940,8 +939,9 @@ class ReduceVar(IterVar):
         return self.bound[1]
 
 class ForOp(Operation):
-    def __init__(self, name, low, high, step, loc):
+    def __init__(self, tag, name, low, high, step, loc):
         super().__init__('for', loc)
+        self.tag = tag
         self.name = name
         self.low = low
         self.high = high

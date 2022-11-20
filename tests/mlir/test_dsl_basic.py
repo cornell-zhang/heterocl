@@ -573,6 +573,7 @@ def test_set_slice_expr():
     ret = hcl_B.asnumpy()
     assert np.array_equal(golden, ret)
 
+
 def test_set_slice_tensor():
 
     hcl.init()
