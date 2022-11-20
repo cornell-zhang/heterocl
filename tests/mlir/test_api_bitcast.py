@@ -27,6 +27,7 @@ def test_bitcast_uint2float():
     code = hcl.build(s, "vhls")
     assert "union { uint32_t from; float to;}" in code
 
+
 def test_bitcast_float2uint():
     hcl.init()
     A = hcl.placeholder((10,10), dtype=hcl.Float(32), name='A')

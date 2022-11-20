@@ -68,40 +68,6 @@ def scalar(init, name=None, dtype=None):
     op = compute_body(name, (1,), lambda x : init, dtype, loc, None)
     return op.tensor
 
-def scalar_old(init, name=None, dtype=None):
-    """Syntactic sugar: single-value tensor
-    - init: int, float, expr, or tuple
-    """
-    hcl_mlir.enable_build_inplace()
-    if name is None:
-        name = UniqueName.get("scalar")
-
-    ret_tensor = placeholder((1,), name=name, dtype=dtype)
-    index = hcl_mlir.ConstantOp("index", 0)
-    if isinstance(dtype, str):
-        dtype = dtype_to_hcl(dtype)
-    dtype = config.init_dtype if dtype == None else dtype # dtype is HeteroCL type
-    mlir_type = hcl_dtype_to_mlir(dtype)
-    if isinstance(dtype, Struct):
-        if isinstance(init, tuple):
-            init = hcl_mlir.StructConstructOp(list(init))
-        elif isinstance(init, int):
-            vals = list()
-            for ftype in dtype.dtype_dict.values():
-                mask = (1 << (ftype.bits+1)) - 1
-                val = init & mask
-                init = init >> ftype.bits
-                vals.append(hcl_mlir.ConstantOp(hcl_dtype_to_mlir(ftype), val))
-            init = hcl_mlir.StructConstructOp(vals)
-        # TODO(Niansong): support init as a single expr
-    elif isinstance(init, int) or isinstance(init, float):
-        init = hcl_mlir.ConstantOp(mlir_type, init)
-    elif isinstance(init, Tensor):
-        init = init.op
-    ret_tensor.init()  # init hcl_mlir type
-    hcl_mlir.StoreOp(init, ret_tensor.op, [index])
-    return ret_tensor
-
 
 def reduce_axis(lower, upper, name=None):
     """Create a reduction axis for reduction operations."""
@@ -141,8 +107,12 @@ def copy(values, name=None, dtype=None):
 
 
 def select(cond, true_val, false_val):
-    # return hcl_mlir.SelectOp(cond, true_val, false_val)
-    raise HCLNotImplementedError("select is not implemented yet")
+    filename, lineno = get_src_loc()
+    loc = itmd.Location(filename, lineno)
+    true_val = itmd.immediate_to_constant(true_val, loc)
+    false_val = itmd.immediate_to_constant(false_val, loc)
+    cond = itmd.immediate_to_constant(cond, loc)
+    return itmd.SelectOp(cond, true_val, false_val, loc)
 
 
 def sum(expr, axis=None, dtype=None, name=None):
@@ -289,6 +259,11 @@ def compute_body(name, shape, fcompute, dtype, loc, tensor):
     # Build AST for fcompute body
     argspec = inspect.getfullargspec(fcompute)
     axis_names = argspec.args
+    if len(axis_names) == 0:
+        # this is the case where fcompute is lambda *args: ...
+        axis_names = ["i" + str(i) for i in range(len(shape))]
+    if len(axis_names) != len(shape):
+        raise APIError(f"fcompute's number of axis does not match output tensor shape: {axis_names} vs {shape}")
     iter_vars = [itmd.IterVar(name, None, loc) for name in axis_names]
     # attach iter_vars to the compute op
     # iter_var's parent_loop will be set in ir.ir_builder.build_compute
@@ -532,39 +507,25 @@ def bitcast(tensor, dst_dtype, name=None):
     to the destination data type (dst_dtype). The destination data type must have
     the same bitwidth with the source datatype.
     """
-    if not isinstance(tensor, Tensor) and not isinstance(tensor, hcl_mlir.ExprOp):
-        raise APIError("bitcast input must be HeteroCL Tensor or ExprOp.")
+    if not isinstance(tensor, itmd.AllocOp) and not isinstance(tensor, itmd.Expr):
+        raise APIError("bitcast input must be HeteroCL Tensor or Expression.")
 
     # check type
-    if not isinstance(dst_dtype, Type):
+    if isinstance(dst_dtype, str):
+        dst_dtype = dtype_to_hcl(dst_dtype)
+    elif not isinstance(dst_dtype, Type):
         raise APIError("dst_dtype should be HeteroCL data type.")
-
-    # check bitwidth
-    if isinstance(tensor, Tensor):
-        src_bitwidth = tensor.dtype.bits
-    else:  # ExprOp
-        src_bitwidth = hcl_mlir.get_bitwidth(tensor.dtype)
-    dst_bitwidth = dst_dtype.bits
-    if src_bitwidth != dst_bitwidth:
-        raise APIError(
-            "Destination datatype bitwidth does not match source bitwidth:"
-            + f"source bitwidth: {src_bitwidth} , destination bitwidth {dst_bitwidth}."
-        )
-
+    filename, lineno = get_src_loc()
+    loc = itmd.Location(filename, lineno)
     # set up name, shape, and fcompute
     dst_dtype_str = get_dtype_str(dst_dtype)
-    if isinstance(tensor, Tensor):
+    if isinstance(tensor, itmd.AllocOp):
         name = tensor.name + "_" + dst_dtype_str if name is None else name
         shape = tensor.shape
-        fcompute = lambda *args: hcl_mlir.BitCastOp(
-            hcl_dtype_to_mlir(dst_dtype), tensor[args]
-        )
+        fcompute = lambda *args: itmd.BitCastOp(tensor[args], dst_dtype, loc)
         return compute(shape, fcompute, name=name, dtype=dst_dtype)
     else:
-        bitcast = hcl_mlir.BitCastOp(hcl_dtype_to_mlir(dst_dtype), tensor)
-        builder = hcl_mlir.ASTVisitor(mode="build")
-        builder.visit(bitcast)
-        # return an expression
+        bitcast = itmd.BitCastOp(tensor, dst_dtype, loc)
         return bitcast
 
 

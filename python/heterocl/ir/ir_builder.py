@@ -22,6 +22,9 @@ from hcl_mlir.dialects import \
     affine as affine_d, arith as arith_d
 from hcl_mlir.exceptions import *
 
+""" IRBuilder Assumptions
+- All Python immediate should be converted to ConstantOp
+"""
 
 def get_op_class(op, typ):
     """Get the class of the given op"""
@@ -52,6 +55,30 @@ def get_op_class(op, typ):
             return hcl_d.MulFixedOp
         else:
             raise APIError("Unsupported type for MulOp: {}".format(typ))
+    elif isinstance(op, itmd.Mod):
+        if isinstance(typ, htypes.Int):
+            return arith_d.RemSIOp
+        elif isinstance(typ, htypes.UInt):
+            return arith_d.RemUIOp
+        elif isinstance(typ, htypes.Float):
+            return arith_d.RemFOp
+        else:
+            raise APIError("Unsupported type for ModOp: {}".format(typ))
+    elif isinstance(op, itmd.And):
+        if isinstance(typ, (htypes.Int, htypes.UInt)):
+            return arith_d.AndIOp
+        else:
+            raise APIError("Unsupported type for AndOp: {}".format(typ))
+    elif isinstance(op, itmd.Or):
+        if isinstance(typ, (htypes.Int, htypes.UInt)):
+            return arith_d.OrIOp
+        else:
+            raise APIError("Unsupported type for OrOp: {}".format(typ))
+    elif isinstance(op, itmd.XOr):
+        if isinstance(typ, (htypes.Int, htypes.UInt)):
+            return arith_d.XOrIOp
+        else:
+            raise APIError("Unsupported type for XOrOp: {}".format(typ))
     elif isinstance(op, itmd.Mod):
         if isinstance(typ, htypes.Int):
             return arith_d.RemSIOp
@@ -132,7 +159,6 @@ class IRBuilder(object):
         Build MLIR operation from intermediate layer
         """
         if op.result is not None:
-            APIWarning("Build visitor called on an op with result: {}".format(op)).warn()
             return
         if isinstance(op, itmd.ComputeOp):
             self.build_compute(op, ip)
@@ -146,6 +172,8 @@ class IRBuilder(object):
             self.build_cmp_op(op, ip)
         elif isinstance(op, itmd.BinaryOp):
             self.build_binary_op(op, ip)
+        elif isinstance(op, itmd.BitCastOp):
+            self.build_bitcast_op(op, ip)
         elif isinstance(op, itmd.LoadOp):
             self.build_load_op(op, ip)
         elif isinstance(op, itmd.StoreOp):
@@ -156,6 +184,12 @@ class IRBuilder(object):
             self.build_cast_op(op, ip)
         elif isinstance(op, itmd.IfOp):
             self.build_if_op(op, ip)
+        elif isinstance(op, itmd.SelectOp):
+            self.build_select_op(op, ip)
+        elif isinstance(op, itmd.PrintOp):
+            self.build_print_op(op, ip)
+        elif isinstance(op, itmd.PrintTensorOp):
+            self.build_print_tensor_op(op, ip)
         else:
             raise HCLNotImplementedError(f"{type(op)}'s build visitor is not implemented yet.")
 
@@ -706,3 +740,84 @@ class IRBuilder(object):
         self.build_visitor(load_op, ip)
         op.ir_op = load_op
         op.result = load_op.result
+
+    def build_select_op(self, op : itmd.SelectOp, ip):
+        # Step 1: get condition, true, and false value
+        # if any of them is an immediate, convert it to a constant
+        loc = Location.file(op.loc.filename, op.loc.lineno, 0)
+        cond = itmd.immediate_to_constant(op.cond, op.loc)
+        self.build_visitor(cond, ip)
+        true_value = itmd.immediate_to_constant(op.true_value, op.loc)
+        self.build_visitor(true_value, ip)
+        false_value = itmd.immediate_to_constant(op.false_value, op.loc)
+        self.build_visitor(false_value, ip)
+        
+        # Step 2: type inference and cast
+        res_type = self.tinf_engine.infer(op)
+        # cast condition to uint1
+        if not isinstance(cond, itmd.Cmp):
+            cond = itmd.CastOp(cond, htypes.UInt(1), op.loc)
+            self.build_visitor(cond, ip)
+        # cast true and false value to the same type
+        true_value = itmd.CastOp(true_value, res_type, op.loc)
+        self.build_visitor(true_value, ip)
+        false_value = itmd.CastOp(false_value, res_type, op.loc)
+        self.build_visitor(false_value, ip)
+        
+        # Step 3: build select op
+        select_op = arith_d.SelectOp(cond.result, true_value.result, false_value.result, ip=ip, loc=loc)
+        op.ir_op = select_op
+        op.result = select_op.result
+
+    def build_bitcast_op(self, op, ip):
+        loc = Location.file(op.loc.filename, op.loc.lineno, 0)
+        self.build_visitor(op.expr, ip)
+        src_dtype = self.tinf_engine.infer(op.expr)
+        dst_dtype = op.dtype
+        if src_dtype.bits != dst_dtype.bits:
+            raise APIError(
+                "Destination datatype bitwidth does not match source bitwidth:"
+                + f"source bitwidth: {src_dtype.bits} , destination bitwidth {op.dtype}."
+            )
+        dst_dtype = hcl_dtype_to_mlir(dst_dtype, signless=True) 
+        bitcast_op = arith_d.BitcastOp(dst_dtype, op.expr.result, ip=ip, loc=loc)
+        op.ir_op = bitcast_op
+        op.result = bitcast_op.result
+
+    def build_print_op(self, op, ip):
+        loc = Location.file(op.loc.filename, op.loc.lineno, 0)
+        # print op assumes all inputs are built
+        for arg in op.args:
+            self.build_visitor(arg, ip)
+        default_fmt = ""
+        signedness_str = ""
+        for arg in op.args:
+            dtype = self.tinf_engine.infer(arg)
+            if isinstance(dtype, (htypes.UInt, htypes.Int)):
+                default_fmt += "%d "
+                if isinstance(dtype, htypes.UInt):
+                    signedness_str += "u"
+                else:
+                    signedness_str += "_"
+            else:
+                default_fmt += "%.3f "
+                signedness_str += "_"
+            default_fmt += "\n"
+    
+        if op.fmt == "":
+            op.fmt = default_fmt
+
+        # build print op
+        operands = [v.result for v in op.args]
+        print_op = hcl_d.PrintOp(operands, ip=ip, loc=loc)
+        fmt_str = StringAttr.get(op.fmt)
+        signedness_str = StringAttr.get(signedness_str)
+        print_op.attributes["signedness"] = signedness_str
+        print_op.attributes["format"] = fmt_str
+        op.ir_op = print_op
+
+    def build_print_tensor_op(self, op, ip):
+        loc = Location.file(op.loc.filename, op.loc.lineno, 0)
+        self.build_visitor(op.tensor, ip)
+        print_op = hcl_d.PrintMemRefOp(op.tensor.result, ip=ip, loc=loc)
+        op.ir_op = print_op

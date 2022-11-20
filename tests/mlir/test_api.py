@@ -110,7 +110,7 @@ def test_select():
     hcl.init(hcl.Float())
     A = hcl.placeholder((10,))
     B = hcl.compute(A.shape, lambda x: hcl.select(A[x] > 0.5, A[x], 0.0))
-    s = hcl.create_schedule([A])
+    s = hcl.create_schedule([A, B])
     f = hcl.build(s)
 
     np_A = np.random.rand(10)

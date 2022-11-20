@@ -31,6 +31,8 @@ class TypeInfer(object):
             return self.infer_load(expr)
         elif isinstance(expr, itmd.BinaryOp):
             return self.infer_binary(expr)
+        elif isinstance(expr, itmd.SelectOp):
+            return self.infer_select(expr)
         elif isinstance(expr, itmd.ConstantOp):
             return self.infer_const(expr)
         elif isinstance(expr, itmd.IterVar):
@@ -39,6 +41,8 @@ class TypeInfer(object):
             return expr.dtype
         elif isinstance(expr, itmd.SumOp):
             # TODO: infer the type of the reduction
+            return expr.dtype
+        elif isinstance(expr, itmd.BitCastOp):
             return expr.dtype
         else:
             raise APIError(f"Type inference not defined for expression of type: {type(expr)}")
@@ -51,6 +55,15 @@ class TypeInfer(object):
             raise APIError(f"Typing rules not defined for operation type: {type(expr)}")
         type_rule = self._rule_dict[type(expr)]
         res_type = type_rule(lhs_type, rhs_type)
+        return res_type
+
+    def infer_select(self, expr):
+        true_type = self.infer(expr.true_value)
+        false_type = self.infer(expr.false_value)
+        if type(expr) not in self._rule_dict:
+            raise APIError(f"Typing rules not defined for operation type: {type(expr)}")
+        type_rule = self._rule_dict[type(expr)]
+        res_type = type_rule(true_type, false_type)
         return res_type
 
     """

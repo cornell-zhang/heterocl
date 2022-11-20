@@ -461,8 +461,9 @@ class BitReverseOp(UnaryOp):
 class BitCastOp(UnaryOp):
     """Bit cast operation.
     """
-    def __init__(self, expr, loc):
+    def __init__(self, expr, dtype, loc):
         super().__init__("bit_cast", expr, loc)
+        self.dtype = dtype
 
 class MathExpOp(UnaryOp):
     """Mathematical exponential operation.
@@ -1052,6 +1053,24 @@ class MaxOp(ReduceOp):
     def __init__(self, name, expr, axis, dtype, loc):
         super().__init__(name, expr, 'max', axis, dtype, 0x3F3F3F3F, loc)
 
+class PrintOp(Operation):
+    def __init__(self, args, fmt, loc):
+        super().__init__('print', loc)
+        self.args = args
+        self.fmt = fmt
+        self.level = len(scope)
+
+    def __repr__(self):
+        return "print({}, {})".format(", ".join([str(v) for v in self.args], self.fmt))
+
+class PrintTensorOp(Operation):
+    def __init__(self, tensor, loc):
+        super().__init__('print_tensor', loc)
+        self.tensor = tensor
+        self.level = len(scope)
+
+    def __repr__(self):
+        return "print_tensor({})".format(self.tensor.name)
 
 class IR(object):
     def __init__(self):

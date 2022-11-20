@@ -300,7 +300,7 @@ class TypeRule(object):
                 itype = tuple(sort_type_classes(itype))
                 # check if the input types are already in the dictionary
                 if itype in self.inf_rules:
-                    raise TypeError(f"Duplicate inference rule for input types {itype}")
+                    raise DTypeError(f"Duplicate inference rule for input types {itype}")
                 # add the rule to the dictionary
                 self.inf_rules[itype] = inf_rule
 
