@@ -531,6 +531,12 @@ class LogicalOr(BinaryOp):
     def __init__(self, lhs, rhs, loc):
         super().__init__("||", lhs, rhs, loc)
 
+class LogicalXOr(BinaryOp):
+    """Logical xor operation.
+    """
+    def __init__(self, lhs, rhs, loc):
+        super().__init__("^^", lhs, rhs, loc)
+
 class PrintOp(Operation):
     """Print operation.
     """

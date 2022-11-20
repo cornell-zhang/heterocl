@@ -35,25 +35,24 @@ def test_and():
     ret_C = hcl_C.asnumpy()
     assert np.array_equal(ret_C, golden_C)
 
+
 def test_or():
+    f = _test_logic_op(hcl.or_)
 
-    with pytest.raises(MLIRLimitationError):
-        f = _test_logic_op(hcl.or_)
+    np_A = np.random.randint(10, size=(10,))
+    np_B = np.random.randint(10, size=(10,))
+    np_C = np.zeros(10)
 
-        np_A = np.random.randint(10, size=(10,))
-        np_B = np.random.randint(10, size=(10,))
-        np_C = np.zeros(10)
+    golden_C = [0 if np_A[i] > 5 or np_B[i] > 5 else 1 for i in range(0, 10)]
 
-        golden_C = [0 if np_A[i] > 5 or np_B[i] > 5 else 1 for i in range(0, 10)]
+    hcl_A = hcl.asarray(np_A)
+    hcl_B = hcl.asarray(np_B)
+    hcl_C = hcl.asarray(np_C)
 
-        hcl_A = hcl.asarray(np_A)
-        hcl_B = hcl.asarray(np_B)
-        hcl_C = hcl.asarray(np_C)
+    f(hcl_A, hcl_B, hcl_C)
 
-        f(hcl_A, hcl_B, hcl_C)
-
-        ret_C = hcl_C.asnumpy()
-        assert np.array_equal(ret_C, golden_C)
+    ret_C = hcl_C.asnumpy()
+    assert np.array_equal(ret_C, golden_C)
 
 def test_if():
     def kernel(A):

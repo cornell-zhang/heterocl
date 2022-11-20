@@ -15,7 +15,8 @@ from .context import (BreakFlag, ImperativeLoopDepth, ImperativeLoopNestCount,
 from .schedule import Schedule, Stage, scope
 from .tensor import Tensor
 from .utils import get_extra_type_hints, hcl_dtype_to_mlir, get_func_obj, get_src_loc
-from .ir.intermediate import *
+from .ir import intermediate as itmd
+from .types import UInt
 
 
 class WithScope(object):
@@ -32,40 +33,39 @@ class WithScope(object):
         self._exit_cb()
 
 
-def any(*args):
-    """Create a new experssion of the union of all conditions in the arguments
-    a | b = !(!a & !b)
-    """
-    if not args:
-        raise ValueError("Any must take at least 1 argument")
-    ret = hcl_mlir.LogicalOrOp(*args)
-    return ret
-
-
-def all(*args):
-    """Create a new experssion of the intersection of all conditions in the
-    arguments
-    """
-    if not args:
-        raise ValueError("Any must take at least 1 argument")
-    ret = hcl_mlir.LogicalAndOp(*args)
-    return ret
-
-
 def and_(*args):
     """Compute the logic AND between expressions."""
-    return all(*args)
-
+    if len(args) < 2:
+        raise ValueError("And must take at least 2 arguments")
+    filename, loc = get_src_loc()
+    loc = itmd.Location(filename, loc)
+    expr = itmd.CastOp(args[0], UInt(1), loc)
+    for arg in args[1:]:
+        arg = itmd.CastOp(arg, UInt(1), loc)
+        expr = itmd.LogicalAnd(expr, arg, loc)
+    return expr
 
 def or_(*args):
     """Compute the logic OR between expressions."""
-    return any(*args)
+    if len(args) < 2:
+        raise ValueError("Or must take at least 2 arguments")
+    filename, loc = get_src_loc()
+    loc = itmd.Location(filename, loc)
+    expr = itmd.CastOp(args[0], UInt(1), loc)
+    for arg in args[1:]:
+        arg = itmd.CastOp(arg, UInt(1), loc)
+        expr = itmd.LogicalOr(expr, arg, loc)
+    return expr
 
 
 def not_(arg):
     """Compute the logic NOT operation.
     """
-    return hcl_mlir.LogicalNotOp(arg)
+    filename, loc = get_src_loc()
+    loc = itmd.Location(filename, loc)
+    one = itmd.ConstantOp(1, UInt(1), loc)
+    arg = itmd.CastOp(arg, UInt(1), loc)
+    return itmd.LogicalXOr(arg, one, loc)
 
 
 def old_for_(begin, end, step=1, tag=None, name=None):
@@ -161,8 +161,8 @@ def for_(begin, end, step=1, tag=None, name=None):
 
     region = scope.get()
     filename, lineno = get_src_loc()
-    loc = Location(filename, lineno)
-    forOp = ForOp(tag, begin, end, step, loc)
+    loc = itmd.Location(filename, lineno)
+    forOp = itmd.ForOp(tag, begin, end, step, loc)
     region.append(forOp)
     scope.push(forOp.body)
 
@@ -203,7 +203,7 @@ def old_if_(cond):
 def if_(cond):
     region = scope.get()
     filename, lineno = get_src_loc()
-    ifOp = IfOp(cond, Location(filename, lineno))
+    ifOp = itmd.IfOp(cond, itmd.Location(filename, lineno))
     region.append(ifOp)
     scope.push(ifOp.body)
 
@@ -233,7 +233,7 @@ def old_else_():
 def else_():
     region = scope.get()
     filename, lineno = get_src_loc()
-    elseOp = ElseOp(Location(filename, lineno))
+    elseOp = itmd.ElseOp(itmd.Location(filename, lineno))
     region.append(elseOp)
     scope.push(elseOp.body)
 
@@ -274,7 +274,7 @@ def old_elif_(cond):
 def elif_(cond):
     region = scope.get()
     filename, lineno = get_src_loc()
-    elifOp = ElseIfOp(cond, Location(filename, lineno))
+    elifOp = itmd.ElseIfOp(cond, itmd.Location(filename, lineno))
     region.append(elifOp)
     scope.push(elifOp.body)
 

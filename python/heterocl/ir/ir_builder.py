@@ -88,6 +88,21 @@ def get_op_class(op, typ):
             return arith_d.RemFOp
         else:
             raise APIError("Unsupported type for ModOp: {}".format(typ))
+    elif isinstance(op, itmd.LogicalAnd):
+        if isinstance(typ, (htypes.Int, htypes.UInt)) and typ.bits == 1:
+            return arith_d.AndIOp
+        else:
+            raise APIError("Unsupported type for LogicalAndOp: {}".format(typ))
+    elif isinstance(op, itmd.LogicalOr):
+        if isinstance(typ, (htypes.Int, htypes.UInt)) and typ.bits == 1:
+            return arith_d.OrIOp
+        else:
+            raise APIError("Unsupported type for LogicalOrOp: {}".format(typ))
+    elif isinstance(op, itmd.LogicalXOr):
+        if isinstance(typ, (htypes.Int, htypes.UInt)) and typ.bits == 1:
+            return arith_d.XOrIOp
+        else:
+            raise APIError("Unsupported type for LogicalXOrOp: {}".format(typ))
     else:
         raise APIError("Unsupported op in get_op_class: {}".format(op))
 
@@ -341,6 +356,8 @@ class IRBuilder(object):
 
         # Step 2: cast lhs and rhs to the same type
         t = self.tinf_engine.infer(op)
+        if isinstance(t, tuple): 
+            t = t[0] # index 0 is src type, index 1 is res type
         lhs = itmd.CastOp(op.lhs, t, loc)
         rhs = itmd.CastOp(op.rhs, t, loc)
         self.build_visitor(lhs, ip)
@@ -515,6 +532,8 @@ class IRBuilder(object):
             self.build_visitor(op.expr, ip)
         res_type = op.dtype
         src_type = self.tinf_engine.infer(op.expr)
+        if isinstance(src_type, tuple):
+            src_type = src_type[1]
         # determine cast op
         CastOpClass = None
         if type(res_type) == type(src_type) and res_type == src_type:
