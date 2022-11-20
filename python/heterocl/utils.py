@@ -1,6 +1,7 @@
 import gc
 import inspect
 import sys
+import numpy as np
 import os
 import hcl_mlir
 from hcl_mlir.dialects import hcl as hcl_d
@@ -115,3 +116,44 @@ def remove_moved_attr(module):
 def get_src_loc(frame=0):
     fr = sys._getframe(frame + 1) # +1 to ignore this function call
     return (os.path.basename(fr.f_code.co_filename), fr.f_lineno)
+
+
+def make_const_tensor(val, dtype):
+    # val is numpy ndarray
+    if isinstance(dtype, (Int, UInt)):
+        if dtype.bits <= 64:
+            np_dtype = np.int64
+        else:
+            raise DTypeError(
+                "Integer width ({}) too large, not supported by numpy".format(dtype)
+            )
+    elif isinstance(dtype, Float):
+        if dtype.bits == 16:
+            np_dtype = np.float16
+        elif dtype.bits == 32:
+            np_dtype = np.float32
+        elif dtype.bits == 64:
+            np_dtype = np.float64
+        else:
+            raise DTypeError("Unrecognized data type")
+    elif isinstance(dtype, Fixed):
+        sb = 1 << dtype.bits
+        sb_limit = 1 << (dtype.bits - 1)
+        val = val * (2 ** dtype.frac)
+        val = np.fix(val) % sb
+
+        def cast_func(x):
+            return x if x < sb_limit else x - sb
+
+        val = np.vectorize(cast_func)(val)
+        np_dtype = np.int64
+    elif isinstance(dtype, UFixed):
+        sb = 1 << dtype.bits
+        val = val * (2 ** dtype.frac)
+        val = np.fix(val) % sb
+        np_dtype = np.int64
+    else:
+        raise DTypeError(
+            "Unrecognized data type: {}".format(dtype))
+
+    return np.ascontiguousarray(np.array(val, dtype=np_dtype))

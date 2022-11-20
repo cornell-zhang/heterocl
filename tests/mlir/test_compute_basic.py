@@ -224,6 +224,8 @@ def test_copy():
 
     assert numpy.array_equal(hcl_O.asnumpy(), np_A * 2)
 
+test_copy()
+
 
 def test_mutate_basic():
     def kernel(A, B):

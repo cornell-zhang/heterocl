@@ -1,5 +1,6 @@
 import inspect
 from collections import OrderedDict
+from typing import List
 
 import hcl_mlir
 import numpy as np
@@ -14,7 +15,7 @@ from .context import NestedStageLevel, UniqueName
 from .dsl import for_
 from .schedule import Schedule, Stage, scope
 from .tensor import Array, Tensor
-from .utils import get_dtype_str, hcl_dtype_to_mlir, get_func_obj, get_src_loc
+from .utils import *
 from .context import get_context, get_location
 from .ir import intermediate as itmd
 
@@ -85,7 +86,9 @@ def cast(dtype, expr):
     if isinstance(expr, Tensor):
         raise APIError("Tensor is not supported in hcl.cast. " +
                         "If you are try to cast a hcl.scalar, please use hcl.cast(scalar.v)")
-    return hcl_mlir.CastOp(expr, hcl_dtype_to_mlir(dtype))
+    filename, lineno = get_src_loc()
+    loc = itmd.Location(filename, lineno)
+    return itmd.CastOp(dtype, expr, loc)
 
 
 def const_tensor(values, name=None, dtype=None):
@@ -93,8 +96,16 @@ def const_tensor(values, name=None, dtype=None):
     if name is None:
         name = UniqueName.get("tensor")
     dtype = config.init_dtype if dtype == None else dtype
-    cst = hcl_mlir.ConstantOp(hcl_dtype_to_mlir(dtype), values, name)
-    return cst.tensor
+    filename, lineno = get_src_loc()
+    loc = itmd.Location(filename, lineno)
+    # convert values to numpy array and handle overflow
+    if isinstance(values, List):
+        values = np.array(values)
+    values = make_const_tensor(values, dtype)
+    cst_op = itmd.ConstantTensorOp(values, name, dtype, loc)
+    region = scope.get()
+    region.append(cst_op)
+    return cst_op.tensor
 
 
 def copy(values, name=None, dtype=None):
@@ -102,8 +113,7 @@ def copy(values, name=None, dtype=None):
     if name is None:
         name = UniqueName.get("tensor")
     dtype = config.init_dtype if dtype == None else dtype
-    cst = hcl_mlir.ConstantOp(hcl_dtype_to_mlir(dtype), values, name)
-    return cst.tensor
+    return const_tensor(values, name, dtype)
 
 
 def select(cond, true_val, false_val):

@@ -74,6 +74,7 @@ def build_schedule(inputs, func=None, name=""):
         else:
             outputs = [ret]
     itmd.top_func.return_tensors.extend(outputs)
+    print(itmd)
     s = create_schedule_from_itmd(itmd, inputs, func, name)
     return s
 

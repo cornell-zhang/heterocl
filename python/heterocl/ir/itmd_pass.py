@@ -34,7 +34,7 @@ class NestElseIf(Pass):
         super().__init__("nest_else_if", intermediate)
 
     def visit(self, op):
-        if hasattr(op, "body"):
+        if hasattr(op, "body") and op.body is not None:
             self.nest_elif(op)
             for op in op.body:
                 # recursively visit the body operations
@@ -60,6 +60,9 @@ class NestElseIf(Pass):
 
         if not hasattr(scope, "body"):
             raise APIError("The scope passed to nest_elif must have a body")
+
+        if scope.body is None:
+            return
 
         # if-elif-else chains
         chains = list()

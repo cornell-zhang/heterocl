@@ -545,7 +545,10 @@ class PrintOp(Operation):
         self.format_str = format_str
 
     def __repr__(self):
-        return f"({self.name} {self.expr_list})"
+        code_str = ""
+        code_str += print_indent(code_str, self.level)
+        code_str += f"print({self.name} {self.expr_list}, fmt={self.format_str})"
+        return code_str
 
 class PrintMemRefOp(Operation):
     """Print memref operation.
@@ -554,9 +557,13 @@ class PrintMemRefOp(Operation):
         super().__init__("print_memref", loc)
         self.memref = memref
         self.dtype = dtype
+        self.level = len(scope)
 
     def __repr__(self):
-        return f"({self.name} {self.memref})"
+        code_str = ""
+        code_str += print_indent(code_str, self.level)
+        code_str += f"print_memref({self.name} {self.memref})"
+        return code_str
 
 class ConstantOp(Expr):
     """Constant scalar operation.
@@ -566,6 +573,9 @@ class ConstantOp(Expr):
         self.value = value
         self.dtype = dtype
 
+    def __repr__(self):
+        return f"{self.value}"
+
 class ConstantTensorOp(Expr):
     """Constant tensor operation.
     """
@@ -574,6 +584,14 @@ class ConstantTensorOp(Expr):
         super().__init__(name, loc)
         self.values = values
         self.dtype = dtype
+        self.tensor = AllocOp(name, values.shape, dtype, loc)
+        self.level = len(scope)
+
+    def __repr__(self):
+        code_str = ""
+        code_str += print_indent(code_str, self.level)
+        code_str += f"{self.name} = constant_tensor({self.values.shape}, {self.values.dtype})"
+        return code_str
 
 class LoadOp(Expr):
     """ Load operation.

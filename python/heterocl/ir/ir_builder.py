@@ -21,6 +21,7 @@ from hcl_mlir.dialects import \
     scf as scf_d, memref as memref_d, \
     affine as affine_d, arith as arith_d
 from hcl_mlir.exceptions import *
+from hcl_mlir.ir import *
 
 """ IRBuilder Assumptions
 - All Python immediate should be converted to ConstantOp
@@ -241,6 +242,8 @@ class IRBuilder(object):
         elif isinstance(op, itmd.BitReverseOp):
             self.BIT_OPS = True
             self.build_bit_reverse_op(op, ip)
+        elif isinstance(op, itmd.ConstantTensorOp):
+            self.build_constant_tensor_op(op, ip)
         else:
             raise HCLNotImplementedError(f"{type(op)}'s build visitor is not implemented yet.")
 
@@ -1001,3 +1004,46 @@ class IRBuilder(object):
         bitreverse_op = hcl_d.BitReverseOp(op.expr.result, ip=ip, loc=loc)
         op.ir_op = bitreverse_op
         op.result = bitreverse_op.result
+
+    def build_constant_tensor_op(self, op : itmd.ConstantTensorOp, ip):
+        loc = Location.file(op.loc.filename, op.loc.lineno, 0)
+        dtype = hcl_dtype_to_mlir(op.dtype, signless=True)
+        val = op.values
+        value_attr = DenseElementsAttr.get(val, type=dtype)
+        sym_name = StringAttr.get(op.name)
+        sym_visibility = StringAttr.get("private")
+        memref_type = MemRefType.get(val.shape, dtype)
+        type_attr = TypeAttr.get(memref_type)
+        const_tensor = memref_d.GlobalOp(
+            sym_name,
+            type_attr,
+            sym_visibility=sym_visibility,
+            initial_value=value_attr,
+            constant=True,
+            alignment=None,
+            ip=InsertionPoint(self.module.body),
+            loc=loc
+        )
+        const_tensor.attributes["constant"] = UnitAttr.get()
+        if isinstance(op.dtype, (htypes.UInt, htypes.UFixed)):
+            const_tensor.attributes["unsigned"] = UnitAttr.get()
+
+        if isinstance(op.dtype, (htypes.Fixed, htypes.UFixed)):
+            fixed_memref_type = MemRefType.get(val.shape, dtype)
+            get_global = hcl_d.GetGlobalFixedOp(
+                fixed_memref_type,
+                FlatSymbolRefAttr.get(self.name),
+                ip=ip,
+                loc=loc
+            )
+        else:
+            get_global = memref_d.GetGlobalOp(
+                memref_type,
+                FlatSymbolRefAttr.get(self.name),
+                ip=ip,
+                loc=loc
+            )
+        op.ir_op = get_global
+        op.result = get_global.result
+        op.tensor.ir_op = get_global
+        op.tensor.result = get_global.result
