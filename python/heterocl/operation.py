@@ -94,7 +94,7 @@ def cast(dtype, expr):
                         "If you are try to cast a hcl.scalar, please use hcl.cast(scalar.v)")
     filename, lineno = get_src_loc()
     loc = itmd.Location(filename, lineno)
-    return itmd.CastOp(dtype, expr, loc)
+    return itmd.CastOp(expr, dtype, loc)
 
 
 def const_tensor(values, name=None, dtype=None):
@@ -112,7 +112,7 @@ def const_tensor(values, name=None, dtype=None):
     region = scope.get()
     region.append(cst_op)
     if isinstance(dtype, (Int, UInt)):
-        return compute(shape, lambda *args : cast(cst_op.tensor[args], dtype), 
+        return compute(shape, lambda *args : cast(dtype, cst_op.tensor[args]), 
             name=name+"_cast", dtype=dtype)
     return cst_op.tensor
 

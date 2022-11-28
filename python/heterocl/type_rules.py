@@ -103,6 +103,22 @@ def logic_op_rule():
     }
     return TypeRule(ops, [int_rules])
 
+def pow_rule():
+    ops = (itmd.MathPowOp,)
+    int_rules = {
+        (Int, Int) : lambda t1, t2: Float(64),
+        (Int, UInt): lambda t1, t2: Float(64),
+        (Int, Index): lambda t1, t2: Float(64),
+        (UInt, UInt): lambda t1, t2: Float(64),
+    }
+    float_rules = {
+        (Float, Float) : lambda t1, t2: Float(max(t1.bits, t2.bits)),
+        (Float, Int) : lambda t1, t2 : t1 if isinstance(t1, Float) else t2,
+        (Float, UInt) : lambda t1, t2 : t1 if isinstance(t1, Float) else t2,
+    }
+    return TypeRule(ops, [int_rules, float_rules])
+
+
 #TODO: attach typing rules to itmd.Operation classes
 # Make this a hook? more extensible
 def get_type_rules():
@@ -114,4 +130,5 @@ def get_type_rules():
     rules.append(logic_op_rule())
     rules.append(cmp_rule())
     rules.append(div_rule())
+    rules.append(pow_rule())
     return rules

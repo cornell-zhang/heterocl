@@ -19,7 +19,8 @@ import hcl_mlir
 from hcl_mlir.dialects import \
     func as func_d, hcl as hcl_d, \
     scf as scf_d, memref as memref_d, \
-    affine as affine_d, arith as arith_d
+    affine as affine_d, arith as arith_d, \
+    math as math_d
 from hcl_mlir.exceptions import *
 
 
@@ -120,6 +121,11 @@ def get_op_class(op, typ):
             return arith_d.XOrIOp
         else:
             raise APIError("Unsupported type for LogicalXOrOp: {}".format(typ))
+    elif isinstance(op, itmd.MathPowOp):
+        if isinstance(typ, htypes.Float):
+            return math_d.PowFOp
+        else:
+            raise APIError("Unsupported type for MathPowOp: {}".format(typ))
     else:
         raise APIError("Unsupported op in get_op_class: {}".format(op))
 

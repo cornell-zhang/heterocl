@@ -1,28 +1,47 @@
-import hcl_mlir
+from .ir import intermediate as itmd
+from .utils import get_src_loc
 
 def exp(x):
-    return hcl_mlir.MathExpOp(x)
+    filename, lineno = get_src_loc()
+    loc = itmd.Location(filename, lineno)
+    return itmd.MathExpOp(x, loc)
 
 def power(x, y):
-    return hcl_mlir.MathPowOp(x, y)
+    filename, lineno = get_src_loc()
+    loc = itmd.Location(filename, lineno)
+    return itmd.MathPowOp(x, y, loc)
 
 def log(x):
-    return hcl_mlir.MathLogOp(x)
+    filename, lineno = get_src_loc()
+    loc = itmd.Location(filename, lineno)
+    return itmd.MathLogOp(x, loc)
 
 def log2(x):
-    return hcl_mlir.MathLog2Op(x)
+    filename, lineno = get_src_loc()
+    loc = itmd.Location(filename, lineno)
+    return itmd.MathLog2Op(x, loc)
 
 def log10(x):
-    return hcl_mlir.MathLog10Op(x)
+    filename, lineno = get_src_loc()
+    loc = itmd.Location(filename, lineno)
+    return itmd.MathLog10Op(x, loc)
 
 def sqrt(x):
-    return hcl_mlir.MathSqrtOp(x)
+    filename, lineno = get_src_loc()
+    loc = itmd.Location(filename, lineno)
+    return itmd.MathSqrtOp(x, loc)
 
 def sin(x):
-    return hcl_mlir.MathSinOp(x)
+    filename, lineno = get_src_loc()
+    loc = itmd.Location(filename, lineno)
+    return itmd.MathSinOp(x, loc)
 
 def cos(x):
-    return hcl_mlir.MathCosOp(x)
+    filename, lineno = get_src_loc()
+    loc = itmd.Location(filename, lineno)
+    return itmd.MathCosOp(x, loc)
 
 def tanh(x):
-    return hcl_mlir.MathTanhOp(x)
+    filename, lineno = get_src_loc()
+    loc = itmd.Location(filename, lineno)
+    return itmd.MathTanhOp(x, loc)

@@ -33,6 +33,8 @@ def test_module_no_return():
     for i in range(0, 10):
         assert(_B[i] == a[i]+1)
 
+test_module_no_return()
+
 
 def test_module_with_return():
 

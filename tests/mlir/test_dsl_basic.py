@@ -965,6 +965,7 @@ def test_tensor_slice_struct():
     golden[0] = 3
     assert np.array_equal(golden, np_res)
 
+
 def test_tensor_index_expr():
     hcl.init()
     def kernel(A, B, x):

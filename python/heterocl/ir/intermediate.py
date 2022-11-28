@@ -697,10 +697,6 @@ class TensorSlice(Expr):
                 dims += 1
             # index is an expr
             elif isinstance(index, Expr):
-                if not hasattr(index, "dtype"):
-                    raise HCLValueError("{} doesn't have dtype".format(index))
-                if not (isinstance(index.dtype, Int) or isinstance(index.dtype, UInt) or isinstance(index, IterVar)): 
-                    raise HCLValueError("{} is not an integer type or index type".format(index))
                 dims += 1
         for i, dim in enumerate(self.full_shape):
             if i < dims:
