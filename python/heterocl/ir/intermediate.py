@@ -277,17 +277,13 @@ class Expr(object):
          # bypass the attribute lookup to avoid infinite recursion
         if key in self.__dict__.keys():
             return self.__dict__[key]
-        elif key == "result":
-            if self.built_op is None:
-                self.build()
-            return self.result
         elif isinstance(self, LoadOp):
             # access a field from a struct tensor
-            key_list = [k for k in self.tensor.hcl_dtype.dtype_dict.keys()]
+            key_list = [k for k in self.tensor.dtype.dtype_dict.keys()]
             if key not in key_list:
                 raise HCLValueError("No such field: " + key)
             key_idx = key_list.index(key)
-            return StructGetOp(self, key_idx)
+            return StructGetOp(self, key_idx, self.loc)
         else:
             # We don't throw an error here
             # because the user may be trying to test if
@@ -721,14 +717,14 @@ class TensorSlice(Expr):
                 self.dtype,
                 self.parent,
                 self.indices + indices,
+                self.loc,
                 self.name,
             )
         elif len(self.indices + indices) == len(self.full_shape):
             # format indices
             new_indices = []
             for index in self.indices + indices:
-                if isinstance(index, int):
-                    index = ConstantOp(IndexType.get(), index)
+                index = immediate_to_constant(index, self.loc)
                 new_indices.append(index)
             load = LoadOp(self.parent, new_indices, self.loc)
             return load
@@ -743,11 +739,11 @@ class TensorSlice(Expr):
                 "Writing to a slice of tensor is not allowed.")
         elif len(self.indices + indices) == len(self.full_shape):
             new_indices = []
-            for index in indices:
-                if isinstance(index, int):
-                    index = ConstantOp(IndexType.get(), index)
+            for index in list(self.indices) + list(indices):
+                index = immediate_to_constant(index, self.loc)
                 new_indices.append(index)
-            store_op = StoreOp(self.parent, list(self.indices) + new_indices, expr, self.loc)
+            expr = immediate_to_constant(expr, self.loc)
+            store_op = StoreOp(self.parent, new_indices, expr, self.loc)
             region = scope.get()
             region.append(store_op)
         else:
@@ -782,7 +778,9 @@ class AllocOp(Expr):
         # if we are slicing tensor
         if len(indices) < len(self.shape):
             return TensorSlice(
-                self.shape, self.dtype, self, indices, self.loc, self.name
+                full_shape=self.shape, dtype=self.dtype, 
+                parent=self, indices=indices, loc=self.loc,
+                name=self.name
             )
         # if we are loading a value from the tensor
         elif len(indices) == len(self.shape):
@@ -1055,14 +1053,14 @@ class SelectOp(Expr):
 
 
 class StructConstructOp(Expr):
-    def __init__(self, name, args, loc):
+    def __init__(self, args, dtype, loc):
         super().__init__('struct', loc)
-        self.name = name
         self.args = args
+        self.dtype = dtype
         self.level = len(scope)
 
     def __repr__(self):
-        return "{}({})".format(self.name, ", ".join([str(v) for v in self.args]))
+        return "({})".format(", ".join([str(v) for v in self.args]))
 
 
 class StructGetOp(Expr):

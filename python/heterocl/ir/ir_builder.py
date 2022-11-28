@@ -193,7 +193,7 @@ class IRBuilder(object):
         
         Build MLIR operation from intermediate layer
         """
-        if op.result is not None:
+        if hasattr(op, 'result') and op.result is not None:
             return
         if isinstance(op, itmd.ComputeOp):
             self.build_compute(op, ip)
@@ -246,6 +246,10 @@ class IRBuilder(object):
             self.build_bit_reverse_op(op, ip)
         elif isinstance(op, itmd.ConstantTensorOp):
             self.build_constant_tensor_op(op, ip)
+        elif isinstance(op, itmd.StructConstructOp):
+            self.build_struct_construct_op(op, ip)
+        elif isinstance(op, itmd.StructGetOp):
+            self.build_struct_get_op(op, ip)
         else:
             raise HCLNotImplementedError(f"{type(op)}'s build visitor is not implemented yet.")
 
@@ -1068,3 +1072,34 @@ class IRBuilder(object):
         op.result = get_global.result
         op.tensor.ir_op = get_global
         op.tensor.result = get_global.result
+
+    def build_struct_construct_op(self, op : itmd.StructConstructOp, ip):
+        loc = Location.file(op.loc.filename, op.loc.lineno, 0)
+        # build fields
+        field_results = list()
+        for idx, field in enumerate(op.args):
+            field_key_list = list(op.dtype.dtype_dict.keys())
+            type_key = field_key_list[idx]
+            field = itmd.CastOp(field, op.dtype.dtype_dict[type_key], op.loc)
+            self.build_visitor(field, ip)
+            field_results.append(field.result)
+        field_types = [f.type for f in field_results]
+        struct_type = hcl_d.StructType.get(field_types)
+        struct_op = hcl_d.StructConstructOp(
+            struct_type, field_results, ip=ip, loc=loc)
+        op.ir_op = struct_op
+        op.result = struct_op.result
+
+    def build_struct_get_op(self, op : itmd.StructGetOp, ip):
+        loc = Location.file(op.loc.filename, op.loc.lineno, 0)
+        self.build_visitor(op.struct, ip)
+        dtype = self.tinf_engine.infer(op)
+        dtype = hcl_dtype_to_mlir(dtype, signless=True)
+        assert isinstance(op.field, int)
+        attr = IntegerAttr.get(IntegerType.get_signless(64), op.field)
+        struct_get_op = hcl_d.StructGetOp(
+            dtype, op.struct.result, attr, ip=ip, loc=loc)
+        if isinstance(dtype, (htypes.UInt, htypes.UFixed)):
+            struct_get_op.attr["unsigned"] = UnitAttr.get()
+        op.ir_op = struct_get_op
+        op.result = struct_get_op.result

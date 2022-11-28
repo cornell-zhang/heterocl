@@ -50,6 +50,14 @@ class TypeInfer(object):
             return expr.dtype
         elif isinstance(expr, itmd.BitReverseOp):
             return self.infer(expr.expr)
+        elif isinstance(expr, itmd.StructConstructOp):
+            return expr.dtype
+        elif isinstance(expr, itmd.StructGetOp):
+            assert isinstance(expr.struct.dtype, Struct)
+            struct_t = expr.struct.dtype
+            key_list = list(struct_t.dtype_dict.keys())
+            key = key_list[expr.field]
+            return struct_t.dtype_dict[key]
         else:
             raise APIError(f"Type inference not defined for expression of type: {type(expr)}")
 

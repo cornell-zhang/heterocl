@@ -991,6 +991,7 @@ def test_tensor_index_expr():
     ret_B = hcl_B.asnumpy()
     assert np.array_equal(golden, ret_B)
 
+
 def test_unused_struct_tensor():
     hcl.init()
     def kernel():

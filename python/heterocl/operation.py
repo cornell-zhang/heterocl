@@ -282,6 +282,8 @@ def compute_body(name, shape, fcompute, dtype, loc, tensor):
         # hcl.compute
         res_expr = fcompute(*iter_vars)
         res_expr = itmd.immediate_to_constant(res_expr, loc)
+        if isinstance(res_expr, tuple) and isinstance(dtype, Struct):
+            res_expr = itmd.StructConstructOp(list(res_expr), dtype, loc)
         if res_expr is None:
             if len(compute_op.body) > 0 and isinstance(compute_op.body[-1], itmd.ReturnOp):
                 res_expr = itmd.immediate_to_constant(compute_op.body[-1].expr, loc)
@@ -293,6 +295,8 @@ def compute_body(name, shape, fcompute, dtype, loc, tensor):
         # hcl.update
         res_expr = fcompute(*iter_vars)
         res_expr = itmd.immediate_to_constant(res_expr, loc)
+        if isinstance(res_expr, tuple) and isinstance(dtype, Struct):
+            res_expr = itmd.StructConstructOp(list(res_expr), dtype, loc)
         if res_expr is None:
             if len(compute_op.body) > 0 and isinstance(compute_op.body[-1], itmd.ReturnOp):
                 res_expr = itmd.immediate_to_constant(compute_op.body[-1].expr, loc)

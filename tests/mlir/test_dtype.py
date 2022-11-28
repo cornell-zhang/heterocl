@@ -406,7 +406,7 @@ def test_dtype_struct():
     assert np.allclose(hcl_C.asnumpy(), hcl_G.asnumpy())
 
 
-def test_dtye_struct_complex():
+def test_dtype_struct_complex():
     hcl.init()
     A = hcl.placeholder((100,))
     B = hcl.placeholder((100,))

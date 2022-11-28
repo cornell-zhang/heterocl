@@ -114,6 +114,7 @@ def test_if_struct_access():
     s = hcl.create_schedule([], kernel)
     hcl.lower(s)
 
+
 # Related to issue #155
 def test_print_before_if():
     hcl.init()
