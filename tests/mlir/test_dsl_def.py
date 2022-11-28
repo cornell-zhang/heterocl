@@ -18,6 +18,7 @@ def test_module_no_return():
     B = hcl.placeholder((10,))
 
     s = hcl.create_schedule([A, B], algorithm)
+    print(hcl.lower(s))
     f = hcl.build(s)
 
     a = np.random.randint(100, size=(10,))
@@ -32,8 +33,6 @@ def test_module_no_return():
 
     for i in range(0, 10):
         assert(_B[i] == a[i]+1)
-
-test_module_no_return()
 
 
 def test_module_with_return():
@@ -65,7 +64,6 @@ def test_module_with_return():
     for i in range(0, 10):
         assert(_B[i] == a[i]+1)
 
-# test_module_with_return()
 
 def _test_module_cond_return_if_only():
 

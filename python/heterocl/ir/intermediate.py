@@ -1026,10 +1026,11 @@ class FuncOp(Operation):
         return code_str
 
 class CallOp(Expr):
-    def __init__(self, name, args, loc):
+    def __init__(self, name, args, rets, loc):
         super().__init__(name, loc)
         self.name = name
         self.args = args
+        self.rets = rets
         self.level = len(scope)
 
     def __repr__(self):

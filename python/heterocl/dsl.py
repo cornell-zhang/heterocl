@@ -352,7 +352,7 @@ def def_(shapes, dtypes=None, ret_dtype=None, name=None, arg_names=None):
             func_op.return_tensors.extend(outputs)
 
             # call op
-            call_op = itmd.CallOp(func_op.name, inputs, loc)
+            call_op = itmd.CallOp(func_op.name, inputs, outputs, loc)
             if len(outputs) == 0:
                 # no return value
                 # use as a statement

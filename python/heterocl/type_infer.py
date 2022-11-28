@@ -58,6 +58,8 @@ class TypeInfer(object):
             key_list = list(struct_t.dtype_dict.keys())
             key = key_list[expr.field]
             return struct_t.dtype_dict[key]
+        elif isinstance(expr, itmd.CallOp):
+            return self.infer(expr.rets[0])
         else:
             raise APIError(f"Type inference not defined for expression of type: {type(expr)}")
 

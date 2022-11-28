@@ -193,11 +193,6 @@ class IRBuilder(object):
             if self.BIT_OPS:
                 func.attributes["bit"] = UnitAttr.get()
 
-            # legalize the module
-            # module_str = str(self.module)
-            # self.module = Module.parse(module_str)
-            # print(self.module)
-
 
     def build_visitor(self, op, ip):
         """Build dispatcher
@@ -271,7 +266,7 @@ class IRBuilder(object):
     def build_func_op(self, op : itmd.FuncOp, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         # use global insetion point
-        ip = InsertionPoint(self.module.body)
+        ip = InsertionPoint.at_block_begin(self.module.body)
         input_types = []
         input_typehints = []
         for arg in op.args:
@@ -296,15 +291,25 @@ class IRBuilder(object):
         func_op = func_d.FuncOp(name=op.name, type=func_type, ip=ip, loc=loc)
         op.ir_op = func_op
         func_op.add_entry_block()
+
+        # if op.args have results, save them
+        orig_arg_results = []
+        for arg in op.args:
+            if hasattr(arg, 'result'):
+                orig_arg_results.append(arg.result)
+            else:
+                orig_arg_results.append(None)
+
         for arg, block_arg in zip(op.args, func_op.entry_block.arguments):
             arg.result = block_arg
 
         # build body
         ip = InsertionPoint(func_op.entry_block)
-        for op in op.body:
-            self.build_visitor(op, ip)
-        # returns = [v.result for v in op.return_tensors]
-        returns = []
+        for body_op in op.body:
+            self.build_visitor(body_op, ip)
+        for ret in op.return_tensors:
+            self.build_visitor(ret, ip)
+        returns = [ret.result for ret in op.return_tensors]
         func_d.ReturnOp(returns, ip=ip, loc=loc)
         func_op.attributes["function_type"] = TypeAttr.get(func_type)
         # attach type hints
@@ -313,15 +318,31 @@ class IRBuilder(object):
         func_op.attributes["otypes"] = StringAttr.get(otypes)
         func_op.attributes["itypes"] = StringAttr.get(itypes)
 
+        # restore arg results
+        for arg, orig_result in zip(op.args, orig_arg_results):
+            arg.result = orig_result
+
 
     def build_call_op(self, op : itmd.CallOp, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         func = FlatSymbolRefAttr.get(op.name)
-        args = [arg.result for arg in op.args]
-        # func_type = func.attributes["function_type"].value
+        # build arguments
+        args = list()
+        for arg in op.args:
+            self.build_visitor(arg, ip)
+            args.append(arg.result)
         return_types = []
+        for ret in op.rets:
+            dtype = self.tinf_engine.infer(ret)
+            dtype = hcl_dtype_to_mlir(dtype, signless=True)
+            return_types.append(dtype)
         call_op = func_d.CallOp(return_types, func, args, ip=ip, loc=loc)
-        # op.result = call_op.results[0]
+        op.ir_op = call_op
+        if len(op.rets) > 0:
+            if len(op.rets) == 1:
+                op.result = call_op.results[0]
+            else:
+                raise HCLNotImplementedError("Multiple return values are not supported by @def_.")
 
     def build_iter_var(self, iv, ip):
         """Build IterVar"""
