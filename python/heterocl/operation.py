@@ -55,17 +55,23 @@ def asarray(np_array, dtype=None):
 
 
 def scalar(init, name=None, dtype=None):
+    filename, lineno = get_src_loc()
+    loc = itmd.Location(filename, lineno)
     if name is None:
         name = UniqueName.get("scalar")
     if isinstance(dtype, str):
         dtype = dtype_to_hcl(dtype)
     dtype = config.init_dtype if dtype == None else dtype # dtype is HeteroCL type
-    if isinstance(dtype, Struct):
-        raise HCLNotImplementedError("Struct scalar is not supported yet")
+    if isinstance(dtype, Struct) and isinstance(init, int):
+        vals = list()
+        for ftype in dtype.dtype_dict.values():
+            mask = (1 << (ftype.bits+1)) - 1
+            val = init & mask
+            init = init >> ftype.bits
+            vals.append(itmd.ConstantOp(val, ftype, loc))
+        init = tuple(vals)
 
     # Generate a ComputeOp
-    filename, lineno = get_src_loc()
-    loc = itmd.Location(filename, lineno)
     op = compute_body(name, (1,), lambda x : init, dtype, loc, None)
     return op.tensor
 
