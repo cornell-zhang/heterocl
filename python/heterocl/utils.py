@@ -139,7 +139,7 @@ def make_const_tensor(val, dtype):
     elif isinstance(dtype, Fixed):
         sb = 1 << dtype.bits
         sb_limit = 1 << (dtype.bits - 1)
-        val = val * (2 ** dtype.frac)
+        val = val * (2 ** dtype.fracs)
         val = np.fix(val) % sb
 
         def cast_func(x):
@@ -149,11 +149,12 @@ def make_const_tensor(val, dtype):
         np_dtype = np.int64
     elif isinstance(dtype, UFixed):
         sb = 1 << dtype.bits
-        val = val * (2 ** dtype.frac)
+        val = val * (2 ** dtype.fracs)
         val = np.fix(val) % sb
         np_dtype = np.int64
     else:
         raise DTypeError(
             "Unrecognized data type: {}".format(dtype))
 
-    return np.ascontiguousarray(np.array(val, dtype=np_dtype))
+    array = np.array(val, dtype=np_dtype)
+    return array

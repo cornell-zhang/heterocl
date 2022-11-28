@@ -580,11 +580,12 @@ class ConstantTensorOp(Expr):
     """Constant tensor operation.
     """
     # TODO(Niansong): handle overflow
-    def __init__(self, values, name, dtype, loc):
+    def __init__(self, values, name, shape, dtype, loc):
         super().__init__(name, loc)
         self.values = values
         self.dtype = dtype
-        self.tensor = AllocOp(name, values.shape, dtype, loc)
+        self.shape = shape
+        self.tensor = AllocOp(name, shape, dtype, loc)
         self.level = len(scope)
 
     def __repr__(self):
@@ -985,6 +986,23 @@ class ForOp(Operation):
         code_str = print_indent(code_str, self.level)
         code_str += "for ({} = {}; {} < {}; {} += {}) {{\n".format(
             self.name, self.low, self.name, self.high, self.name, self.step)
+        for stmt in self.body:
+            code_str += f"{stmt}\n"
+        code_str = print_indent(code_str, self.level)
+        code_str += "}"
+        return code_str
+
+class WhileOp(Operation):
+    def __init__(self, cond, loc):
+        super().__init__('while', loc)
+        self.cond = cond
+        self.body = list()
+        self.level = len(scope)
+
+    def __repr__(self):
+        code_str = ""
+        code_str = print_indent(code_str, self.level)
+        code_str += "while ({}) {{\n".format(self.cond)
         for stmt in self.body:
             code_str += f"{stmt}\n"
         code_str = print_indent(code_str, self.level)

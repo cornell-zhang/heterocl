@@ -6,14 +6,14 @@
 
 import inspect
 from typing import List, Callable
+import numpy as np
 
 from . import intermediate as itmd
 from ..context import *
-from ..tensor import Tensor
-import hcl_mlir
 from ..utils import hcl_dtype_to_mlir, get_extra_type_hints
 from .. import types as htypes
 from ..type_infer import TypeInfer
+import hcl_mlir
 # Import MLIR dialects
 # Naming rule: import dialect as dialect_d 
 from hcl_mlir.dialects import \
@@ -21,7 +21,7 @@ from hcl_mlir.dialects import \
     scf as scf_d, memref as memref_d, \
     affine as affine_d, arith as arith_d
 from hcl_mlir.exceptions import *
-from hcl_mlir.ir import *
+
 
 """ IRBuilder Assumptions
 - All Python immediate should be converted to ConstantOp
@@ -1009,10 +1009,10 @@ class IRBuilder(object):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         dtype = hcl_dtype_to_mlir(op.dtype, signless=True)
         val = op.values
-        value_attr = DenseElementsAttr.get(val, type=dtype)
+        value_attr = DenseElementsAttr.get(val)
         sym_name = StringAttr.get(op.name)
         sym_visibility = StringAttr.get("private")
-        memref_type = MemRefType.get(val.shape, dtype)
+        memref_type = MemRefType.get(op.shape, dtype)
         type_attr = TypeAttr.get(memref_type)
         const_tensor = memref_d.GlobalOp(
             sym_name,
@@ -1032,14 +1032,14 @@ class IRBuilder(object):
             fixed_memref_type = MemRefType.get(val.shape, dtype)
             get_global = hcl_d.GetGlobalFixedOp(
                 fixed_memref_type,
-                FlatSymbolRefAttr.get(self.name),
+                FlatSymbolRefAttr.get(op.name),
                 ip=ip,
                 loc=loc
             )
         else:
             get_global = memref_d.GetGlobalOp(
                 memref_type,
-                FlatSymbolRefAttr.get(self.name),
+                FlatSymbolRefAttr.get(op.name),
                 ip=ip,
                 loc=loc
             )

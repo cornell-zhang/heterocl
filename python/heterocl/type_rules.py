@@ -7,6 +7,9 @@
 from .ir import intermediate as itmd
 from .types import *
 
+#TODO: Fixed-point rules
+#TODO: Reduction op rules
+
 """ Type inference rules """
 def add_sub_rule():
     ops = (itmd.Add, itmd.Sub, itmd.SelectOp)
@@ -54,9 +57,10 @@ def and_or_rule():
 def mul_rule():
     ops = (itmd.Mul)
     int_rules = {
-        (Int, Int) : lambda t1, t2: Int(max(t1.bits, t2.bits)),
-        (Int, UInt): lambda t1, t2: Int(max(t1.bits, t2.bits)),
-        (Int, Index) : lambda t1, t2: Int(max(t1.bits, t2.bits)),
+        (Int, Int) : lambda t1, t2: Int(t1.bits + t2.bits),
+        (Int, UInt): lambda t1, t2: Int(t1.bits + t2.bits),
+        (Int, Index) : lambda t1, t2: Int(t1.bits + t2.bits),
+        (UInt, UInt): lambda t1, t2: UInt(t1.bits + t2.bits),
     }
     float_rules = {
         (Float, Float) : lambda t1, t2: Float(max(t1.bits, t2.bits)),

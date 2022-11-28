@@ -99,12 +99,15 @@ def const_tensor(values, name=None, dtype=None):
     filename, lineno = get_src_loc()
     loc = itmd.Location(filename, lineno)
     # convert values to numpy array and handle overflow
-    if isinstance(values, List):
-        values = np.array(values)
+    shape = np.array(values).shape
     values = make_const_tensor(values, dtype)
-    cst_op = itmd.ConstantTensorOp(values, name, dtype, loc)
+    realtype = Int(64) if isinstance(dtype, (Int, UInt)) else dtype
+    cst_op = itmd.ConstantTensorOp(values, name, shape, realtype, loc)
     region = scope.get()
     region.append(cst_op)
+    if isinstance(dtype, (Int, UInt)):
+        return compute(shape, lambda *args : cast(cst_op.tensor[args], dtype), 
+            name=name+"_cast", dtype=dtype)
     return cst_op.tensor
 
 

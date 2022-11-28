@@ -74,7 +74,7 @@ def build_schedule(inputs, func=None, name=""):
         else:
             outputs = [ret]
     itmd.top_func.return_tensors.extend(outputs)
-    print(itmd)
+    # print(itmd)
     s = create_schedule_from_itmd(itmd, inputs, func, name)
     return s
 
@@ -794,7 +794,7 @@ class CreateStage(Pass):
 
     def visit(self, op):
         self.create_stage(op)
-        if hasattr(op, "body"):
+        if hasattr(op, "body") and op.body is not None:
             for op in op.body:
                 # recursively visit the body
                 self.visit(op)

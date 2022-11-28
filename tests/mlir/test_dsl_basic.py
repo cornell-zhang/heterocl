@@ -292,6 +292,8 @@ def test_while_basic():
     ret_A = hcl_A.asnumpy()
     assert np.array_equal(golden_A, ret_A)
 
+test_while_basic()
+
 def test_invalidate():
     def kernel():
         i = hcl.scalar(0,"i",dtype=hcl.UInt(32))
