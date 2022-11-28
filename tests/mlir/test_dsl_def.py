@@ -65,6 +65,7 @@ def test_module_with_return():
     for i in range(0, 10):
         assert(_B[i] == a[i]+1)
 
+# test_module_with_return()
 
 def _test_module_cond_return_if_only():
 

@@ -313,10 +313,64 @@ def old_while_(cond):
     return WithScope(None, _exit_cb)
 
 
-DEF_FUNC = False
-
-
 def def_(shapes, dtypes=None, ret_dtype=None, name=None, arg_names=None):
+
+    filename, lineno = get_src_loc()
+    loc = itmd.Location(filename, lineno)
+
+    def decorator(fmodule):
+        HCLDeprecationWarning("hcl.def_() is deprecated, please use .outline() instead.").warn()
+        fname = name if name is not None else fmodule.__name__
+        code = fmodule.__code__
+        names = code.co_varnames
+        if arg_names is not None:
+            names = list(names)
+            for i in range(len(arg_names)):
+                names[i] = arg_names[i]
+            names = tuple(names)
+        nargs = code.co_argcount
+        
+        region = scope.get()
+        func_op = itmd.FuncOp(fname, [], [], loc)
+        region.append(func_op)
+
+        def wrapped_func(*inputs):
+            func_op.args = inputs
+            scope.push(func_op.body)
+            ret = fmodule(*inputs)
+            scope.pop()
+            if ret is None:
+                outputs = list()
+                if len(func_op.body) > 0 and isinstance(func_op.body[-1], itmd.ReturnOp):
+                    outputs = [func_op.body[-1].expr]
+                    func_op.body.pop()
+            elif isinstance(ret, tuple):
+                outputs = list(ret)
+            else:
+                outputs = [ret]
+            
+            func_op.return_tensors.extend(outputs)
+
+            # call op
+            call_op = itmd.CallOp(func_op.name, inputs, loc)
+            if len(outputs) == 0:
+                # no return value
+                # use as a statement
+                region = scope.get()
+                region.append(call_op)
+            else:
+                # return value
+                # use as an expression
+                call_op.level = 0
+
+            return call_op
+
+        return wrapped_func
+
+    return decorator
+
+
+def old_def_(shapes, dtypes=None, ret_dtype=None, name=None, arg_names=None):
     """
     Define a HeteroCL function from a Python function.
 

@@ -193,6 +193,11 @@ class IRBuilder(object):
             if self.BIT_OPS:
                 func.attributes["bit"] = UnitAttr.get()
 
+            # legalize the module
+            # module_str = str(self.module)
+            # self.module = Module.parse(module_str)
+            # print(self.module)
+
 
     def build_visitor(self, op, ip):
         """Build dispatcher
@@ -256,8 +261,67 @@ class IRBuilder(object):
             self.build_struct_construct_op(op, ip)
         elif isinstance(op, itmd.StructGetOp):
             self.build_struct_get_op(op, ip)
+        elif isinstance(op, itmd.FuncOp):
+            self.build_func_op(op, ip)
+        elif isinstance(op, itmd.CallOp):
+            self.build_call_op(op, ip)
         else:
             raise HCLNotImplementedError(f"{type(op)}'s build visitor is not implemented yet.")
+
+    def build_func_op(self, op : itmd.FuncOp, ip):
+        loc = Location.file(op.loc.filename, op.loc.lineno, 0)
+        # use global insetion point
+        ip = InsertionPoint(self.module.body)
+        input_types = []
+        input_typehints = []
+        for arg in op.args:
+            if isinstance(arg, itmd.AllocOp):
+                ele_type = hcl_dtype_to_mlir(arg.dtype, signless=True)
+                input_typehints.append(get_extra_type_hints(arg.dtype))
+                memref_type = MemRefType.get(arg.shape, ele_type)
+                input_types.append(memref_type)
+            else:
+                dtype = self.tinf_engine.infer(arg)
+                input_typehints.append(get_extra_type_hints(dtype))
+                dtype = hcl_dtype_to_mlir(dtype, signless=True)
+                input_types.append(dtype)
+        output_types = []
+        output_typehints = []
+        for ret in op.return_tensors:
+            dtype = self.tinf_engine.infer(ret)
+            output_typehints.append(get_extra_type_hints(dtype))
+            dtype = hcl_dtype_to_mlir(dtype, signless=True)
+            output_types.append(dtype)
+        func_type = FunctionType.get(input_types, output_types)
+        func_op = func_d.FuncOp(name=op.name, type=func_type, ip=ip, loc=loc)
+        op.ir_op = func_op
+        func_op.add_entry_block()
+        for arg, block_arg in zip(op.args, func_op.entry_block.arguments):
+            arg.result = block_arg
+
+        # build body
+        ip = InsertionPoint(func_op.entry_block)
+        for op in op.body:
+            self.build_visitor(op, ip)
+        # returns = [v.result for v in op.return_tensors]
+        returns = []
+        func_d.ReturnOp(returns, ip=ip, loc=loc)
+        func_op.attributes["function_type"] = TypeAttr.get(func_type)
+        # attach type hints
+        otypes = "".join(output_typehints)
+        itypes = "".join(input_typehints)
+        func_op.attributes["otypes"] = StringAttr.get(otypes)
+        func_op.attributes["itypes"] = StringAttr.get(itypes)
+
+
+    def build_call_op(self, op : itmd.CallOp, ip):
+        loc = Location.file(op.loc.filename, op.loc.lineno, 0)
+        func = FlatSymbolRefAttr.get(op.name)
+        args = [arg.result for arg in op.args]
+        # func_type = func.attributes["function_type"].value
+        return_types = []
+        call_op = func_d.CallOp(return_types, func, args, ip=ip, loc=loc)
+        # op.result = call_op.results[0]
 
     def build_iter_var(self, iv, ip):
         """Build IterVar"""

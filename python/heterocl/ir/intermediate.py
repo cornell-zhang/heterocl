@@ -1020,7 +1020,7 @@ class FuncOp(Operation):
         for stmt in self.body:
             code_str += f"{stmt}\n"
         code_str = print_indent(code_str, self.level + 1)
-        code_str += "return {}\n".format(", ".join([v.name for v in self.return_tensors]))
+        code_str += "return {}\n".format(", ".join([str(v) for v in self.return_tensors]))
         code_str = print_indent(code_str, self.level)
         code_str += "}"
         return code_str
@@ -1033,7 +1033,10 @@ class CallOp(Expr):
         self.level = len(scope)
 
     def __repr__(self):
-        return "{}({})".format(self.name, ", ".join([str(v) for v in self.args]))
+        code_str = ""
+        code_str += print_indent(code_str, self.level)
+        code_str += "{}({})".format(self.name, ", ".join([str(v) for v in self.args]))
+        return code_str
 
 
 class SelectOp(Expr):
@@ -1124,6 +1127,7 @@ class IR(object):
     def __init__(self):
         loc = Location("unknown", 0)
         self.top_func = FuncOp("top", [], [], loc)
+        self.top_func.level = 0
 
     def add_op(self, op):
         self.top_func.body.append(op)
