@@ -221,6 +221,8 @@ class IRBuilder(object):
             self.build_if_op(op, ip)
         elif isinstance(op, itmd.ForOp):
             self.build_for_op(op, ip)
+        elif isinstance(op, itmd.WhileOp):
+            self.build_while_op(op, ip)
         elif isinstance(op, itmd.SelectOp):
             self.build_select_op(op, ip)
         elif isinstance(op, itmd.PrintOp):
@@ -291,6 +293,25 @@ class IRBuilder(object):
             op.iter_var.parent_loop = loop
             for body_op in op.body:
                 self.build_visitor(body_op, ip)
+
+    def build_while_op(self, op : itmd.WhileOp, ip):
+        loc = Location.file(op.loc.filename, op.loc.lineno, 0)
+        with get_context(), loc:
+            # bulid empty while loop
+            while_op = scf_d.WhileOp([], [], ip=ip, loc=loc)
+            while_op.before.blocks.append(*[])
+            while_op.after.blocks.append(*[])
+            # build condition
+            cond_ip = InsertionPoint(while_op.before.blocks[0])
+            self.build_visitor(op.cond, cond_ip)
+            scf_d.ConditionOp(op.cond.result, [], ip=cond_ip, loc=loc)
+            # build body
+            body_ip = InsertionPoint(while_op.after.blocks[0])
+            for body_op in op.body:
+                self.build_visitor(body_op, body_ip)
+            # build yield
+            scf_d.YieldOp([], ip=body_ip, loc=loc)
+        op.ir_op = while_op
 
     def build_alloc_op(self, op, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)

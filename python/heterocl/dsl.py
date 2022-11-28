@@ -284,8 +284,19 @@ def elif_(cond):
 
     return WithScope(None, _exit_cb)
 
-
 def while_(cond):
+    region = scope.get()
+    filename, lineno = get_src_loc()
+    whileOp = itmd.WhileOp(cond, itmd.Location(filename, lineno))
+    region.append(whileOp)
+    scope.push(whileOp.body)
+
+    def _exit_cb():
+        scope.pop()
+
+    return WithScope(None, _exit_cb)
+
+def old_while_(cond):
     """Construct a while loop"""
     hcl_mlir.enable_build_inplace()
     if isinstance(cond, hcl_mlir.ExprOp):
