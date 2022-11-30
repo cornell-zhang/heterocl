@@ -252,7 +252,7 @@ def sort_type_classes(types):
 class TypeRule(object):
     """Type inference rule for a set of operations.
     """
-    def __init__(self, OpClass, inf_rules):
+    def __init__(self, OpClass, inf_rules, commutative=False):
         """
         Parameters
         ----------
@@ -278,6 +278,7 @@ class TypeRule(object):
         elif not isinstance(inf_rules, list):
             raise TypeError(f"inf_rules must be a dict or a collection of dict, not {type(inf_rules)}")
         
+        self.commutative = commutative
         # A collection of applicable operations
         self.OpClass = OpClass
         # Inference rules
@@ -297,7 +298,10 @@ class TypeRule(object):
                 if not isinstance(inf_rule, python_types.LambdaType):
                     raise TypeError(f"inf_rule must be a lambda function, not {type(inf_rule)}")
                 # sort the input types
-                itype = tuple(sort_type_classes(itype))
+                if commutative:
+                    itype = tuple(sort_type_classes(itype))
+                else:
+                    itype = tuple(itype)
                 # check if the input types are already in the dictionary
                 if itype in self.inf_rules:
                     raise DTypeError(f"Duplicate inference rule for input types {itype}")
@@ -319,7 +323,10 @@ class TypeRule(object):
         Type
             The inferred output type
         """
-        itype_classes = sort_type_classes([type(t) for t in args])
+        if self.commutative:
+            itype_classes = sort_type_classes([type(t) for t in args])
+        else:
+            itype_classes = [type(t) for t in args]
         itype_classes = tuple(itype_classes)
         if itype_classes not in self.inf_rules:
             raise APIError(f"Typing rule is not defined for {self.OpClass} with input types {itype_classes}")

@@ -313,7 +313,7 @@ def old_while_(cond):
     return WithScope(None, _exit_cb)
 
 
-def def_(shapes, dtypes=None, ret_dtype=None, name=None, arg_names=None):
+def def_(shapes=None, dtypes=None, ret_dtype=None, name=None, arg_names=None):
 
     filename, lineno = get_src_loc()
     loc = itmd.Location(filename, lineno)
