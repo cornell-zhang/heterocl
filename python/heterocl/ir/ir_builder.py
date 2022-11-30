@@ -126,6 +126,18 @@ def get_op_class(op, typ):
             return math_d.PowFOp
         else:
             raise APIError("Unsupported type for MathPowOp: {}".format(typ))
+    elif isinstance(op, itmd.LeftShiftOp):
+        if isinstance(typ, (htypes.Int, htypes.UInt)):
+            return arith_d.ShLIOp
+        else:
+            raise APIError("Unsupported type for LeftShiftOp: {}".format(typ))
+    elif isinstance(op, itmd.RightShiftOp):
+        if isinstance(typ, htypes.Int):
+            return arith_d.ShRSIOp
+        elif isinstance(typ, htypes.UInt):
+            return arith_d.ShRUIOp
+        else:
+            raise APIError("Unsupported type for RightShiftOp: {}".format(typ))
     else:
         raise APIError("Unsupported op in get_op_class: {}".format(op))
 

@@ -269,6 +269,22 @@ def cmp_rule():
     return TypeRule(ops, [int_rules, uint_rules, index_rules, fixed_rules, ufixed_rules, float_rules])
 
 
+def shift_rule():
+    ops = (itmd.LeftShiftOp, itmd.RightShiftOp)
+    int_rules = {
+        (Int, Int) : lambda t1, t2: t1,
+        (Int, UInt): lambda t1, t2: t1,
+        (Int, Index): lambda t1, t2: t1,
+    }
+    uint_rules = {
+        (UInt, UInt): lambda t1, t2: t1,
+        (UInt, Index): lambda t1, t2: t1,
+    }
+    index_rules = {
+        (Index, Index): lambda t1, t2: Index(),
+    }
+    return TypeRule(ops, [int_rules, uint_rules, index_rules], commutative=True)
+
 def and_or_rule():
     ops = (itmd.And, itmd.Or)
     int_rules = {
@@ -316,4 +332,5 @@ def get_type_rules():
     rules.append(cmp_rule())
     rules.append(div_rule())
     rules.append(pow_rule())
+    rules.append(shift_rule())
     return rules
