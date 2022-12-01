@@ -19,6 +19,7 @@ def test_move_outputs():
     target = hcl.Platform.aws_f1
     target.config(compiler="vivado_hls", mode="csim", project="stream_tests/test_move_outputs.prj")
     s = hcl.create_schedule([A], kernel)
+    # import ipdb; ipdb.set_trace()
     s.to(A, target.xcel)
     s.to(kernel.update1.B, target.host)
 
@@ -27,6 +28,8 @@ def test_move_outputs():
     assert "Stage_B" in mod.src
     assert "Stage_update1" in mod.src
     assert "Stage_update2" in mod.host_src
+
+# test_move_outputs()
 
 @pytest.mark.skip(reason="IndexError: access out of bound")
 def test_in_place_update():

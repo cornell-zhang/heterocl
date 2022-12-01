@@ -140,6 +140,7 @@ def get_op_class(op, typ):
             raise APIError("Unsupported type for RightShiftOp: {}".format(typ))
     else:
         raise APIError("Unsupported op in get_op_class: {}".format(op))
+        
 
 class IRBuilder(object):
     """IRBuilder class to build MLIR
@@ -362,6 +363,87 @@ class IRBuilder(object):
             raise APIError("IterVar {} parent loop has not been set".format(iv))
         iv.result = iv.parent_loop.induction_variable
 
+    def build_for_loop(self, lb, ub, step=1, name="", stage="", reduction=False, ip=None, loc=None):
+        """Build Affine or SCF for loop.
+        If the upper and lower bounds are constant, build an AffineForOp.
+        Otherwise, build an SCFForOp.
+
+        Parameters
+        ----------
+        lb : int or Expr
+            Lower bound of the loop.
+        
+        ub : int or Expr
+            Upper bound of the loop.
+        
+        step : int
+            Step of the loop.
+
+        name : str
+            Name of the loop.
+
+        reduction : bool
+            Whether the loop is a reduction loop.
+        
+        ip : InsertPoint
+            Insert point of the loop.
+        
+        loc : MLIR Location
+            Source file location.
+        """
+        if not isinstance(step, int):
+            raise HCLNotImplementedError("Non-constant step size is not supported yet")
+        if step < 0: # swap lb and ub
+            lb, ub = ub + 1, lb + 1
+            step = -step
+
+        if isinstance(lb, int) and isinstance(ub, int): # build affine for loop
+            lbCst = AffineConstantExpr.get(lb)
+            lbMap = AffineMap.get(dim_count=0, symbol_count=0, exprs=[lbCst])
+            lbMapAttr = AffineMapAttr.get(lbMap)
+            lb_expr = None
+            ubCst = AffineConstantExpr.get(ub)
+            ubMap = AffineMap.get(dim_count=0, symbol_count=0, exprs=[ubCst])
+            ubMapAttr = AffineMapAttr.get(ubMap)
+            ub_expr = None
+            step = IntegerAttr.get(IntegerType.get_signless(32), step)
+            for_op = affine_d.AffineForOp(
+                lb_expr,
+                ub_expr,
+                step,
+                lbMapAttr,
+                ubMapAttr,
+                name=(StringAttr.get("") if name in [
+                    "", None] else StringAttr.get(name)),
+                stage=("" if stage == "" else StringAttr.get(stage)),
+                reduction=(UnitAttr.get() if reduction else None),
+                ip=ip,
+                loc=loc,
+            )
+            affine_d.AffineYieldOp([], ip=InsertionPoint(for_op.body))
+        else: # build scf for loop
+            # cast lb and up to index type
+            lb = itmd.CastOp(lb, htypes.Index(), loc=loc)
+            ub = itmd.CastOp(ub, htypes.Index(), loc=loc)
+            self.build_visitor(lb, ip)
+            self.build_visitor(ub, ip)
+            step = itmd.immediate_to_constant(step, loc, htypes.Index())
+            self.build_visitor(step, ip)
+            for_op = scf_d.ForOp(
+                lb.result,
+                ub.result,
+                step.result,
+                name=(StringAttr.get("") if name in [
+                    "", None] else StringAttr.get(name)),
+                stage=("" if stage == "" else StringAttr.get(stage)),
+                reduction = (UnitAttr.get() if reduction else None),
+                ip=ip,
+                loc=loc
+            )
+            scf_d.YieldOp([], ip=InsertionPoint(for_op.body))
+        return for_op
+
+
     def build_compute(self, op, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         iv_names = [iv.name for iv in op.iter_vars]
@@ -375,15 +457,10 @@ class IRBuilder(object):
             
             loops = list()
             for i, (ub, loop_name) in enumerate(zip(op.shape, iv_names)):
-                # TODO(Niansong): merge make_for with build_for?
-                loop = hcl_mlir.make_for(
-                    0,
-                    ub,
-                    step=1,
-                    name=loop_name,
+                loop = self.build_for_loop(
+                    0, ub, step=1, name=loop_name,
                     stage=(op.name if i == 0 else ""),
-                    ip=ip,
-                )
+                    ip=ip, loc=loc)
                 loops.append(loop)
                 ip = InsertionPoint(loop.body.operations[0])
             for iter_var, loop in zip(op.iter_vars, loops):
@@ -394,8 +471,8 @@ class IRBuilder(object):
     def build_for_op(self, op : itmd.ForOp, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         with get_context(), loc:
-            loop = hcl_mlir.make_for(
-                op.low, op.high, op.step, op.name, stage="", ip=ip)
+            loop = self.build_for_loop(
+                op.low, op.high, op.step, op.name, ip=ip, loc=loc)
             ip = InsertionPoint(loop.body.operations[0])
             op.iter_var.parent_loop = loop
             for body_op in op.body:
@@ -902,13 +979,15 @@ class IRBuilder(object):
 
         # build loop nest
         loops = list()
+        loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         for axis in op.axis:
             lb, ub = axis.bound
-            loop = hcl_mlir.make_for(
+            loop = self.build_for_loop(
                 lb, ub, step=1,
                 reduction=True,
                 name=axis.name,
-                ip=body_ip
+                ip=body_ip,
+                loc=loc
             )
             axis.parent_loop = loop
             loops.append(loop)

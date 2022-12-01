@@ -16,9 +16,11 @@ def print_indent(string, level):
         string += "  "
     return string
 
-def immediate_to_constant(value, loc):
+def immediate_to_constant(value, loc, dtype=None):
     if not isinstance(value, (int, float)):
         return value # pass through
+    if dtype is not None:
+        return ConstantOp(value, dtype, loc)
     if isinstance(value, int):
         if value < 0xFFFFFFFF:
             return ConstantOp(value, Int(32), loc)

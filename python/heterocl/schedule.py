@@ -289,27 +289,6 @@ class Schedule(object):
         self._customize_ip = None
         # self.DataflowGraph = DataflowGraph(name, inputs)
 
-        # create top-level function
-        # itypes = ""
-        # with get_context() as ctx, get_location() as loc:
-        #     input_types = []
-        #     for tensor in inputs:
-        #         if not isinstance(tensor.op, hcl_mlir.TensorOp):
-        #             continue
-        #             # raise RuntimeError("Inputs should be hcl_mlir.TensorOp")
-        #         tensor.init()
-        #         input_types.append(tensor.op.memref_type)
-        #         itypes += get_extra_type_hints(tensor.op.dtype)
-        #     device_top = func_d.FuncOp(name="top", type=FunctionType.get(
-        #         inputs=input_types, results=[]), ip=InsertionPoint(self._device_module.body))
-        #     device_top.attributes["itypes"] = StringAttr.get(
-        #         itypes)
-        #     device_top.attributes["otypes"] = StringAttr.get("")
-        #     device_top.add_entry_block()
-        # GlobalInsertionPoint.save(InsertionPoint(device_top))
-        # GlobalInsertionPoint.save(InsertionPoint(device_top.entry_block))
-        # self._device_top = device_top
-
     def create_host_module(self):
         set_context()
         with get_context() as ctx, get_location() as loc:
@@ -578,7 +557,10 @@ class Schedule(object):
 
 
 class StageFunction(object):
-
+    """
+    Looks like stage function is just to have a separate
+    MLIR module for creation of execution engine
+    """
     def __init__(self, name=None):
         if not isinstance(name, list):
             name = [name]

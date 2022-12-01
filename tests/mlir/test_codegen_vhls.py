@@ -22,6 +22,7 @@ def test_pragma():
                          "#pragma HLS pipeline II=2",
                          r"#pragma HLS array_partition variable=v\d* block dim=2 factor=2"])
 
+
 def test_set_bit():
     harness.test_set_bit(target, "[4] = 1")
 
@@ -48,6 +49,7 @@ def test_index_split():
     code = hcl.build(s, target="vhls")
     assert "(y_outer * 5)" in code
     assert "y_inner +" in code
+
 
 def test_index_split_reshape():
     hcl.init()
