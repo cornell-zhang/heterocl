@@ -1219,7 +1219,10 @@ class IRBuilder(object):
         value_attr = DenseElementsAttr.get(val)
         sym_name = StringAttr.get(op.name)
         sym_visibility = StringAttr.get("private")
-        memref_type = MemRefType.get(op.shape, dtype)
+        if isinstance(op.dtype, (htypes.Fixed, htypes.UFixed)):
+            memref_type = MemRefType.get(op.shape, IntegerType.get_signless(64))
+        else:
+            memref_type = MemRefType.get(op.shape, dtype)
         type_attr = TypeAttr.get(memref_type)
         const_tensor = memref_d.GlobalOp(
             sym_name,

@@ -105,7 +105,8 @@ def const_tensor(values, name=None, dtype=None):
     filename, lineno = get_src_loc()
     loc = itmd.Location(filename, lineno)
     # convert values to numpy array and handle overflow
-    shape = np.array(values).shape
+    values = np.array(values)
+    shape = values.shape
     values = make_const_tensor(values, dtype)
     realtype = Int(64) if isinstance(dtype, (Int, UInt)) else dtype
     cst_op = itmd.ConstantTensorOp(values, name, shape, realtype, loc)
