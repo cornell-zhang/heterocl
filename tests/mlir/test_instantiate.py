@@ -1,4 +1,5 @@
 import heterocl as hcl
+import pytest
 
 # Instance A: vadd
 def vadd(A, B):
@@ -23,6 +24,7 @@ def kernel(A, B, C, D):
    F = vmul_inst(C, D)
    return E, F
 
+@pytest.mark.skip("instantiation not supported")
 def test_instantiate():
    A = hcl.placeholder((10,), name="A")
    B = hcl.placeholder((10,), name="B")

@@ -112,4 +112,5 @@ def test_schedule_inter_stage():
 
 
 if __name__ == '__main__':
-    test_schedule_inter_stage()
+    test_if()
+    # test_schedule_inter_stage()

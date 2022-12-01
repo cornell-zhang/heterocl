@@ -273,6 +273,8 @@ class IRBuilder(object):
             self.build_func_op(op, ip)
         elif isinstance(op, itmd.CallOp):
             self.build_call_op(op, ip)
+        elif isinstance(op, itmd.Neg):
+            self.build_neg_op(op, ip)
         else:
             raise HCLNotImplementedError(f"{type(op)}'s build visitor is not implemented yet.")
 
@@ -423,11 +425,12 @@ class IRBuilder(object):
             affine_d.AffineYieldOp([], ip=InsertionPoint(for_op.body))
         else: # build scf for loop
             # cast lb and up to index type
-            lb = itmd.CastOp(lb, htypes.Index(), loc=loc)
-            ub = itmd.CastOp(ub, htypes.Index(), loc=loc)
+            itmd_loc = itmd.Location("unknown", 0)
+            lb = itmd.CastOp(lb, htypes.Index(), loc=itmd_loc)
+            ub = itmd.CastOp(ub, htypes.Index(), loc=itmd_loc)
             self.build_visitor(lb, ip)
             self.build_visitor(ub, ip)
-            step = itmd.immediate_to_constant(step, loc, htypes.Index())
+            step = itmd.immediate_to_constant(step, itmd_loc, htypes.Index())
             self.build_visitor(step, ip)
             for_op = scf_d.ForOp(
                 lb.result,
@@ -533,6 +536,25 @@ class IRBuilder(object):
         # Step 4: attach necessary attributes
         if isinstance(t, (htypes.UInt, htypes.UFixed)):
             binary_op.attributes["unsigned"] = UnitAttr.get()
+
+    def build_neg_op(self, op, ip):
+        loc = Location.file(op.loc.filename, op.loc.lineno, 0)
+        self.build_visitor(op.expr, ip)
+        t = self.tinf_engine.infer(op.expr)
+
+        if isinstance(t, htypes.Float):
+            neg_op = arith_d.NegFOp(op.expr.result, ip=ip, loc=loc)
+        else:
+            mul_neg_one = itmd.BinaryOp(
+                op.expr, itmd.ConstOp(-1, t, loc), "*", loc)
+            self.build_visitor(mul_neg_one, ip)
+            neg_op = mul_neg_one.ir_op
+        
+        op.result = neg_op.result
+        op.ir_op = neg_op
+
+        if isinstance(t, (htypes.UInt, htypes.UFixed)):
+            neg_op.attributes["unsigned"] = UnitAttr.get()
 
     def build_cmp_op(self, op : itmd.Cmp, ip):
         """

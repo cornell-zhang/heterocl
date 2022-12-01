@@ -60,6 +60,8 @@ class TypeInfer(object):
             return struct_t.dtype_dict[key]
         elif isinstance(expr, itmd.CallOp):
             return self.infer(expr.rets[0])
+        elif isinstance(expr, itmd.Neg):
+            return self.infer(expr.expr)
         else:
             raise APIError(f"Type inference not defined for expression of type: {type(expr)}")
 
