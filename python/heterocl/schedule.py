@@ -609,6 +609,8 @@ class Stage(object):
         self.tensor = None
         self.stage_handle = None
         self.ip = None
+        # Imperative stage attaches axes to Stage object
+        self.axis = list()
 
 
     def reorder(self, *args):
@@ -784,6 +786,8 @@ class CreateStage(Pass):
     def create_stage(self, op):
         if isinstance(op, itmd.ComputeOp):
             self.create_compute_stage(op)
+        elif isinstance(op, itmd.ForOp):
+            self.create_imperative_stage(op)
         else:
             pass
             # raise HCLNotImplementedError("create_stage method not implemented for op type: " + type(op))
@@ -813,6 +817,36 @@ class CreateStage(Pass):
         stage.stage_handle = stage_hdl
         Stage._mapping.append((tensor, stage))
 
+    def create_imperative_stage(self, op : itmd.ForOp):
+        if op.tag is None:
+            return
+
+        nested_for_loops = [op]
+        def get_nested_for_loops(op):
+            for body_op in op.body:
+                if isinstance(body_op, itmd.ForOp):
+                    nested_for_loops.append(body_op)
+                    get_nested_for_loops(body_op)
+        get_nested_for_loops(op)
+        
+        # Step 1: create a stage
+        stage = Stage(op.tag)
+        stage.ip = self.ip
+        
+        # Step 2: create stage and loop handles
+        with get_context(), get_location():
+            stage_hdl = hcl_d.CreateOpHandleOp(StringAttr.get(op.tag), ip=self.ip)
+            stage.stage_handle = stage_hdl
+            for l in nested_for_loops:
+                loop_hdl = hcl_d.CreateLoopHandleOp(stage_hdl.result, StringAttr.get(l.name), ip=self.ip)
+                stage.axis.append(loop_hdl)
+
+        # Step 3: attach stage to top function
+        top_func = Schedule._TopFunction
+        if top_func is not None:
+            top_func.__setattr__(op.tag, stage)
+
+        # TODO: Mapping?
 
     def apply(self):
         """Pass entry point"""

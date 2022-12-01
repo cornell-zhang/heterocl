@@ -474,8 +474,9 @@ class IRBuilder(object):
     def build_for_op(self, op : itmd.ForOp, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         with get_context(), loc:
+            stage = "" if op.tag is None else op.tag
             loop = self.build_for_loop(
-                op.low, op.high, op.step, op.name, ip=ip, loc=loc)
+                op.low, op.high, op.step, op.name, stage=stage, ip=ip, loc=loc)
             ip = InsertionPoint(loop.body.operations[0])
             op.iter_var.parent_loop = loop
             for body_op in op.body:

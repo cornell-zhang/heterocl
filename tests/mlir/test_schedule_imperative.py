@@ -105,12 +105,12 @@ def test_schedule_inter_stage():
         Out = popcount.Out
         s[popcount.C].compute_at(s[Out], Out.axis[1])
         ir = hcl.lower(s)
-        assert 'affine.store %2, %0[%arg2, %arg3] {to = "C"} : memref<10x20xi32>' in str(ir)
+        assert 'affine.store %5, %0[%arg2, %arg3] {to = "C"} : memref<10x20xi32>' in str(ir)
         assert "0 to 32" in str(ir)
 
     test_compute_at()
 
 
 if __name__ == '__main__':
-    test_if()
-    # test_schedule_inter_stage()
+    # test_if()
+    test_schedule_inter_stage()
