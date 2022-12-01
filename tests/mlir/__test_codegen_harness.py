@@ -41,23 +41,27 @@ def test_pragma(target, strings, test_partition=True):
     hcl.init()
     A = hcl.placeholder((10, 32), "A")
     B = hcl.placeholder((10, 32), "B")
-    C = hcl.compute(A.shape, lambda i, j: A[i][j] + B[i][j])
+    def algo(A, B):
+        C = hcl.compute(A.shape, lambda i, j: A[i][j] + B[i][j], name="C")
     # unroll
-    s1 = hcl.create_schedule([A, B])
+    s1 = hcl.create_schedule([A, B], algo)
+    C = algo.C
     s1[C].unroll(C.axis[1], factor=4)
     code1 = hcl.build(s1, target=target)
     assert strings[0] in code1
     # pipeline
-    s2 = hcl.create_schedule([A, B])
+    s2 = hcl.create_schedule([A, B], algo)
+    C = algo.C
     s2[C].pipeline(C.axis[0], initiation_interval=2)
     code2 = hcl.build(s2, target=target)
     assert strings[1] in code2
     if test_partition:
         # partition
-        s3 = hcl.create_schedule([A, B])
+        s3 = hcl.create_schedule([A, B], algo)
         s3.partition(A, hcl.Partition.Block, dim=2, factor=2)
         code3 = hcl.build(s3, target=target)
         assert re.search(strings[2], code3)
+
 
 def test_set_bit(target, string):
     hcl.init()
@@ -65,6 +69,7 @@ def test_set_bit(target, string):
     def kernel(A):
         A[0][4] = 1
     s = hcl.create_schedule([A], kernel)
+    print(hcl.lower(s))
     code = hcl.build(s, target=target)
     assert string in code
 

@@ -94,11 +94,12 @@ def test_legacy_interface():
     hcl.init()
     A = hcl.placeholder((10, 10), "A")
     B = hcl.compute(A.shape, lambda y, x: A[y][x], "B")
-    s = hcl.create_schedule([A])
+    s = hcl.create_schedule([A, B])
     s[B].fuse(B.axis[0], B.axis[1])
     code = hcl.build(s, target="vhls")
     assert "v0[10][10]" in code
     assert "v1[10][10]" in code
+
 
 @pytest.mark.skip(reason="assertion error in type casting")
 def test_select_type_cast():
