@@ -625,8 +625,8 @@ class GetBitOp(Expr):
     """
     def __init__(self, expr, index, loc):
         super().__init__("getbit", loc)
-        self.expr = expr
-        self.index = index
+        self.expr = immediate_to_constant(expr, loc)
+        self.index = immediate_to_constant(index, loc)
 
     def __repr__(self):
         return f"{self.expr}[{self.index}]"
@@ -637,8 +637,8 @@ class SetBitOp(Operation):
     def __init__(self, expr, index, value, loc):
         super().__init__("setbit", loc)
         self.expr = expr
-        self.index = index
-        self.value = value
+        self.index = immediate_to_constant(index, loc)
+        self.value = immediate_to_constant(value, loc)
         self.level = len(scope)
 
     def __repr__(self):
@@ -653,8 +653,8 @@ class GetSliceOp(Expr):
     def __init__(self, expr, start, end, loc):
         super().__init__("getslice", loc)
         self.expr = expr
-        self.start = start
-        self.end = end
+        self.start = immediate_to_constant(start, loc)
+        self.end = immediate_to_constant(end, loc)
 
     def __repr__(self):
         return f"{self.expr}[{self.start}:{self.end}]"
@@ -666,9 +666,9 @@ class SetSliceOp(Operation):
     def __init__(self, expr, start, end, value, loc):
         super().__init__("setslice", loc)
         self.expr = expr 
-        self.start = start
-        self.end = end
-        self.value = value
+        self.start = immediate_to_constant(start, loc)
+        self.end = immediate_to_constant(end, loc)
+        self.value = immediate_to_constant(value, loc)
         self.level = len(scope)
 
     def __repr__(self):
