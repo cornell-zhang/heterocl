@@ -2,6 +2,7 @@ from . import types
 from .schedule import create_schedule_from_ast, Pass
 from hcl_mlir.exceptions import *
 from .ast import ast
+from .utils import get_src_loc
 
 
 def create_scheme(inputs, func):
@@ -56,7 +57,10 @@ class Scheme(object):
         self.inputs = inputs
         self.func = func
         self._op_map = {} # op name -> op
-        self._ast = ast.IR()
+        filename, lineno = get_src_loc()
+        loc = ast.Location(filename, lineno)
+        top_func = ast.FuncOp("top", inputs, [], loc)
+        self._ast = ast.AST(top_func)
         self._ast.top_func.args = inputs
         ast.scope.pop()
         ast.scope.push(self._ast.top_func.body)

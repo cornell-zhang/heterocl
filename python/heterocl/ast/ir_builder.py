@@ -146,8 +146,8 @@ class IRBuilder(object):
     """IRBuilder class to build MLIR
     operations from intermediate layer
     """
-    def __init__(self, intermediate):
-        self._intermediate = intermediate
+    def __init__(self, _ast):
+        self._ast = _ast
         self.module = Module.create(get_location())
         self.iv = [] # a list to keep track of affine expression's induction variables
         self.tinf_engine = TypeInfer()
@@ -155,9 +155,17 @@ class IRBuilder(object):
         self.BIT_OPS = False
 
     def build(self):
+        with get_context(), get_location():
+            for op in self._ast.region:
+                ip = InsertionPoint.at_block_begin(self.module.body)
+                self.build_visitor(op, ip)
+
+    def build_old(self):
         """Builder entry point
         
-        Build MLIR module with a top-level function
+        this function has duplicate code as build_func_op
+        it also assumes that the top function is the only function.
+        deprecating...
         """
         top_func = self._intermediate.top_func
         with get_context(), get_location():
@@ -280,7 +288,7 @@ class IRBuilder(object):
 
     def build_func_op(self, op : ast.FuncOp, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
-        # use global insetion point
+        # use global insetion point instead
         ip = InsertionPoint.at_block_begin(self.module.body)
         input_types = []
         input_typehints = []
@@ -298,10 +306,16 @@ class IRBuilder(object):
         output_types = []
         output_typehints = []
         for ret in op.return_tensors:
-            dtype = self.tinf_engine.infer(ret)
-            output_typehints.append(get_extra_type_hints(dtype))
-            dtype = hcl_dtype_to_mlir(dtype, signless=True)
-            output_types.append(dtype)
+            if isinstance(ret, ast.AllocOp):
+                ele_type = hcl_dtype_to_mlir(ret.dtype, signless=True)
+                output_typehints.append(get_extra_type_hints(ret.dtype))
+                memref_type = MemRefType.get(ret.shape, ele_type)
+                output_types.append(memref_type)
+            else:
+                dtype = self.tinf_engine.infer(ret)
+                output_typehints.append(get_extra_type_hints(dtype))
+                dtype = hcl_dtype_to_mlir(dtype, signless=True)
+                output_types.append(dtype)
         func_type = FunctionType.get(input_types, output_types)
         func_op = func_d.FuncOp(name=op.name, type=func_type, ip=ip, loc=loc)
         op.ir_op = func_op
@@ -332,6 +346,11 @@ class IRBuilder(object):
         itypes = "".join(input_typehints)
         func_op.attributes["otypes"] = StringAttr.get(otypes)
         func_op.attributes["itypes"] = StringAttr.get(itypes)
+        if self.BIT_OPS:
+            # if function body has bit operations
+            # add bit attribute to let VHLS know
+            # that it should use ap_int type for integers
+            func_op.attributes["bit"] = UnitAttr.get()
 
         # restore arg results
         for arg, orig_result in zip(op.args, orig_arg_results):
