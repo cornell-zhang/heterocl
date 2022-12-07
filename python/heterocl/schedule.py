@@ -22,11 +22,11 @@ from .ast.passes import Pass, NestElseIf
 # we have to enable it to see the warning.
 warnings.simplefilter('always', DeprecationWarning)
 
-def create_schedule_from_ast(ast, inputs, func, name):
+def create_schedule_from_ast(_ast, inputs, func, name):
     """Create a schedule from an intermediate representation.
     """
     s = Schedule(name, inputs, func)
-    s._Intermediate = ast
+    s._ast = _ast
     
     # run passes
     nest_elif_pass = NestElseIf(s.ast)
@@ -53,18 +53,20 @@ def build_schedule(inputs, func=None, name=""):
     """
     if not isinstance(inputs, list):
         inputs = [inputs]
-    ast_module = ast.IR()
-    ast_module.top_func.args = inputs
+    filename, lineno = get_src_loc()
+    loc = ast.Location(filename, lineno)
+    top_func = ast.FuncOp("top", inputs, [], loc)
+    top_func.level = 0
     if func is None:
         # All operations have inserted in scope!
         outputs = list()
         for op in ast.scope.pop():
-            ast_module.add_op(op)
-        if len(ast_module.top_func.body) == 0:
+            top_func.body.append(op)
+        if len(top_func.body) == 0:
             raise APIError("received an empty algorithm specification, no operations present")
     else:
         ast.scope.pop()
-        ast.scope.push(ast_module.top_func.body)
+        ast.scope.push(top_func.body)
         ret = func(*inputs)
         if ret is None:
             outputs = list()
@@ -72,9 +74,10 @@ def build_schedule(inputs, func=None, name=""):
             outputs = list(ret)
         else:
             outputs = [ret]
-    ast_module.top_func.return_tensors.extend(outputs)
-    # print(ast)
-    s = create_schedule_from_ast(ast_module, inputs, func, name)
+    top_func.return_tensors.extend(outputs)
+    _ast = ast.AST(top_func)
+    # print(_ast)
+    s = create_schedule_from_ast(_ast, inputs, func, name)
     return s
 
 def build_schedule_old(inputs, func=None, name=""):
@@ -244,7 +247,7 @@ class Schedule(object):
     _TopFunction = None
     _ScheduleStack = []
     _CurrentIf = 0 # ptr in _IfElseStack
-    _Intermediate = None
+    _ast = None
 
     def __init__(self, name, inputs, func=None):
         self.name = name
@@ -262,7 +265,7 @@ class Schedule(object):
         self._xcel_top = None
         self._host_ret = None
         self._xcel_ret = None
-        self._Intermediate = None
+        self._ast = None
 
         # Instance modules for hierarchical construction
         self._instance_modules = []
@@ -369,7 +372,7 @@ class Schedule(object):
 
     @property
     def ast(self):
-        return self._Intermediate
+        return self._ast
 
     @property
     def instance_modules(self):

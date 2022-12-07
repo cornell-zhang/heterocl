@@ -1126,14 +1126,21 @@ class PrintTensorOp(Operation):
     def __repr__(self):
         return "print_tensor({})".format(self.tensor.name)
 
-class IR(object):
-    def __init__(self):
-        loc = Location("unknown", 0)
-        self.top_func = FuncOp("top", [], [], loc)
-        self.top_func.level = 0
 
-    def add_op(self, op):
-        self.top_func.body.append(op)
+class AST(object):
+    """HeteroCL AST
+    
+    HeteroCL AST is a hierarchical representation of the input program.
+    It has a very simple model: a program is a list of operations.
+    Each operation can optionally have a body, which is again a list of operations.
+    """
+
+    def __init__(self, top_func):
+        self.region = [top_func]
+        self.top_func = top_func
 
     def __repr__(self):
-        return str(self.top_func)
+        code_str = ""
+        for op in self.region:
+            code_str += str(op)
+        return code_str

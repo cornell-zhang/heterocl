@@ -84,11 +84,8 @@ def test_resize():
     A = hcl.placeholder((10,), dtype=hcl.UInt(32))
 
     scheme = hcl.create_scheme([A], algorithm)
-    print(scheme._itmd)
     scheme.downsize(algorithm.B, hcl.UInt(2))
-    print(scheme._itmd)
     s = hcl.create_schedule_from_scheme(scheme)
-    print(s.device_module)
     f = hcl.build(s)
     a = np.random.randint(100, size=(10,))
     _A = hcl.asarray(a, dtype=hcl.UInt(32))
@@ -98,9 +95,6 @@ def test_resize():
 
     _A = _A.asnumpy()
     _B = _B.asnumpy()
-
-    print(_A)
-    print(_B)
 
     for i in range(10):
         assert _B[i] == (a[i] + 1) % 4
