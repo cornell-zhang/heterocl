@@ -4,14 +4,14 @@
 #
 # ===----------------------------------------------------------------------=== #
 
-from .ir import intermediate as itmd
+from .ast import ast
 from .types import *
 
 #TODO: Reduction op rules
 
 """ Type inference rules """
 def add_sub_rule():
-    ops = (itmd.Add, itmd.Sub, itmd.SelectOp)
+    ops = (ast.Add, ast.Sub, ast.SelectOp)
     int_rules = {
         (Int, Int) : lambda t1, t2: Int(max(t1.bits, t2.bits) + 1),
         (Int, UInt): lambda t1, t2: Int(max(t1.bits, t2.bits + 1) + 1),
@@ -64,7 +64,7 @@ def add_sub_rule():
 
 
 def mul_rule():
-    ops = (itmd.Mul)
+    ops = (ast.Mul)
     int_rules = {
         (Int, Int) : lambda t1, t2: Int(t1.bits + t2.bits),
         (Int, UInt): lambda t1, t2: Int(t1.bits + t2.bits),
@@ -112,7 +112,7 @@ def mul_rule():
     return TypeRule(ops, [int_rules, uint_rules, index_rules, fixed_rules, ufixed_rules, float_rules], commutative=True)
 
 def div_rule():
-    ops = (itmd.Div, itmd.FloorDiv)
+    ops = (ast.Div, ast.FloorDiv)
     int_rules = {
         (Int, Int) : lambda t1, t2: t1,
         (Int, UInt): lambda t1, t2: t1,
@@ -165,7 +165,7 @@ def div_rule():
 
 
 def mod_rule():
-    ops = (itmd.Mod)
+    ops = (ast.Mod)
     int_rules = {
         (Int, Int) : lambda t1, t2: Int(max(t1.bits, t2.bits)),
         (Int, UInt): lambda t1, t2: Int(max(t1.bits, t2.bits + 1)),
@@ -217,7 +217,7 @@ def mod_rule():
     return TypeRule(ops, [int_rules, uint_rules, index_rules, fixed_rules, ufixed_rules, float_rules])
 
 def cmp_rule():
-    ops = (itmd.Cmp,)
+    ops = (ast.Cmp,)
     int_rules = {
         (Int, Int) : lambda t1, t2: (Int(max(t1.bits, t2.bits)), UInt(1)),
         (Int, UInt): lambda t1, t2: (Int(max(t1.bits, t2.bits + 1)), UInt(1)),
@@ -270,7 +270,7 @@ def cmp_rule():
 
 
 def shift_rule():
-    ops = (itmd.LeftShiftOp, itmd.RightShiftOp)
+    ops = (ast.LeftShiftOp, ast.RightShiftOp)
     int_rules = {
         (Int, Int) : lambda t1, t2: t1,
         (Int, UInt): lambda t1, t2: t1,
@@ -286,7 +286,7 @@ def shift_rule():
     return TypeRule(ops, [int_rules, uint_rules, index_rules], commutative=True)
 
 def and_or_rule():
-    ops = (itmd.And, itmd.Or)
+    ops = (ast.And, ast.Or)
     int_rules = {
         (Int, Int) : lambda t1, t2: Int(max(t1.bits, t2.bits)),
         (Int, UInt): lambda t1, t2: Int(max(t1.bits, t2.bits)),
@@ -296,7 +296,7 @@ def and_or_rule():
 
 
 def logic_op_rule():
-    ops = (itmd.LogicalAnd, itmd.LogicalOr, itmd.LogicalXOr)
+    ops = (ast.LogicalAnd, ast.LogicalOr, ast.LogicalXOr)
     int_rules = {
         (Int, Int) : lambda t1, t2: UInt(1),
         (Int, UInt): lambda t1, t2: UInt(1),
@@ -305,7 +305,7 @@ def logic_op_rule():
     return TypeRule(ops, [int_rules])
 
 def pow_rule():
-    ops = (itmd.MathPowOp,)
+    ops = (ast.MathPowOp,)
     int_rules = {
         (Int, Int) : lambda t1, t2: Float(64),
         (Int, UInt): lambda t1, t2: Float(64),
@@ -320,7 +320,7 @@ def pow_rule():
     return TypeRule(ops, [int_rules, float_rules])
 
 
-#TODO: attach typing rules to itmd.Operation classes
+#TODO: attach typing rules to ast.Operation classes
 # Make this a hook? more extensible
 def get_type_rules():
     rules = list()

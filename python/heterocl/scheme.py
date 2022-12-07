@@ -1,6 +1,7 @@
 from . import types
-from .schedule import create_schedule_from_itmd, Pass
-from .ir.intermediate import *
+from .schedule import create_schedule_from_ast, Pass
+from hcl_mlir.exceptions import *
+from .ast import ast
 
 
 def create_scheme(inputs, func):
@@ -14,16 +15,16 @@ def create_scheme(inputs, func):
 def create_schedule_from_scheme(scheme, name=""):
     """Create a schedule from a scheme.
     """
-    return create_schedule_from_itmd(scheme._itmd, scheme.inputs, scheme.func, name=name)
+    return create_schedule_from_ast(scheme._ast, scheme.inputs, scheme.func, name=name)
 
 class AttachTensor(Pass):
-    def __init__(self, scheme, itmd, func):
-        super().__init__("attach_tensor", itmd)
+    def __init__(self, scheme, ast, func):
+        super().__init__("attach_tensor", ast)
         self.func = func
         self.scheme = scheme
 
     def apply(self):
-        self.visit(self.itmd.top_func)
+        self.visit(self.ast.top_func)
 
     def visit(self, op):
         self.attach_tensor(op, self.func)
@@ -32,7 +33,7 @@ class AttachTensor(Pass):
                 self.visit(op)
 
     def attach_tensor(self, op, func):
-        if isinstance(op, ComputeOp):
+        if isinstance(op, ast.ComputeOp):
             self.scheme._op_map[op.name] = op
             if op.kind == "compute":
                 # attach op.tensor to func
@@ -40,7 +41,7 @@ class AttachTensor(Pass):
             else:
                 # attach op.aux_tensor to func
                 func.__setattr__(op.name, op.aux_tensor)
-        elif isinstance(op, AllocOp):
+        elif isinstance(op, ast.AllocOp):
             if not hasattr(func, op.name):
                 func.__setattr__(op.name, op)
                 self.scheme._op_map[op.name] = op
@@ -55,10 +56,10 @@ class Scheme(object):
         self.inputs = inputs
         self.func = func
         self._op_map = {} # op name -> op
-        self._itmd = IR()
-        self._itmd.top_func.args = inputs
-        scope.pop()
-        scope.push(self._itmd.top_func.body)
+        self._ast = ast.IR()
+        self._ast.top_func.args = inputs
+        ast.scope.pop()
+        ast.scope.push(self._ast.top_func.body)
         ret = func(*inputs)
         if ret is None:
             outputs = list()
@@ -66,8 +67,8 @@ class Scheme(object):
             outputs = list(ret)
         else:
             outputs = [ret]
-        self._itmd.top_func.return_tensors.extend(outputs)
-        attach_tensor_pass = AttachTensor(self, self._itmd, func)
+        self._ast.top_func.return_tensors.extend(outputs)
+        attach_tensor_pass = AttachTensor(self, self._ast, func)
         attach_tensor_pass.apply()
 
     def downsize(self, inputs, dtype):
@@ -79,9 +80,9 @@ class Scheme(object):
             inputs = [inputs]
         for tensor in inputs:
             op = self._op_map[tensor.name]
-            if isinstance(op, AllocOp):
+            if isinstance(op, ast.AllocOp):
                 op.dtype = dtype
-            elif isinstance(op, ComputeOp):
+            elif isinstance(op, ast.ComputeOp):
                 op.tensor.dtype = dtype
                 op.aux_tensor.dtype = dtype
                 op.dtype = dtype
@@ -97,9 +98,9 @@ class Scheme(object):
             inputs = [inputs]
         for tensor in inputs:
             op = self._op_map[tensor.name]
-            if isinstance(op, AllocOp):
+            if isinstance(op, ast.AllocOp):
                 op.dtype = dtype
-            elif isinstance(op, ComputeOp):
+            elif isinstance(op, ast.ComputeOp):
                 op.tensor.dtype = dtype
                 op.aux_tensor.dtype = dtype
                 op.dtype = dtype

@@ -14,7 +14,6 @@ from .types import dtype_to_str, Int, UInt, Float, Fixed, UFixed
 from .context import get_context, get_location, NestedStageLevel
 # from .schedule import Schedule, Stage
 from .utils import get_extra_type_hints, hcl_dtype_to_mlir, get_dtype_str
-from .ir import intermediate as itmd
 
 class Tensor(object):
     """A wrapper class for hcl-mlir tensor-related operations

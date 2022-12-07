@@ -7,17 +7,17 @@ from .context import UniqueName
 from .operation import placeholder
 from .tensor import Tensor
 from .utils import get_dtype_str
-from .ir import intermediate as itmd
+from .ast import ast
 from .schedule import get_src_loc
 
 def print(vals, format_str=""):
     filename, lineno = get_src_loc()
-    loc = itmd.Location(filename, lineno)
-    if isinstance(vals, itmd.AllocOp):
-        printOp = itmd.PrintTensorOp(vals, loc)
-    elif isinstance(vals, (int, float, itmd.Expr)):
-        value = itmd.immediate_to_constant(vals, loc)
-        printOp = itmd.PrintOp([value], format_str, loc)
+    loc = ast.Location(filename, lineno)
+    if isinstance(vals, ast.AllocOp):
+        printOp = ast.PrintTensorOp(vals, loc)
+    elif isinstance(vals, (int, float, ast.Expr)):
+        value = ast.immediate_to_constant(vals, loc)
+        printOp = ast.PrintOp([value], format_str, loc)
     elif isinstance(vals, (tuple, list)):
         # When vals is an tuple
         if isinstance(vals, tuple):
@@ -26,7 +26,7 @@ def print(vals, format_str=""):
         for i, val in enumerate(vals):
             if isinstance(val, int) or isinstance(val, float):
                 continue
-            elif isinstance(val, itmd.Expr):
+            elif isinstance(val, ast.Expr):
                 continue
             else:
                 raise HCLValueError(
@@ -34,13 +34,13 @@ def print(vals, format_str=""):
                     .format(val, type(val)))
         # when vals is empty
         if len(vals) == 0:
-            value = itmd.immediate_to_constant(0, loc)
+            value = ast.immediate_to_constant(0, loc)
             vals = [value]
         # when v in vals is int or float
         for i, v in enumerate(vals):
-            vals[i] = itmd.immediate_to_constant(v, loc)
-        printOp = itmd.PrintOp(vals, format_str, loc)
+            vals[i] = ast.immediate_to_constant(v, loc)
+        printOp = ast.PrintOp(vals, format_str, loc)
     else:
         raise HCLValueError(f"Unsupported type for print: {vals}")
-    region = itmd.scope.get()
+    region = ast.scope.get()
     region.append(printOp)

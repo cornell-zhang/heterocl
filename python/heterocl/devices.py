@@ -2,7 +2,6 @@
 #pylint: disable=too-few-public-methods, too-many-return-statements
 from .tools import Tool
 from .debug import DSLError, APIError, HCLError, DeviceError
-from . import IR
 
 model_table = {
   "fpga"   : {

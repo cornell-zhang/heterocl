@@ -8,7 +8,7 @@ import inspect
 from typing import List, Callable
 import numpy as np
 
-from . import intermediate as itmd
+from . import ast
 from ..context import *
 from ..utils import hcl_dtype_to_mlir, get_extra_type_hints
 from .. import types as htypes
@@ -30,7 +30,7 @@ from hcl_mlir.exceptions import *
 
 def get_op_class(op, typ):
     """Get the class of the given op"""
-    if isinstance(op, itmd.Add):
+    if isinstance(op, ast.Add):
         if isinstance(typ, (htypes.Int, htypes.UInt)):
             return arith_d.AddIOp
         elif isinstance(typ, htypes.Float):
@@ -39,7 +39,7 @@ def get_op_class(op, typ):
             return hcl_d.AddFixedOp
         else:
             raise APIError("Unsupported type for AddOp: {}".format(typ))
-    elif isinstance(op, itmd.Sub):
+    elif isinstance(op, ast.Sub):
         if isinstance(typ, (htypes.Int, htypes.UInt)):
             return arith_d.SubIOp
         elif isinstance(typ, htypes.Float):
@@ -48,7 +48,7 @@ def get_op_class(op, typ):
             return hcl_d.SubFixedOp
         else:
             raise APIError("Unsupported type for SubOp: {}".format(typ))
-    elif isinstance(op, itmd.Mul):
+    elif isinstance(op, ast.Mul):
         if isinstance(typ, (htypes.Int, htypes.UInt)):
             return arith_d.MulIOp
         elif isinstance(typ, htypes.Float):
@@ -57,7 +57,7 @@ def get_op_class(op, typ):
             return hcl_d.MulFixedOp
         else:
             raise APIError("Unsupported type for MulOp: {}".format(typ))
-    elif isinstance(op, itmd.Div):
+    elif isinstance(op, ast.Div):
         if isinstance(typ, htypes.Int):
             return arith_d.DivSIOp
         elif isinstance(typ, htypes.UInt):
@@ -68,12 +68,12 @@ def get_op_class(op, typ):
             return hcl_d.DivFixedOp
         else:
             raise APIError("Unsupported type for DivOp: {}".format(typ))
-    elif isinstance(op,itmd.FloorDiv):
+    elif isinstance(op,ast.FloorDiv):
         if isinstance(typ, htypes.Int):
             return arith_d.FloorDivSIOp
         else:
             raise APIError("Unsupported type for FloorDivOp: {}".format(typ))
-    elif isinstance(op, itmd.Mod):
+    elif isinstance(op, ast.Mod):
         if isinstance(typ, htypes.Int):
             return arith_d.RemSIOp
         elif isinstance(typ, htypes.UInt):
@@ -82,22 +82,22 @@ def get_op_class(op, typ):
             return arith_d.RemFOp
         else:
             raise APIError("Unsupported type for ModOp: {}".format(typ))
-    elif isinstance(op, itmd.And):
+    elif isinstance(op, ast.And):
         if isinstance(typ, (htypes.Int, htypes.UInt)):
             return arith_d.AndIOp
         else:
             raise APIError("Unsupported type for AndOp: {}".format(typ))
-    elif isinstance(op, itmd.Or):
+    elif isinstance(op, ast.Or):
         if isinstance(typ, (htypes.Int, htypes.UInt)):
             return arith_d.OrIOp
         else:
             raise APIError("Unsupported type for OrOp: {}".format(typ))
-    elif isinstance(op, itmd.XOr):
+    elif isinstance(op, ast.XOr):
         if isinstance(typ, (htypes.Int, htypes.UInt)):
             return arith_d.XOrIOp
         else:
             raise APIError("Unsupported type for XOrOp: {}".format(typ))
-    elif isinstance(op, itmd.Mod):
+    elif isinstance(op, ast.Mod):
         if isinstance(typ, htypes.Int):
             return arith_d.RemSIOp
         elif isinstance(typ, htypes.UInt):
@@ -106,32 +106,32 @@ def get_op_class(op, typ):
             return arith_d.RemFOp
         else:
             raise APIError("Unsupported type for ModOp: {}".format(typ))
-    elif isinstance(op, itmd.LogicalAnd):
+    elif isinstance(op, ast.LogicalAnd):
         if isinstance(typ, (htypes.Int, htypes.UInt)) and typ.bits == 1:
             return arith_d.AndIOp
         else:
             raise APIError("Unsupported type for LogicalAndOp: {}".format(typ))
-    elif isinstance(op, itmd.LogicalOr):
+    elif isinstance(op, ast.LogicalOr):
         if isinstance(typ, (htypes.Int, htypes.UInt)) and typ.bits == 1:
             return arith_d.OrIOp
         else:
             raise APIError("Unsupported type for LogicalOrOp: {}".format(typ))
-    elif isinstance(op, itmd.LogicalXOr):
+    elif isinstance(op, ast.LogicalXOr):
         if isinstance(typ, (htypes.Int, htypes.UInt)) and typ.bits == 1:
             return arith_d.XOrIOp
         else:
             raise APIError("Unsupported type for LogicalXOrOp: {}".format(typ))
-    elif isinstance(op, itmd.MathPowOp):
+    elif isinstance(op, ast.MathPowOp):
         if isinstance(typ, htypes.Float):
             return math_d.PowFOp
         else:
             raise APIError("Unsupported type for MathPowOp: {}".format(typ))
-    elif isinstance(op, itmd.LeftShiftOp):
+    elif isinstance(op, ast.LeftShiftOp):
         if isinstance(typ, (htypes.Int, htypes.UInt)):
             return arith_d.ShLIOp
         else:
             raise APIError("Unsupported type for LeftShiftOp: {}".format(typ))
-    elif isinstance(op, itmd.RightShiftOp):
+    elif isinstance(op, ast.RightShiftOp):
         if isinstance(typ, htypes.Int):
             return arith_d.ShRSIOp
         elif isinstance(typ, htypes.UInt):
@@ -214,78 +214,78 @@ class IRBuilder(object):
         """
         if hasattr(op, 'result') and op.result is not None:
             return
-        if isinstance(op, itmd.ComputeOp):
+        if isinstance(op, ast.ComputeOp):
             self.build_compute(op, ip)
-        elif isinstance(op, itmd.IterVar):
+        elif isinstance(op, ast.IterVar):
             self.build_iter_var(op, ip)
-        elif isinstance(op, itmd.ReduceOp):
+        elif isinstance(op, ast.ReduceOp):
             self.build_reduce(op, ip)
-        elif isinstance(op, itmd.AllocOp):
+        elif isinstance(op, ast.AllocOp):
             self.build_alloc_op(op, ip)
-        elif isinstance(op, itmd.Cmp):
+        elif isinstance(op, ast.Cmp):
             self.build_cmp_op(op, ip)
-        elif isinstance(op, itmd.BinaryOp):
+        elif isinstance(op, ast.BinaryOp):
             self.build_binary_op(op, ip)
-        elif isinstance(op, itmd.BitCastOp):
+        elif isinstance(op, ast.BitCastOp):
             self.build_bitcast_op(op, ip)
-        elif isinstance(op, itmd.LoadOp):
+        elif isinstance(op, ast.LoadOp):
             self.build_load_op(op, ip)
-        elif isinstance(op, itmd.StoreOp):
+        elif isinstance(op, ast.StoreOp):
             self.build_store_op(op, ip)
-        elif isinstance(op, itmd.ConstantOp):
+        elif isinstance(op, ast.ConstantOp):
             self.build_constant_op(op, ip)
-        elif isinstance(op, itmd.CastOp):
+        elif isinstance(op, ast.CastOp):
             self.build_cast_op(op, ip)
-        elif isinstance(op, itmd.IfOp):
+        elif isinstance(op, ast.IfOp):
             self.build_if_op(op, ip)
-        elif isinstance(op, itmd.ForOp):
+        elif isinstance(op, ast.ForOp):
             self.build_for_op(op, ip)
-        elif isinstance(op, itmd.WhileOp):
+        elif isinstance(op, ast.WhileOp):
             self.build_while_op(op, ip)
-        elif isinstance(op, itmd.SelectOp):
+        elif isinstance(op, ast.SelectOp):
             self.build_select_op(op, ip)
-        elif isinstance(op, itmd.PrintOp):
+        elif isinstance(op, ast.PrintOp):
             self.build_print_op(op, ip)
-        elif isinstance(op, itmd.PrintTensorOp):
+        elif isinstance(op, ast.PrintTensorOp):
             self.build_print_tensor_op(op, ip)
-        elif isinstance(op, itmd.GetBitOp):
+        elif isinstance(op, ast.GetBitOp):
             self.BIT_OPS = True
             self.build_get_bit_op(op, ip)
-        elif isinstance(op, itmd.GetSliceOp):
+        elif isinstance(op, ast.GetSliceOp):
             self.BIT_OPS = True
             self.build_get_slice_op(op, ip)
-        elif isinstance(op, itmd.SetBitOp):
+        elif isinstance(op, ast.SetBitOp):
             self.BIT_OPS = True
             self.build_set_bit_op(op, ip)
-        elif isinstance(op, itmd.SetSliceOp):
+        elif isinstance(op, ast.SetSliceOp):
             self.BIT_OPS = True
             self.build_set_slice_op(op, ip)
-        elif isinstance(op, itmd.BitReverseOp):
+        elif isinstance(op, ast.BitReverseOp):
             self.BIT_OPS = True
             self.build_bit_reverse_op(op, ip)
-        elif isinstance(op, itmd.ConstantTensorOp):
+        elif isinstance(op, ast.ConstantTensorOp):
             self.build_constant_tensor_op(op, ip)
-        elif isinstance(op, itmd.StructConstructOp):
+        elif isinstance(op, ast.StructConstructOp):
             self.build_struct_construct_op(op, ip)
-        elif isinstance(op, itmd.StructGetOp):
+        elif isinstance(op, ast.StructGetOp):
             self.build_struct_get_op(op, ip)
-        elif isinstance(op, itmd.FuncOp):
+        elif isinstance(op, ast.FuncOp):
             self.build_func_op(op, ip)
-        elif isinstance(op, itmd.CallOp):
+        elif isinstance(op, ast.CallOp):
             self.build_call_op(op, ip)
-        elif isinstance(op, itmd.Neg):
+        elif isinstance(op, ast.Neg):
             self.build_neg_op(op, ip)
         else:
             raise HCLNotImplementedError(f"{type(op)}'s build visitor is not implemented yet.")
 
-    def build_func_op(self, op : itmd.FuncOp, ip):
+    def build_func_op(self, op : ast.FuncOp, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         # use global insetion point
         ip = InsertionPoint.at_block_begin(self.module.body)
         input_types = []
         input_typehints = []
         for arg in op.args:
-            if isinstance(arg, itmd.AllocOp):
+            if isinstance(arg, ast.AllocOp):
                 ele_type = hcl_dtype_to_mlir(arg.dtype, signless=True)
                 input_typehints.append(get_extra_type_hints(arg.dtype))
                 memref_type = MemRefType.get(arg.shape, ele_type)
@@ -338,7 +338,7 @@ class IRBuilder(object):
             arg.result = orig_result
 
 
-    def build_call_op(self, op : itmd.CallOp, ip):
+    def build_call_op(self, op : ast.CallOp, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         func = FlatSymbolRefAttr.get(op.name)
         # build arguments
@@ -425,12 +425,12 @@ class IRBuilder(object):
             affine_d.AffineYieldOp([], ip=InsertionPoint(for_op.body))
         else: # build scf for loop
             # cast lb and up to index type
-            itmd_loc = itmd.Location("unknown", 0)
-            lb = itmd.CastOp(lb, htypes.Index(), loc=itmd_loc)
-            ub = itmd.CastOp(ub, htypes.Index(), loc=itmd_loc)
+            itmd_loc = ast.Location("unknown", 0)
+            lb = ast.CastOp(lb, htypes.Index(), loc=itmd_loc)
+            ub = ast.CastOp(ub, htypes.Index(), loc=itmd_loc)
             self.build_visitor(lb, ip)
             self.build_visitor(ub, ip)
-            step = itmd.immediate_to_constant(step, itmd_loc, htypes.Index())
+            step = ast.immediate_to_constant(step, itmd_loc, htypes.Index())
             self.build_visitor(step, ip)
             for_op = scf_d.ForOp(
                 lb.result,
@@ -471,7 +471,7 @@ class IRBuilder(object):
             for body_op in op.body:
                 self.build_visitor(body_op, ip)
 
-    def build_for_op(self, op : itmd.ForOp, ip):
+    def build_for_op(self, op : ast.ForOp, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         with get_context(), loc:
             stage = "" if op.tag is None else op.tag
@@ -482,7 +482,7 @@ class IRBuilder(object):
             for body_op in op.body:
                 self.build_visitor(body_op, ip)
 
-    def build_while_op(self, op : itmd.WhileOp, ip):
+    def build_while_op(self, op : ast.WhileOp, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         with get_context(), loc:
             # bulid empty while loop
@@ -523,8 +523,8 @@ class IRBuilder(object):
 
         # Step 2: cast lhs and rhs to the same type
         t = self.tinf_engine.infer(op)
-        lhs = itmd.CastOp(op.lhs, t, loc)
-        rhs = itmd.CastOp(op.rhs, t, loc)
+        lhs = ast.CastOp(op.lhs, t, loc)
+        rhs = ast.CastOp(op.rhs, t, loc)
         self.build_visitor(lhs, ip)
         self.build_visitor(rhs, ip)
 
@@ -546,8 +546,8 @@ class IRBuilder(object):
         if isinstance(t, htypes.Float):
             neg_op = arith_d.NegFOp(op.expr.result, ip=ip, loc=loc)
         else:
-            mul_neg_one = itmd.BinaryOp(
-                op.expr, itmd.ConstOp(-1, t, loc), "*", loc)
+            mul_neg_one = ast.BinaryOp(
+                op.expr, ast.ConstOp(-1, t, loc), "*", loc)
             self.build_visitor(mul_neg_one, ip)
             neg_op = mul_neg_one.ir_op
         
@@ -557,7 +557,7 @@ class IRBuilder(object):
         if isinstance(t, (htypes.UInt, htypes.UFixed)):
             neg_op.attributes["unsigned"] = UnitAttr.get()
 
-    def build_cmp_op(self, op : itmd.Cmp, ip):
+    def build_cmp_op(self, op : ast.Cmp, ip):
         """
         # Check mlir/Dialect/Arithmetic/IR/ArithmeticBase.td
         # s/u: signed/unsigned
@@ -636,8 +636,8 @@ class IRBuilder(object):
         t = self.tinf_engine.infer(op)
         if isinstance(t, tuple): 
             t = t[0] # index 0 is src type, index 1 is res type
-        lhs = itmd.CastOp(op.lhs, t, loc)
-        rhs = itmd.CastOp(op.rhs, t, loc)
+        lhs = ast.CastOp(op.lhs, t, loc)
+        rhs = ast.CastOp(op.rhs, t, loc)
         self.build_visitor(lhs, ip)
         self.build_visitor(rhs, ip)
 
@@ -678,7 +678,7 @@ class IRBuilder(object):
         if isinstance(t, (htypes.UInt, htypes.UFixed)):
             cmp_op.attributes["unsigned"] = UnitAttr.get()
 
-    def build_load_op(self, op : itmd.LoadOp, ip):
+    def build_load_op(self, op : ast.LoadOp, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         index_exprs = []
         flag = True
@@ -711,7 +711,7 @@ class IRBuilder(object):
             for index in op.index:
                 self.build_visitor(index, ip)
                 # cast to index type
-                index = itmd.CastOp(index, htypes.Index(), loc)
+                index = ast.CastOp(index, htypes.Index(), loc)
                 self.build_visitor(index, ip)
                 new_indices.append(index.result)
             load_op = memref_d.LoadOp(op.tensor.result, new_indices, ip=ip, loc=loc)
@@ -722,13 +722,13 @@ class IRBuilder(object):
         if isinstance(op.dtype, htypes.UInt):
             load_op.attributes["unsigned"] = UnitAttr.get()
 
-    def build_store_op(self, op : itmd.StoreOp, ip):
+    def build_store_op(self, op : ast.StoreOp, ip):
         index_exprs = []
         flag = True
         store_op = None
         if op.value.result is None:
             self.build_visitor(op.value, ip)
-        casted_expr = itmd.CastOp(op.value, op.tensor.dtype, op.loc)
+        casted_expr = ast.CastOp(op.value, op.tensor.dtype, op.loc)
         self.build_visitor(casted_expr, ip)
         self.iv.clear() # clear iv
         for index in op.index:
@@ -755,7 +755,7 @@ class IRBuilder(object):
             new_indices = []
             for index in op.index:
                 self.build_visitor(index, ip)
-                index = itmd.CastOp(index, htypes.Index(), op.loc)
+                index = ast.CastOp(index, htypes.Index(), op.loc)
                 self.build_visitor(index, ip)
                 new_indices.append(index.result)
             store_op = memref_d.StoreOp(casted_expr.result, op.tensor.result, new_indices, ip=ip)
@@ -839,7 +839,7 @@ class IRBuilder(object):
                 return
             else: # src_type.bits < res_type.bits
                 if (
-                    isinstance(op.expr, (itmd.GetBitOp, itmd.GetSliceOp, itmd.LeftShiftOp))
+                    isinstance(op.expr, (ast.GetBitOp, ast.GetSliceOp, ast.LeftShiftOp))
                     or src_type.bits == 1
                 ):
                     CastOpClass = arith_d.ExtUIOp
@@ -937,9 +937,9 @@ class IRBuilder(object):
         * Should all be binary op
         * AffineExpr can be automatically simplied
         """
-        if not isinstance(expr, (itmd.IterVar, itmd.ConstantOp, itmd.CastOp, itmd.BinaryOp)):
+        if not isinstance(expr, (ast.IterVar, ast.ConstantOp, ast.CastOp, ast.BinaryOp)):
             raise HCLValueError(f"{expr} is not an affine index")
-        if isinstance(expr, itmd.IterVar):
+        if isinstance(expr, ast.IterVar):
             if isinstance(expr.parent_loop, scf_d.ForOp):
                 raise HCLValueError(f"loop {expr.parent_loop} is not affine")
             if expr.parent_loop.induction_variable not in self.iv:
@@ -947,27 +947,27 @@ class IRBuilder(object):
                 return AffineExpr.get_dim(len(self.iv) - 1)
             else:
                 return AffineExpr.get_dim(self.iv.index(expr.parent_loop.induction_variable))
-        elif isinstance(expr, itmd.ConstantOp):
+        elif isinstance(expr, ast.ConstantOp):
             return AffineExpr.get_constant(expr.value)
-        elif isinstance(expr, itmd.CastOp):
+        elif isinstance(expr, ast.CastOp):
             return self.build_affine_expr(expr.expr)
         lhs = self.build_affine_expr(expr.lhs)
         rhs = self.build_affine_expr(expr.rhs)
-        if isinstance(expr, itmd.Add):
+        if isinstance(expr, ast.Add):
             return lhs + rhs
-        elif isinstance(expr, itmd.Sub):
+        elif isinstance(expr, ast.Sub):
             return lhs - rhs
-        elif isinstance(expr, itmd.Mul):
+        elif isinstance(expr, ast.Mul):
             return lhs * rhs
-        elif isinstance(expr, itmd.Div):
+        elif isinstance(expr, ast.Div):
             return AffineExpr.get_floor_div(lhs, rhs)  # or get_ceil_div
-        elif isinstance(expr, itmd.Mod):
+        elif isinstance(expr, ast.Mod):
             return lhs % rhs
         else:
             raise HCLValueError(f"{expr} is not an affine index!")
 
 
-    def build_if_op(self, op : itmd.IfOp, ip):
+    def build_if_op(self, op : ast.IfOp, ip):
         """Build IfOp"""
         # TODO: support affine if
         # build condition
@@ -987,16 +987,16 @@ class IRBuilder(object):
             scf_d.YieldOp([], ip=ip)
 
 
-    def build_reduce(self, op: itmd.ReduceOp, ip):
+    def build_reduce(self, op: ast.ReduceOp, ip):
         """Build ReduceOp"""
         # scalar to hold the reduction result
         self.build_visitor(op.scalar, ip)
         # store the init value to the scalar
-        init = itmd.immediate_to_constant(op.init, op.loc)
+        init = ast.immediate_to_constant(op.init, op.loc)
         self.build_visitor(init, ip)
-        zero_idx = itmd.ConstantOp(0, htypes.Index(), op.loc)
+        zero_idx = ast.ConstantOp(0, htypes.Index(), op.loc)
         self.build_visitor(zero_idx, ip)
-        store_op = itmd.StoreOp(op.scalar, (zero_idx,), init, op.loc)
+        store_op = ast.StoreOp(op.scalar, (zero_idx,), init, op.loc)
         self.build_visitor(store_op, ip)
         body_ip = ip
 
@@ -1019,10 +1019,10 @@ class IRBuilder(object):
         # load from the input tensor
         self.build_visitor(op.expr, body_ip)
         # load from scalar
-        load_scalar = itmd.LoadOp(op.scalar, (zero_idx,), op.loc)
+        load_scalar = ast.LoadOp(op.scalar, (zero_idx,), op.loc)
         # build the reduction op
         if op.reduce_op == "sum":
-            reduce_op = itmd.Add(op.expr, load_scalar, op.loc)
+            reduce_op = ast.Add(op.expr, load_scalar, op.loc)
         elif op.reduce_op == "max":
             pass
         elif op.reduce_op == "min":
@@ -1032,36 +1032,36 @@ class IRBuilder(object):
 
         self.build_visitor(reduce_op, body_ip)
         # store to the scalar
-        store_res = itmd.StoreOp(op.scalar, (zero_idx,), reduce_op, op.loc)
+        store_res = ast.StoreOp(op.scalar, (zero_idx,), reduce_op, op.loc)
         self.build_visitor(store_res, body_ip)
 
         # load from the scalar
-        load_op = itmd.LoadOp(op.scalar, (zero_idx,), op.loc)
+        load_op = ast.LoadOp(op.scalar, (zero_idx,), op.loc)
         self.build_visitor(load_op, ip)
         op.ir_op = load_op
         op.result = load_op.result
 
-    def build_select_op(self, op : itmd.SelectOp, ip):
+    def build_select_op(self, op : ast.SelectOp, ip):
         # Step 1: get condition, true, and false value
         # if any of them is an immediate, convert it to a constant
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
-        cond = itmd.immediate_to_constant(op.cond, op.loc)
+        cond = ast.immediate_to_constant(op.cond, op.loc)
         self.build_visitor(cond, ip)
-        true_value = itmd.immediate_to_constant(op.true_value, op.loc)
+        true_value = ast.immediate_to_constant(op.true_value, op.loc)
         self.build_visitor(true_value, ip)
-        false_value = itmd.immediate_to_constant(op.false_value, op.loc)
+        false_value = ast.immediate_to_constant(op.false_value, op.loc)
         self.build_visitor(false_value, ip)
         
         # Step 2: type inference and cast
         res_type = self.tinf_engine.infer(op)
         # cast condition to uint1
-        if not isinstance(cond, itmd.Cmp):
-            cond = itmd.CastOp(cond, htypes.UInt(1), op.loc)
+        if not isinstance(cond, ast.Cmp):
+            cond = ast.CastOp(cond, htypes.UInt(1), op.loc)
             self.build_visitor(cond, ip)
         # cast true and false value to the same type
-        true_value = itmd.CastOp(true_value, res_type, op.loc)
+        true_value = ast.CastOp(true_value, res_type, op.loc)
         self.build_visitor(true_value, ip)
-        false_value = itmd.CastOp(false_value, res_type, op.loc)
+        false_value = ast.CastOp(false_value, res_type, op.loc)
         self.build_visitor(false_value, ip)
         
         # Step 3: build select op
@@ -1132,7 +1132,7 @@ class IRBuilder(object):
                 "Get bit operation only supports integer type"
             )
         # cast index to index type
-        index = itmd.CastOp(op.index, htypes.Index(), op.loc)
+        index = ast.CastOp(op.index, htypes.Index(), op.loc)
         self.build_visitor(index, ip)
 
         # build get bit op
@@ -1142,7 +1142,7 @@ class IRBuilder(object):
         op.result = getbit_op.result
 
     
-    def build_get_slice_op(self, op : itmd.GetSliceOp, ip):
+    def build_get_slice_op(self, op : ast.GetSliceOp, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         self.build_visitor(op.expr, ip)
         # check if expr is int type
@@ -1152,10 +1152,10 @@ class IRBuilder(object):
                 "Get bit operation only supports integer type"
             )
         # cast start index to index type
-        start = itmd.CastOp(op.start, htypes.Index(), op.loc)
+        start = ast.CastOp(op.start, htypes.Index(), op.loc)
         self.build_visitor(start, ip)
         # cast end index to index type
-        end = itmd.CastOp(op.end, htypes.Index(), op.loc)
+        end = ast.CastOp(op.end, htypes.Index(), op.loc)
         self.build_visitor(end, ip)
 
         res_dtype = hcl_dtype_to_mlir(expr_dtype, signless=True)
@@ -1176,10 +1176,10 @@ class IRBuilder(object):
             )
         expr_dtype = hcl_dtype_to_mlir(expr_dtype, signless=True)
         # cast index to index type
-        index = itmd.CastOp(op.index, htypes.Index(), op.loc)
+        index = ast.CastOp(op.index, htypes.Index(), op.loc)
         self.build_visitor(index, ip)
         # cast value to uint1
-        value = itmd.CastOp(op.value, htypes.UInt(1), op.loc)
+        value = ast.CastOp(op.value, htypes.UInt(1), op.loc)
         self.build_visitor(value, ip)
 
         # build set bit op
@@ -1187,13 +1187,13 @@ class IRBuilder(object):
         op.ir_op = setbit_op
 
         # if expr is a LoadOp, we need to update the value in the tensor
-        if isinstance(op.expr, itmd.LoadOp):
+        if isinstance(op.expr, ast.LoadOp):
             # build store op
             load_op = op.expr
-            store_op = itmd.StoreOp(load_op.tensor, load_op.index, op.expr, op.loc)
+            store_op = ast.StoreOp(load_op.tensor, load_op.index, op.expr, op.loc)
             self.build_visitor(store_op, ip)
 
-    def build_set_slice_op(self, op : itmd.SetSliceOp, ip):
+    def build_set_slice_op(self, op : ast.SetSliceOp, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         self.build_visitor(op.expr, ip)
         self.build_visitor(op.value, ip)
@@ -1205,9 +1205,9 @@ class IRBuilder(object):
             )
 
         # cast start, end indices to index type
-        start = itmd.CastOp(op.start, htypes.Index(), op.loc)
+        start = ast.CastOp(op.start, htypes.Index(), op.loc)
         self.build_visitor(start, ip)
-        end = itmd.CastOp(op.end, htypes.Index(), op.loc)
+        end = ast.CastOp(op.end, htypes.Index(), op.loc)
         self.build_visitor(end, ip)
 
         # build set bit op
@@ -1216,13 +1216,13 @@ class IRBuilder(object):
         op.ir_op = setbit_op
         
         # if expr is a LoadOp, we need to update the value in the tensor
-        if isinstance(op.expr, itmd.LoadOp):
+        if isinstance(op.expr, ast.LoadOp):
             # build store op
             load_op = op.expr
-            store_op = itmd.StoreOp(load_op.tensor, load_op.index, op.expr, op.loc)
+            store_op = ast.StoreOp(load_op.tensor, load_op.index, op.expr, op.loc)
             self.build_visitor(store_op, ip)
 
-    def build_bit_reverse_op(self, op : itmd.BitReverseOp, ip):
+    def build_bit_reverse_op(self, op : ast.BitReverseOp, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         self.build_visitor(op.expr, ip)
         # check if expr is int type
@@ -1235,7 +1235,7 @@ class IRBuilder(object):
         op.ir_op = bitreverse_op
         op.result = bitreverse_op.result
 
-    def build_constant_tensor_op(self, op : itmd.ConstantTensorOp, ip):
+    def build_constant_tensor_op(self, op : ast.ConstantTensorOp, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         dtype = hcl_dtype_to_mlir(op.dtype, signless=True)
         val = op.values
@@ -1281,14 +1281,14 @@ class IRBuilder(object):
         op.tensor.ir_op = get_global
         op.tensor.result = get_global.result
 
-    def build_struct_construct_op(self, op : itmd.StructConstructOp, ip):
+    def build_struct_construct_op(self, op : ast.StructConstructOp, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         # build fields
         field_results = list()
         for idx, field in enumerate(op.args):
             field_key_list = list(op.dtype.dtype_dict.keys())
             type_key = field_key_list[idx]
-            field = itmd.CastOp(field, op.dtype.dtype_dict[type_key], op.loc)
+            field = ast.CastOp(field, op.dtype.dtype_dict[type_key], op.loc)
             self.build_visitor(field, ip)
             field_results.append(field.result)
         field_types = [f.type for f in field_results]
@@ -1298,7 +1298,7 @@ class IRBuilder(object):
         op.ir_op = struct_op
         op.result = struct_op.result
 
-    def build_struct_get_op(self, op : itmd.StructGetOp, ip):
+    def build_struct_get_op(self, op : ast.StructGetOp, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         self.build_visitor(op.struct, ip)
         dtype = self.tinf_engine.infer(op)

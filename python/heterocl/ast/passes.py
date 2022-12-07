@@ -4,7 +4,7 @@
 #
 # ===----------------------------------------------------------------------=== #
 
-from . import intermediate as itmd
+from . import ast
 from hcl_mlir.exceptions import *
 from hcl_mlir.ir import *
 
@@ -15,7 +15,7 @@ class Pass(object):
     """
     def __init__(self, name, intermediate):
         self.name = name # name of the mutator
-        self.itmd = intermediate # the IR to be mutated, must be intermediate layer IR
+        self.ast = intermediate # the IR to be mutated, must be intermediate layer IR
 
     def apply(self):
         """Apply the pass to the intermediate layer IR."""
@@ -44,7 +44,7 @@ class NestElseIf(Pass):
         """ Pass entry point
         """
         # TODO: simplify this
-        top_func = self.itmd.top_func
+        top_func = self.ast.top_func
         self.nest_elif(top_func)
         for op in top_func.body:
             self.visit(op)
@@ -67,13 +67,13 @@ class NestElseIf(Pass):
         # if-elif-else chains
         chains = list()
         for op in scope.body:
-            if isinstance(op, itmd.IfOp):
+            if isinstance(op, ast.IfOp):
                 chains.append([op])
-            elif isinstance(op, itmd.ElseIfOp):
+            elif isinstance(op, ast.ElseIfOp):
                 if not chains:
                     raise APIError("elif must follow an if")
                 chains[-1].append(op)
-            elif isinstance(op, itmd.ElseOp):
+            elif isinstance(op, ast.ElseOp):
                 if not chains:
                     raise APIError("else must follow an if or elif")
                 chains[-1].append(op)
@@ -86,14 +86,14 @@ class NestElseIf(Pass):
                 continue
             for i in range(len(chain) - 1):
                 # convert elseif to if
-                if isinstance(chain[i+1], itmd.ElseIfOp):
-                    if_op = itmd.IfOp(chain[i+1].cond, chain[i+1].loc)
+                if isinstance(chain[i+1], ast.ElseIfOp):
+                    if_op = ast.IfOp(chain[i+1].cond, chain[i+1].loc)
                     if_op.body.extend(chain[i+1].body)
                     self.update_level(if_op)
                     chain[i].else_body.append(if_op)
                     chain[i].else_branch_valid = True
                     chain[i+1] = if_op
-                elif isinstance(chain[i+1], itmd.ElseOp):
+                elif isinstance(chain[i+1], ast.ElseOp):
                     chain[i].else_body.extend(chain[i+1].body)
                     chain[i].else_branch_valid = True
                     for op in chain[i].else_body:
@@ -105,7 +105,7 @@ class NestElseIf(Pass):
         # remove ElseIfOp and ElseOp
         new_body = list()
         for op in scope.body:
-            if isinstance(op, itmd.ElseIfOp) or isinstance(op, itmd.ElseOp):
+            if isinstance(op, ast.ElseIfOp) or isinstance(op, ast.ElseOp):
                 pass
             else:
                 new_body.append(op)

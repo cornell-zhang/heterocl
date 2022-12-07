@@ -3,7 +3,7 @@
 # Copyright 2021-2022 The HCL-MLIR Authors.
 #
 # ===----------------------------------------------------------------------=== #
-from .ir import intermediate as itmd
+from .ast import ast
 from .types import *
 from .type_rules import get_type_rules, TypeRule
 
@@ -27,40 +27,40 @@ class TypeInfer(object):
     def infer(self, expr):
         """Infer the type of an expression
         """
-        if isinstance(expr, itmd.LoadOp):
+        if isinstance(expr, ast.LoadOp):
             return self.infer_load(expr)
-        elif isinstance(expr, itmd.BinaryOp):
+        elif isinstance(expr, ast.BinaryOp):
             return self.infer_binary(expr)
-        elif isinstance(expr, itmd.SelectOp):
+        elif isinstance(expr, ast.SelectOp):
             return self.infer_select(expr)
-        elif isinstance(expr, itmd.ConstantOp):
+        elif isinstance(expr, ast.ConstantOp):
             return self.infer_const(expr)
-        elif isinstance(expr, itmd.IterVar):
+        elif isinstance(expr, ast.IterVar):
             return Index()
-        elif isinstance(expr, itmd.CastOp):
+        elif isinstance(expr, ast.CastOp):
             return expr.dtype
-        elif isinstance(expr, itmd.SumOp):
+        elif isinstance(expr, ast.SumOp):
             # TODO: infer the type of the reduction
             return expr.dtype
-        elif isinstance(expr, itmd.BitCastOp):
+        elif isinstance(expr, ast.BitCastOp):
             return expr.dtype
-        elif isinstance(expr, itmd.GetBitOp):
+        elif isinstance(expr, ast.GetBitOp):
             return UInt(1)
-        elif isinstance(expr, itmd.GetSliceOp):
+        elif isinstance(expr, ast.GetSliceOp):
             return expr.dtype
-        elif isinstance(expr, itmd.BitReverseOp):
+        elif isinstance(expr, ast.BitReverseOp):
             return self.infer(expr.expr)
-        elif isinstance(expr, itmd.StructConstructOp):
+        elif isinstance(expr, ast.StructConstructOp):
             return expr.dtype
-        elif isinstance(expr, itmd.StructGetOp):
+        elif isinstance(expr, ast.StructGetOp):
             assert isinstance(expr.struct.dtype, Struct)
             struct_t = expr.struct.dtype
             key_list = list(struct_t.dtype_dict.keys())
             key = key_list[expr.field]
             return struct_t.dtype_dict[key]
-        elif isinstance(expr, itmd.CallOp):
+        elif isinstance(expr, ast.CallOp):
             return self.infer(expr.rets[0])
-        elif isinstance(expr, itmd.Neg):
+        elif isinstance(expr, ast.Neg):
             return self.infer(expr.expr)
         else:
             raise APIError(f"Type inference not defined for expression of type: {type(expr)}")

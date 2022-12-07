@@ -13,11 +13,11 @@ from . import config
 from .types import Int, Type, UInt, Struct, dtype_to_hcl
 from .context import NestedStageLevel, UniqueName
 from .dsl import for_
-from .schedule import Schedule, Stage, scope
+from .schedule import Schedule, Stage
 from .tensor import Array, Tensor
 from .utils import *
 from .context import get_context, get_location
-from .ir import intermediate as itmd
+from .ast import ast
 
 
 def init(init_dtype=Int(32), raise_assert_exception=True):
@@ -43,7 +43,7 @@ def placeholder(shape, name=None, dtype=None):
         shape = (1,)
     dtype = config.init_dtype if dtype == None else dtype
     filename, lineno = get_src_loc(frame=1)
-    alloc = itmd.AllocOp(name, shape, dtype, itmd.Location(filename, lineno))
+    alloc = ast.AllocOp(name, shape, dtype, ast.Location(filename, lineno))
     return alloc
 
 
@@ -56,7 +56,7 @@ def asarray(np_array, dtype=None):
 
 def scalar(init, name=None, dtype=None):
     filename, lineno = get_src_loc()
-    loc = itmd.Location(filename, lineno)
+    loc = ast.Location(filename, lineno)
     if name is None:
         name = UniqueName.get("scalar")
     if isinstance(dtype, str):
@@ -68,7 +68,7 @@ def scalar(init, name=None, dtype=None):
             mask = (1 << (ftype.bits+1)) - 1
             val = init & mask
             init = init >> ftype.bits
-            vals.append(itmd.ConstantOp(val, ftype, loc))
+            vals.append(ast.ConstantOp(val, ftype, loc))
         init = tuple(vals)
 
     # Generate a ComputeOp
@@ -82,8 +82,8 @@ def reduce_axis(lower, upper, name=None):
         name = UniqueName.get("reduction_axis")
     # return hcl_mlir.ReduceVar(None, bound=(lower, upper), name=name)
     filename, lineno = get_src_loc()
-    loc = itmd.Location(filename, lineno)
-    return itmd.ReduceVar(name, parent_loop=None, loc=loc, bound=(lower, upper))
+    loc = ast.Location(filename, lineno)
+    return ast.ReduceVar(name, parent_loop=None, loc=loc, bound=(lower, upper))
 
 
 def cast(dtype, expr):
@@ -93,8 +93,8 @@ def cast(dtype, expr):
         raise APIError("Tensor is not supported in hcl.cast. " +
                         "If you are try to cast a hcl.scalar, please use hcl.cast(scalar.v)")
     filename, lineno = get_src_loc()
-    loc = itmd.Location(filename, lineno)
-    return itmd.CastOp(expr, dtype, loc)
+    loc = ast.Location(filename, lineno)
+    return ast.CastOp(expr, dtype, loc)
 
 
 def const_tensor(values, name=None, dtype=None):
@@ -103,14 +103,14 @@ def const_tensor(values, name=None, dtype=None):
         name = UniqueName.get("tensor")
     dtype = config.init_dtype if dtype == None else dtype
     filename, lineno = get_src_loc()
-    loc = itmd.Location(filename, lineno)
+    loc = ast.Location(filename, lineno)
     # convert values to numpy array and handle overflow
     values = np.array(values)
     shape = values.shape
     values = make_const_tensor(values, dtype)
     realtype = Int(64) if isinstance(dtype, (Int, UInt)) else dtype
-    cst_op = itmd.ConstantTensorOp(values, name, shape, realtype, loc)
-    region = scope.get()
+    cst_op = ast.ConstantTensorOp(values, name, shape, realtype, loc)
+    region = ast.scope.get()
     region.append(cst_op)
     if isinstance(dtype, (Int, UInt)):
         return compute(shape, lambda *args : cast(dtype, cst_op.tensor[args]), 
@@ -128,11 +128,11 @@ def copy(values, name=None, dtype=None):
 
 def select(cond, true_val, false_val):
     filename, lineno = get_src_loc()
-    loc = itmd.Location(filename, lineno)
-    true_val = itmd.immediate_to_constant(true_val, loc)
-    false_val = itmd.immediate_to_constant(false_val, loc)
-    cond = itmd.immediate_to_constant(cond, loc)
-    return itmd.SelectOp(cond, true_val, false_val, loc)
+    loc = ast.Location(filename, lineno)
+    true_val = ast.immediate_to_constant(true_val, loc)
+    false_val = ast.immediate_to_constant(false_val, loc)
+    cond = ast.immediate_to_constant(cond, loc)
+    return ast.SelectOp(cond, true_val, false_val, loc)
 
 
 def sum(expr, axis=None, dtype=None, name=None):
@@ -142,7 +142,7 @@ def sum(expr, axis=None, dtype=None, name=None):
         raise HCLNotImplementedError("sum with axis=None is not supported")
     if isinstance(axis, tuple):
         axis = list(axis)
-    elif isinstance(axis, itmd.ReduceVar):
+    elif isinstance(axis, ast.ReduceVar):
         axis = [axis]
     elif not isinstance(axis, list):
         raise APIError("axis must be a list of reduction axis")
@@ -150,8 +150,8 @@ def sum(expr, axis=None, dtype=None, name=None):
     if isinstance(dtype, str):
         dtype = dtype_to_hcl(dtype)
     filename, lineno = get_src_loc()
-    loc = itmd.Location(filename, lineno)
-    return itmd.SumOp(name, expr, axis, dtype, loc)
+    loc = ast.Location(filename, lineno)
+    return ast.SumOp(name, expr, axis, dtype, loc)
 
 
 def max(data, axis=None, dtype=None, name=""):
@@ -237,7 +237,7 @@ def unpack(tensor, axis=0, factor=None, name=None, dtype=None):
     
 
 def compute_body(name, shape, fcompute, dtype, loc, tensor):
-    """ Create an itmd.ComputeOp and its body operations
+    """ Create an ast.ComputeOp and its body operations
 
     Parameters
     ----------
@@ -249,25 +249,25 @@ def compute_body(name, shape, fcompute, dtype, loc, tensor):
         The compute function
     dtype: hcl.dtype
         The data type of the compute op
-    tensor: itmd.AllocOp, None, or "no_alloc"
+    tensor: ast.AllocOp, None, or "no_alloc"
         The tensor to store the result of the compute op
-        - itmd.AllocOp: hcl.update
+        - ast.AllocOp: hcl.update
         - None: hcl.compute, ComputeOp will allocate new tensor
         - "no_alloc": hcl.mutate, no tensor will be allocated
 
     Returns
     -------
-    itmd.ComputeOp
+    ast.ComputeOp
         The compute op
     """
     # Generate a ComputeOp
-    compute_op = itmd.ComputeOp(name, shape, fcompute, dtype, loc, tensor)
-    region = scope.get()
+    compute_op = ast.ComputeOp(name, shape, fcompute, dtype, loc, tensor)
+    region = ast.scope.get()
     region.append(compute_op)
     # Analyze input tensors, and update uses for those tensors
     closure_var = inspect.getclosurevars(fcompute).nonlocals
-    input_tensors = [v for v in closure_var.values() if isinstance(v, itmd.AllocOp)]
-    reduce_vars = [v for v in closure_var.values() if isinstance(v, itmd.ReduceVar)]
+    input_tensors = [v for v in closure_var.values() if isinstance(v, ast.AllocOp)]
+    reduce_vars = [v for v in closure_var.values() if isinstance(v, ast.ReduceVar)]
     for t in input_tensors:
         t.uses.append(compute_op)
 
@@ -279,44 +279,44 @@ def compute_body(name, shape, fcompute, dtype, loc, tensor):
         axis_names = ["i" + str(i) for i in range(len(shape))]
     if len(axis_names) != len(shape):
         raise APIError(f"fcompute's number of axis does not match output tensor shape: {axis_names} vs {shape}")
-    iter_vars = [itmd.IterVar(name, None, loc) for name in axis_names]
+    iter_vars = [ast.IterVar(name, None, loc) for name in axis_names]
     # attach iter_vars to the compute op
     # iter_var's parent_loop will be set in ir.ir_builder.build_compute
     compute_op.iter_vars.extend(iter_vars)
     compute_op.reduce_vars.extend(reduce_vars)
-    scope.push(compute_op.body)
+    ast.scope.push(compute_op.body)
     if tensor is None:
         # hcl.compute
         res_expr = fcompute(*iter_vars)
-        res_expr = itmd.immediate_to_constant(res_expr, loc)
+        res_expr = ast.immediate_to_constant(res_expr, loc)
         if isinstance(res_expr, tuple) and isinstance(dtype, Struct):
-            res_expr = itmd.StructConstructOp(list(res_expr), dtype, loc)
+            res_expr = ast.StructConstructOp(list(res_expr), dtype, loc)
         if res_expr is None:
-            if len(compute_op.body) > 0 and isinstance(compute_op.body[-1], itmd.ReturnOp):
-                res_expr = itmd.immediate_to_constant(compute_op.body[-1].expr, loc)
+            if len(compute_op.body) > 0 and isinstance(compute_op.body[-1], ast.ReturnOp):
+                res_expr = ast.immediate_to_constant(compute_op.body[-1].expr, loc)
                 compute_op.body.pop()
-        store_op = itmd.StoreOp(compute_op.tensor, compute_op.iter_vars, res_expr, loc)
+        store_op = ast.StoreOp(compute_op.tensor, compute_op.iter_vars, res_expr, loc)
         compute_op.body.append(store_op)
-        scope.pop()
-    elif isinstance(tensor, itmd.AllocOp):
+        ast.scope.pop()
+    elif isinstance(tensor, ast.AllocOp):
         # hcl.update
         res_expr = fcompute(*iter_vars)
-        res_expr = itmd.immediate_to_constant(res_expr, loc)
+        res_expr = ast.immediate_to_constant(res_expr, loc)
         if isinstance(res_expr, tuple) and isinstance(dtype, Struct):
-            res_expr = itmd.StructConstructOp(list(res_expr), dtype, loc)
+            res_expr = ast.StructConstructOp(list(res_expr), dtype, loc)
         if res_expr is None:
-            if len(compute_op.body) > 0 and isinstance(compute_op.body[-1], itmd.ReturnOp):
-                res_expr = itmd.immediate_to_constant(compute_op.body[-1].expr, loc)
+            if len(compute_op.body) > 0 and isinstance(compute_op.body[-1], ast.ReturnOp):
+                res_expr = ast.immediate_to_constant(compute_op.body[-1].expr, loc)
                 compute_op.body.pop()
-        store_op = itmd.StoreOp(tensor, iter_vars, res_expr, loc)
+        store_op = ast.StoreOp(tensor, iter_vars, res_expr, loc)
         compute_op.body.append(store_op)
-        scope.pop()
+        ast.scope.pop()
     elif isinstance(tensor, str) and tensor == "no_alloc":
         # hcl.mutate
         res_expr = fcompute(*iter_vars)
         if res_expr is not None:
             raise APIError("hcl.mutate does not support return value")
-        scope.pop()
+        ast.scope.pop()
     else:
         raise APIError("Invalid tensor type")
 
@@ -336,7 +336,7 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
 
     # Generate a ComputeOp
     filename, lineno = get_src_loc()
-    loc = itmd.Location(filename, lineno)
+    loc = ast.Location(filename, lineno)
     compute_op = compute_body(name, shape, fcompute, dtype, loc, None)
     return compute_op.tensor
 
@@ -395,13 +395,13 @@ def old_compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
     return ret_tensor
 
 def update(tensor, fcompute, name=None):
-    if not isinstance(tensor, itmd.AllocOp):
+    if not isinstance(tensor, ast.AllocOp):
         raise APIError("The input of update API must be an allocated tensor")
     if name is None:
         name = tensor.name + "_updated"
     
     filename, lineno = get_src_loc()
-    loc = itmd.Location(filename, lineno)
+    loc = ast.Location(filename, lineno)
     compute_body(name, tensor.shape, fcompute, tensor.dtype, loc, tensor)
     return tensor
 
@@ -480,7 +480,7 @@ def mutate(domain, fcompute, name=None):
     
     # Generate a ComputeOp
     filename, lineno = get_src_loc()
-    loc = itmd.Location(filename, lineno)
+    loc = ast.Location(filename, lineno)
     compute_body(name, domain, fcompute, None, loc, "no_alloc")
     return
 
@@ -534,7 +534,7 @@ def bitcast(tensor, dst_dtype, name=None):
     to the destination data type (dst_dtype). The destination data type must have
     the same bitwidth with the source datatype.
     """
-    if not isinstance(tensor, itmd.AllocOp) and not isinstance(tensor, itmd.Expr):
+    if not isinstance(tensor, ast.AllocOp) and not isinstance(tensor, ast.Expr):
         raise APIError("bitcast input must be HeteroCL Tensor or Expression.")
 
     # check type
@@ -543,16 +543,16 @@ def bitcast(tensor, dst_dtype, name=None):
     elif not isinstance(dst_dtype, Type):
         raise APIError("dst_dtype should be HeteroCL data type.")
     filename, lineno = get_src_loc()
-    loc = itmd.Location(filename, lineno)
+    loc = ast.Location(filename, lineno)
     # set up name, shape, and fcompute
     dst_dtype_str = get_dtype_str(dst_dtype)
-    if isinstance(tensor, itmd.AllocOp):
+    if isinstance(tensor, ast.AllocOp):
         name = tensor.name + "_" + dst_dtype_str if name is None else name
         shape = tensor.shape
-        fcompute = lambda *args: itmd.BitCastOp(tensor[args], dst_dtype, loc)
+        fcompute = lambda *args: ast.BitCastOp(tensor[args], dst_dtype, loc)
         return compute(shape, fcompute, name=name, dtype=dst_dtype)
     else:
-        bitcast = itmd.BitCastOp(tensor, dst_dtype, loc)
+        bitcast = ast.BitCastOp(tensor, dst_dtype, loc)
         return bitcast
 
 

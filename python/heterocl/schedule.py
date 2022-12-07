@@ -13,37 +13,36 @@ from .context import (BreakFlag, ImperativeLoopDepth, ImperativeLoopNestCount,
                       NestedStageLevel, StageName, UniqueName, StageAttachGlobal,
                       get_context, get_location, set_context, exit_context)
 from .dfg import DataflowGraph
-from .utils import get_extra_type_hints, remove_moved_attr, get_src_loc
-from .ir import intermediate as itmd
-from .ir.intermediate import *
-from .ir.ir_builder import IRBuilder
-from .ir.itmd_pass import Pass, NestElseIf
+from .utils import get_extra_type_hints, remove_moved_attr, get_src_loc, hcl_dtype_to_mlir
+from .ast import ast
+from .ast.ir_builder import IRBuilder
+from .ast.passes import Pass, NestElseIf
 
 # By default, Python ignores deprecation warnings.
 # we have to enable it to see the warning.
 warnings.simplefilter('always', DeprecationWarning)
 
-def create_schedule_from_itmd(itmd, inputs, func, name):
+def create_schedule_from_ast(ast, inputs, func, name):
     """Create a schedule from an intermediate representation.
     """
     s = Schedule(name, inputs, func)
-    s._Intermediate = itmd
+    s._Intermediate = ast
     
     # run passes
-    nest_elif_pass = NestElseIf(s.itmd)
+    nest_elif_pass = NestElseIf(s.ast)
     nest_elif_pass.apply()
     
     set_context() # set MLIR context
-    ir_builder = IRBuilder(s.itmd)
+    ir_builder = IRBuilder(s.ast)
     ir_builder.build()
     exit_context() # exit MLIR context
     
-    create_stage_pass = CreateStage(s.itmd, s)
+    create_stage_pass = CreateStage(s.ast, s)
     create_stage_pass.apply()
 
     # set device module and top func
     s._device_module = ir_builder.module
-    s._device_top = s.itmd.top_func.ir_op
+    s._device_top = s.ast.top_func.ir_op
     s._customize_ip = InsertionPoint.at_block_terminator(s._device_top.entry_block)
 
     return s
@@ -54,18 +53,18 @@ def build_schedule(inputs, func=None, name=""):
     """
     if not isinstance(inputs, list):
         inputs = [inputs]
-    itmd = IR()
-    itmd.top_func.args = inputs
+    ast_module = ast.IR()
+    ast_module.top_func.args = inputs
     if func is None:
         # All operations have inserted in scope!
         outputs = list()
-        for op in scope.pop():
-            itmd.add_op(op)
-        if len(itmd.top_func.body) == 0:
+        for op in ast.scope.pop():
+            ast_module.add_op(op)
+        if len(ast_module.top_func.body) == 0:
             raise APIError("received an empty algorithm specification, no operations present")
     else:
-        scope.pop()
-        scope.push(itmd.top_func.body)
+        ast.scope.pop()
+        ast.scope.push(ast_module.top_func.body)
         ret = func(*inputs)
         if ret is None:
             outputs = list()
@@ -73,9 +72,9 @@ def build_schedule(inputs, func=None, name=""):
             outputs = list(ret)
         else:
             outputs = [ret]
-    itmd.top_func.return_tensors.extend(outputs)
-    # print(itmd)
-    s = create_schedule_from_itmd(itmd, inputs, func, name)
+    ast_module.top_func.return_tensors.extend(outputs)
+    # print(ast)
+    s = create_schedule_from_ast(ast_module, inputs, func, name)
     return s
 
 def build_schedule_old(inputs, func=None, name=""):
@@ -218,7 +217,7 @@ def customize(inputs, func=None, name=""):
         # TODO: remove uneeded reset logics
         hcl_mlir.reset_build_inplace()
         NestedStageLevel.set(0)
-        scope.push(list())
+        ast.scope.push(list())
 
 
 def create_schedule(inputs, func=None, name=""):
@@ -369,7 +368,7 @@ class Schedule(object):
         return self._extern_top
 
     @property
-    def itmd(self):
+    def ast(self):
         return self._Intermediate
 
     @property
@@ -471,7 +470,7 @@ class Schedule(object):
         else:
             raise DTypeError("reuse_at() got invalid axis of type {}, please input CreateLoopHandleOp or its result".format(type(axis)))
         
-        if isinstance(target, (itmd.AllocOp, hcl_d.ReuseAtOp)):
+        if isinstance(target, (ast.AllocOp, hcl_d.ReuseAtOp)):
             target = target.result
         elif isinstance(target, OpResult):
             pass
@@ -774,7 +773,7 @@ class CreateStage(Pass):
     def __init__(self, intermediate, schedule):
         super().__init__("create_stage", intermediate)
         self.sch = schedule
-        self.ip = InsertionPoint.at_block_terminator(self.itmd.top_func.ir_op.entry_block)
+        self.ip = InsertionPoint.at_block_terminator(self.ast.top_func.ir_op.entry_block)
 
     def visit(self, op):
         self.create_stage(op)
@@ -784,16 +783,16 @@ class CreateStage(Pass):
                 self.visit(op)
 
     def create_stage(self, op):
-        if isinstance(op, itmd.ComputeOp):
+        if isinstance(op, ast.ComputeOp):
             self.create_compute_stage(op)
-        elif isinstance(op, itmd.ForOp):
+        elif isinstance(op, ast.ForOp):
             self.create_imperative_stage(op)
         else:
             pass
             # raise HCLNotImplementedError("create_stage method not implemented for op type: " + type(op))
 
 
-    def create_compute_stage(self, op : itmd.ComputeOp):
+    def create_compute_stage(self, op : ast.ComputeOp):
         tensor = op.tensor if op.kind == "compute" else op.aux_tensor
         # Step 1: create stage and loop handles
         with get_context(), get_location():
@@ -817,14 +816,14 @@ class CreateStage(Pass):
         stage.stage_handle = stage_hdl
         Stage._mapping.append((tensor, stage))
 
-    def create_imperative_stage(self, op : itmd.ForOp):
+    def create_imperative_stage(self, op : ast.ForOp):
         if op.tag is None:
             return
 
         nested_for_loops = [op]
         def get_nested_for_loops(op):
             for body_op in op.body:
-                if isinstance(body_op, itmd.ForOp):
+                if isinstance(body_op, ast.ForOp):
                     nested_for_loops.append(body_op)
                     get_nested_for_loops(body_op)
         get_nested_for_loops(op)
@@ -850,5 +849,5 @@ class CreateStage(Pass):
 
     def apply(self):
         """Pass entry point"""
-        top_func = self.itmd.top_func
+        top_func = self.ast.top_func
         self.visit(top_func)

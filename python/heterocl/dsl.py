@@ -12,10 +12,10 @@ from hcl_mlir.exceptions import *
 from . import config
 from .context import (BreakFlag, ImperativeLoopDepth, ImperativeLoopNestCount,
                       NestedStageLevel, StageName, UniqueName, IPPointer)
-from .schedule import Schedule, Stage, scope
+from .schedule import Schedule, Stage
 from .tensor import Tensor
 from .utils import get_extra_type_hints, hcl_dtype_to_mlir, get_func_obj, get_src_loc
-from .ir import intermediate as itmd
+from .ast import ast
 from .types import UInt
 
 
@@ -38,11 +38,11 @@ def and_(*args):
     if len(args) < 2:
         raise ValueError("And must take at least 2 arguments")
     filename, loc = get_src_loc()
-    loc = itmd.Location(filename, loc)
-    expr = itmd.CastOp(args[0], UInt(1), loc)
+    loc = ast.Location(filename, loc)
+    expr = ast.CastOp(args[0], UInt(1), loc)
     for arg in args[1:]:
-        arg = itmd.CastOp(arg, UInt(1), loc)
-        expr = itmd.LogicalAnd(expr, arg, loc)
+        arg = ast.CastOp(arg, UInt(1), loc)
+        expr = ast.LogicalAnd(expr, arg, loc)
     return expr
 
 def or_(*args):
@@ -50,11 +50,11 @@ def or_(*args):
     if len(args) < 2:
         raise ValueError("Or must take at least 2 arguments")
     filename, loc = get_src_loc()
-    loc = itmd.Location(filename, loc)
-    expr = itmd.CastOp(args[0], UInt(1), loc)
+    loc = ast.Location(filename, loc)
+    expr = ast.CastOp(args[0], UInt(1), loc)
     for arg in args[1:]:
-        arg = itmd.CastOp(arg, UInt(1), loc)
-        expr = itmd.LogicalOr(expr, arg, loc)
+        arg = ast.CastOp(arg, UInt(1), loc)
+        expr = ast.LogicalOr(expr, arg, loc)
     return expr
 
 
@@ -62,10 +62,10 @@ def not_(arg):
     """Compute the logic NOT operation.
     """
     filename, loc = get_src_loc()
-    loc = itmd.Location(filename, loc)
-    one = itmd.ConstantOp(1, UInt(1), loc)
-    arg = itmd.CastOp(arg, UInt(1), loc)
-    return itmd.LogicalXOr(arg, one, loc)
+    loc = ast.Location(filename, loc)
+    one = ast.ConstantOp(1, UInt(1), loc)
+    arg = ast.CastOp(arg, UInt(1), loc)
+    return ast.LogicalXOr(arg, one, loc)
 
 
 def old_for_(begin, end, step=1, tag=None, name=None):
@@ -160,15 +160,15 @@ def for_(begin, end, step=1, tag=None, name=None):
     # loops without tag or name
     loop_axis = UniqueName.get("loop")
 
-    region = scope.get()
+    region = ast.scope.get()
     filename, lineno = get_src_loc()
-    loc = itmd.Location(filename, lineno)
-    forOp = itmd.ForOp(tag, loop_axis, begin, end, step, loc)
+    loc = ast.Location(filename, lineno)
+    forOp = ast.ForOp(tag, loop_axis, begin, end, step, loc)
     region.append(forOp)
-    scope.push(forOp.body)
+    ast.scope.push(forOp.body)
 
     def _exit_cb():
-        scope.pop()
+        ast.scope.pop()
 
     return WithScope(forOp.iter_var, _exit_cb)
 
@@ -202,14 +202,14 @@ def old_if_(cond):
 
 
 def if_(cond):
-    region = scope.get()
+    region = ast.scope.get()
     filename, lineno = get_src_loc()
-    ifOp = itmd.IfOp(cond, itmd.Location(filename, lineno))
+    ifOp = ast.IfOp(cond, ast.Location(filename, lineno))
     region.append(ifOp)
-    scope.push(ifOp.body)
+    ast.scope.push(ifOp.body)
 
     def _exit_cb():
-        scope.pop()
+        ast.scope.pop()
 
     return WithScope(None, _exit_cb)
 
@@ -232,14 +232,14 @@ def old_else_():
     return WithScope(None, _exit_cb)
 
 def else_():
-    region = scope.get()
+    region = ast.scope.get()
     filename, lineno = get_src_loc()
-    elseOp = itmd.ElseOp(itmd.Location(filename, lineno))
+    elseOp = ast.ElseOp(ast.Location(filename, lineno))
     region.append(elseOp)
-    scope.push(elseOp.body)
+    ast.scope.push(elseOp.body)
 
     def _exit_cb():
-        scope.pop()
+        ast.scope.pop()
 
     return WithScope(None, _exit_cb)
 
@@ -273,26 +273,26 @@ def old_elif_(cond):
     return WithScope(None, _exit_cb)
 
 def elif_(cond):
-    region = scope.get()
+    region = ast.scope.get()
     filename, lineno = get_src_loc()
-    elifOp = itmd.ElseIfOp(cond, itmd.Location(filename, lineno))
+    elifOp = ast.ElseIfOp(cond, ast.Location(filename, lineno))
     region.append(elifOp)
-    scope.push(elifOp.body)
+    ast.scope.push(elifOp.body)
 
     def _exit_cb():
-        scope.pop()
+        ast.scope.pop()
 
     return WithScope(None, _exit_cb)
 
 def while_(cond):
-    region = scope.get()
+    region = ast.scope.get()
     filename, lineno = get_src_loc()
-    whileOp = itmd.WhileOp(cond, itmd.Location(filename, lineno))
+    whileOp = ast.WhileOp(cond, ast.Location(filename, lineno))
     region.append(whileOp)
-    scope.push(whileOp.body)
+    ast.scope.push(whileOp.body)
 
     def _exit_cb():
-        scope.pop()
+        ast.scope.pop()
 
     return WithScope(None, _exit_cb)
 
@@ -316,7 +316,7 @@ def old_while_(cond):
 def def_(shapes=None, dtypes=None, ret_dtype=None, name=None, arg_names=None):
 
     filename, lineno = get_src_loc()
-    loc = itmd.Location(filename, lineno)
+    loc = ast.Location(filename, lineno)
 
     def decorator(fmodule):
         HCLDeprecationWarning("hcl.def_() is deprecated, please use .outline() instead.").warn()
@@ -330,18 +330,18 @@ def def_(shapes=None, dtypes=None, ret_dtype=None, name=None, arg_names=None):
             names = tuple(names)
         nargs = code.co_argcount
         
-        region = scope.get()
-        func_op = itmd.FuncOp(fname, [], [], loc)
+        region = ast.scope.get()
+        func_op = ast.FuncOp(fname, [], [], loc)
         region.append(func_op)
 
         def wrapped_func(*inputs):
             func_op.args = inputs
-            scope.push(func_op.body)
+            ast.scope.push(func_op.body)
             ret = fmodule(*inputs)
-            scope.pop()
+            ast.scope.pop()
             if ret is None:
                 outputs = list()
-                if len(func_op.body) > 0 and isinstance(func_op.body[-1], itmd.ReturnOp):
+                if len(func_op.body) > 0 and isinstance(func_op.body[-1], ast.ReturnOp):
                     outputs = [func_op.body[-1].expr]
                     func_op.body.pop()
             elif isinstance(ret, tuple):
@@ -352,11 +352,11 @@ def def_(shapes=None, dtypes=None, ret_dtype=None, name=None, arg_names=None):
             func_op.return_tensors.extend(outputs)
 
             # call op
-            call_op = itmd.CallOp(func_op.name, inputs, outputs, loc)
+            call_op = ast.CallOp(func_op.name, inputs, outputs, loc)
             if len(outputs) == 0:
                 # no return value
                 # use as a statement
-                region = scope.get()
+                region = ast.scope.get()
                 region.append(call_op)
             else:
                 # return value
@@ -544,9 +544,9 @@ def old_def_(shapes, dtypes=None, ret_dtype=None, name=None, arg_names=None):
 
 def return_(expr=None):
     filename, lineno = get_src_loc()
-    loc = itmd.Location(filename, lineno)
-    return_op = itmd.ReturnOp(expr, loc)
-    region = scope.get()
+    loc = ast.Location(filename, lineno)
+    return_op = ast.ReturnOp(expr, loc)
+    region = ast.scope.get()
     region.append(return_op)
 
 
