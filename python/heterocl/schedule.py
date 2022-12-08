@@ -29,21 +29,23 @@ def create_schedule_from_ast(_ast, inputs, func, name):
     s._ast = _ast
     
     # run passes
-    nest_elif_pass = NestElseIf(s.ast)
-    nest_elif_pass.apply()
+    # nest_elif_pass = NestElseIf(s.ast)
+    # nest_elif_pass.apply()
     
-    set_context() # set MLIR context
-    ir_builder = IRBuilder(s.ast)
-    ir_builder.build()
-    exit_context() # exit MLIR context
+    # set_context() # set MLIR context
+    # ir_builder = IRBuilder(s.ast)
+    # ir_builder.build()
+    # exit_context() # exit MLIR context
     
+    # let's not implement create stage as a pass
+    # since it is not only transforming the AST
     create_stage_pass = CreateStage(s.ast, s)
     create_stage_pass.apply()
 
     # set device module and top func
-    s._device_module = ir_builder.module
-    s._device_top = s.ast.top_func.ir_op
-    s._customize_ip = InsertionPoint.at_block_terminator(s._device_top.entry_block)
+    # s._device_module = ir_builder.module
+    # s._device_top = s.ast.top_func.ir_op
+    # s._customize_ip = InsertionPoint.at_block_terminator(s._device_top.entry_block)
 
     return s
 
@@ -512,7 +514,8 @@ class Schedule(object):
             if not isinstance(tensor, list):
                 tensor = [tensor]
             for t in tensor:
-                self.DataflowGraph.propagate_annotation(t, dst.types)
+                t.device = dst
+                # self.DataflowGraph.propagate_annotation(t, dst.types)
         # inter-stage data movement
         elif isinstance(dst, Stage):
             try:
@@ -764,7 +767,59 @@ class Stage(object):
         pass
 
 
-class CreateStage(Pass):
+class CreateStage(object):
+    """Create HeteroCL stages
+
+    This pass does three things:
+    1. Create stage and loop handles and set tensor.axis for all stage's tensors
+    2. Attach tensors to Python functions as attributes
+    3. Create a mapping from tensor to stage in Schedule
+    """
+    def __init__(self, _ast, sch):
+        self._ast = _ast
+        self.sch = sch
+
+    def apply(self):
+        """Pass entry point"""
+        top_func = self._ast.top_func
+        self.visit(top_func)
+
+    def visit(self, op):
+        self.create_stage(op)
+        if hasattr(op, "body") and op.body is not None:
+            for op in op.body:
+                # recursively visit the body
+                self.visit(op)
+    
+    def create_stage(self, op):
+        if isinstance(op, ast.ComputeOp):
+            self.create_compute_stage(op)
+        elif isinstance(op, ast.ForOp):
+            self.create_imperative_stage(op)
+
+    def create_compute_stage(self, op : ast.ComputeOp):
+        stage = Stage(op.name)
+        stage.tensor = op.tensor
+        top_func = Schedule._TopFunction
+        if op.kind == "compute":
+            Stage._mapping.append((op.tensor, stage))
+            if top_func is not None:
+                top_func.__setattr__(op.name, op.tensor)
+        elif op.kind == "update":
+            Stage._mapping.append((stage, stage))
+            if top_func is not None:
+                top_func.__setattr__(op.name, stage)
+
+    def create_imperative_stage(self, op : ast.ForOp):
+        if op.tag is None:
+            return
+        stage = Stage(op.tag)
+        Stage._mapping.append((stage, stage))
+        top_func = Schedule._TopFunction
+        if top_func is not None:
+            top_func.__setattr__(op.tag, stage)        
+
+class CreateStage_deprecated(Pass):
     """Create HeteroCL stages, stage and loop handles.
 
     This pass does three things:
@@ -777,6 +832,7 @@ class CreateStage(Pass):
         super().__init__("create_stage", intermediate)
         self.sch = schedule
         self.ip = InsertionPoint.at_block_terminator(self.ast.top_func.ir_op.entry_block)
+
 
     def visit(self, op):
         self.create_stage(op)

@@ -18,7 +18,6 @@ from .utils import get_extra_type_hints, hcl_dtype_to_mlir, get_func_obj, get_sr
 from .ast import ast
 from .types import UInt
 
-
 class WithScope(object):
     """Auxiliary scope with"""
 
@@ -328,7 +327,6 @@ def def_(shapes=None, dtypes=None, ret_dtype=None, name=None, arg_names=None):
             for i in range(len(arg_names)):
                 names[i] = arg_names[i]
             names = tuple(names)
-        nargs = code.co_argcount
         
         region = ast.scope.get()
         func_op = ast.FuncOp(fname, [], [], loc)

@@ -13,14 +13,30 @@ class Pass(object):
 
     A pass is a visitor that can mutate the Intermediate Layer.
     """
-    def __init__(self, name, intermediate):
-        self.name = name # name of the mutator
-        self.ast = intermediate # the IR to be mutated, must be intermediate layer IR
+    def __init__(self, name):
+        self.name = name # name of the pass
 
-    def apply(self):
-        """Apply the pass to the intermediate layer IR."""
+    def apply(self, _ast):
+        """Apply the pass to the AST."""
         raise HCLNotImplementedError("Pass.apply() is not implemented for pass: " + self.name)
 
+
+class PassManager(object):
+    """A pass manager that manages a pipeline of passes.
+    """
+    def __init__(self):
+        self.pipeline = []
+    
+    def add_pass(self, pass_class):
+        """Add a pass to the pass pipeline.
+        """
+        self.pipeline.append(pass_class)
+
+    def run(self, _ast):
+        for pass_class in self.pipeline:
+            pass_obj = pass_class()
+            _ast = pass_obj.apply(_ast)
+        return _ast
 
 
 class NestElseIf(Pass):
@@ -30,8 +46,8 @@ class NestElseIf(Pass):
     because MLIR does not support elif.
     """
 
-    def __init__(self, intermediate):
-        super().__init__("nest_else_if", intermediate)
+    def __init__(self):
+        super().__init__("nest_else_if")
 
     def visit(self, op):
         if hasattr(op, "body") and op.body is not None:
@@ -40,14 +56,13 @@ class NestElseIf(Pass):
                 # recursively visit the body operations
                 self.visit(op)
 
-    def apply(self):
+    def apply(self, _ast):
         """ Pass entry point
         """
-        # TODO: simplify this
-        top_func = self.ast.top_func
-        self.nest_elif(top_func)
-        for op in top_func.body:
+        for op in _ast.region:
             self.visit(op)
+
+        return _ast
 
     def nest_elif(self, scope):
         """ Convert all elif into nested if-else statements in a given scope.

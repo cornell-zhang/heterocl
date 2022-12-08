@@ -766,6 +766,9 @@ class AllocOp(Expr):
         self.uses = list()
         # Axes, a list of loop handles corresponding to the loop axes
         self.axis = list()
+        # the device where the tensor is allocated
+        # e.g. Host, FPGA, GPU
+        self.device = None
     
     def __repr__(self):
         return f"{self.name} = alloc({self.shape}, {self.dtype})"
