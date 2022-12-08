@@ -65,13 +65,17 @@ class Scope(object):
     def __len__(self):
         return len(self.stack)
 
+    def reset(self):
+        self.stack.clear()
+        # this list is for operations
+        # that are not enclosed in a top-level function
+        # in the case that there is a top-level function,
+        # this list will be poped and the operations will
+        # be inserted into the top-level function body scope
+        self.stack.append(list())
+
 scope = Scope()
-# this list is for operations
-# that are not enclosed in a top-level function
-# in the case that there is a top-level function,
-# this list will be poped and the operations will
-# be inserted into the top-level function body scope
-scope.push(list())
+scope.reset()
 
 class Operation(object):
     """Base class for all operations.
@@ -1146,8 +1150,9 @@ class OpHandle(Expr):
         return self.name
 
 class LoopHandle(Expr):
-    def __init__(self, name, loc):
+    def __init__(self, op_hdl, name, loc):
         super().__init__('loop_handle', loc)
+        self.op_hdl = op_hdl
         self.name = name
         self.level = len(scope)
 
@@ -1166,7 +1171,7 @@ class PartitionOp(Operation):
     def __repr__(self):
         code_str = ""
         code_str = print_indent(code_str, self.level)
-        code_str += "hcl.partition({}, {}, {}, {})".format(self.tensor.name, self.kind, self.dim, self.factor)
+        code_str += "hcl.partition({}, kind={}, dim={}, factor={})".format(self.tensor.name, self.kind, self.dim, self.factor)
         return code_str
 
 class ReplaceOp(Operation):
@@ -1249,15 +1254,17 @@ class InterKernelToOp(Operation):
 
 
 class OutlineOp(Operation):
-    def __init__(self, stage_list, loc):
+    def __init__(self, stage_hdls, loc):
         super().__init__("outline", loc)
-        self.stage_list = stage_list
+        self.stage_hdls = stage_hdls
+        self.unify = None
+        self.axis = None
         self.level = len(scope)
     
     def __repr__(self):
         code_str = ""
         code_str = print_indent(code_str, self.level)
-        code_str += "hcl.outline({})".format(", ".join([v.name for v in self.stage_list]))
+        code_str += "hcl.outline({}, axis={}, unify={})".format(", ".join([v.name for v in self.stage_hdls]), self.axis, self.unify)
         return code_str
 
 class ReorderOp(Operation):
@@ -1273,33 +1280,41 @@ class ReorderOp(Operation):
         return code_str
 
 class SplitOp(Operation):
-    def __init__(self, parent, factor, nparts, mode, loc):
+    def __init__(self, stage_hdl, parent, factor, loc):
         super().__init__("split", loc)
         self.parent = parent
         self.factor = factor
-        self.nparts = nparts
-        self.mode = mode
+        self.results = [
+            LoopHandle(stage_hdl, parent.name + ".outer", loc),
+            LoopHandle(stage_hdl, parent.name + ".inner", loc)
+        ]
         self.level = len(scope)
 
     def __repr__(self):
         code_str = ""
         code_str = print_indent(code_str, self.level)
-        code_str += "hcl.split({}, {}, {}, {})".format(self.parent.name, self.factor, self.nparts, self.mode)
+        code_str += "{}, {} = hcl.split({})".format(self.results[0].name, self.results[1].name, self.parent.name)
         return code_str
 
 class TileOp(Operation):
-    def __init__(self, x_parent, y_parent, x_factor, y_factor, loc):
+    def __init__(self, stage_hdl, x_parent, y_parent, x_factor, y_factor, loc):
         super().__init__("tile", loc)
         self.x_parent = x_parent
         self.y_parent = y_parent
         self.x_factor = x_factor
         self.y_factor = y_factor
+        self.results = [
+            LoopHandle(stage_hdl, x_parent.name + ".outer", loc),
+            LoopHandle(stage_hdl, x_parent.name + ".inner", loc),
+            LoopHandle(stage_hdl, y_parent.name + ".outer", loc),
+            LoopHandle(stage_hdl, y_parent.name + ".inner", loc)
+        ]
         self.level = len(scope)
     
     def __repr__(self):
         code_str = ""
         code_str = print_indent(code_str, self.level)
-        code_str += "hcl.tile({}, {}, {}, {})".format(self.x_parent.name, self.y_parent.name, self.x_factor, self.y_factor)
+        code_str += "{}, {}, {}, {} = hcl.tile({}, {})".format(self.results[0].name, self.results[1].name, self.results[2].name, self.results[3].name, self.x_parent.name, self.y_parent.name)
         return code_str
 
 class PipelineOp(Operation):
@@ -1353,28 +1368,29 @@ class FuseOp(Operation):
         return code_str
 
 class ComputeAtOp(Operation):
-    def __init__(self, stage, parent, loc):
+    def __init__(self, stage, parent, axis, loc):
         super().__init__("compute_at", loc)
         self.stage = stage
         self.parent = parent
+        self.axis = axis
         self.level = len(scope)
     
     def __repr__(self):
         code_str = ""
         code_str = print_indent(code_str, self.level)
-        code_str += "hcl.compute_at({}, {})".format(self.stage.name, self.parent.name)
+        code_str += "hcl.compute_at({}, {}, {})".format(self.stage.name, self.parent.name, self.axis)
         return code_str
 
 class SystolicOp(Operation):
-    def __init__(self, stage, loc):
+    def __init__(self, target, loc):
         super().__init__("systolic", loc)
-        self.stage = stage
+        self.target = target
         self.level = len(scope)
     
     def __repr__(self):
         code_str = ""
         code_str = print_indent(code_str, self.level)
-        code_str += "hcl.systolic({})".format(self.stage.name)
+        code_str += "hcl.systolic({})".format(self.target.name)
         return code_str
 
 class AST(object):

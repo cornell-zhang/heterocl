@@ -18,11 +18,11 @@ def create_schedule_from_scheme(scheme, name=""):
     """
     return create_schedule_from_ast(scheme._ast, scheme.inputs, scheme.func, name=name)
 
-class AttachTensor(Pass):
-    def __init__(self, scheme, ast, func):
-        super().__init__("attach_tensor", ast)
+class AttachTensor:
+    def __init__(self, scheme, _ast, func):
         self.func = func
         self.scheme = scheme
+        self.ast = _ast
 
     def apply(self):
         self.visit(self.ast.top_func)

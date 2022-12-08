@@ -39,7 +39,8 @@ def lower(schedule,
     # HeteroCL Transformation Pipeline
     ast_pm = ast_pass_manager()
     ast_pm.add_pass(ast_passes.NestElseIf)
-    host_ast, xcel_ast = ast_pm.run(schedule.ast)
+    # host_ast, xcel_ast = ast_pm.run(schedule.ast)
+    xcel_ast = ast_pm.run(schedule.ast)
 
     # Build MLIR IR
     set_context()
@@ -47,13 +48,14 @@ def lower(schedule,
     xcel_ir_builder.build()
     exit_context()
 
-    set_context()
-    host_ir_builder = IRBuilder(host_ast)
-    host_ir_builder.build()
-    exit_context()
+    # set_context()
+    # host_ir_builder = IRBuilder(host_ast)
+    # host_ir_builder.build()
+    # exit_context()
 
-    schedule.device_module = xcel_ir_builder.module
-    schedule.host_module = host_ir_builder.module
+    schedule._device_module = xcel_ir_builder.module
+    schedule._device_top = schedule.ast.top_func.ir_op
+    # schedule.host_module = host_ir_builder.module
 
     # MLIR Lowering Pipeline
     hcl_d.loop_transformation(schedule.device_module)
