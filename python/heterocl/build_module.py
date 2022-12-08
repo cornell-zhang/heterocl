@@ -9,15 +9,18 @@ from hcl_mlir.dialects import func as func_d
 from hcl_mlir.execution_engine import *
 from hcl_mlir.exceptions import *
 from hcl_mlir.ir import *
-from hcl_mlir.passmanager import PassManager
+from hcl_mlir.passmanager import PassManager as mlir_pass_manager
 
 from .devices import Platform
-from .context import NestedStageLevel, get_context, get_location, set_context
+from .context import NestedStageLevel, get_context, get_location, set_context, exit_context
 from .module import HCLModule, HCLSuperModule
 from .operation import placeholder
 from .runtime import copy_build_files
 from .schedule import Schedule, Stage
 from .utils import get_extra_type_hints
+from .ast.passes import PassManager as ast_pass_manager
+from .ast import passes as ast_passes
+from .ast.ir_builder import IRBuilder
 
 
 def lower(schedule,
@@ -33,6 +36,26 @@ def lower(schedule,
         raise APIError(
                 "The module has been lowered. Please apply schedule primitives before the lowering process."
             )
+    # HeteroCL Transformation Pipeline
+    ast_pm = ast_pass_manager()
+    ast_pm.add_pass(ast_passes.NestElseIf)
+    host_ast, xcel_ast = ast_pm.run(schedule.ast)
+
+    # Build MLIR IR
+    set_context()
+    xcel_ir_builder = IRBuilder(xcel_ast)
+    xcel_ir_builder.build()
+    exit_context()
+
+    set_context()
+    host_ir_builder = IRBuilder(host_ast)
+    host_ir_builder.build()
+    exit_context()
+
+    schedule.device_module = xcel_ir_builder.module
+    schedule.host_module = host_ir_builder.module
+
+    # MLIR Lowering Pipeline
     hcl_d.loop_transformation(schedule.device_module)
     pipeline = (
         f"func.func"
@@ -40,7 +63,7 @@ def lower(schedule,
     )
     try:
         with get_context():
-            PassManager.parse(pipeline).run(schedule.device_module)
+            mlir_pass_manager.parse(pipeline).run(schedule.device_module)
     except:
         print(schedule.device_module)
     schedule.set_lowered()
@@ -52,7 +75,7 @@ def build(schedule, target=None, stmt=None, top=None):
     """
     try:
         if isinstance(target, Platform) and str(target.tool.mode) != "debug":
-            for op, stage in Stage._mapping:
+            for _, stage in Stage._mapping:
                 stage.outline()
         if not schedule.is_lowered():
             lower(schedule)

@@ -806,6 +806,7 @@ class CreateStage(object):
             if top_func is not None:
                 top_func.__setattr__(op.name, op.tensor)
         elif op.kind == "update":
+            stage.__setattr__(op.tensor.name, op.tensor)
             Stage._mapping.append((stage, stage))
             if top_func is not None:
                 top_func.__setattr__(op.name, stage)

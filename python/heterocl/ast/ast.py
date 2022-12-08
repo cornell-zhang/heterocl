@@ -1118,7 +1118,10 @@ class PrintOp(Operation):
         self.level = len(scope)
 
     def __repr__(self):
-        return "print({}, {})".format(", ".join([str(v) for v in self.args], self.fmt))
+        code_str = ""
+        code_str = print_indent(code_str, self.level)
+        code_str += "print({}, {})".format(", ".join([str(v) for v in self.args], self.fmt))
+        return code_str
 
 class PrintTensorOp(Operation):
     def __init__(self, tensor, loc):
@@ -1127,8 +1130,234 @@ class PrintTensorOp(Operation):
         self.level = len(scope)
 
     def __repr__(self):
-        return "print_tensor({})".format(self.tensor.name)
+        code_str = ""
+        code_str = print_indent(code_str, self.level)
+        code_str += "print_tensor({})".format(self.tensor.name)
+        return code_str
 
+# Customization Operations
+class PartitionOp(Operation):
+    def __init__(self, tensor, kind, dim, factor, loc):
+        super().__init__('partition', loc)
+        self.tensor = tensor
+        self.kind = kind
+        self.dim = dim
+        self.factor = factor
+        self.level = len(scope)
+
+    def __repr__(self):
+        code_str = ""
+        code_str = print_indent(code_str, self.level)
+        code_str += "hcl.partition({}, {}, {}, {})".format(self.tensor.name, self.kind, self.dim, self.factor)
+        return code_str
+
+class ReplaceOp(Operation):
+    def __init__(self, src_tensor, dst_tensor, loc):
+        super().__init__("replace", loc)
+        self.src_tensor = src_tensor
+        self.dst_tensor = dst_tensor
+        self.level = len(scope)
+    
+    def __repr__(self):
+        code_str = ""
+        code_str = print_indent(code_str, self.level)
+        code_str += "hcl.replace({}, {})".format(self.src_tensor.name, self.dst_tensor.name)
+        return code_str
+
+class ReshapeOp(Operation):
+    def __init__(self, tensor, shape, loc):
+        super().__init__("reshape", loc)
+        self.tensor = tensor
+        self.shape = shape
+        self.level = len(scope)
+
+    def __repr__(self):
+        code_str = ""
+        code_str = print_indent(code_str, self.level)
+        code_str += "hcl.reshape({}, {})".format(self.tensor.name, self.shape)
+        return code_str
+
+class ReformOp(Operation):
+    def __init__(self, target, layout, loc):
+        super().__init__("reform", loc)
+        self.target = target
+        self.layout = layout
+        self.level = len(scope)
+
+    def __repr__(self):
+        code_str = ""
+        code_str = print_indent(code_str, self.level)
+        code_str += "hcl.reform({}, {})".format(self.target.name, self.layout)
+        return code_str
+
+class ReuseAtOp(Operation):
+    def __init__(self, target, axis, loc):
+        super().__init__("reuse_at", loc)
+        self.target = target
+        self.axis = axis
+        self.level = len(scope)
+    
+    def __repr__(self):
+        code_str = ""
+        code_str = print_indent(code_str, self.level)
+        code_str += "hcl.reuse_at({}, {})".format(self.target.name, self.axis)
+        return code_str
+
+class BufferAtOp(Operation):
+    def __init__(self, target, axis, loc):
+        super().__init__("buffer_at", loc)
+        self.target = target
+        self.axis = axis
+        self.level = len(scope)
+    
+    def __repr__(self):
+        code_str = ""
+        code_str = print_indent(code_str, self.level)
+        code_str += "hcl.buffer_at({}, {})".format(self.target.name, self.axis)
+        return code_str
+
+class InterKernelToOp(Operation):
+    def __init__(self, target, fifo_depth, loc):
+        super().__init__("inter_kernel_to", loc)
+        self.target = target
+        self.fifo_depth = fifo_depth
+        self.level = len(scope)
+
+    def __repr__(self):
+        code_str = ""
+        code_str = print_indent(code_str, self.level)
+        code_str += "hcl.inter_kernel_to({}, {})".format(self.target.name, self.fifo_depth)
+        return code_str
+
+
+class OutlineOp(Operation):
+    def __init__(self, stage_list, loc):
+        super().__init__("outline", loc)
+        self.stage_list = stage_list
+        self.level = len(scope)
+    
+    def __repr__(self):
+        code_str = ""
+        code_str = print_indent(code_str, self.level)
+        code_str += "hcl.outline({})".format(", ".join([v.name for v in self.stage_list]))
+        return code_str
+
+class ReorderOp(Operation):
+    def __init__(self, args, loc):
+        super().__init__("reorder", loc)
+        self.args = args
+        self.level = len(scope)
+    
+    def __repr__(self):
+        code_str = ""
+        code_str = print_indent(code_str, self.level)
+        code_str += "hcl.reorder({})".format(", ".join([v.name for v in self.args]))
+        return code_str
+
+class SplitOp(Operation):
+    def __init__(self, parent, factor, nparts, mode, loc)
+        super().__init__("split", loc)
+        self.parent = parent
+        self.factor = factor
+        self.nparts = nparts
+        self.mode = mode
+        self.level = len(scope)
+
+    def __repr__(self):
+        code_str = ""
+        code_str = print_indent(code_str, self.level)
+        code_str += "hcl.split({}, {}, {}, {})".format(self.parent.name, self.factor, self.nparts, self.mode)
+        return code_str
+
+class TileOp(Operation):
+    def __init__(self, x_parent, y_parent, x_factor, y_factor, loc):
+        super().__init__("tile", loc)
+        self.x_parent = x_parent
+        self.y_parent = y_parent
+        self.x_factor = x_factor
+        self.y_factor = y_factor
+        self.level = len(scope)
+    
+    def __repr__(self):
+        code_str = ""
+        code_str = print_indent(code_str, self.level)
+        code_str += "hcl.tile({}, {}, {}, {})".format(self.x_parent.name, self.y_parent.name, self.x_factor, self.y_factor)
+        return code_str
+
+class PipelineOp(Operation):
+    def __init__(self, target, ii, loc):
+        super().__init__("pipeline", loc)
+        self.target = target
+        self.ii = ii
+        self.level = len(scope)
+    
+    def __repr__(self):
+        code_str = ""
+        code_str = print_indent(code_str, self.level)
+        code_str += "hcl.pipeline({}, {})".format(self.target.name, self.ii)
+        return code_str
+
+class UnrollOp(Operation):
+    def __init__(self, target, factor, loc):
+        super().__init__("unroll", loc)
+        self.target = target
+        self.factor = factor
+        self.level = len(scope)
+
+    def __repr__(self):
+        code_str = ""
+        code_str = print_indent(code_str, self.level)
+        code_str += "hcl.unroll({}, {})".format(self.target.name, self.factor)
+        return code_str
+
+class ParallelOp(Operation):
+    def __init__(self, target, loc):
+        super().__init__("parallel", loc)
+        self.target = target
+        self.level = len(scope)
+    
+    def __repr__(self):
+        code_str = ""
+        code_str = print_indent(code_str, self.level)
+        code_str += "hcl.parallel({})".format(self.target.name)
+        return code_str
+
+class FuseOp(Operation):
+    def __init__(self, arg_list, loc):
+        super().__init__("fuse", loc)
+        self.arg_list = arg_list
+        self.level = len(scope)
+
+    def __repr__(self):
+        code_str = ""
+        code_str = print_indent(code_str, self.level)
+        code_str += "hcl.fuse({})".format(", ".join([str(v) for v in self.arg_list]))
+        return code_str
+
+class ComputeAtOp(Operation):
+    def __init__(self, stage, parent, loc):
+        super().__init__("compute_at", loc)
+        self.stage = stage
+        self.parent = parent
+        self.level = len(scope)
+    
+    def __repr__(self):
+        code_str = ""
+        code_str = print_indent(code_str, self.level)
+        code_str += "hcl.compute_at({}, {})".format(self.stage.name, self.parent.name)
+        return code_str
+
+class SystolicOp(Operation):
+    def __init__(self, stage, loc):
+        super().__init__("systolic", loc)
+        self.stage = stage
+        self.level = len(scope)
+    
+    def __repr__(self):
+        code_str = ""
+        code_str = print_indent(code_str, self.level)
+        code_str += "hcl.systolic({})".format(self.stage.name)
+        return code_str
 
 class AST(object):
     """HeteroCL AST
