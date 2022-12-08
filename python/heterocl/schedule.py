@@ -16,7 +16,6 @@ from .dfg import DataflowGraph
 from .utils import get_extra_type_hints, remove_moved_attr, get_src_loc, hcl_dtype_to_mlir
 from .ast import ast
 from .ast.ir_builder import IRBuilder
-from .ast.passes import Pass, NestElseIf
 
 # By default, Python ignores deprecation warnings.
 # we have to enable it to see the warning.
@@ -743,7 +742,7 @@ class CreateStage(object):
             loop_hdl = ast.LoopHandle(stage_hdl, loop.name, op.loc)
             stage.axis.append(loop_hdl)
 
-class CreateStage_deprecated(Pass):
+class CreateStage_deprecated(object):
     """Create HeteroCL stages, stage and loop handles.
 
     This pass does three things:

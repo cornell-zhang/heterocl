@@ -327,7 +327,7 @@ class IRBuilder(object):
     def build_func_op(self, op : ast.FuncOp, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         # use global insetion point instead
-        ip = InsertionPoint.at_block_begin(self.module.body)
+        ip = InsertionPoint(self.module.body)
         input_types = []
         input_typehints = []
         for arg in op.args:
@@ -359,14 +359,6 @@ class IRBuilder(object):
         op.ir_op = func_op
         func_op.add_entry_block()
 
-        # if op.args have results, save them
-        # orig_arg_results = []
-        # for arg in op.args:
-        #     if hasattr(arg, 'result'):
-        #         orig_arg_results.append(arg.result)
-        #     else:
-        #         orig_arg_results.append(None)
-
         for arg, block_arg in zip(op.args, func_op.entry_block.arguments):
             arg.result = block_arg
 
@@ -390,10 +382,11 @@ class IRBuilder(object):
             # that it should use ap_int type for integers
             func_op.attributes["bit"] = UnitAttr.get()
 
-        # restore arg results
-        # for arg, orig_result in zip(op.args, orig_arg_results):
-        #     if orig_result is not None:
-        #         arg.result = orig_result
+        # It is necessary to clear the result of each argument
+        # as the same argument object may be refered in multiple functions
+        # we need to make sure that the result is not reused
+        for arg in op.args:
+            arg.result = None
 
 
     def build_call_op(self, op : ast.CallOp, ip):

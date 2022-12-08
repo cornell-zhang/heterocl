@@ -1031,7 +1031,7 @@ class FuncOp(Operation):
         code_str = print_indent(code_str, self.level + 1)
         code_str += "return {}\n".format(", ".join([str(v) for v in self.return_tensors]))
         code_str = print_indent(code_str, self.level)
-        code_str += "}"
+        code_str += "}\n"
         return code_str
 
 class CallOp(Expr):
@@ -1045,7 +1045,7 @@ class CallOp(Expr):
     def __repr__(self):
         code_str = ""
         code_str += print_indent(code_str, self.level)
-        code_str += "{}({})".format(self.name, ", ".join([str(v) for v in self.args]))
+        code_str += "{}({})".format(self.name, ", ".join([str(v.name) for v in self.args]))
         return code_str
 
 

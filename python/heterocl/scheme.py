@@ -1,5 +1,5 @@
 from . import types
-from .schedule import create_schedule_from_ast, Pass
+from .schedule import create_schedule_from_ast
 from hcl_mlir.exceptions import *
 from .ast import ast
 from .utils import get_src_loc

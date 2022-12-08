@@ -18,7 +18,6 @@ def test_module_no_return():
     B = hcl.placeholder((10,))
 
     s = hcl.create_schedule([A, B], algorithm)
-    print(hcl.lower(s))
     f = hcl.build(s)
 
     a = np.random.randint(100, size=(10,))

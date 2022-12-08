@@ -1,43 +1,6 @@
-# ===----------------------------------------------------------------------=== #
-#
-# Copyright 2021-2022 The HCL-MLIR Authors.
-#
-# ===----------------------------------------------------------------------=== #
-
-from . import ast
+from ..ast import ast
+from .pass_manager import Pass
 from hcl_mlir.exceptions import *
-from hcl_mlir.ir import *
-
-class Pass(object):
-    """Base class for all intermediate pass.
-
-    A pass is a visitor that can mutate the Intermediate Layer.
-    """
-    def __init__(self, name):
-        self.name = name # name of the pass
-
-    def apply(self, _ast):
-        """Apply the pass to the AST."""
-        raise HCLNotImplementedError("Pass.apply() is not implemented for pass: " + self.name)
-
-
-class PassManager(object):
-    """A pass manager that manages a pipeline of passes.
-    """
-    def __init__(self):
-        self.pipeline = []
-    
-    def add_pass(self, pass_class):
-        """Add a pass to the pass pipeline.
-        """
-        self.pipeline.append(pass_class)
-
-    def run(self, _ast):
-        for pass_class in self.pipeline:
-            pass_obj = pass_class()
-            _ast = pass_obj.apply(_ast)
-        return _ast
-
 
 class NestElseIf(Pass):
     """Convert all elif into nested if-else statements.
@@ -126,15 +89,3 @@ class NestElseIf(Pass):
                 new_body.append(op)
         scope.body = new_body
 
-    def update_level(self, op):
-        """ Update the level of an operation and its children.
-
-        Parameters
-        ----------
-        op : intermediate.Operation
-            the operation to be updated
-        """
-        if hasattr(op, "body"):
-            op.level += 1
-            for op in op.body:
-                self.update_level(op)

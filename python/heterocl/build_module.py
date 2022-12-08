@@ -18,8 +18,9 @@ from .operation import placeholder
 from .runtime import copy_build_files
 from .schedule import Schedule, Stage
 from .utils import get_extra_type_hints
-from .ast.passes import PassManager as ast_pass_manager
-from .ast import passes as ast_passes
+from .passes.pass_manager import PassManager as ast_pass_manager
+from .passes.nest_if import NestElseIf
+from .passes.promote_func import PromoteFunc
 from .ast.ir_builder import IRBuilder
 
 
@@ -38,7 +39,8 @@ def lower(schedule,
             )
     # HeteroCL Transformation Pipeline
     ast_pm = ast_pass_manager()
-    ast_pm.add_pass(ast_passes.NestElseIf)
+    ast_pm.add_pass(NestElseIf)
+    ast_pm.add_pass(PromoteFunc)
     # host_ast, xcel_ast = ast_pm.run(schedule.ast)
     xcel_ast = ast_pm.run(schedule.ast)
 
