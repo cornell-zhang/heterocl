@@ -32,7 +32,7 @@ class NestElseIf(Pass):
 
         Parameters
         ----------
-        scope : intermediate.Operation
+        scope : ast.Operation
             an operation that has a body, the body is the scope to be converted.
         """
 
@@ -67,6 +67,7 @@ class NestElseIf(Pass):
                 if isinstance(chain[i+1], ast.ElseIfOp):
                     if_op = ast.IfOp(chain[i+1].cond, chain[i+1].loc)
                     if_op.body.extend(chain[i+1].body)
+                    if_op.level += 1
                     self.update_level(if_op)
                     chain[i].else_body.append(if_op)
                     chain[i].else_branch_valid = True
@@ -75,6 +76,7 @@ class NestElseIf(Pass):
                     chain[i].else_body.extend(chain[i+1].body)
                     chain[i].else_branch_valid = True
                     for op in chain[i].else_body:
+                        op.level += 1
                         self.update_level(op)
                     chain.remove(chain[i+1])
                 else:

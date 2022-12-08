@@ -43,6 +43,7 @@ def lower(schedule,
     ast_pm.add_pass(PromoteFunc)
     # host_ast, xcel_ast = ast_pm.run(schedule.ast)
     xcel_ast = ast_pm.run(schedule.ast)
+    print(xcel_ast)
 
     # Build MLIR IR
     set_context()
