@@ -1136,6 +1136,24 @@ class PrintTensorOp(Operation):
         return code_str
 
 # Customization Operations
+class OpHandle(Expr):
+    def __init__(self, name, loc):
+        super().__init__('op_handle', loc)
+        self.name = name
+        self.level = len(scope)
+
+    def __repr__(self):
+        return self.name
+
+class LoopHandle(Expr):
+    def __init__(self, name, loc):
+        super().__init__('loop_handle', loc)
+        self.name = name
+        self.level = len(scope)
+
+    def __repr__(self):
+        return self.name
+
 class PartitionOp(Operation):
     def __init__(self, tensor, kind, dim, factor, loc):
         super().__init__('partition', loc)
@@ -1255,7 +1273,7 @@ class ReorderOp(Operation):
         return code_str
 
 class SplitOp(Operation):
-    def __init__(self, parent, factor, nparts, mode, loc)
+    def __init__(self, parent, factor, nparts, mode, loc):
         super().__init__("split", loc)
         self.parent = parent
         self.factor = factor
