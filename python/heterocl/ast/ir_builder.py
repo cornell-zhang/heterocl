@@ -4,10 +4,6 @@
 #
 # ===----------------------------------------------------------------------=== #
 
-import inspect
-from typing import List, Callable
-import numpy as np
-
 from . import ast
 from ..context import *
 from ..utils import hcl_dtype_to_mlir, get_extra_type_hints
@@ -159,60 +155,6 @@ class IRBuilder(object):
             for op in self._ast.region:
                 ip = InsertionPoint.at_block_begin(self.module.body)
                 self.build_visitor(op, ip)
-
-    def build_old(self):
-        """Builder entry point
-        
-        this function has duplicate code as build_func_op
-        it also assumes that the top function is the only function.
-        deprecating...
-        """
-        top_func = self._intermediate.top_func
-        with get_context(), get_location():
-            input_types = []
-            input_typehints = []
-            for tensor in top_func.args:
-                self.tensor_dict[tensor.name] = tensor
-                ele_type = hcl_dtype_to_mlir(tensor.dtype, signless=True)
-                input_typehints.append(get_extra_type_hints(tensor.dtype))
-                memref_type = MemRefType.get(tensor.shape, ele_type)
-                input_types.append(memref_type)
-            return_types = []
-            output_typehints = []
-            for tensor in top_func.return_tensors:
-                ele_type = hcl_dtype_to_mlir(tensor.dtype, signless=True)
-                output_typehints.append(get_extra_type_hints(tensor.dtype))
-                memref_type = MemRefType.get(tensor.shape, ele_type)
-                return_types.append(memref_type)
-            ip = InsertionPoint(self.module.body)
-            func_type = FunctionType.get(input_types, return_types)
-            func = func_d.FuncOp(name=top_func.name, type=func_type, ip=ip)
-            top_func.ir_op = func
-            func.add_entry_block()
-
-            # Set alloc op's result as function block arg
-            for alloc_op, arg in zip(top_func.args, func.entry_block.arguments):
-                alloc_op.result = arg
-
-            # build build's body op
-            ip = InsertionPoint(func.entry_block)
-            for op in top_func.body:
-                self.build_visitor(op, ip)
-            return_names = [tensor.name for tensor in top_func.return_tensors]
-            returns = [self.tensor_dict[name].result for name in return_names]
-            func_d.ReturnOp(returns, ip=ip)
-            
-            # attach attributes
-            # if program has bit operations
-            # func.attributes["bit"] = UnitAttr.get()
-            func.attributes["function_type"] = TypeAttr.get(func_type)
-            # attach type hints
-            otypes = "".join(output_typehints)
-            itypes = "".join(input_typehints)
-            func.attributes["otypes"] = StringAttr.get(otypes)
-            func.attributes["itypes"] = StringAttr.get(itypes)
-            if self.BIT_OPS:
-                func.attributes["bit"] = UnitAttr.get()
 
 
     def build_visitor(self, op, ip):
