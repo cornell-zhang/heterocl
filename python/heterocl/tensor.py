@@ -358,3 +358,6 @@ class Array(object):
 
     def unwrap(self):
         return self.np_array
+
+    def __repr__(self) -> str:
+        return self.asnumpy().__repr__()
