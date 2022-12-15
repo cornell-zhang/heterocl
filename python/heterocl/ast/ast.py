@@ -1146,6 +1146,10 @@ class OpHandle(Expr):
         self.name = name
         self.level = len(scope)
 
+    def __eq__(self, other):
+        assert isinstance(other, OpHandle)
+        return self.name == other.name
+
     def __repr__(self):
         return self.name
 
@@ -1155,6 +1159,10 @@ class LoopHandle(Expr):
         self.op_hdl = op_hdl
         self.name = name
         self.level = len(scope)
+
+    def __eq__(self, other):
+        assert isinstance(other, LoopHandle)
+        return self.name == other.name
 
     def __repr__(self):
         return self.name
