@@ -29,19 +29,16 @@ A = hcl.placeholder((10,), "A")
 # at least one stage**.
 
 def insertion_sort(A):
-
-    # Introduce a stage.
-    with hcl.Stage("S"):
-        # for i in range(1, A.shape[0])
-        # We can name the axis
-        with hcl.for_(1, A.shape[0], name="i") as i:
-            key = hcl.scalar(A[i], "key")
-            j = hcl.scalar(i-1, "j")
-            # while(j >= 0 && key < A[j])
-            with hcl.while_(hcl.and_(j >= 0, key < A[j])):
-                A[j+1] = A[j]
-                j.v -= 1
-            A[j+1] = key.v
+    # for i in range(1, A.shape[0])
+    # We can name the axis
+    with hcl.for_(1, A.shape[0], tag="i") as i:
+        key = hcl.scalar(A[i], "key")
+        j = hcl.scalar(i-1, "j")
+        # while(j >= 0 && key < A[j])
+        with hcl.while_(hcl.and_(j.v >= 0, key.v < A[j.v])):
+            A[j.v+1] = A[j.v]
+            j.v -= 1
+        A[j.v+1] = key.v
 
 ##############################################################################
 # Imperative DSL
@@ -107,7 +104,7 @@ def kernel(A):
     # get the LSB of A
     B = hcl.compute(A.shape, lambda x: A[x][0], "B")
     # get the lower 4-bit of A
-    C = hcl.compute(A.shape, lambda x: A[x][4:0], "C")
+    C = hcl.compute(A.shape, lambda x: A[x][0:4], "C")
     return B, C
 
 ##############################################################################
@@ -145,12 +142,11 @@ A = hcl.placeholder((10,), "A")
 B = hcl.placeholder((10,), "B")
 C = hcl.placeholder((10,), "C")
 def kernel(A, B, C):
-    with hcl.Stage("S"):
-        with hcl.for_(0, 10) as i:
-            # set the LSB of B to be the same as A
-            B[i][0] = A[i][0]
-            # set the lower 4-bit of C
-            C[i][4:0] = A[i]
+    with hcl.for_(0, 10, tag="S") as i:
+        # set the LSB of B to be the same as A
+        B[i][0] = A[i][0]
+        # set the lower 4-bit of C
+        C[i][0:4] = A[i]
 
 s = hcl.create_schedule([A, B, C], kernel)
 f = hcl.build(s)
