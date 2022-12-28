@@ -44,7 +44,7 @@ s_B = two_stage.B
 #
 # This is the generated IR without applying any hardware customization.
 
-print(hcl.lower(s))
+print(s.ast)
 
 ##############################################################################
 # We can take a look at the dataflow graph to visualize the relation between
@@ -74,7 +74,7 @@ s[s_B].reorder(s_B.axis[1], s_B.axis[0])
 # example, `s_B.axis[0]` refers to axis `x`. Similarly, `s_B.axis[1]` refers
 # to axis `y`. We can take a look at the generated IR.
 
-print(hcl.lower(s))
+print(s.ast)
 
 ##############################################################################
 # We can see that axis `x` and axis `y` are indeed reordered.
@@ -94,7 +94,7 @@ x_out, x_in = s[s_B].split(s_B.axis[0], 5)
 # two new axes `x_out` and `x_in`. To make it clear, let's take a look at the
 # generated IR.
 
-print(hcl.lower(s))
+print(s.ast)
 
 ##############################################################################
 # The returned variable `x_out` corresponds to the axis `x.outer` in the IR.
@@ -190,9 +190,8 @@ hcl.init()
 A = hcl.placeholder((10,))
 
 def custom_imperative(A):
-    with hcl.Stage("S"):
-        with hcl.for_(0, 10, name="i") as i:
-            A[i] = i - 10
+    with hcl.for_(0, 10, tag="S", name="i") as i:
+        A[i] = i - 10
 
 s = hcl.create_schedule([A], custom_imperative)
 s_S = custom_imperative.S
