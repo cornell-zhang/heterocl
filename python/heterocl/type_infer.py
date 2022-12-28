@@ -62,6 +62,8 @@ class TypeInfer(object):
             return self.infer(expr.rets[0])
         elif isinstance(expr, ast.Neg):
             return self.infer(expr.expr)
+        elif isinstance(expr, ast.MathTanhOp):
+            return Float(64)
         else:
             raise APIError(f"Type inference not defined for expression of type: {type(expr)}")
 
