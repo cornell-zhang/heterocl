@@ -176,6 +176,8 @@ class IRBuilder(object):
             self.build_cmp_op(op, ip)
         elif isinstance(op, ast.BinaryOp):
             self.build_binary_op(op, ip)
+        elif isinstance(op, ast.MathTanhOp):
+            self.build_math_tanh_op(op, ip)
         elif isinstance(op, ast.BitCastOp):
             self.build_bitcast_op(op, ip)
         elif isinstance(op, ast.LoadOp):
@@ -530,6 +532,15 @@ class IRBuilder(object):
         # Step 4: attach necessary attributes
         if isinstance(t, (htypes.UInt, htypes.UFixed)):
             binary_op.attributes["unsigned"] = UnitAttr.get()
+
+    def build_math_tanh_op(self, op : ast.MathTanhOp, ip):
+        loc = Location.file(op.loc.filename, op.loc.lineno, 0)
+        self.build_visitor(op.expr, ip)
+        casted = ast.CastOp(op.expr, htypes.Float(64), loc)
+        self.build_visitor(casted, ip)
+        tanh_op = math_d.TanhOp(casted.result, ip=ip, loc=loc)
+        op.result = tanh_op.result
+        op.ir_op = tanh_op
 
     def build_neg_op(self, op, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
