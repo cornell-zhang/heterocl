@@ -36,8 +36,8 @@ dtype = hcl.Float()
 input_image = hcl.placeholder((480, 640), name="input", dtype=dtype)
 output_image = hcl.placeholder((480, 640), name="output", dtype=dtype)
 soda_schedule = hcl.create_schedule([input_image, output_image], jacobi)
-soda_schedule[jacobi.output].stencil()
-print(hcl.build(soda_schedule, target='soda'))
+# soda_schedule[jacobi.output].stencil()
+# print(hcl.build(soda_schedule, target='soda'))
 
 ##############################################################################
 # Increase Parallelism
@@ -49,8 +49,8 @@ print(hcl.build(soda_schedule, target='soda'))
 # unroll factor will become 8.
 
 soda_schedule = hcl.create_schedule([input_image, output_image], jacobi)
-soda_schedule[jacobi.output].stencil(unroll_factor=8)
-print(hcl.build(soda_schedule, target='soda'))
+# soda_schedule[jacobi.output].stencil(unroll_factor=8)
+# print(hcl.build(soda_schedule, target='soda'))
 
 ##############################################################################
 # Generatel HLS C++ Code
@@ -60,4 +60,4 @@ print(hcl.build(soda_schedule, target='soda'))
 # C++ code from the intermediate SODA code directly. The generated C++ code is
 # valid HLS code and can be passed to HLS vendor tools without modifications.
 
-print(hcl.build(soda_schedule, target='soda_xhls'))
+# print(hcl.build(soda_schedule, target='soda_xhls'))
