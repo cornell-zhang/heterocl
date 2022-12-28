@@ -149,20 +149,17 @@ def for_(begin, end, step=1, tag=None, name=None):
 
     Be careful: should not be used with other compute APIs like sum
     """
-    if name is not None:
-        HCLDeprecationWarning(
-            "The `name` argument is deprecated. Please use `tag` to label a loop" +
-            "nest as a stage."
-        ).warn()
 
     # TODO(Niansong): use unique naming for
     # loops without tag or name
-    loop_axis = UniqueName.get("loop")
+    # loop_axis = UniqueName.get("loop")
+    if name is None:
+        name = UniqueName.get("loop")
 
     region = ast.scope.get()
     filename, lineno = get_src_loc()
     loc = ast.Location(filename, lineno)
-    forOp = ast.ForOp(tag, loop_axis, begin, end, step, loc)
+    forOp = ast.ForOp(tag, name, begin, end, step, loc)
     region.append(forOp)
     ast.scope.push(forOp.body)
 

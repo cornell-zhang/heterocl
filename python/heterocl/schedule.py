@@ -741,6 +741,7 @@ class CreateStage(object):
         for loop in nested_for_loops:
             loop_hdl = ast.LoopHandle(stage_hdl, loop.name, op.loc)
             stage.axis.append(loop_hdl)
+            setattr(stage, loop.name, loop_hdl)
 
 class CreateStage_deprecated(object):
     """Create HeteroCL stages, stage and loop handles.
