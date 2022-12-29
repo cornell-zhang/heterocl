@@ -42,7 +42,7 @@ def build_schedule(inputs, func=None, name=""):
     top_func = ast.FuncOp("top", inputs, [], loc)
     top_func.level = 0
     if func is None:
-        # All operations have inserted in scope!
+        # All operations have been inserted in the scope already!
         outputs = list()
         for op in ast.scope.pop():
             top_func.body.append(op)
@@ -223,8 +223,7 @@ class Schedule(object):
     """
     _TopFunction = None
     _CurrentSchedule = None
-    _ast = None #TODO(Niansong): consider removing this
-    _FuncDefs = dict() #TODO(Niansong): add reset logic to this
+    _FuncDefs = dict()
     
 
     def __init__(self, name, inputs, func=None):
