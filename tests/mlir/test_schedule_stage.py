@@ -1,6 +1,8 @@
 import heterocl as hcl
 import re
+import pytest
 
+@pytest.mark.skip(reason="DFG to be added")
 def test_compute_single_stage():
 
     A = hcl.placeholder((10,), "A")
@@ -11,6 +13,7 @@ def test_compute_single_stage():
     node_map = s.DataflowGraph.node_map
     assert node_map["A"] in node_map["B"].parents
 
+@pytest.mark.skip(reason="DFG to be added")
 def test_update_single_stage():
 
     A = hcl.placeholder((10,), "A")
@@ -21,6 +24,7 @@ def test_update_single_stage():
     node_map = s.DataflowGraph.node_map
     assert node_map["A"] in node_map["AU"].parents
 
+@pytest.mark.skip(reason="DFG to be added")
 def test_compute_two_stages():
 
     A = hcl.placeholder((10,), "A")
@@ -32,6 +36,7 @@ def test_compute_two_stages():
     node_map = s.DataflowGraph.node_map
     assert node_map["B"] in node_map["C"].parents
 
+@pytest.mark.skip(reason="DFG to be added")
 def test_compute_two_stages_complex():
 
     A = hcl.placeholder((10,), "A")
@@ -43,6 +48,7 @@ def test_compute_two_stages_complex():
     node_map = s.DataflowGraph.node_map
     assert node_map["A"] in node_map["C"].parents and node_map["B"] in node_map["C"].parents
 
+@pytest.mark.skip(reason="DFG to be added")
 def test_imperative_stage_rhs():
 
     A = hcl.placeholder((10,), "A")
@@ -52,6 +58,7 @@ def test_imperative_stage_rhs():
     print(s.device_module)
     assert r"%arg0[0]"in str(s.device_module)
 
+@pytest.mark.skip(reason="DFG to be added")
 def test_imperative_stage_lhs():
 
     A = hcl.placeholder((10,), "A")
@@ -61,6 +68,7 @@ def test_imperative_stage_lhs():
     s = hcl.create_schedule([A, B], kernel)
     assert r"%arg1[0]"in str(s.device_module)
 
+@pytest.mark.skip(reason="DFG to be added")
 def test_imperative_multi_stages():
 
     A = hcl.placeholder((10,), "A")

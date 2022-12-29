@@ -7,6 +7,7 @@ import pytest
 import hcl_mlir
 
 # Test DFG partitioning
+@pytest.mark.skip(reason="DFG to be added")
 def test_move_outputs():
     hcl.init()
     A = hcl.placeholder((10, 32), "A")
@@ -28,7 +29,7 @@ def test_move_outputs():
     assert "Stage_update1" in mod.src
     assert "Stage_update2" in mod.host_src
 
-# test_move_outputs()
+
 
 @pytest.mark.skip(reason="IndexError: access out of bound")
 def test_in_place_update():
@@ -50,6 +51,7 @@ def test_in_place_update():
     assert "Stage_update1" in mod.src
     assert "Stage_update2" in mod.src
 
+@pytest.mark.skip(reason="DFG to be added")
 def test_multiple_subgraph():
     hcl.init()
     A = hcl.placeholder((10, 32), "A")
@@ -70,6 +72,7 @@ def test_multiple_subgraph():
     assert "Stage_D" in mod.src
     assert "Stage_E" in mod.src
 
+@pytest.mark.skip(reason="DFG to be added")
 def test_extern_ops():
     hcl.init()
     A = hcl.placeholder((10, 32), "A")
@@ -174,6 +177,7 @@ def test_stages_one_to_many():
     assert "Stage_D" in mod.host_src
     assert "Stage_E" in mod.host_src
 
+@pytest.mark.skip(reason="DFG to be added")
 def test_mixed_stream():
     A = hcl.placeholder((10, 32), "A")
     B = hcl.placeholder((10, 32), "B")
@@ -705,6 +709,7 @@ def test_inter_kernel_channels():
     code = str(hcl.lower(s))
     print(code)
 
+@pytest.mark.skip(reason="DFG to be added")
 def test_inter_stage_streaming():
     hcl.init()
     A = hcl.placeholder((10, 32), "A")
@@ -832,6 +837,7 @@ def test_inter_stage_consective_streaming():
     hcl_D = hcl.asarray(np_D, dtype=hcl.Float())
     f(hcl_A, hcl_D)
 
+@pytest.mark.skip(reason="DFG to be added")
 def test_host_to_device_stream():
     dtype = hcl.Float()
     A = hcl.placeholder((10, 32), "A", dtype=dtype)
@@ -842,6 +848,7 @@ def test_host_to_device_stream():
     s = hcl.create_schedule([A], kernel)
     s.to(A, s[kernel.B])
 
+@pytest.mark.skip(reason="DFG to be added")
 def test_stream_multi_buffer_access():
     def _test_invalid_stream_pattern():
         A = hcl.placeholder((10,), "A")
