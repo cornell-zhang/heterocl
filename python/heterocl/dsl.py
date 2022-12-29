@@ -310,41 +310,47 @@ def old_while_(cond):
 
 
 def def_(shapes=None, dtypes=None, ret_dtype=None, name=None, arg_names=None):
-
+    """
+    issue warning if any arg is not None
+    assumption: return is the terminator of func region
+    """
     filename, lineno = get_src_loc()
     loc = ast.Location(filename, lineno)
 
     def decorator(fmodule):
         HCLDeprecationWarning("hcl.def_() is deprecated, please use .outline() instead.").warn()
-        fname = name if name is not None else fmodule.__name__
-        code = fmodule.__code__
-        names = code.co_varnames
-        if arg_names is not None:
-            names = list(names)
-            for i in range(len(arg_names)):
-                names[i] = arg_names[i]
-            names = tuple(names)
-        
+        fname = fmodule.__name__
         region = ast.scope.get()
         func_op = ast.FuncOp(fname, [], [], loc)
         region.append(func_op)
 
         def wrapped_func(*inputs):
-            func_op.args = inputs
-            ast.scope.push(func_op.body)
-            ret = fmodule(*inputs)
-            ast.scope.pop()
-            if ret is None:
-                outputs = list()
-                if len(func_op.body) > 0 and isinstance(func_op.body[-1], ast.ReturnOp):
-                    outputs = [func_op.body[-1].expr]
-                    func_op.body.pop()
-            elif isinstance(ret, tuple):
-                outputs = list(ret)
+            # build a function signature
+            func_sig = fname + "("
+            arg_shapes = [v.shape for v in inputs]
+            func_sig += ", ".join([str(s) for s in arg_shapes])
+            func_sig += ")"
+
+            if func_sig not in Schedule._FuncDefs:
+                func_op.args = inputs
+                ast.scope.push(func_op.body)
+                ret = fmodule(*inputs)
+                ast.scope.pop()
+                if ret is None:
+                    outputs = list()
+                    if len(func_op.body) > 0 and isinstance(func_op.body[-1], ast.ReturnOp):
+                        outputs = [func_op.body[-1].expr]
+                        func_op.body.pop()
+                elif isinstance(ret, tuple):
+                    outputs = list(ret)
+                else:
+                    outputs = [ret]
+                
+                func_op.return_tensors.extend(outputs)
+                Schedule._FuncDefs[func_sig] = func_op
+
             else:
-                outputs = [ret]
-            
-            func_op.return_tensors.extend(outputs)
+                outputs = Schedule._FuncDefs[func_sig].return_tensors
 
             # call op
             call_op = ast.CallOp(func_op.name, inputs, outputs, loc)

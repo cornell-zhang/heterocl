@@ -222,7 +222,9 @@ class Schedule(object):
     """
     _TopFunction = None
     _CurrentSchedule = None
-    _ast = None
+    _ast = None #TODO(Niansong): consider removing this
+    _FuncDefs = dict() #TODO(Niansong): add reset logic to this
+    
 
     def __init__(self, name, inputs, func=None):
         self.name = name
