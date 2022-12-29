@@ -1,5 +1,5 @@
 from . import types
-from .schedule import create_schedule_from_ast
+from .schedule import create_schedule_from_ast, reset_schedule
 from hcl_mlir.exceptions import *
 from .ast import ast
 from .utils import get_src_loc
@@ -8,9 +8,14 @@ from .utils import get_src_loc
 def create_scheme(inputs, func):
     """Create a quantization scheme.
     """
-    if not isinstance(inputs, list):
-        inputs = [inputs]
-    return Scheme(inputs, func)
+    try:
+        if not isinstance(inputs, list):
+            inputs = [inputs]
+        return Scheme(inputs, func)
+    except Exception as e:
+        raise e
+    finally:
+        reset_schedule()
 
 
 def create_schedule_from_scheme(scheme, name=""):

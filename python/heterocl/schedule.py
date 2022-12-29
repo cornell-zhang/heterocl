@@ -21,6 +21,12 @@ from .ast.ir_builder import IRBuilder
 # we have to enable it to see the warning.
 warnings.simplefilter('always', DeprecationWarning)
 
+def reset_schedule():
+    """Reset the schedule.
+    """
+    ast.scope.reset()
+    Schedule._FuncDefs.clear()
+
 def create_schedule_from_ast(_ast, inputs, func, name):
     """Create a schedule from an intermediate representation.
     Also used by creating schedule from scheme.
@@ -30,6 +36,7 @@ def create_schedule_from_ast(_ast, inputs, func, name):
     create_stage_pass = CreateStage(s.ast, s)
     create_stage_pass.apply()
     return s
+
 
 def build_schedule(inputs, func=None, name=""):
     """Build a schedule for compute optimizations.
@@ -64,145 +71,14 @@ def build_schedule(inputs, func=None, name=""):
     s = create_schedule_from_ast(_ast, inputs, func, name)
     return s
 
-def build_schedule_old(inputs, func=None, name=""):
-    """Create a schedule for compute optimizations.
-    inputs: list of Tensor
-    """
-    if not isinstance(inputs, list):
-        inputs = [inputs]
-    new_inputs = []
-    for tensor in inputs:
-        if not isinstance(tensor.op, hcl_mlir.TensorOp) and len(tensor.op.inputs) != 0:
-            raise RuntimeError("Inputs are not roots!")
-        new_inputs.append(tensor)
-    inputs = new_inputs
-    # initialization
-    GlobalInsertionPoint.clear()
-    set_context()
-
-    # create actual HCL IR nodes
-    if name == "":
-        if func != None:
-            name = func.__name__
-        else:
-            name = UniqueName.get("schedule")
-    sch = Schedule(name, inputs, func)
-
-    # build IR
-    with get_context() as ctx, get_location() as loc:
-        # create actual IR reference
-        func_op = sch.device_top
-        for placeholder, arg in zip(inputs, func_op.entry_block.arguments):
-            placeholder.op.update_op(arg)
-
-        # execute all fcompute and generate inner IR nodes
-        # 1) func is hcl.compute: IR nodes not build inplace (default)
-        # 2) func is defined by imperative DSL: IR nodes build inplace
-        hcl_mlir.flags.BIT_OP = False
-        if func != None:  # can build function directly
-            """
-            When having code like
-            def kernel(A):
-                A[0][4] = 1
-            It should automatically enable in-place building
-            """
-            hcl_mlir.enable_build_inplace()
-            ret = func(*inputs)
-            hcl_mlir.disable_build_inplace()
-        else:
-            ret = None
-            # traverse forward in AST to build IR
-
-            def topological_sort(roots):
-                lst = []
-                output_tensor = []
-                working_set = roots.copy()
-                while len(working_set) != 0:
-                    node = working_set.pop(0)
-                    lst.append(node)
-                    if len(node.uses) == 0:  # also get the output tensors
-                        output_tensor.append(node)
-                    for use in node.uses:
-                        flags = [
-                            in_tensor in lst for in_tensor in use.op.inputs]
-                        if sum(flags) == len(use.op.inputs):
-                            working_set.append(use)
-                return lst, output_tensor
-
-            order, ret = topological_sort(inputs)
-            # Unwrap the stage's output tensor
-            # The Tensor wrapping around ComputeOp/TensorOp acts as a container
-            # The ComputeOp's output Tensor is the actual returned result
-            ret = [t.op.output for t in ret if not isinstance(
-                t.op, hcl_mlir.TensorOp)]
-            for tensor in order:
-                if not isinstance(tensor.op, hcl_mlir.TensorOp):
-                    tensor.build()
-        if hcl_mlir.flags.BIT_OP:
-            sch.device_top.attributes["bit"] = UnitAttr.get()
-
-        if ret is not None:
-            outputs = []
-            if isinstance(ret, (list, tuple)):
-                outputs = list(ret)
-            else:
-                outputs.append(ret)
-            # recompute the function type
-            return_types = [v.memref_type for v in outputs]
-            function_type = FunctionType.get(
-                inputs=func_op.type.inputs, results=return_types)
-            func_op.attributes["function_type"] = TypeAttr.get(function_type)
-            otypes = "".join(
-                [get_extra_type_hints(v.op.dtype) for v in outputs])
-            func_op.attributes["otypes"] = StringAttr.get(otypes)
-
-            # create block terminator
-            new_outputs = []
-            for output in outputs:
-                new_outputs.append(output.result)
-            sch.DataflowGraph.set_leaves(outputs)
-            assert len(new_outputs) == len(outputs)
-            ret_op = func_d.ReturnOp(
-                new_outputs, ip=GlobalInsertionPoint.get())
-            GlobalInsertionPoint.restore()
-
-            # let the later schedule nodes insert before ret_op
-            #   compute1
-            #   compute2
-            #   schedule1 # inserted _before_ the point
-            #   ret_op    <- InsertionPoint
-            GlobalInsertionPoint.save(InsertionPoint(ret_op))
-        else:  # there's no return value
-            function_type = FunctionType.get(
-                inputs=func_op.type.inputs, results=[])
-            func_op.attributes["function_type"] = TypeAttr.get(function_type)
-            func_op.attributes["otypes"] = StringAttr.get("")
-            # create block terminator
-            ret_op = func_d.ReturnOp([], ip=GlobalInsertionPoint.get())
-            GlobalInsertionPoint.restore()
-            GlobalInsertionPoint.save(InsertionPoint(ret_op))
-
-    # let each stage's output be an attribute of the function
-    if StageAttachGlobal.get():
-        if func != None:
-            func.__dict__.clear()
-            for op, stage in Stage._mapping:
-                if op is not None:
-                    func.__setattr__(op.name, op)
-
-    exit_context()
-    remove_moved_attr(sch.device_module)
-    return sch
-
 
 def customize(inputs, func=None, name=""):
-    try:
+    try: 
         return build_schedule(inputs, func, name)
     except Exception as e:
         raise e
     finally:
-        ast.scope.reset()
-        Schedule._FuncDefs.clear()
+        reset_schedule()
 
 
 def create_schedule(inputs, func=None, name=""):
