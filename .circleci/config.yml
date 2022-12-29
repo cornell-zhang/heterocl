@@ -56,4 +56,4 @@ jobs:
             export PYTHONPATH=$HCL_HOME/hcl-dialect-prototype/build/tools/hcl/python_packages/hcl_core:${PYTHONPATH}
             export PYTHONPATH=$HCL_HOME/python:$HCL_HOME/hlib/python:${PYTHONPATH}
             cd tutorials
-            python3 -m pytest test_tutorials.py -v
+            python3 -m pytest test_tutorial.py -v
