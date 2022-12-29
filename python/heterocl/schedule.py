@@ -202,6 +202,7 @@ def customize(inputs, func=None, name=""):
         raise e
     finally:
         ast.scope.reset()
+        Schedule._FuncDefs.clear()
 
 
 def create_schedule(inputs, func=None, name=""):
