@@ -45,4 +45,15 @@ jobs:
             export LLVM_BUILD_DIR=/home/circleci/llvm-project/build
             export PYTHONPATH=$HCL_HOME/hcl-dialect-prototype/build/tools/hcl/python_packages/hcl_core:${PYTHONPATH}
             export PYTHONPATH=$HCL_HOME/python:$HCL_HOME/hlib/python:${PYTHONPATH}
+            python3 -m pip install psutil
             cd tests
+            python3 -m pytest mlir -v
+      - run:
+          name: HeteroCL Tutorials
+          command: |
+            export HCL_HOME=$(pwd)
+            export LLVM_BUILD_DIR=/home/circleci/llvm-project/build
+            export PYTHONPATH=$HCL_HOME/hcl-dialect-prototype/build/tools/hcl/python_packages/hcl_core:${PYTHONPATH}
+            export PYTHONPATH=$HCL_HOME/python:$HCL_HOME/hlib/python:${PYTHONPATH}
+            cd tutorials
+            python3 -m pytest test_tutorials.py -v
