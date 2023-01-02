@@ -531,9 +531,10 @@ class _CreateStagesFromAST(object):
             Stage._mapping.append((stage, stage))
             if top_func is not None:
                 top_func.__setattr__(op.name, stage)
-        else:
-            # TODO: Mutate
-            pass
+        else: # op.kind == "mutate"
+            Stage._mapping.append((stage, stage))
+            if top_func is not None:
+                top_func.__setattr__(op.name, stage)
 
         # create handles
         stage_hdl = ast.OpHandle(op.name, op.loc)
