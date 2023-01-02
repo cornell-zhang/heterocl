@@ -1021,6 +1021,7 @@ class FuncOp(Operation):
         self.return_tensors = list()
         self.level = len(scope)
         self.body_ip = None
+        self.python_callable = None
 
     def __repr__(self):
         code_str = ""
