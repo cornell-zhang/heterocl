@@ -4,6 +4,7 @@ from hcl_mlir.ir import *
 from hcl_mlir.exceptions import *
 
 from .devices import Device, DevMemoryPair
+from .dfg import DataflowGraph
 from .context import UniqueName
 from .utils import get_src_loc
 from .ast import ast
@@ -52,6 +53,11 @@ def _build_schedule(_ast, inputs, func, name):
     """
     s = Schedule(name, inputs, func)
     s._ast = _ast
+
+    # create a dataflow graph
+    create_dfg_pass = _CreateDFGFromAST(_ast)
+    create_dfg_pass.apply()
+
     return s
 
 
@@ -570,3 +576,33 @@ class _CreateStagesFromAST(object):
             loop_hdl = ast.LoopHandle(stage_hdl, loop.name, op.loc)
             stage.axis.append(loop_hdl)
             setattr(stage, loop.name, loop_hdl)
+
+
+class _CreateDFGFromAST(object):
+    def __init__(self, _ast):
+        self._ast = _ast
+        self.dfg = DataflowGraph(name=_ast.top_func.name, inputs=_ast.top_func.args)
+
+    def apply(self):
+        """Pass entry point"""
+        top_func = self._ast.top_func
+        self.visit(top_func, self.create_edge)
+
+    def visit(self, op, callback, *args, **kwargs):
+        callback(op, *args, **kwargs)
+        if hasattr(op, "body") and op.body is not None:
+            for op in op.body:
+                self.visit(op, callback, *args, **kwargs)
+
+    def create_edge(self, op):
+        if isinstance(op, ast.ComputeOp):
+            if op.kind == "compute":
+                for t in op.input_tensors:
+                    self.dfg.add_edge(t, op.tensor)
+                    print("add edge", t, op.tensor)
+            else: # update, mutate
+                for t in op.input_tensors:
+                    self.dfg.add_edge(t, op.aux_tensor, stateful=True)
+                    print("add edge", t, op.aux_tensor)
+        elif isinstance(op, ast.ForOp):
+            pass
