@@ -4,7 +4,7 @@ from hcl_mlir import GlobalInsertionPoint
 from hcl_mlir.ir import *
 from .context import *
 from .utils import hcl_dtype_to_mlir
-from .schedule import Schedule, build_schedule
+from .schedule import Schedule, _build_schedule
 
 def instantiate(func, name=None, count=1):
     """Instantiate a function.
