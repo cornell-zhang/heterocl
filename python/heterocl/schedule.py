@@ -8,24 +8,7 @@ from .context import UniqueName
 from .utils import get_src_loc
 from .ast import ast
 
-def reset_schedule():
-    """Reset the schedule.
-    """
-    ast.scope.reset()
-    Schedule._FuncDefs.clear()
-
-def create_schedule_from_ast(_ast, inputs, func, name):
-    """Create a schedule from an intermediate representation.
-    Also used by creating schedule from scheme.
-    """
-    s = Schedule(name, inputs, func)
-    s._ast = _ast
-    create_stage_pass = CreateStage(s.ast, s)
-    create_stage_pass.apply()
-    return s
-
-
-def build_schedule(inputs, func=None, name=""):
+def _build_ast(inputs, func=None, name=""):
     """Build a schedule for compute optimizations.
     inputs: list of Tensor
     """
@@ -46,6 +29,7 @@ def build_schedule(inputs, func=None, name=""):
         ast.scope.pop()
         ast.scope.push(top_func.body)
         ret = func(*inputs)
+        top_func.python_callable = func
         if ret is None:
             outputs = list()
         elif isinstance(ret, tuple):
@@ -54,17 +38,33 @@ def build_schedule(inputs, func=None, name=""):
             outputs = [ret]
     top_func.return_tensors.extend(outputs)
     _ast = ast.AST(top_func)
-    s = create_schedule_from_ast(_ast, inputs, func, name)
+    create_stage_pass = CreateStage(_ast)
+    create_stage_pass.apply()
+    return _ast
+
+
+def _build_schedule(_ast, inputs, func, name):
+    """Create a schedule from an intermediate representation.
+    Also used by creating schedule from scheme.
+    """
+    s = Schedule(name, inputs, func)
+    s._ast = _ast
     return s
 
+def _reset_builder():
+    ast.scope.reset()
+    Schedule._FuncDefs.clear()
+    #TODO(Niansong): clear unique namer
 
 def customize(inputs, func=None, name=""):
     try: 
-        return build_schedule(inputs, func, name)
+        _ast = _build_ast(inputs, func, name)
+        s = _build_schedule(_ast, inputs, func, name)
+        return s
     except Exception as e:
         raise e
     finally:
-        reset_schedule()
+        _reset_builder()
 
 
 def create_schedule(inputs, func=None, name=""):
@@ -116,9 +116,6 @@ class Schedule(object):
         self._extern_module = None
         self._extern_top = None
 
-        # Clear stage mapping
-        Stage._mapping.clear()
-
     @property
     def device_module(self):
         return self._device_module
@@ -166,10 +163,7 @@ class Schedule(object):
         """
         if isinstance(target, Stage):
             return target
-        for op, stage in Stage._mapping:
-            if op.name == target.name:
-                return stage
-        raise APIError("Cannot find stage: " + target.name)
+        return Stage.lookup(target.name)
 
     def partition(self, target, partition_type=Partition.Complete, dim=0, factor=0):
         """Partition a Tensor into smaller Tensors or even registers
@@ -330,7 +324,15 @@ class Stage(object):
         self.ip = None
         # Imperative stage attaches axes to Stage object
         self.axis = list()
+        # Associated AST Operation
+        self._ast_op = None
 
+    @staticmethod
+    def lookup(name):
+        for op, stage in Stage._mapping:
+            if op.name == name:
+                return stage
+        raise APIError("Cannot find stage: " + name)
 
     def reorder(self, *args):
         """reorder the arguments in the specified order.
@@ -494,6 +496,8 @@ class CreateStage(object):
     """
     def __init__(self, _ast):
         self._ast = _ast
+        # clear the stage mapping
+        Stage._mapping.clear()
 
     def apply(self):
         """Pass entry point"""
@@ -516,9 +520,10 @@ class CreateStage(object):
     def create_compute_stage(self, op : ast.ComputeOp):
         # Create stage and attach attributes
         stage = Stage(op.name)
+        stage._ast_op = op
         tensor = op.tensor if op.kind == "compute" else op.aux_tensor
         stage.tensor = tensor
-        top_func = Schedule._TopFunction
+        top_func = self._ast.top_func.python_callable
         if op.kind == "compute":
             Stage._mapping.append((tensor, stage))
             if top_func is not None:
@@ -544,8 +549,9 @@ class CreateStage(object):
             return
         # create stage and attach attributes
         stage = Stage(op.tag)
+        stage._ast_op = op
         Stage._mapping.append((stage, stage))
-        top_func = Schedule._TopFunction
+        top_func = self._ast.top_func.python_callable
         if top_func is not None:
             top_func.__setattr__(op.tag, stage)        
         

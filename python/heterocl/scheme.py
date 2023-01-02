@@ -1,5 +1,5 @@
 from . import types
-from .schedule import create_schedule_from_ast, reset_schedule
+from .schedule import _reset_builder, _build_schedule, _build_ast, Stage
 from hcl_mlir.exceptions import *
 from .ast import ast
 from .utils import get_src_loc
@@ -15,44 +15,13 @@ def create_scheme(inputs, func):
     except Exception as e:
         raise e
     finally:
-        reset_schedule()
+        _reset_builder()
 
 
 def create_schedule_from_scheme(scheme, name=""):
     """Create a schedule from a scheme.
     """
-    return create_schedule_from_ast(scheme._ast, scheme.inputs, scheme.func, name=name)
-
-class AttachTensor:
-    def __init__(self, scheme, _ast, func):
-        self.func = func
-        self.scheme = scheme
-        self.ast = _ast
-
-    def apply(self):
-        self.visit(self.ast.top_func)
-
-    def visit(self, op):
-        self.attach_tensor(op, self.func)
-        if hasattr(op, 'body'):
-            for op in op.body:
-                self.visit(op)
-
-    def attach_tensor(self, op, func):
-        if isinstance(op, ast.ComputeOp):
-            self.scheme._op_map[op.name] = op
-            if op.kind == "compute":
-                # attach op.tensor to func
-                func.__setattr__(op.name, op.tensor)
-            else:
-                # attach op.aux_tensor to func
-                func.__setattr__(op.name, op.aux_tensor)
-        elif isinstance(op, ast.AllocOp):
-            if not hasattr(func, op.name):
-                func.__setattr__(op.name, op)
-                self.scheme._op_map[op.name] = op
-        else:
-            pass
+    return _build_schedule(scheme._ast, scheme.inputs, scheme.func, name=name)
 
 class Scheme(object):
     """A quantization scheme.
@@ -61,24 +30,7 @@ class Scheme(object):
     def __init__(self, inputs, func):
         self.inputs = inputs
         self.func = func
-        self._op_map = {} # op name -> op
-        filename, lineno = get_src_loc()
-        loc = ast.Location(filename, lineno)
-        top_func = ast.FuncOp("top", inputs, [], loc)
-        self._ast = ast.AST(top_func)
-        self._ast.top_func.args = inputs
-        ast.scope.pop()
-        ast.scope.push(self._ast.top_func.body)
-        ret = func(*inputs)
-        if ret is None:
-            outputs = list()
-        elif isinstance(ret, tuple):
-            outputs = list(ret)
-        else:
-            outputs = [ret]
-        self._ast.top_func.return_tensors.extend(outputs)
-        attach_tensor_pass = AttachTensor(self, self._ast, func)
-        attach_tensor_pass.apply()
+        self._ast = _build_ast(inputs, func)
 
     def downsize(self, inputs, dtype):
         """Downsize a (list of) tensor to the specified integer type.
@@ -88,15 +40,15 @@ class Scheme(object):
         if not isinstance(inputs, list):
             inputs = [inputs]
         for tensor in inputs:
-            op = self._op_map[tensor.name]
-            if isinstance(op, ast.AllocOp):
-                op.dtype = dtype
-            elif isinstance(op, ast.ComputeOp):
+            if isinstance(tensor, ast.AllocOp):
+                tensor.dtype = dtype
+            elif isinstance(tensor, ast.ComputeOp):
+                op = Stage.lookup(tensor.name)
                 op.tensor.dtype = dtype
                 op.aux_tensor.dtype = dtype
                 op.dtype = dtype
             else:
-                raise HCLValueError(f"Unexpected op type: {type(op)} in Scheme._op_map, indexed by tensor: {tensor.name}")
+                raise HCLValueError(f"Unexpected op type: {type(tensor)}, input tensor is: {tensor}")
 
     def quantize(self, inputs, dtype):
         """Quantize a (list of) tensor to the specified fixed-point type.
@@ -106,13 +58,13 @@ class Scheme(object):
         if not isinstance(inputs, list):
             inputs = [inputs]
         for tensor in inputs:
-            op = self._op_map[tensor.name]
-            if isinstance(op, ast.AllocOp):
-                op.dtype = dtype
-            elif isinstance(op, ast.ComputeOp):
+            if isinstance(tensor, ast.AllocOp):
+                tensor.dtype = dtype
+            elif isinstance(tensor, ast.ComputeOp):
+                op = Stage.lookup(tensor.name)
                 op.tensor.dtype = dtype
                 op.aux_tensor.dtype = dtype
                 op.dtype = dtype
             else:
-                raise HCLValueError(f"Unexpected op type: {type(op)} in Scheme._op_map, indexed by tensor: {tensor.name}")
+                raise HCLValueError(f"Unexpected op type: {type(tensor)}, input tensor is: {tensor.name}")
 
