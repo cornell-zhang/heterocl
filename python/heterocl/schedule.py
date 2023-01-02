@@ -54,7 +54,6 @@ def build_schedule(inputs, func=None, name=""):
             outputs = [ret]
     top_func.return_tensors.extend(outputs)
     _ast = ast.AST(top_func)
-    # print(_ast)
     s = create_schedule_from_ast(_ast, inputs, func, name)
     return s
 
@@ -493,9 +492,8 @@ class CreateStage(object):
     2. Attach tensors to Python functions as attributes
     3. Create a mapping from tensor to stage in Schedule
     """
-    def __init__(self, _ast, sch):
+    def __init__(self, _ast):
         self._ast = _ast
-        self.sch = sch
 
     def apply(self):
         """Pass entry point"""
