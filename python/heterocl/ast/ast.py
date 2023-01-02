@@ -864,6 +864,7 @@ class ComputeOp(Operation):
         # For stages that do not produce a tensor
         # we use an auxiliary tensor to attach loop axis
         self.aux_tensor = AllocOp(name, shape, dtype, loc)
+        self.input_tensors = list()
 
     def __repr__(self):
         code_str = ""

@@ -268,8 +268,7 @@ def compute_body(name, shape, fcompute, dtype, loc, tensor):
     closure_var = inspect.getclosurevars(fcompute).nonlocals
     input_tensors = [v for v in closure_var.values() if isinstance(v, ast.AllocOp)]
     reduce_vars = [v for v in closure_var.values() if isinstance(v, ast.ReduceVar)]
-    for t in input_tensors:
-        t.uses.append(compute_op)
+    compute_op.input_tensors.extend(input_tensors)
 
     # Build AST for fcompute body
     argspec = inspect.getfullargspec(fcompute)
