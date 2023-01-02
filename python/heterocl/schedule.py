@@ -542,6 +542,8 @@ class Stage(object):
 
 class CreateStage(object):
     """Create HeteroCL stages
+    TODO: this pass should be shared by create_schedule and create_scheme
+    should be the last step of building AST.
 
     This pass does three things:
     1. Create stage and loop handles and set tensor.axis for all stage's tensors
