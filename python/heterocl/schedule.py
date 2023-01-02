@@ -1,25 +1,12 @@
 import functools
-import warnings
 
-import hcl_mlir
-from hcl_mlir import GlobalInsertionPoint
-from hcl_mlir.dialects import hcl as hcl_d
-from hcl_mlir.dialects import func as func_d
 from hcl_mlir.ir import *
 from hcl_mlir.exceptions import *
 
 from .devices import Device, DevMemoryPair
-from .context import (BreakFlag, ImperativeLoopDepth, ImperativeLoopNestCount,
-                      NestedStageLevel, StageName, UniqueName, StageAttachGlobal,
-                      get_context, get_location, set_context, exit_context)
-from .dfg import DataflowGraph
-from .utils import get_extra_type_hints, remove_moved_attr, get_src_loc, hcl_dtype_to_mlir
+from .context import UniqueName
+from .utils import get_src_loc
 from .ast import ast
-from .ast.ir_builder import IRBuilder
-
-# By default, Python ignores deprecation warnings.
-# we have to enable it to see the warning.
-warnings.simplefilter('always', DeprecationWarning)
 
 def reset_schedule():
     """Reset the schedule.
@@ -287,24 +274,7 @@ class Schedule(object):
                 t.device = dst
         # inter-stage data movement
         elif isinstance(dst, Stage):
-            #TODO(Niansong): deal with this later
-            try:
-                tensor = tensor.tensor
-            except (AttributeError, ValueError):
-                try:
-                    tensor = tensor._op
-                except AttributeError:
-                    pass
-            if not isinstance(tensor, OpResult):
-                tensor = tensor.result
-            with get_context() as ctx, get_location() as loc:
-                # automatically set dataflow pragma
-                self.device_top.attributes["dataflow"] = UnitAttr.get()
-                i32 = IntegerType.get_signless(32)
-                fifo_depth = IntegerAttr.get(i32, fifo_depth)
-                # do .to() scheduling
-                to_op = hcl_d.InterKernelToOp(
-                    tensor, dst.stage_handle.result, fifo_depth=fifo_depth, ip=GlobalInsertionPoint.get())
+            raise NotImplementedError("Inter-stage data movement is not supported yet")
 
     def outline(self, *stage_list, unify=False):
         """Outline stages as a function
@@ -334,35 +304,8 @@ class Schedule(object):
 
 
 class StageFunction(object):
-    """
-    Looks like stage function is just to have a separate
-    MLIR module for creation of execution engine
-    """
     def __init__(self, name=None):
-        if not isinstance(name, list):
-            name = [name]
-        self.name = "Stage"
-        for n in name:
-            self.name += "_" + n
-        self.module = None
-
-    def build(self, schedule):
-        set_context()
-        with get_context() as ctx, get_location() as loc:
-            new_module = Module.create(loc)
-            # just a placeholder for inserting the function
-            top = func_d.FuncOp(name="top", type=FunctionType.get(
-                inputs=[], results=[]), ip=InsertionPoint(new_module.body))
-            for op in schedule.device_module.body.operations:
-                if str(op.name) == "\"{}\"".format(self.name):
-                    op.move_before(top)
-                    op.attributes["bit"] = UnitAttr.get()
-                    break
-            else:
-                raise APIError("Stage {} not found".format(self.name))
-            top.operation.erase()
-        self.module = new_module
-        return new_module
+        raise NotImplementedError("StageFunction is not implemented yet")
 
 
 class Stage(object):
