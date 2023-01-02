@@ -8,6 +8,7 @@ from .context import UniqueName
 from .utils import get_src_loc
 from .ast import ast
 
+
 def _build_ast(inputs, func=None, name=""):
     """Build a schedule for compute optimizations.
     inputs: list of Tensor
@@ -24,7 +25,9 @@ def _build_ast(inputs, func=None, name=""):
         for op in ast.scope.pop():
             top_func.body.append(op)
         if len(top_func.body) == 0:
-            raise APIError("received an empty algorithm specification, no operations present")
+            raise APIError(
+                "received an empty algorithm specification, no operations present"
+            )
     else:
         ast.scope.pop()
         ast.scope.push(top_func.body)
@@ -38,7 +41,7 @@ def _build_ast(inputs, func=None, name=""):
             outputs = [ret]
     top_func.return_tensors.extend(outputs)
     _ast = ast.AST(top_func)
-    create_stage_pass = CreateStage(_ast)
+    create_stage_pass = _CreateStagesFromAST(_ast)
     create_stage_pass.apply()
     return _ast
 
@@ -51,13 +54,15 @@ def _build_schedule(_ast, inputs, func, name):
     s._ast = _ast
     return s
 
+
 def _reset_builder():
     ast.scope.reset()
     Schedule._FuncDefs.clear()
-    #TODO(Niansong): clear unique namer
+    # TODO(Niansong): clear unique namer
+
 
 def customize(inputs, func=None, name=""):
-    try: 
+    try:
         _ast = _build_ast(inputs, func, name)
         s = _build_schedule(_ast, inputs, func, name)
         return s
@@ -81,12 +86,11 @@ class Partition(object):
 
 
 class Schedule(object):
-    """Create a compute schedule
-    """
+    """Create a compute schedule"""
+
     _TopFunction = None
     _CurrentSchedule = None
     _FuncDefs = dict()
-    
 
     def __init__(self, name, inputs, func=None):
         self.name = name
@@ -159,15 +163,13 @@ class Schedule(object):
         return self.lowered
 
     def __getitem__(self, target):
-        """Return a Stage
-        """
+        """Return a Stage"""
         if isinstance(target, Stage):
             return target
         return Stage.lookup(target.name)
 
     def partition(self, target, partition_type=Partition.Complete, dim=0, factor=0):
-        """Partition a Tensor into smaller Tensors or even registers
-        """
+        """Partition a Tensor into smaller Tensors or even registers"""
         if self.is_lowered():
             raise APIError(".partition() must be called before lowering")
         if partition_type > 2:
@@ -190,37 +192,33 @@ class Schedule(object):
         partition_op = ast.PartitionOp(target, partition_type, dim, factor, loc)
         self.ast.top_func.body.append(partition_op)
 
-
     def replace(self, src, dst):
-        """Replace a Tensor with another Tensor
-        """
+        """Replace a Tensor with another Tensor"""
         if self.is_lowered():
             raise APIError(".replace() must be called before lowering")
-        
+
         filename, lineno = get_src_loc()
         loc = ast.Location(filename, lineno)
         replace_op = ast.ReplaceOp(src, dst, loc)
         self.ast.top_func.body.append(replace_op)
 
-
     def reshape(self, target, shape):
-        """Reshape a Tensor to a specified new shape
-        """
+        """Reshape a Tensor to a specified new shape"""
         if self.is_lowered():
             raise APIError(".reshape() must be called before lowering")
-        ori_size = functools.reduce(lambda a, b: a*b, target.shape, 1)
-        new_size = functools.reduce(lambda a, b: a*b, shape, 1)
+        ori_size = functools.reduce(lambda a, b: a * b, target.shape, 1)
+        new_size = functools.reduce(lambda a, b: a * b, shape, 1)
         if ori_size != new_size:
             raise RuntimeError(
-                "The reshaped tensor should have the same total size with the original tensor")
+                "The reshaped tensor should have the same total size with the original tensor"
+            )
         filename, lineno = get_src_loc()
         loc = ast.Location(filename, lineno)
         reshape_op = ast.ReshapeOp(target, shape, loc)
         self.ast.top_func.body.append(reshape_op)
 
     def reform(self, target, layout):
-        """Change the layout of a tensor
-        """
+        """Change the layout of a tensor"""
         if self.is_lowered():
             raise APIError(".reform() must be called before lowering")
         filename, lineno = get_src_loc()
@@ -232,27 +230,30 @@ class Schedule(object):
         if self.is_lowered():
             raise APIError(".reuse_at() must be called before lowering")
         if not isinstance(axis, ast.LoopHandle):
-            raise DTypeError("reuse_at() got invalid axis of type {}".format(type(axis)))
+            raise DTypeError(
+                "reuse_at() got invalid axis of type {}".format(type(axis))
+            )
         if not isinstance(target, (ast.AllocOp, ast.ReuseAtOp)):
-            raise DTypeError("reuse_at() got invalid target of type {}".format(type(target)))
-        
+            raise DTypeError(
+                "reuse_at() got invalid target of type {}".format(type(target))
+            )
+
         filename, lineno = get_src_loc()
         loc = ast.Location(filename, lineno)
         reuse_at_op = ast.ReuseAtOp(target, axis, loc)
         self.ast.top_func.body.append(reuse_at_op)
         return reuse_at_op
-    
+
     def buffer_at(self, target, parent, axis, name=None):
         """Create a write buffer reusing the output of current stage"""
         if self.is_lowered():
             raise APIError(".buffer_at() must be called before lowering")
-        
+
         filename, lineno = get_src_loc()
         loc = ast.Location(filename, lineno)
         buffer_at_op = ast.BufferAtOp(target, axis, loc)
         self.ast.top_func.body.append(buffer_at_op)
         return buffer_at_op
-
 
     def to(self, tensor, dst=None, fifo_depth=-1):
         if self.is_lowered():
@@ -286,7 +287,7 @@ class Schedule(object):
             else:
                 handles = [stages.stage_handle]
                 names = [stages.name]
-            
+
             outline_op = ast.OutlineOp(handles, loc)
             self.ast.top_func.body.append(outline_op)
             if unify and i > 0:
@@ -302,8 +303,7 @@ class StageFunction(object):
 
 
 class Stage(object):
-    """A Stage represents schedule for one operation.
-    """
+    """A Stage represents schedule for one operation."""
 
     """ 
     obsolete note:
@@ -335,8 +335,7 @@ class Stage(object):
         raise APIError("Cannot find stage: " + name)
 
     def reorder(self, *args):
-        """reorder the arguments in the specified order.
-        """
+        """reorder the arguments in the specified order."""
         schedule = Schedule._CurrentSchedule
         if schedule.is_lowered():
             raise APIError(".reorder() must be called before lowering")
@@ -350,13 +349,14 @@ class Stage(object):
         schedule.ast.top_func.body.append(reorder_op)
 
     def split(self, parent, factor=None, nparts=None, mode="transform"):
-        """Split the stage either by factor providing outer scope, or both
-        """
+        """Split the stage either by factor providing outer scope, or both"""
         schedule = Schedule._CurrentSchedule
         if schedule.is_lowered():
             raise APIError(".split() must be called before lowering")
         if nparts != None or mode != "transform":
-            raise HCLNotImplementedError("nparts={}, mode={} not supported".format(nparts, mode))
+            raise HCLNotImplementedError(
+                "nparts={}, mode={} not supported".format(nparts, mode)
+            )
         if isinstance(parent, int):
             parent = self.tensor.axis[parent]
         filename, lineno = get_src_loc()
@@ -366,20 +366,25 @@ class Stage(object):
         return split_op.results[0], split_op.results[1]
 
     def tile(self, x_parent, y_parent, x_factor, y_factor):
-        """ Perform tiling on two dimensions
-        """
+        """Perform tiling on two dimensions"""
         schedule = Schedule._CurrentSchedule
         if schedule.is_lowered():
             raise APIError(".tile() must be called before lowering")
         filename, lineno = get_src_loc()
         loc = ast.Location(filename, lineno)
-        tile_op = ast.TileOp(self.stage_handle, x_parent, y_parent, x_factor, y_factor, loc)
+        tile_op = ast.TileOp(
+            self.stage_handle, x_parent, y_parent, x_factor, y_factor, loc
+        )
         schedule.ast.top_func.body.append(tile_op)
-        return tile_op.results[0], tile_op.results[1], tile_op.results[2], tile_op.results[3]
+        return (
+            tile_op.results[0],
+            tile_op.results[1],
+            tile_op.results[2],
+            tile_op.results[3],
+        )
 
     def pipeline(self, var, initiation_interval=1):
-        """Pipeline the iteration.
-        """
+        """Pipeline the iteration."""
         schedule = Schedule._CurrentSchedule
         if schedule.is_lowered():
             raise APIError(".pipeline() must be called before lowering")
@@ -391,8 +396,7 @@ class Stage(object):
         schedule.ast.top_func.body.append(pipeline_op)
 
     def unroll(self, var, factor=0):
-        """Unroll the iteration.
-        """
+        """Unroll the iteration."""
         schedule = Schedule._CurrentSchedule
         if schedule.is_lowered():
             raise APIError(".unroll() must be called before lowering")
@@ -404,8 +408,7 @@ class Stage(object):
         schedule.ast.top_func.body.append(unroll_op)
 
     def parallel(self, var):
-        """Parallelize the iteration.
-        """
+        """Parallelize the iteration."""
         schedule = Schedule._CurrentSchedule
         if schedule.is_lowered():
             raise APIError(".parallel() must be called before lowering")
@@ -417,8 +420,7 @@ class Stage(object):
         schedule.ast.top_func.body.append(parallel_op)
 
     def fuse(self, *args):
-        """Fuse multiple consecutive iteration variables into a single iteration variable.
-        """
+        """Fuse multiple consecutive iteration variables into a single iteration variable."""
         schedule = Schedule._CurrentSchedule
         if schedule.is_lowered():
             raise APIError(".fuse() must be called before lowering")
@@ -434,8 +436,7 @@ class Stage(object):
         return fuse_op
 
     def compute_at(self, parent, axis):
-        """Attach the stage at parent's scope
-        """
+        """Attach the stage at parent's scope"""
         schedule = Schedule._CurrentSchedule
         if schedule.is_lowered():
             raise APIError(".compute_at() must be called before lowering")
@@ -443,12 +444,13 @@ class Stage(object):
             axis = parent.tensor.axis[axis]
         filename, lineno = get_src_loc()
         loc = ast.Location(filename, lineno)
-        compute_at_op = ast.ComputeAtOp(self.stage_handle, parent.stage_handle, axis, loc)
+        compute_at_op = ast.ComputeAtOp(
+            self.stage_handle, parent.stage_handle, axis, loc
+        )
         schedule.ast.top_func.body.append(compute_at_op)
 
     def outline(self, axis=None, unify=None):
-        """Outline a stage as a function
-        """
+        """Outline a stage as a function"""
         schedule = Schedule._CurrentSchedule
         if schedule.is_lowered():
             raise APIError(".outline() must be called before lowering")
@@ -465,11 +467,10 @@ class Stage(object):
             outline_op.unify = unify.name
             return unify
         else:
-            return StageFunction(self.name)        
+            return StageFunction(self.name)
 
     def systolic(self):
-        """Wrap the current stage as a systolic array
-        """
+        """Wrap the current stage as a systolic array"""
         filename, lineno = get_src_loc()
         loc = ast.Location(filename, lineno)
         systolic_op = ast.SystolicOp(self.tensor, loc)
@@ -477,23 +478,20 @@ class Stage(object):
         schedule.ast.top_func.body.append(systolic_op)
 
     def __enter__(self):
-        HCLDeprecationWarning(
-            "hcl.Stage() is deprecated, please remove it.").warn()
+        HCLDeprecationWarning("hcl.Stage() is deprecated, please remove it.").warn()
 
     def __exit__(self, ptype, value, trace):
         pass
 
 
-class CreateStage(object):
+class _CreateStagesFromAST(object):
     """Create HeteroCL stages
-    TODO: this pass should be shared by create_schedule and create_scheme
-    should be the last step of building AST.
-
     This pass does three things:
     1. Create stage and loop handles and set tensor.axis for all stage's tensors
     2. Attach tensors to Python functions as attributes
     3. Create a mapping from tensor to stage in Schedule
     """
+
     def __init__(self, _ast):
         self._ast = _ast
         # clear the stage mapping
@@ -510,14 +508,14 @@ class CreateStage(object):
             for op in op.body:
                 # recursively visit the body
                 self.visit(op)
-    
+
     def create_stage(self, op):
         if isinstance(op, ast.ComputeOp):
             self.create_compute_stage(op)
         elif isinstance(op, ast.ForOp):
             self.create_imperative_stage(op)
 
-    def create_compute_stage(self, op : ast.ComputeOp):
+    def create_compute_stage(self, op: ast.ComputeOp):
         # Create stage and attach attributes
         stage = Stage(op.name)
         stage._ast_op = op
@@ -536,7 +534,7 @@ class CreateStage(object):
         else:
             # TODO: Mutate
             pass
-        
+
         # create handles
         stage_hdl = ast.OpHandle(op.name, op.loc)
         stage.stage_handle = stage_hdl
@@ -544,7 +542,7 @@ class CreateStage(object):
             loop_hdl = ast.LoopHandle(stage_hdl, iter_var.name, op.loc)
             tensor.axis.append(loop_hdl)
 
-    def create_imperative_stage(self, op : ast.ForOp):
+    def create_imperative_stage(self, op: ast.ForOp):
         if op.tag is None:
             return
         # create stage and attach attributes
@@ -553,15 +551,17 @@ class CreateStage(object):
         Stage._mapping.append((stage, stage))
         top_func = self._ast.top_func.python_callable
         if top_func is not None:
-            top_func.__setattr__(op.tag, stage)        
-        
+            top_func.__setattr__(op.tag, stage)
+
         # create handles
         nested_for_loops = [op]
+
         def get_nested_for_loops(op):
             for body_op in op.body:
                 if isinstance(body_op, ast.ForOp):
                     nested_for_loops.append(body_op)
                     get_nested_for_loops(body_op)
+
         get_nested_for_loops(op)
         stage_hdl = ast.OpHandle(op.tag, op.loc)
         stage.stage_handle = stage_hdl

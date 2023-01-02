@@ -2,12 +2,10 @@ from . import types
 from .schedule import _reset_builder, _build_schedule, _build_ast, Stage
 from hcl_mlir.exceptions import *
 from .ast import ast
-from .utils import get_src_loc
 
 
 def create_scheme(inputs, func):
-    """Create a quantization scheme.
-    """
+    """Create a quantization scheme."""
     try:
         if not isinstance(inputs, list):
             inputs = [inputs]
@@ -19,13 +17,12 @@ def create_scheme(inputs, func):
 
 
 def create_schedule_from_scheme(scheme, name=""):
-    """Create a schedule from a scheme.
-    """
+    """Create a schedule from a scheme."""
     return _build_schedule(scheme._ast, scheme.inputs, scheme.func, name=name)
 
+
 class Scheme(object):
-    """A quantization scheme.
-    """
+    """A quantization scheme."""
 
     def __init__(self, inputs, func):
         self.inputs = inputs
@@ -33,10 +30,9 @@ class Scheme(object):
         self._ast = _build_ast(inputs, func)
 
     def downsize(self, inputs, dtype):
-        """Downsize a (list of) tensor to the specified integer type.
-        """
+        """Downsize a (list of) tensor to the specified integer type."""
         if not isinstance(dtype, (types.Int, types.UInt)):
-            raise RuntimeError("Downsize to non-integer type is not allowed")
+            raise APIError("Downsize to non-integer type is not allowed")
         if not isinstance(inputs, list):
             inputs = [inputs]
         for tensor in inputs:
@@ -48,13 +44,14 @@ class Scheme(object):
                 op.aux_tensor.dtype = dtype
                 op.dtype = dtype
             else:
-                raise HCLValueError(f"Unexpected op type: {type(tensor)}, input tensor is: {tensor}")
+                raise HCLValueError(
+                    f"Unexpected op type: {type(tensor)}, input tensor is: {tensor}"
+                )
 
     def quantize(self, inputs, dtype):
-        """Quantize a (list of) tensor to the specified fixed-point type.
-        """
+        """Quantize a (list of) tensor to the specified fixed-point type."""
         if not isinstance(dtype, (types.Fixed, types.UFixed)):
-            raise RuntimeError("Quantize to integer type is not allowed")
+            raise APIError("Quantize to integer type is not allowed")
         if not isinstance(inputs, list):
             inputs = [inputs]
         for tensor in inputs:
@@ -66,5 +63,6 @@ class Scheme(object):
                 op.aux_tensor.dtype = dtype
                 op.dtype = dtype
             else:
-                raise HCLValueError(f"Unexpected op type: {type(tensor)}, input tensor is: {tensor.name}")
-
+                raise HCLValueError(
+                    f"Unexpected op type: {type(tensor)}, input tensor is: {tensor.name}"
+                )
