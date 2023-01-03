@@ -343,9 +343,14 @@ class IRBuilder(object):
             args.append(arg.result)
         return_types = []
         for ret in op.rets:
-            dtype = self.tinf_engine.infer(ret)
-            dtype = hcl_dtype_to_mlir(dtype, signless=True)
-            return_types.append(dtype)
+            if isinstance(ret, ast.AllocOp):
+                ele_type = hcl_dtype_to_mlir(ret.dtype, signless=True)
+                memref_type = MemRefType.get(ret.shape, ele_type)
+                return_types.append(memref_type)
+            else:
+                dtype = self.tinf_engine.infer(ret)
+                dtype = hcl_dtype_to_mlir(dtype, signless=True)
+                return_types.append(dtype)
         call_op = func_d.CallOp(return_types, func, args, ip=ip, loc=loc)
         op.ir_op = call_op
         if len(op.rets) > 0:
