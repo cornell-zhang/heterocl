@@ -22,6 +22,7 @@ from .passes.pass_manager import PassManager as ast_pass_manager
 from .passes.nest_if import NestElseIf
 from .passes.promote_func import PromoteFunc
 from .ast.ir_builder import IRBuilder
+from .ast import ast
 
 
 def lower(schedule,
@@ -41,9 +42,8 @@ def lower(schedule,
     ast_pm = ast_pass_manager()
     ast_pm.add_pass(NestElseIf)
     ast_pm.add_pass(PromoteFunc)
-    # host_ast, xcel_ast = ast_pm.run(schedule.ast)
-    xcel_ast = ast_pm.run(schedule.ast)
-    # print(xcel_ast)
+    device_agnostic_ast = ast_pm.run(schedule.ast)
+    host_ast, xcel_ast = separate_host_xcel(schedule, device_agnostic_ast)
 
     # Build MLIR IR
     set_context()
@@ -51,10 +51,12 @@ def lower(schedule,
     xcel_ir_builder.build()
     exit_context()
 
-    # set_context()
-    # host_ir_builder = IRBuilder(host_ast)
-    # host_ir_builder.build()
-    # exit_context()
+    set_context()
+    host_ir_builder = IRBuilder(host_ast)
+    host_ir_builder.build()
+    exit_context()
+
+    import ipdb; ipdb.set_trace()
 
     schedule._device_module = xcel_ir_builder.module
     schedule._device_top = schedule.ast.top_func.ir_op
@@ -79,9 +81,9 @@ def build(schedule, target=None, stmt=None, top=None):
     """Build the executable according to the schedule and target.
     """
     try:
-        if isinstance(target, Platform) and str(target.tool.mode) != "debug":
-            for _, stage in Stage._mapping:
-                stage.outline()
+        # if isinstance(target, Platform) and str(target.tool.mode) != "debug":
+        #     for _, stage in Stage._mapping:
+        #         stage.outline()
         if not schedule.is_lowered():
             lower(schedule)
         if top is not None:
@@ -111,7 +113,63 @@ def build(schedule, target=None, stmt=None, top=None):
         NestedStageLevel.set(0)
 
 
-def separate_host_device(schedule):
+def separate_host_xcel(schedule, device_agnostic_ast):
+    dfg = schedule._dfg
+    dfg.create_device_map()
+    dfg.graph_partition()
+    
+    # outline the device function
+    dev_func_body = list()
+    top_func = device_agnostic_ast.top_func
+    for body_op in top_func.body:
+        if isinstance(body_op, ast.ComputeOp):
+            op_name = body_op.name
+            if op_name not in dfg.device_map:
+                raise APIError("Cannot find the device map for op {}".format(op_name))
+            if dfg.device_map[op_name] in ["FPGA", "device"]:
+                dev_func_body.append(body_op)
+    
+    # create device function
+    args = list()
+    return_tensors = list()
+    for node in dfg.subgraph["inputs"]:
+        if node.base is not None:
+            args.append(node.base.tensor)
+        else:
+            args.append(node.tensor)
+    for node in dfg.subgraph["outputs"]:
+        if node.base is not None:
+            return_tensors.append(node.base.tensor)
+        else:
+            return_tensors.append(node.tensor)
+    device_func = ast.FuncOp("kernel", args, dev_func_body, top_func.loc)
+    device_func.level = 0
+    device_func.return_tensors = return_tensors
+
+    # create host function
+    host_func_body = list()
+    call_inserted = False
+    for body_op in top_func.body:
+        if body_op in dev_func_body:
+            if not call_inserted:
+                # allocate return tensors
+                # TODO: need facility like replaceAllUsesWith
+                # insert a call to device function
+                call = ast.CallOp(device_func.name, args, return_tensors, body_op.loc)
+                call.level = body_op.level
+                host_func_body.append(call)
+                call_inserted = True
+        else:
+            host_func_body.append(body_op)
+    host_func = top_func
+    host_func.body = host_func_body
+
+    host_ast = ast.AST(host_func)
+    device_ast = ast.AST(device_func)
+    import ipdb; ipdb.set_trace()
+    return host_ast, device_ast
+
+def separate_host_device_old(schedule):
     xcel_module = schedule.create_xcel_module()
     host_module = schedule.create_host_module()
 

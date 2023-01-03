@@ -58,6 +58,7 @@ def _build_schedule(_ast, inputs, func, name):
     create_dfg_pass = _CreateDFGFromAST(_ast)
     create_dfg_pass.apply()
 
+    s._dfg = create_dfg_pass.dfg
     return s
 
 
@@ -105,6 +106,7 @@ class Schedule(object):
         # used for transformation
         self._device_module = None
         self._device_top = None
+        self._dfg = None
 
         # Device-aware module:
         # used for generating host & xcel code
@@ -125,6 +127,7 @@ class Schedule(object):
         # used for generating other backend codes
         self._extern_module = None
         self._extern_top = None
+
 
     @property
     def device_module(self):
@@ -271,7 +274,7 @@ class Schedule(object):
             if not isinstance(tensor, list):
                 tensor = [tensor]
             for t in tensor:
-                t.device = dst
+                self._dfg.propagate_annotation(t, dst.types)
         # inter-stage data movement
         elif isinstance(dst, Stage):
             raise NotImplementedError("Inter-stage data movement is not supported yet")
@@ -599,10 +602,10 @@ class _CreateDFGFromAST(object):
             if op.kind == "compute":
                 for t in op.input_tensors:
                     self.dfg.add_edge(t, op.tensor)
-                    print("add edge", t, op.tensor)
+                    # print("add edge", t, op.tensor)
             else: # update, mutate
                 for t in op.input_tensors:
                     self.dfg.add_edge(t, op.aux_tensor, stateful=True)
-                    print("add edge", t, op.aux_tensor)
+                    # print("add edge", t, op.aux_tensor)
         elif isinstance(op, ast.ForOp):
             pass
