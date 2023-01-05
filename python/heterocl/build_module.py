@@ -25,6 +25,21 @@ from .ast.ir_builder import IRBuilder
 from .ast import ast
 
 
+def _mlir_lower_pipeline(module):
+    hcl_d.loop_transformation(module)
+    pipeline = (
+        f"func.func"
+        f"(affine-loop-normalize, cse, affine-simplify-structures)"
+    )
+    try:
+        with get_context():
+            mlir_pass_manager.parse(pipeline).run(module)
+        return module
+    except:
+        print("Error: failed to run MLIR lower pipeline, printing module...")
+        print(module)
+
+
 def lower(schedule,
           name="top",
           binds=None,
@@ -43,38 +58,35 @@ def lower(schedule,
     ast_pm.add_pass(NestElseIf)
     ast_pm.add_pass(PromoteFunc)
     device_agnostic_ast = ast_pm.run(schedule.ast)
+
+    # Separate host and device
     host_ast, xcel_ast = separate_host_xcel(schedule, device_agnostic_ast)
 
     # Build MLIR IR
     set_context()
+    agnostic_ir_builder = IRBuilder(device_agnostic_ast)
+    agnostic_ir_builder.build()
+    agnostic_module = agnostic_ir_builder.module
+    schedule._module = _mlir_lower_pipeline(agnostic_module)
+    schedule._top_func = agnostic_ir_builder.top_func
+    exit_context()
+
+    set_context()
     xcel_ir_builder = IRBuilder(xcel_ast)
     xcel_ir_builder.build()
+    xcel_module = xcel_ir_builder.module
+    schedule._xcel_module = _mlir_lower_pipeline(xcel_module)
     exit_context()
 
     set_context()
     host_ir_builder = IRBuilder(host_ast)
     host_ir_builder.build()
+    host_module = host_ir_builder.module
+    schedule._host_module = host_module
     exit_context()
 
-    import ipdb; ipdb.set_trace()
-
-    schedule._device_module = xcel_ir_builder.module
-    schedule._device_top = schedule.ast.top_func.ir_op
-    # schedule.host_module = host_ir_builder.module
-
-    # MLIR Lowering Pipeline
-    hcl_d.loop_transformation(schedule.device_module)
-    pipeline = (
-        f"func.func"
-        f"(affine-loop-normalize, cse, affine-simplify-structures)"
-    )
-    try:
-        with get_context():
-            mlir_pass_manager.parse(pipeline).run(schedule.device_module)
-    except:
-        print(schedule.device_module)
     schedule.set_lowered()
-    return schedule.device_module
+    return schedule.module
 
 
 def build(schedule, target=None, stmt=None, top=None):
@@ -105,16 +117,24 @@ def build(schedule, target=None, stmt=None, top=None):
         if target is not None:
             return build_fpga_kernel(schedule, target, stmt)
         else:
-            return build_llvm(schedule, target, stmt)
+            return build_llvm(schedule)
     except Exception as e:
         raise e
     finally:
+        # TODO: no longer necessary
         hcl_mlir.reset_build_inplace()
         NestedStageLevel.set(0)
 
 
 def separate_host_xcel(schedule, device_agnostic_ast):
     dfg = schedule._dfg
+
+    if not dfg.has_host_xcel_place():
+        # if there is no host-xcel data placement
+        # the whole design is offloaded to the device
+        import copy
+        return None, copy.copy(device_agnostic_ast)
+
     dfg.create_device_map()
     dfg.graph_partition()
     
@@ -142,31 +162,45 @@ def separate_host_xcel(schedule, device_agnostic_ast):
             return_tensors.append(node.base.tensor)
         else:
             return_tensors.append(node.tensor)
-    device_func = ast.FuncOp("kernel", args, dev_func_body, top_func.loc)
+    device_func = ast.FuncOp("top", args, dev_func_body, top_func.loc)
     device_func.level = 0
     device_func.return_tensors = return_tensors
 
     # create host function
     host_func_body = list()
     call_inserted = False
+    new_rets = list()
     for body_op in top_func.body:
         if body_op in dev_func_body:
             if not call_inserted:
                 # allocate return tensors
-                # TODO: need facility like replaceAllUsesWith
+                for t in return_tensors:
+                    alloc = ast.AllocOp(t.name + "_host", t.shape, t.dtype, t.loc)
+                    alloc.level = body_op.level
+                    host_func_body.append(alloc)
+                    new_rets.append(alloc)
                 # insert a call to device function
-                call = ast.CallOp(device_func.name, args, return_tensors, body_op.loc)
+                call = ast.CallOp(device_func.name, args + new_rets, [], body_op.loc)
                 call.level = body_op.level
                 host_func_body.append(call)
                 call_inserted = True
         else:
             host_func_body.append(body_op)
-    host_func = top_func
-    host_func.body = host_func_body
+    host_func = ast.FuncOp("main", top_func.args, host_func_body, top_func.loc)
+    host_func.level = 0
+    host_func.return_tensors = top_func.return_tensors
+
+    for old, new in zip(return_tensors, new_rets):
+        ast.replace_all_uses_with(host_func, old, new)
+    
+    # create device function prototype
+    device_func_proto = ast.FuncOp(device_func.name, args + return_tensors, [], top_func.loc)
+    device_func_proto.level = 0
+    device_func_proto.prototype = True
 
     host_ast = ast.AST(host_func)
+    host_ast.region.insert(0, device_func_proto)
     device_ast = ast.AST(device_func)
-    import ipdb; ipdb.set_trace()
     return host_ast, device_ast
 
 def separate_host_device_old(schedule):
@@ -334,18 +368,18 @@ void top("""
 
 def build_fpga_kernel(schedule, target=None, stmt=None):
     if isinstance(schedule, Schedule):
-        device_module = schedule.device_module
+        module = schedule.module
     else:
-        device_module = schedule
+        module = schedule
     if target == "vhls":
         buf = io.StringIO()
-        hcl_d.emit_vhls(device_module, buf)
+        hcl_d.emit_vhls(module, buf)
         buf.seek(0)
         hls_code = buf.read()
         return hls_code
     elif target == "ihls":
         buf = io.StringIO()
-        hcl_d.emit_ihls(device_module, buf)
+        hcl_d.emit_ihls(module, buf)
         buf.seek(0)
         hls_code = buf.read()
         return hls_code
@@ -357,7 +391,7 @@ def build_fpga_kernel(schedule, target=None, stmt=None):
         copy_build_files(target)
 
         buf = io.StringIO()
-        hcl_d.emit_vhls(device_module, buf)
+        hcl_d.emit_vhls(module, buf)
         buf.seek(0)
         hls_code = buf.read()
         with open("{}/kernel.cpp".format(target.project), "w") as outfile:
@@ -370,11 +404,8 @@ def build_fpga_kernel(schedule, target=None, stmt=None):
         # make the project folder and copy files
         copy_build_files(target)
 
-        # data placement
-        schedule.DataflowGraph.graph_partition()
-        separate_host_device(schedule)
-
         # generate xcel code
+        hcl_d.move_return_to_input(schedule.xcel_module)
         buf = io.StringIO()
         hcl_d.emit_vhls(schedule.xcel_module, buf)
         buf.seek(0)
@@ -399,26 +430,31 @@ def build_fpga_kernel(schedule, target=None, stmt=None):
     return hcl_module
 
 
-def build_llvm(schedule, target=None, stmt=None):
-    name = 'top'
+def build_llvm(schedule, top_func_name="top"):
+
+    def attach_llvm_attrs(module):
+        # find top func op
+        func = None
+        for op in module.body.operations:
+            if isinstance(op, func_d.FuncOp) and op.name.value == top_func_name:
+                func = op
+                break
+        if func is None:
+            raise APIError("No top-level function found in the built MLIR module")
+        func.attributes['llvm.emit_c_interface'] = UnitAttr.get()
+        func.attributes[top_func_name] = UnitAttr.get()
+        func.attributes['sym_name'] = StringAttr.get("top")
+
     with get_context() as ctx, get_location():
         if isinstance(schedule, Schedule):
-            func = schedule.device_top
-            func.attributes['llvm.emit_c_interface'] = UnitAttr.get()
-            func.attributes[name] = UnitAttr.get()
-            module = Module.parse(str(schedule.device_module), ctx)
+            attach_llvm_attrs(schedule.module)
+            module = Module.parse(str(schedule.module), ctx)
         else:
             module = Module.parse(str(schedule), ctx)
-            for op in module.body.operations:
-                if isinstance(op, func_d.FuncOp):
-                    func = op
-                    break
-                else:
-                    raise APIError("No top-level function found in the built MLIR module")
-            func.attributes['llvm.emit_c_interface'] = UnitAttr.get()
-            func.attributes[name] = UnitAttr.get()
-            func.attributes['sym_name'] = StringAttr.get("top")
+            attach_llvm_attrs(module)
+
         host_src = Module.parse(str(module))
+
         # memref dce should precede lower_composite_type
         hcl_d.memref_dce(module) 
         hcl_d.lower_composite_type(module)
@@ -433,8 +469,6 @@ def build_llvm(schedule, target=None, stmt=None):
         hcl_d.legalize_cast(module)
         hcl_d.remove_stride_map(module)
         hcl_d.lower_hcl_to_llvm(module, ctx)
-        # num_results = len(func.type.results)
-        num_results = 0
         
         # Add shared library
         if os.getenv("LLVM_BUILD_DIR") is not None:
@@ -452,6 +486,6 @@ def build_llvm(schedule, target=None, stmt=None):
             execution_engine = ExecutionEngine(module, opt_level=0, shared_libs=shared_libs)
         else:
             execution_engine = ExecutionEngine(module, opt_level=0)
-        hcl_module = HCLModule(name, execution_engine,
-                               "llvm", host_src=host_src, return_num=num_results)
+        hcl_module = HCLModule(top_func_name, execution_engine,
+                               "llvm", host_src=host_src, return_num=0)
         return hcl_module
