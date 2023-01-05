@@ -21,7 +21,7 @@ def test_if():
     o, i = s[C].split(C.axis[0], factor=3)
     # test lower
     ir = hcl.lower(s)
-    loops = hcl_mlir.get_affine_loop_nests(s.device_top)[0]
+    loops = hcl_mlir.get_affine_loop_nests(s.top_func)[0]
     assert "0 to 4" in str(loops[0]["body"])
     # test build
     f = hcl.build(s)
@@ -58,7 +58,7 @@ def test_schedule_intra_stage():
         C = popcount.C
         s[C].reorder(C.axis[1], C.axis[0])
         ir = hcl.lower(s)
-        loops = hcl_mlir.get_affine_loop_nests(s.device_top)[0]
+        loops = hcl_mlir.get_affine_loop_nests(s.top_func)[0]
         assert "0 to 20" in str(loops[0]["body"])
         assert "0 to 10" in str(loops[1]["body"])
 
@@ -67,7 +67,7 @@ def test_schedule_intra_stage():
         C = popcount.C
         s[C].fuse(C.axis[0], C.axis[1])
         ir = hcl.lower(s)
-        loops = hcl_mlir.get_affine_loop_nests(s.device_top)[0]
+        loops = hcl_mlir.get_affine_loop_nests(s.top_func)[0]
         assert "0 to 200" in str(loops[0]["body"])
 
     def test_split():
@@ -75,7 +75,7 @@ def test_schedule_intra_stage():
         C = popcount.C
         s[C].split(C.axis[0], factor=3)
         ir = hcl.lower(s)
-        loops = hcl_mlir.get_affine_loop_nests(s.device_top)[0]
+        loops = hcl_mlir.get_affine_loop_nests(s.top_func)[0]
         assert "0 to 4" in str(loops[0]["body"])
         assert "0 to min affine_map<(d0) -> (3, d0 * -3 + 10)>" in str(loops[1]["body"])
         assert "0 to 20" in str(loops[2]["body"])

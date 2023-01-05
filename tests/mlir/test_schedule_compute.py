@@ -92,7 +92,7 @@ def test_reorder():
         s = hcl.create_schedule([a, b])
         s[c].reorder(c.axis[2], c.axis[1])
         ir = hcl.lower(s)
-        loops = hcl_mlir.get_affine_loop_nests(s.device_top)[0]
+        loops = hcl_mlir.get_affine_loop_nests(s.top_func)[0]
         assert "i" in str(loops[0]["name"])
         assert "0 to 10" in str(loops[0]["body"])
         assert "k" in str(loops[1]["name"])
@@ -108,7 +108,7 @@ def test_reorder():
         s = hcl.create_schedule([a, b])
         s[c].reorder(c.axis[3], c.axis[0])
         ir = hcl.lower(s)
-        loops = hcl_mlir.get_affine_loop_nests(s.device_top)[0]
+        loops = hcl_mlir.get_affine_loop_nests(s.top_func)[0]
         assert "l" in str(loops[0]["name"])
         assert "0 to 40" in str(loops[0]["body"])
         assert "j" in str(loops[1]["name"])
@@ -131,7 +131,7 @@ def test_reorder_num_axis():
     s = hcl.create_schedule([a, b])
     s[c].reorder(2, 1)
     ir = hcl.lower(s)
-    loops = hcl_mlir.get_affine_loop_nests(s.device_top)[0]
+    loops = hcl_mlir.get_affine_loop_nests(s.top_func)[0]
     assert "i" in str(loops[0]["name"])
     assert "0 to 10" in str(loops[0]["body"])
     assert "k" in str(loops[1]["name"])
@@ -156,7 +156,7 @@ def test_split():
         s = hcl.create_schedule([a, b])
         s[c].split(c.axis[1], factor=4, mode="transform")
         ir = hcl.lower(s)
-        loops = hcl_mlir.get_affine_loop_nests(s.device_top)[0]
+        loops = hcl_mlir.get_affine_loop_nests(s.top_func)[0]
         assert "i" in str(loops[0]["name"])
         assert "0 to 10" in str(loops[0]["body"])
         assert "j.outer" in str(loops[1]["name"])
@@ -170,7 +170,7 @@ def test_split():
         s = hcl.create_schedule([a, b])
         s[c].split(c.axis[1], factor=3, mode="transform")
         ir = hcl.lower(s)
-        loops = hcl_mlir.get_affine_loop_nests(s.device_top)[0]
+        loops = hcl_mlir.get_affine_loop_nests(s.top_func)[0]
         assert "i" in str(loops[0]["name"])
         assert "0 to 10" in str(loops[0]["body"])
         assert "j.outer" in str(loops[1]["name"])
@@ -200,7 +200,7 @@ def test_split_num_axis():
     s = hcl.create_schedule([a, b])
     s[c].split(1, factor=4, mode="transform")
     ir = hcl.lower(s)
-    loops = hcl_mlir.get_affine_loop_nests(s.device_top)[0]
+    loops = hcl_mlir.get_affine_loop_nests(s.top_func)[0]
     assert "i" in str(loops[0]["name"])
     assert "0 to 10" in str(loops[0]["body"])
     assert "j.outer" in str(loops[1]["name"])
@@ -224,7 +224,7 @@ def test_split_reorder():
         yo, yi = s[c].split(c.axis[1], factor=5, mode="transform")
         s[c].reorder(yo, xo, yi, xi)
         ir = hcl.lower(s)
-        loops = hcl_mlir.get_affine_loop_nests(s.device_top)[0]
+        loops = hcl_mlir.get_affine_loop_nests(s.top_func)[0]
         assert "j.outer" in str(loops[0]["name"])
         assert "0 to 4" in str(loops[0]["body"])
         assert "i.outer" in str(loops[1]["name"])
@@ -241,7 +241,7 @@ def test_split_reorder():
         yo, yi = s[c].split(c.axis[1], factor=3, mode="transform")
         s[c].reorder(yo, yi, xo, xi)
         ir = hcl.lower(s)
-        loops = hcl_mlir.get_affine_loop_nests(s.device_top)[0]
+        loops = hcl_mlir.get_affine_loop_nests(s.top_func)[0]
         assert "j.outer" in str(loops[0]["name"])
         assert "0 to 7" in str(loops[0]["body"])
         assert "j.inner" in str(loops[1]["name"])
@@ -267,7 +267,7 @@ def test_split_reorder_num_axis():
     yo, yi = s[c].split(1, factor=5, mode="transform")
     s[c].reorder(yo, xo, yi, xi)
     ir = hcl.lower(s)
-    loops = hcl_mlir.get_affine_loop_nests(s.device_top)[0]
+    loops = hcl_mlir.get_affine_loop_nests(s.top_func)[0]
     assert "j.outer" in str(loops[0]["name"])
     assert "0 to 4" in str(loops[0]["body"])
     assert "i.outer" in str(loops[1]["name"])
@@ -301,7 +301,7 @@ def test_compute_at():
         s0 = hcl.create_schedule([A, C])
         s0[B].compute_at(s0[C], C.axis[0])
         ir0 = hcl.lower(s0)
-        loop = hcl_mlir.get_affine_loop_nests(s0.device_top)[0][0]["body"]
+        loop = hcl_mlir.get_affine_loop_nests(s0.top_func)[0][0]["body"]
         assert "j" in str(loop.body.operations[0].attributes["loop_name"])
         assert "0 to 20" in str(loop.body.operations[0])
         assert "jj" in str(loop.body.operations[1].attributes["loop_name"])
@@ -312,7 +312,7 @@ def test_compute_at():
         s1 = hcl.create_schedule([A, C])
         s1[B].compute_at(s1[C], C.axis[1])
         ir1 = hcl.lower(s1)
-        loop = hcl_mlir.get_affine_loop_nests(s1.device_top)[0][1]["body"]
+        loop = hcl_mlir.get_affine_loop_nests(s1.top_func)[0][1]["body"]
         assert "m" in str(loop.body.operations[0].attributes["loop_name"])
         assert "0 to 30" in str(loop.body.operations[0])
         assert "mm" in str(loop.body.operations[1].attributes["loop_name"])
@@ -323,7 +323,7 @@ def test_compute_at():
         s2 = hcl.create_schedule([A, C])
         s2[B].compute_at(s2[C], C.axis[2])
         ir2 = hcl.lower(s2)
-        loop = hcl_mlir.get_affine_loop_nests(s2.device_top)[0][2]["body"]
+        loop = hcl_mlir.get_affine_loop_nests(s2.top_func)[0][2]["body"]
         assert "mm" in str(loop.attributes["loop_name"])
         assert "0 to 30" in str(loop)
         _verify_build(s2)
@@ -334,7 +334,7 @@ def test_compute_at():
         s[B].compute_at(s[C], C.axis[2])
         s[C].fuse(C.axis[0], C.axis[1])
         ir = hcl.lower(s)
-        loop = hcl_mlir.get_affine_loop_nests(s.device_top)[0][0]["body"]
+        loop = hcl_mlir.get_affine_loop_nests(s.top_func)[0][0]["body"]
         assert "ii_jj_fused" in str(loop.attributes["loop_name"])
         assert "0 to 200" in str(loop)
         _verify_build(s)
@@ -346,7 +346,7 @@ def test_compute_at():
         s[C].split(C.axis[0], factor=3)
         s[C].split(C.axis[1], factor=3)
         ir = hcl.lower(s)
-        loops = hcl_mlir.get_affine_loop_nests(s.device_top)[0]
+        loops = hcl_mlir.get_affine_loop_nests(s.top_func)[0]
         assert "ii.outer" in str(loops[0]["name"])
         assert "0 to 4" in str(loops[0]["body"])
         assert "ii.inner" in str(loops[1]["name"])
@@ -367,7 +367,7 @@ def test_compute_at():
         s0[B].compute_at(s0[C], C.axis[2])
         s0[C].reorder(C.axis[1], C.axis[0])
         ir0 = hcl.lower(s0)
-        loops = hcl_mlir.get_affine_loop_nests(s0.device_top)[0]
+        loops = hcl_mlir.get_affine_loop_nests(s0.top_func)[0]
         assert "jj" in str(loops[0]["name"])
         assert "0 to 20" in str(loops[0]["body"])
         assert "ii" in str(loops[1]["name"])
@@ -384,7 +384,7 @@ def test_compute_at():
         s0[B].compute_at(s0[C], C.axis[1])
         s0[C].reorder(C.axis[1], C.axis[0])
         ir0 = hcl.lower(s0)
-        loops = hcl_mlir.get_affine_loop_nests(s0.device_top)[0]
+        loops = hcl_mlir.get_affine_loop_nests(s0.top_func)[0]
         assert "jj" in str(loops[0]["name"])
         assert "0 to 20" in str(loops[0]["body"])
         assert "ii" in str(loops[1]["name"])
@@ -403,7 +403,7 @@ def test_compute_at():
         xo, xi = s[C].split(C.axis[1], factor=3)
         s[C].reorder(yo, xo, yi, xi)
         ir = hcl.lower(s)
-        loops = hcl_mlir.get_affine_loop_nests(s.device_top)[0]
+        loops = hcl_mlir.get_affine_loop_nests(s.top_func)[0]
         assert "ii.outer" in str(loops[0]["name"])
         assert "0 to 4" in str(loops[0]["body"])
         assert "jj.outer" in str(loops[1]["name"])
@@ -434,7 +434,7 @@ def test_compute_at_complex():
     s[B].compute_at(s[C], C.axis[1])
     s[C].compute_at(s[D], D.axis[2])
     ir = hcl.lower(s)
-    loop_nests = hcl_mlir.get_affine_loop_nests(s.device_top)
+    loop_nests = hcl_mlir.get_affine_loop_nests(s.top_func)
     assert len(loop_nests) == 1
     loops = loop_nests[0]
     assert "jjj" in str(loops[1]["name"])
@@ -458,7 +458,7 @@ def test_compute_at_complex_num_axis():
     s[B].compute_at(s[C], 1)
     s[C].compute_at(s[D], 2)
     ir = hcl.lower(s)
-    loop_nests = hcl_mlir.get_affine_loop_nests(s.device_top)
+    loop_nests = hcl_mlir.get_affine_loop_nests(s.top_func)
     assert len(loop_nests) == 1
     loops = loop_nests[0]
     assert "jjj" in str(loops[1]["name"])
@@ -484,7 +484,7 @@ def test_compute_at_with_reuse_1D():
     B = _kernel.B
     s[A].compute_at(s[B], B.axis[1])
     ir = hcl.lower(s)
-    loops = hcl_mlir.get_affine_loop_nests(s.device_top)
+    loops = hcl_mlir.get_affine_loop_nests(s.top_func)
     assert len(loops) == 1
     f = hcl.build(s)
     a_np = np.fromfunction(lambda i, j: i + j, A.shape, dtype="int")
@@ -514,7 +514,7 @@ def test_compute_at_with_reuse_2D():
     B = _kernel.B
     s[A].compute_at(s[B], B.axis[1])
     ir = hcl.lower(s)
-    loops = hcl_mlir.get_affine_loop_nests(s.device_top)
+    loops = hcl_mlir.get_affine_loop_nests(s.top_func)
     assert len(loops) == 1
     f = hcl.build(s)
     a_np = np.fromfunction(lambda i, j: i + j, A.shape, dtype="int")
@@ -542,7 +542,7 @@ def test_compute_at_with_reuse_2D_complex():
     s[A].compute_at(s[B], B.axis[1])
     s[B].split(B.axis[1], 4)
     ir = hcl.lower(s)
-    loops = hcl_mlir.get_affine_loop_nests(s.device_top)[0]
+    loops = hcl_mlir.get_affine_loop_nests(s.top_func)[0]
     assert "y" in str(loops[0]["name"])
     assert "0 to 8" in str(loops[0]["body"])
     assert "x.outer" in str(loops[1]["name"])
