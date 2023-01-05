@@ -102,68 +102,61 @@ class Schedule(object):
     def __init__(self, name, inputs, func=None):
         self.name = name
         self.lowered = False
+        
+        # MLIR modules:
         # Device-agnostic module:
         # used for transformation
-        self._device_module = None
-        self._device_top = None
-        self._dfg = None
-
+        self._module = None
+        self._top_func = None
         # Device-aware module:
         # used for generating host & xcel code
         self._host_module = None
         self._xcel_module = None
-        self._host_top = None
-        self._xcel_top = None
-        self._host_ret = None
-        self._xcel_ret = None
 
+        # HeteroCL AST
         self._ast = None
+
+        # Dataflow Graph
+        self._dfg = None
 
         # Used by Stages to refer to the current schedule
         Schedule._CurrentSchedule = self
         Schedule._TopFunction = func
 
-        # External module:
-        # used for generating other backend codes
-        self._extern_module = None
-        self._extern_top = None
-
 
     @property
     def device_module(self):
-        return self._device_module
+        DeprecationWarning("device_module is deprecated, use module instead")
+        return self._module
+
+    @property
+    def module(self):
+        return self._module
 
     @property
     def device_top(self):
-        return self._device_top
+        DeprecationWarning("device_top is deprecated, use top_func instead")
+        return self._top_func
+
+    @property
+    def top_func(self):
+        return self._top_func
 
     @property
     def host_module(self):
         return self._host_module
 
     @property
-    def host_top(self):
-        return self._host_top
-
-    @property
     def xcel_module(self):
         return self._xcel_module
 
     @property
-    def xcel_top(self):
-        return self._xcel_top
-
-    @property
-    def extern_module(self):
-        return self._extern_module
-
-    @property
-    def extern_top(self):
-        return self._extern_top
-
-    @property
     def ast(self):
         return self._ast
+
+    @property
+    def DataflowGraph(self):
+        return self._dfg
 
     def set_lowered(self):
         self.lowered = True
@@ -280,6 +273,7 @@ class Schedule(object):
             raise NotImplementedError("Inter-stage data movement is not supported yet")
 
     def outline(self, *stage_list, unify=False):
+        #TODO(Niansong): support unify
         """Outline stages as a function
 
         e.g., s.outline([s0,s1], [s2], [s3,s4])
@@ -314,8 +308,9 @@ class StageFunction(object):
 class Stage(object):
     """A Stage represents schedule for one operation."""
 
-    """ 
-    obsolete note:
+    """
+    TODO(Niansong): add better comments here
+    because of the syntax of HeteroCL,
     Stage._mapping is a list of (Tensor, Stage) tuples
     or (Stage, Stage) tuples to keep track of all stages
     and their corresponding tensors. 
@@ -459,6 +454,7 @@ class Stage(object):
         schedule.ast.top_func.body.append(compute_at_op)
 
     def outline(self, axis=None, unify=None):
+        #TODO(niansong): unify
         """Outline a stage as a function"""
         schedule = Schedule._CurrentSchedule
         if schedule.is_lowered():
@@ -608,4 +604,5 @@ class _CreateDFGFromAST(object):
                     self.dfg.add_edge(t, op.aux_tensor, stateful=True)
                     # print("add edge", t, op.aux_tensor)
         elif isinstance(op, ast.ForOp):
+            # raise HCLNotImplementedError("ForOp is not supported in DFG")
             pass
