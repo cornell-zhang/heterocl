@@ -17,7 +17,7 @@ from .module import HCLModule, HCLSuperModule
 from .operation import placeholder
 from .runtime import copy_build_files
 from .schedule import Schedule, Stage
-from .utils import get_extra_type_hints
+from .utils import get_extra_type_hints, hcl_dtype_to_mlir
 from .passes.pass_manager import PassManager as ast_pass_manager
 from .passes.nest_if import NestElseIf
 from .passes.promote_func import PromoteFunc
@@ -132,8 +132,7 @@ def separate_host_xcel(schedule, device_agnostic_ast):
     if not dfg.has_host_xcel_place():
         # if there is no host-xcel data placement
         # the whole design is offloaded to the device
-        import copy
-        return None, copy.copy(device_agnostic_ast)
+        return None, device_agnostic_ast
 
     dfg.create_device_map()
     dfg.graph_partition()
@@ -354,10 +353,10 @@ void top("""
         schedule.DataflowGraph.subgraph["outputs"]
     args = []
     for node in all_inputs_outputs:
-        tensor = node.tensor.op
+        tensor = node.tensor
         with get_context():
             arg = hcl_mlir.print_mlir_type(
-                hcl_mlir.get_mlir_type(tensor.dtype)) + " " + tensor.name
+                hcl_dtype_to_mlir(tensor.dtype)) + " " + tensor.name
         for index in tensor.shape:
             arg += "[{}]".format(index)
         args.append(arg)
@@ -405,7 +404,6 @@ def build_fpga_kernel(schedule, target=None, stmt=None):
         copy_build_files(target)
 
         # generate xcel code
-        hcl_d.move_return_to_input(schedule.xcel_module)
         buf = io.StringIO()
         hcl_d.emit_vhls(schedule.xcel_module, buf)
         buf.seek(0)

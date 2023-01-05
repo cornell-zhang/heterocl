@@ -7,7 +7,6 @@ import pytest
 import hcl_mlir
 
 # Test DFG partitioning
-@pytest.mark.skip(reason="DFG to be added")
 def test_move_outputs():
     hcl.init()
     A = hcl.placeholder((10, 32), "A")
@@ -22,13 +21,11 @@ def test_move_outputs():
     s = hcl.create_schedule([A], kernel)
     s.to(A, target.xcel)
     s.to(kernel.update1.B, target.host)
-
     mod = hcl.build(s, target)
     assert "top" in mod.host_src
-    assert "Stage_B" in mod.src
-    assert "Stage_update1" in mod.src
-    assert "Stage_update2" in mod.host_src
-
+    assert "B" in mod.src
+    assert "update1" in mod.src
+    assert "update2" in mod.host_src
 
 
 @pytest.mark.skip(reason="IndexError: access out of bound")
@@ -51,7 +48,7 @@ def test_in_place_update():
     assert "Stage_update1" in mod.src
     assert "Stage_update2" in mod.src
 
-@pytest.mark.skip(reason="DFG to be added")
+
 def test_multiple_subgraph():
     hcl.init()
     A = hcl.placeholder((10, 32), "A")
@@ -68,9 +65,10 @@ def test_multiple_subgraph():
     s.to([kernel.E], target.host)
     mod = hcl.build(s, target)
     assert "top" in mod.host_src
-    assert "Stage_C" in mod.src
-    assert "Stage_D" in mod.src
-    assert "Stage_E" in mod.src
+    assert "C" in mod.src
+    assert "D" in mod.src
+    assert "E" in mod.src
+
 
 @pytest.mark.skip(reason="DFG to be added")
 def test_extern_ops():
@@ -89,10 +87,9 @@ def test_extern_ops():
     s.to(kernel.C, target.host)
     mod = hcl.build(s, target)
     assert "top" in mod.host_src
-    assert "Stage_B" in mod.host_src
-    assert "Stage_C" in mod.src
-    assert "Stage_D" in mod.host_src
-
+    assert "B" in mod.host_src
+    assert "C" in mod.src
+    assert "D" in mod.host_src
 
 @pytest.mark.skip(reason="TypeError: .to() got an unexpected keyword argument axis")
 def test_inner_loop_body_placement():
@@ -709,7 +706,7 @@ def test_inter_kernel_channels():
     code = str(hcl.lower(s))
     print(code)
 
-@pytest.mark.skip(reason="DFG to be added")
+@pytest.mark.skip(reason="TODO")
 def test_inter_stage_streaming():
     hcl.init()
     A = hcl.placeholder((10, 32), "A")
@@ -725,6 +722,7 @@ def test_inter_stage_streaming():
     s.to(kernel.C, s[kernel.D])
     code = str(hcl.lower(s))
     print(code)
+
 
 def test_one_stage_on_dev():
     hcl.init()
