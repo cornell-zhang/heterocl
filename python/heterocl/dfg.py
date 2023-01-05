@@ -44,6 +44,10 @@ class DataflowGraph(object):
         for tensor in inputs:
             self.roots.append(self.create_node(tensor))
         self.subgraph = {"inputs": [], "outputs": []}
+        self.host_xcel_place = False
+
+    def has_host_xcel_place(self):
+        return self.host_xcel_place
 
     def create_node(self, tensor):
         name = tensor.name
@@ -53,19 +57,6 @@ class DataflowGraph(object):
             node = DFGNode(tensor)
             self.node_map[name] = node
         return node
-
-    def set_leaves(self, outputs):
-        for output in outputs:
-            if output.name not in self.node_map:
-                raise RuntimeError("Output not in DFG node map")
-            elif self.node_map[output.name].has_children():
-                for child in self.node_map[output.name].children:
-                    if child not in self.node_map[output.name].states:
-                        raise RuntimeError("Output is not leaf")
-            if len(self.node_map[output.name].states) != 0:
-                self.leaves.append(self.node_map[output.name].states[-1])
-            else:
-                self.leaves.append(self.node_map[output.name])
 
     def add_edge(self, src, dst, stateful=False):
         if src.name == dst.name:
@@ -153,6 +144,7 @@ class DataflowGraph(object):
         # set next stage on device
         visited = set()
         self._dfs(node, visited, set_annotation)
+        self.host_xcel_place = True
 
     def create_device_map(self):
         flag = True
