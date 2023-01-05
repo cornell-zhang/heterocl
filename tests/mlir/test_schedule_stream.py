@@ -70,7 +70,6 @@ def test_multiple_subgraph():
     assert "E" in mod.src
 
 
-@pytest.mark.skip(reason="DFG to be added")
 def test_extern_ops():
     hcl.init()
     A = hcl.placeholder((10, 32), "A")
@@ -90,6 +89,7 @@ def test_extern_ops():
     assert "B" in mod.host_src
     assert "C" in mod.src
     assert "D" in mod.host_src
+
 
 @pytest.mark.skip(reason="TypeError: .to() got an unexpected keyword argument axis")
 def test_inner_loop_body_placement():
