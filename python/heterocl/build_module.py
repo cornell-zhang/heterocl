@@ -1,5 +1,6 @@
 import io
 import os
+import copy
 
 import hcl_mlir
 from hcl_mlir import GlobalInsertionPoint
@@ -58,9 +59,7 @@ def lower(schedule,
     ast_pm.add_pass(NestElseIf)
     ast_pm.add_pass(PromoteFunc)
     device_agnostic_ast = ast_pm.run(schedule.ast)
-
-    # Separate host and device
-    host_ast, xcel_ast = separate_host_xcel(schedule, device_agnostic_ast)
+    schedule._ast = device_agnostic_ast
 
     # Build MLIR IR
     set_context()
@@ -69,20 +68,6 @@ def lower(schedule,
     agnostic_module = agnostic_ir_builder.module
     schedule._module = _mlir_lower_pipeline(agnostic_module)
     schedule._top_func = agnostic_ir_builder.top_func
-    exit_context()
-
-    set_context()
-    xcel_ir_builder = IRBuilder(xcel_ast)
-    xcel_ir_builder.build()
-    xcel_module = xcel_ir_builder.module
-    schedule._xcel_module = _mlir_lower_pipeline(xcel_module)
-    exit_context()
-
-    set_context()
-    host_ir_builder = IRBuilder(host_ast)
-    host_ir_builder.build()
-    host_module = host_ir_builder.module
-    schedule._host_module = host_module
     exit_context()
 
     schedule.set_lowered()
@@ -184,7 +169,9 @@ def separate_host_xcel(schedule, device_agnostic_ast):
                 host_func_body.append(call)
                 call_inserted = True
         else:
-            host_func_body.append(body_op)
+            #TODO: this should be a deep copy
+            # because the ast.replace_all_uses_with will affect the original ast
+            host_func_body.append(copy.copy(body_op))
     host_func = ast.FuncOp("main", top_func.args, host_func_body, top_func.loc)
     host_func.level = 0
     host_func.return_tensors = top_func.return_tensors
@@ -386,9 +373,11 @@ def build_fpga_kernel(schedule, target=None, stmt=None):
         raise RuntimeError("Not supported target")
 
     if str(target.tool.mode) == "debug":
+        # debug mode: full code without host-xcel partition
+        # is generated and written to kernel.cpp
+        # host.cpp is kept empty
         # make the project folder and copy files
         copy_build_files(target)
-
         buf = io.StringIO()
         hcl_d.emit_vhls(module, buf)
         buf.seek(0)
@@ -400,6 +389,26 @@ def build_fpga_kernel(schedule, target=None, stmt=None):
             outfile.write("")
 
     else:
+        # release mode: host-xcel partition is generated
+        # and written to kernel.cpp and host.cpp
+        device_agnostic_ast = schedule.ast
+        # Separate host and device
+        host_ast, xcel_ast = separate_host_xcel(schedule, device_agnostic_ast)
+        
+        set_context()
+        xcel_ir_builder = IRBuilder(xcel_ast)
+        xcel_ir_builder.build()
+        xcel_module = xcel_ir_builder.module
+        schedule._xcel_module = _mlir_lower_pipeline(xcel_module)
+        exit_context()
+
+        set_context()
+        host_ir_builder = IRBuilder(host_ast)
+        host_ir_builder.build()
+        host_module = host_ir_builder.module
+        schedule._host_module = host_module
+        exit_context()
+
         # make the project folder and copy files
         copy_build_files(target)
 
