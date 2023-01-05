@@ -29,6 +29,26 @@ def immediate_to_constant(value, loc, dtype=None):
     else:
         return ConstantOp(value, Float(64), loc)
 
+def replace_all_uses_with(op, old_tensor, new_tensor):
+    if isinstance(op, FuncOp):
+        new_rets = list()
+        for ret in op.return_tensors:
+            if ret.name == old_tensor.name:
+                new_rets.append(new_tensor)
+            else:
+                new_rets.append(ret)
+        op.return_tensors = new_rets
+
+    for attr, value in op.__dict__.items():
+        if attr == "tensor" and value.name == old_tensor.name:
+            setattr(op, attr, new_tensor)
+        if isinstance(value, list):
+            for v in value:
+                replace_all_uses_with(v, old_tensor, new_tensor)
+        if hasattr(value, "__dict__"):
+            replace_all_uses_with(value, old_tensor, new_tensor)
+
+
 class Location(object):
     """ Filename and linenumber
     """
@@ -773,9 +793,14 @@ class AllocOp(Expr):
         # the device where the tensor is allocated
         # e.g. Host, FPGA, GPU
         self.device = None
+        self.level = None
     
     def __repr__(self):
-        return f"{self.name} = alloc({self.shape}, {self.dtype})"
+        code_str = ""
+        if self.level is not None:
+            code_str = print_indent(code_str, self.level)
+        code_str += f"{self.name} = alloc({self.shape}, {self.dtype})"
+        return code_str
 
     def __getitem__(self, indices):
         if not isinstance(indices, tuple):
@@ -970,7 +995,10 @@ class ReturnOp(Operation):
     def __repr__(self):
         code_str = ""
         code_str = print_indent(code_str, self.level)
-        code_str += "return {}".format(self.expr)
+        if isinstance(self.expr, AllocOp):
+            code_str += "return {}".format(self.expr.name)
+        else:
+            code_str += "return {}".format(self.expr)
         return code_str
 
 class ForOp(Operation):
@@ -1023,15 +1051,21 @@ class FuncOp(Operation):
         self.level = len(scope)
         self.body_ip = None
         self.python_callable = None
+        self.prototype = False
 
     def __repr__(self):
         code_str = ""
         code_str = print_indent(code_str, self.level)
+        if self.prototype:
+            # This is a function declaration
+            code_str += "func {}({})".format(self.name, ", ".join([v.name for v in self.args]))
+            code_str += " -> ({})\n".format(", ".join([str(v.name) for v in self.return_tensors]))
+            return code_str
         code_str += "func {}({}) {{\n".format(self.name, ", ".join([v.name for v in self.args]))
         for stmt in self.body:
             code_str += f"{stmt}\n"
         code_str = print_indent(code_str, self.level + 1)
-        code_str += "return {}\n".format(", ".join([str(v) for v in self.return_tensors]))
+        code_str += "return {}\n".format(", ".join([str(v.name) for v in self.return_tensors]))
         code_str = print_indent(code_str, self.level)
         code_str += "}\n"
         return code_str
@@ -1047,7 +1081,9 @@ class CallOp(Expr):
     def __repr__(self):
         code_str = ""
         code_str += print_indent(code_str, self.level)
-        code_str += "{}({})".format(self.name, ", ".join([str(v.name) for v in self.args]))
+        if len(self.rets) > 0:
+            code_str += "{} = ".format(", ".join([str(v.name) for v in self.rets]))
+        code_str += "call {}({})".format(self.name, ", ".join([str(v.name) for v in self.args]))
         return code_str
 
 
@@ -1420,3 +1456,27 @@ class AST(object):
         for op in self.region:
             code_str += str(op)
         return code_str
+
+    def reset_build_results(self):
+        """
+        I think this is bad, instead of resetting results,
+        we should make ast work with deep copy
+        """
+        def reset_op_build_result(op):
+            if not hasattr(op, "__dict__"):
+                return
+            for attr, value in op.__dict__.items():
+                if attr == "result":
+                    setattr(op, attr, None)
+                if attr == "ir_op":
+                    setattr(op, attr, None)
+                if attr == "parent_loop":
+                    setattr(op, attr, None)
+                if isinstance(value, (list, tuple)):
+                    for v in value:
+                        if hasattr(v, "__dict__"):
+                            reset_op_build_result(v)
+                if hasattr(value, "__dict__"):
+                    reset_op_build_result(value)
+        for op in self.region:
+            reset_op_build_result(op)
