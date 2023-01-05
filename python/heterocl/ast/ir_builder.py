@@ -145,17 +145,30 @@ class IRBuilder(object):
     def __init__(self, _ast):
         self._ast = _ast
         self.module = Module.create(get_location())
+        self.top_func = None
         self.iv = [] # a list to keep track of affine expression's induction variables
         self.tinf_engine = TypeInfer()
         self.tensor_dict = dict() # tensor name -> memref.allocOp
         self.BIT_OPS = False
 
     def build(self):
+        if self._ast is None:
+            # if ast is None, we just return an empty module
+            return
+
+        # build each operation in the ast
         with get_context(), get_location():
             for op in self._ast.region:
                 ip = InsertionPoint.at_block_begin(self.module.body)
                 self.build_visitor(op, ip)
-
+        
+        self.top_func = self._ast.top_func.ir_op
+        # clean the build results of ast
+        # because sometimes we want to build the same ast again
+        # into a different MLIR module. In that case, all
+        # operation.result and operation.ir_op should be reset
+        # to None to guarantee a fresh build.
+        self._ast.reset_build_results()
 
     def build_visitor(self, op, ip):
         """Build dispatcher
@@ -301,8 +314,13 @@ class IRBuilder(object):
         func_type = FunctionType.get(input_types, output_types)
         func_op = func_d.FuncOp(name=op.name, type=func_type, ip=ip, loc=loc)
         op.ir_op = func_op
-        func_op.add_entry_block()
 
+        if op.prototype:
+            # function prototype, function visibility is private
+            func_op.attributes["sym_visibility"] = StringAttr.get("private")
+            return
+
+        func_op.add_entry_block()
         for arg, block_arg in zip(op.args, func_op.entry_block.arguments):
             arg.result = block_arg
 
@@ -949,6 +967,8 @@ class IRBuilder(object):
         if not isinstance(expr, (ast.IterVar, ast.ConstantOp, ast.CastOp, ast.BinaryOp)):
             raise HCLValueError(f"{expr} is not an affine index")
         if isinstance(expr, ast.IterVar):
+            if expr.parent_loop is None:
+                raise HCLValueError(f"{expr} does not have parent loop set")
             if isinstance(expr.parent_loop, scf_d.ForOp):
                 raise HCLValueError(f"loop {expr.parent_loop} is not affine")
             if expr.parent_loop.induction_variable not in self.iv:
