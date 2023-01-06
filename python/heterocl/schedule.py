@@ -270,10 +270,16 @@ class Schedule(object):
                 self._dfg.propagate_annotation(t, dst.types)
         # inter-stage data movement
         elif isinstance(dst, Stage):
-            raise NotImplementedError("Inter-stage data movement is not supported yet")
+            filename, lineno = get_src_loc()
+            loc = ast.Location(filename, lineno)
+            inter_kernel_to_op = ast.InterKernelToOp(tensor, dst.stage_handle, fifo_depth, loc)
+            self.ast.top_func.body.append(inter_kernel_to_op)
+            # outline both stages
+            src = Stage.lookup(tensor.name)
+            self.outline(src)
+            self.outline(dst)
 
     def outline(self, *stage_list, unify=False):
-        #TODO(Niansong): support unify
         """Outline stages as a function
 
         e.g., s.outline([s0,s1], [s2], [s3,s4])
@@ -301,8 +307,18 @@ class Schedule(object):
 
 
 class StageFunction(object):
-    def __init__(self, name=None):
-        raise NotImplementedError("StageFunction is not implemented yet")
+    """
+    A StageFunction represents a function that is outlined
+    from a stage. It is used as the return value of .outline() primitive.
+    When .outline() unify is enabled, StageFunction provides a target
+    function to be unified with.
+    """
+    def __init__(self, name):
+        if not isinstance(name, list):
+            name = [name]
+        self.name = "Stage"
+        for n in name:
+            self.name += "_" + n
 
 
 class Stage(object):
