@@ -132,6 +132,8 @@ def separate_host_xcel(schedule, device_agnostic_ast):
                 raise APIError("Cannot find the device map for op {}".format(op_name))
             if dfg.device_map[op_name] in ["FPGA", "device"]:
                 dev_func_body.append(body_op)
+        elif body_op.is_customize_op:
+            dev_func_body.append(body_op)
     
     # create device function
     args = list()
