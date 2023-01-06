@@ -1418,6 +1418,16 @@ class IRBuilder(object):
 
     def build_inter_kernel_to_op(self, op : ast.InterKernelToOp, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
+        self.build_visitor(op.tensor, ip)
+        self.build_visitor(op.stage, ip)
+        i32 = IntegerType.get_signless(32)
+        fifo_depth = IntegerAttr.get(i32, op.fifo_depth)
+        top_func = self._ast.top_func.ir_op
+        assert top_func is not None
+        top_func.attributes["dataflow"] = UnitAttr.get()
+        to_op = hcl_d.InterKernelToOp(
+            op.tensor.result, op.stage.result, fifo_depth=fifo_depth, ip=ip, loc=loc)
+        op.ir_op = to_op
         
     def build_outline_op(self, op : ast.OutlineOp, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
