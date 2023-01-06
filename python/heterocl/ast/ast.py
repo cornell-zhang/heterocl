@@ -1183,6 +1183,7 @@ class OpHandle(Expr):
         super().__init__('op_handle', loc)
         self.name = name
         self.level = len(scope)
+        self.is_customize_op = True
 
     def __eq__(self, other):
         assert isinstance(other, OpHandle)
@@ -1197,6 +1198,7 @@ class LoopHandle(Expr):
         self.op_hdl = op_hdl
         self.name = name
         self.level = len(scope)
+        self.is_customize_op = True
 
     def __eq__(self, other):
         assert isinstance(other, LoopHandle)
@@ -1213,6 +1215,7 @@ class PartitionOp(Operation):
         self.dim = dim
         self.factor = factor
         self.level = len(scope)
+        self.is_customize_op = True
 
     def __repr__(self):
         code_str = ""
@@ -1226,6 +1229,7 @@ class ReplaceOp(Operation):
         self.src_tensor = src_tensor
         self.dst_tensor = dst_tensor
         self.level = len(scope)
+        self.is_customize_op = True
     
     def __repr__(self):
         code_str = ""
@@ -1239,6 +1243,7 @@ class ReshapeOp(Operation):
         self.tensor = tensor
         self.shape = shape
         self.level = len(scope)
+        self.is_customize_op = True
 
     def __repr__(self):
         code_str = ""
@@ -1252,6 +1257,7 @@ class ReformOp(Operation):
         self.target = target
         self.layout = layout
         self.level = len(scope)
+        self.is_customize_op = True
 
     def __repr__(self):
         code_str = ""
@@ -1265,6 +1271,7 @@ class ReuseAtOp(Operation):
         self.target = target
         self.axis = axis
         self.level = len(scope)
+        self.is_customize_op = True
     
     def __repr__(self):
         code_str = ""
@@ -1278,6 +1285,7 @@ class BufferAtOp(Operation):
         self.target = target
         self.axis = axis
         self.level = len(scope)
+        self.is_customize_op = True
     
     def __repr__(self):
         code_str = ""
@@ -1286,16 +1294,18 @@ class BufferAtOp(Operation):
         return code_str
 
 class InterKernelToOp(Operation):
-    def __init__(self, target, fifo_depth, loc):
+    def __init__(self, tensor, stage, fifo_depth, loc):
         super().__init__("inter_kernel_to", loc)
-        self.target = target
+        self.tensor = tensor
+        self.stage = stage
         self.fifo_depth = fifo_depth
         self.level = len(scope)
+        self.is_customize_op = True
 
     def __repr__(self):
         code_str = ""
         code_str = print_indent(code_str, self.level)
-        code_str += "hcl.inter_kernel_to({}, {})".format(self.target.name, self.fifo_depth)
+        code_str += "hcl.inter_kernel_to({}, {}, {})".format(self.tensor.name, self.stage, self.fifo_depth)
         return code_str
 
 
@@ -1306,6 +1316,7 @@ class OutlineOp(Operation):
         self.unify = None
         self.axis = None
         self.level = len(scope)
+        self.is_customize_op = True
     
     def __repr__(self):
         code_str = ""
@@ -1318,6 +1329,7 @@ class ReorderOp(Operation):
         super().__init__("reorder", loc)
         self.args = args
         self.level = len(scope)
+        self.is_customize_op = True
     
     def __repr__(self):
         code_str = ""
@@ -1335,6 +1347,7 @@ class SplitOp(Operation):
             LoopHandle(stage_hdl, parent.name + ".inner", loc)
         ]
         self.level = len(scope)
+        self.is_customize_op = True
 
     def __repr__(self):
         code_str = ""
@@ -1356,6 +1369,7 @@ class TileOp(Operation):
             LoopHandle(stage_hdl, y_parent.name + ".inner", loc)
         ]
         self.level = len(scope)
+        self.is_customize_op = True
     
     def __repr__(self):
         code_str = ""
@@ -1369,6 +1383,7 @@ class PipelineOp(Operation):
         self.target = target
         self.ii = ii
         self.level = len(scope)
+        self.is_customize_op = True
     
     def __repr__(self):
         code_str = ""
@@ -1382,6 +1397,7 @@ class UnrollOp(Operation):
         self.target = target
         self.factor = factor
         self.level = len(scope)
+        self.is_customize_op = True
 
     def __repr__(self):
         code_str = ""
@@ -1394,6 +1410,7 @@ class ParallelOp(Operation):
         super().__init__("parallel", loc)
         self.target = target
         self.level = len(scope)
+        self.is_customize_op = True
     
     def __repr__(self):
         code_str = ""
@@ -1406,6 +1423,7 @@ class FuseOp(Operation):
         super().__init__("fuse", loc)
         self.arg_list = arg_list
         self.level = len(scope)
+        self.is_customize_op = True
 
     def __repr__(self):
         code_str = ""
@@ -1420,6 +1438,7 @@ class ComputeAtOp(Operation):
         self.parent = parent
         self.axis = axis
         self.level = len(scope)
+        self.is_customize_op = True
     
     def __repr__(self):
         code_str = ""
@@ -1432,6 +1451,7 @@ class SystolicOp(Operation):
         super().__init__("systolic", loc)
         self.target = target
         self.level = len(scope)
+        self.is_customize_op = True
     
     def __repr__(self):
         code_str = ""
