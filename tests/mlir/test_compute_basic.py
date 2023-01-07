@@ -71,7 +71,7 @@ def test_fcompute_imperative_return():
 
     _test_kernel(kernel)
 
-@pytest.mark.skip(reason="less important, not supported yet")
+
 def test_fcompute_imperative_function():
     def kernel(A):
         @hcl.def_([A.shape, ()])
