@@ -470,7 +470,6 @@ class Stage(object):
         schedule.ast.top_func.body.append(compute_at_op)
 
     def outline(self, axis=None, unify=None):
-        #TODO(niansong): unify
         """Outline a stage as a function"""
         schedule = Schedule._CurrentSchedule
         if schedule.is_lowered():
