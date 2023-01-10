@@ -25,10 +25,7 @@ from .ast import ast
 
 def _mlir_lower_pipeline(module):
     hcl_d.loop_transformation(module)
-    pipeline = (
-        f"func.func"
-        f"(affine-loop-normalize, cse, affine-simplify-structures)"
-    )
+    pipeline = f"func.func" f"(affine-loop-normalize, cse, affine-simplify-structures)"
     try:
         with get_context():
             mlir_pass_manager.parse(pipeline).run(module)
@@ -38,19 +35,16 @@ def _mlir_lower_pipeline(module):
         print(module)
 
 
-def lower(schedule,
-          name="top",
-          binds=None,
-          simple_mode=False,
-          kernel_only=False,
-          stmt=None):
+def lower(
+    schedule, name="top", binds=None, simple_mode=False, kernel_only=False, stmt=None
+):
     """Lowering step before build into target
-       by applying optimization pass
+    by applying optimization pass
     """
     if schedule.is_lowered():
         raise APIError(
-                "The module has been lowered. Please apply schedule primitives before the lowering process."
-            )
+            "The module has been lowered. Please apply schedule primitives before the lowering process."
+        )
     # HeteroCL Transformation Pipeline
     ast_pm = ast_pass_manager()
     ast_pm.add_pass(NestElseIf)
@@ -72,8 +66,7 @@ def lower(schedule,
 
 
 def build(schedule, target=None, stmt=None, top=None):
-    """Build the executable according to the schedule and target.
-    """
+    """Build the executable according to the schedule and target."""
     try:
         # if isinstance(target, Platform) and str(target.tool.mode) != "debug":
         #     for _, stage in Stage._mapping:
@@ -89,8 +82,7 @@ def build(schedule, target=None, stmt=None, top=None):
                 if target is not None:
                     target.top = func.name
                     original_name = target.project
-                    target.project = "{}/{}.prj".format(
-                        original_name, func.name)
+                    target.project = "{}/{}.prj".format(original_name, func.name)
                     modules.append(build_fpga_kernel(func_mod, target, stmt))
                     target.project = original_name
                 else:
@@ -114,7 +106,7 @@ def separate_host_xcel(schedule, device_agnostic_ast):
 
     dfg.create_device_map()
     dfg.graph_partition()
-    
+
     # outline the device function
     dev_func_body = list()
     top_func = device_agnostic_ast.top_func
@@ -127,7 +119,7 @@ def separate_host_xcel(schedule, device_agnostic_ast):
                 dev_func_body.append(body_op)
         elif body_op.is_customize_op:
             dev_func_body.append(body_op)
-    
+
     # create device function
     args = list()
     return_tensors = list()
@@ -164,7 +156,7 @@ def separate_host_xcel(schedule, device_agnostic_ast):
                 host_func_body.append(call)
                 call_inserted = True
         else:
-            #TODO: this should be a deep copy
+            # TODO: this should be a deep copy
             # because the ast.replace_all_uses_with will affect the original ast
             host_func_body.append(copy.copy(body_op))
     host_func = ast.FuncOp("main", top_func.args, host_func_body, top_func.loc)
@@ -173,9 +165,11 @@ def separate_host_xcel(schedule, device_agnostic_ast):
 
     for old, new in zip(return_tensors, new_rets):
         ast.replace_all_uses_with(host_func, old, new)
-    
+
     # create device function prototype
-    device_func_proto = ast.FuncOp(device_func.name, args + return_tensors, [], top_func.loc)
+    device_func_proto = ast.FuncOp(
+        device_func.name, args + return_tensors, [], top_func.loc
+    )
     device_func_proto.level = 0
     device_func_proto.prototype = True
 
@@ -194,14 +188,19 @@ def generate_kernel_header(schedule):
 #include <hls_stream.h>
 
 void top("""
-    all_inputs_outputs = schedule.DataflowGraph.subgraph["inputs"] + \
-        schedule.DataflowGraph.subgraph["outputs"]
+    all_inputs_outputs = (
+        schedule.DataflowGraph.subgraph["inputs"]
+        + schedule.DataflowGraph.subgraph["outputs"]
+    )
     args = []
     for node in all_inputs_outputs:
         tensor = node.tensor
         with get_context():
-            arg = hcl_mlir.print_mlir_type(
-                hcl_dtype_to_mlir(tensor.dtype)) + " " + tensor.name
+            arg = (
+                hcl_mlir.print_mlir_type(hcl_dtype_to_mlir(tensor.dtype))
+                + " "
+                + tensor.name
+            )
         for index in tensor.shape:
             arg += "[{}]".format(index)
         args.append(arg)
@@ -252,7 +251,7 @@ def build_fpga_kernel(schedule, target=None, stmt=None):
         device_agnostic_ast = schedule.ast
         # Separate host and device
         host_ast, xcel_ast = separate_host_xcel(schedule, device_agnostic_ast)
-        
+
         set_context()
         xcel_ir_builder = IRBuilder(xcel_ast)
         xcel_ir_builder.build()
@@ -296,7 +295,6 @@ def build_fpga_kernel(schedule, target=None, stmt=None):
 
 
 def build_llvm(schedule, top_func_name="top"):
-
     def attach_llvm_attrs(module):
         # find top func op
         func = None
@@ -306,9 +304,9 @@ def build_llvm(schedule, top_func_name="top"):
                 break
         if func is None:
             raise APIError("No top-level function found in the built MLIR module")
-        func.attributes['llvm.emit_c_interface'] = UnitAttr.get()
+        func.attributes["llvm.emit_c_interface"] = UnitAttr.get()
         func.attributes[top_func_name] = UnitAttr.get()
-        func.attributes['sym_name'] = StringAttr.get("top")
+        func.attributes["sym_name"] = StringAttr.get("top")
 
     with get_context() as ctx, get_location():
         if isinstance(schedule, Schedule):
@@ -321,7 +319,7 @@ def build_llvm(schedule, top_func_name="top"):
         host_src = Module.parse(str(module))
 
         # memref dce should precede lower_composite_type
-        hcl_d.memref_dce(module) 
+        hcl_d.memref_dce(module)
         hcl_d.lower_composite_type(module)
         hcl_d.lower_fixed_to_int(module)
         hcl_d.lower_print_ops(module)
@@ -334,23 +332,30 @@ def build_llvm(schedule, top_func_name="top"):
         hcl_d.legalize_cast(module)
         hcl_d.remove_stride_map(module)
         hcl_d.lower_hcl_to_llvm(module, ctx)
-        
+
         # Add shared library
         if os.getenv("LLVM_BUILD_DIR") is not None:
             shared_libs = [
-                os.path.join(os.getenv("LLVM_BUILD_DIR"),
-                            'lib', 'libmlir_runner_utils.so'),
-                os.path.join(os.getenv("LLVM_BUILD_DIR"),
-                            'lib', 'libmlir_c_runner_utils.so')
+                os.path.join(
+                    os.getenv("LLVM_BUILD_DIR"), "lib", "libmlir_runner_utils.so"
+                ),
+                os.path.join(
+                    os.getenv("LLVM_BUILD_DIR"), "lib", "libmlir_c_runner_utils.so"
+                ),
             ]
         else:
-            APIWarning("LLVM_BUILD_DIR is not set, print memref feature is not available.").warn()
+            APIWarning(
+                "LLVM_BUILD_DIR is not set, print memref feature is not available."
+            ).warn()
             shared_libs = None
 
         if shared_libs is not None:
-            execution_engine = ExecutionEngine(module, opt_level=0, shared_libs=shared_libs)
+            execution_engine = ExecutionEngine(
+                module, opt_level=0, shared_libs=shared_libs
+            )
         else:
             execution_engine = ExecutionEngine(module, opt_level=0)
-        hcl_module = HCLModule(top_func_name, execution_engine,
-                               "llvm", host_src=host_src, return_num=0)
+        hcl_module = HCLModule(
+            top_func_name, execution_engine, "llvm", host_src=host_src, return_num=0
+        )
         return hcl_module

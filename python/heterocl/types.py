@@ -7,6 +7,7 @@ from hcl_mlir.ir import Type as mlir_type
 from hcl_mlir import mlir_type_to_str
 from hcl_mlir.exceptions import *
 
+
 class Type(object):
     """The base class for all data types
 
@@ -26,11 +27,9 @@ class Type(object):
         if not isinstance(fracs, numbers.Integral):
             raise DTypeError("Number of fractional bits must be an integer.")
         if bits > 2047:
-            raise DTypeError(
-                "The maximum supported total bitwidth is 2047 bits.")
+            raise DTypeError("The maximum supported total bitwidth is 2047 bits.")
         if fracs > 255:
-            raise DTypeError(
-                "The maximum supported fractional bitwidth is 255 bits.")
+            raise DTypeError("The maximum supported fractional bitwidth is 255 bits.")
         self.bits = bits
         self.fracs = fracs
 
@@ -113,6 +112,7 @@ class Struct(Type):
     def __getitem__(self, key):
         return self.__getattr__(key)
 
+
 def dtype_to_str(dtype):
     """Convert a data type to string format.
 
@@ -181,10 +181,10 @@ def dtype_to_hcl(dtype):
         elif dtype[0:5] == "float":
             return Float()
         elif dtype[0:5] == "fixed":
-            strs = dtype[5:].split('_')
+            strs = dtype[5:].split("_")
             return Fixed(int(strs[0]), int(strs[1]))
         elif dtype[0:6] == "ufixed":
-            strs = dtype[6:].split('_')
+            strs = dtype[6:].split("_")
             return UFixed(int(strs[0]), int(strs[1]))
         else:
             raise DTypeError("Unrecognized data type: {}".format(dtype))
@@ -223,6 +223,7 @@ def get_fractional_bitwidth(dtype):
     dtype = dtype_to_hcl(dtype)
     return dtype.fracs
 
+
 def sort_type_classes(types):
     """Sort the types in the order of Int, UInt, Fixed, UFixed, Float, Struct.
 
@@ -239,26 +240,33 @@ def sort_type_classes(types):
     if isinstance(types, tuple):
         types = list(types)
     elif not isinstance(types, list):
-        raise DTypeError(f"sort_type_classes input should be a list or tuple, got {type(types)}")
+        raise DTypeError(
+            f"sort_type_classes input should be a list or tuple, got {type(types)}"
+        )
     for t in types:
         if not isinstance(t, type):
-            raise DTypeError(f"sort_type_classes input should be a list of types, got a list of {t} : {type(t)}")
+            raise DTypeError(
+                f"sort_type_classes input should be a list of types, got a list of {t} : {type(t)}"
+            )
         elif not issubclass(t, Type):
-            raise DTypeError(f"sort_type_classes input should be a list of Type subclass, got {t}")
+            raise DTypeError(
+                f"sort_type_classes input should be a list of Type subclass, got {t}"
+            )
     type_classes = [Int, UInt, Index, Fixed, UFixed, Float, Struct]
     type_classes = [t.__name__ for t in type_classes]
     return sorted(types, key=lambda t: type_classes.index(t.__name__))
 
+
 class TypeRule(object):
-    """Type inference rule for a set of operations.
-    """
+    """Type inference rule for a set of operations."""
+
     def __init__(self, OpClass, inf_rules, commutative=False):
         """
         Parameters
         ----------
         OpClass : a class or a collection of classes
             The operation class or a list of operation classes
-        
+
         inf_rules : a dictionary or a collection of dictionaries
             The inference rules for the operation class
             Each item should be (input types, lambda function)
@@ -269,15 +277,19 @@ class TypeRule(object):
         elif isinstance(OpClass, tuple):
             OpClass = list(OpClass)
         elif not isinstance(OpClass, list):
-            raise TypeError(f"OpClass must be a class or a collection of classes, not {type(OpClass)}")
-        
+            raise TypeError(
+                f"OpClass must be a class or a collection of classes, not {type(OpClass)}"
+            )
+
         if isinstance(inf_rules, dict):
             inf_rules = [inf_rules]
         elif not isinstance(inf_rules, tuple):
             inf_rules = list(inf_rules)
         elif not isinstance(inf_rules, list):
-            raise TypeError(f"inf_rules must be a dict or a collection of dict, not {type(inf_rules)}")
-        
+            raise TypeError(
+                f"inf_rules must be a dict or a collection of dict, not {type(inf_rules)}"
+            )
+
         self.commutative = commutative
         # A collection of applicable operations
         self.OpClass = OpClass
@@ -293,10 +305,14 @@ class TypeRule(object):
                     raise TypeError(f"itype must be a tuple, not {type(itype)}")
                 for t in itype:
                     if not isinstance(t, type):
-                        raise TypeError(f"itype must be a tuple of Class, not {type(t)}")
+                        raise TypeError(
+                            f"itype must be a tuple of Class, not {type(t)}"
+                        )
                 # check inf_rule type
                 if not isinstance(inf_rule, python_types.LambdaType):
-                    raise TypeError(f"inf_rule must be a lambda function, not {type(inf_rule)}")
+                    raise TypeError(
+                        f"inf_rule must be a lambda function, not {type(inf_rule)}"
+                    )
                 # sort the input types
                 if commutative:
                     itype = tuple(sort_type_classes(itype))
@@ -304,13 +320,15 @@ class TypeRule(object):
                     itype = tuple(itype)
                 # check if the input types are already in the dictionary
                 if itype in self.inf_rules:
-                    raise DTypeError(f"Duplicate inference rule for input types {itype}")
+                    raise DTypeError(
+                        f"Duplicate inference rule for input types {itype}"
+                    )
                 # add the rule to the dictionary
                 self.inf_rules[itype] = inf_rule
 
     def __call__(self, *args):
         """Call the inference rule with the given input types.
-        
+
         It automatically finds the typing rule based on the input types.
         If no rule is found, it will raise an error.
 
@@ -329,11 +347,13 @@ class TypeRule(object):
             itype_classes = [type(t) for t in args]
         itype_classes = tuple(itype_classes)
         if itype_classes not in self.inf_rules:
-            raise APIError(f"Typing rule is not defined for {self.OpClass} with input types {itype_classes}")
+            raise APIError(
+                f"Typing rule is not defined for {self.OpClass} with input types {itype_classes}"
+            )
         rule = self.inf_rules[itype_classes]
         res_type = rule(*args)
         return res_type
 
     # def __repr__(self):
-        # TODO: make type rule printable
-        # pass
+    # TODO: make type rule printable
+    # pass

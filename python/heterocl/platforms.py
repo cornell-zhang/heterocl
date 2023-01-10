@@ -3,6 +3,7 @@ from .devices import Platform, CPU, FPGA, PIM
 from .devices import *
 from .tools import *
 
+
 def import_json_platform(json_file):
     assert os.path.exists(json_file), f"{json_file} does not exist"
     graph = dict()
@@ -42,34 +43,31 @@ def import_json_platform(json_file):
 
     with open(json_file, "r+") as f:
         json_spec = json.load(f)
-        traverse_json_tree(json_spec) 
-    
+        traverse_json_tree(json_spec)
+
     # Construct a platform object from JSON
     # TODO: support for multiple xcel and host devices
 
-    is_host_device = lambda node: True if "CPU" in node['type'] else False
+    is_host_device = lambda node: True if "CPU" in node["type"] else False
     host_device_json = [_ for _ in compute_devices if is_host_device(_)][0]
-    host_device_object = CPU("intel", host_device_json['part'])
+    host_device_object = CPU("intel", host_device_json["part"])
 
     xcel_device_json = [_ for _ in compute_devices if not is_host_device(_)][0]
-    xcel_device_object = FPGA('xilinx', xcel_device_json['part'])
+    xcel_device_object = FPGA("xilinx", xcel_device_json["part"])
 
     return Platform(
-        name = json_file,
-        devs = [host_device_object, xcel_device_object],
-        host = host_device_object,
-        xcel = xcel_device_object,
-        tool = None
+        name=json_file,
+        devs=[host_device_object, xcel_device_object],
+        host=host_device_object,
+        xcel=xcel_device_object,
+        tool=None,
     )
 
 
 class AWS_F1(Platform):
     def __init__(self):
         name = "aws_f1"
-        devs = [
-            CPU("intel", "e5"), 
-            FPGA("xilinx", "xcvu19p")
-            ]
+        devs = [CPU("intel", "e5"), FPGA("xilinx", "xcvu19p")]
         host = devs[0].set_backend("xocl")
         xcel = devs[1].set_backend("vhls")
         tool = Tool.vitis
@@ -80,54 +78,40 @@ class AWS_F1(Platform):
         self.tool = tool
 
         # attach supported memory modules
-        off_chip_mem = {
-            "HBM": HBM,
-            "PLRAM": PLRAM
-        }
+        off_chip_mem = {"HBM": HBM, "PLRAM": PLRAM}
         for memory, memory_class in off_chip_mem.items():
             host.storage[memory] = memory_class()
             xcel.storage[memory] = memory_class()
 
-        on_chip_mem = {
-            "URAM": URAM,
-            "BRAM": BRAM,
-            "LUTRAM": LUTRAM
-        }
+        on_chip_mem = {"URAM": URAM, "BRAM": BRAM, "LUTRAM": LUTRAM}
         for memory, memory_class in on_chip_mem.items():
             xcel.storage[memory] = memory_class()
         super(AWS_F1, self).__init__(name, devs, host, xcel, tool)
 
+
 class XILINX_ZC706(Platform):
     def __init__(self):
         name = "zc706"
-        devs = [
-            CPU("arm", "a9"), 
-            FPGA("xilinx", "xc7z045")
-        ]
+        devs = [CPU("arm", "a9"), FPGA("xilinx", "xc7z045")]
         host = devs[0].set_backend("vhls")
         xcel = devs[1].set_backend("vhls")
         tool = Tool.vivado_hls
-        on_chip_mem = {
-            "URAM": URAM,
-            "BRAM": BRAM,
-            "LUTRAM": LUTRAM
-        }
+        on_chip_mem = {"URAM": URAM, "BRAM": BRAM, "LUTRAM": LUTRAM}
         for memory, memory_class in on_chip_mem.items():
             xcel.storage[memory] = memory_class()
         super(XILINX_ZC706, self).__init__(name, devs, host, xcel, tool)
 
+
 class INTEL_VLAB(Platform):
     def __init__(self):
         name = "vlab"
-        devs = [
-            CPU("intel", "e5"), 
-            FPGA("intel", "arria10")
-            ]
+        devs = [CPU("intel", "e5"), FPGA("intel", "arria10")]
         host = devs[0].set_backend("aocl")
         xcel = devs[1].set_backend("aocl")
         tool = Tool.aocl
         super(INTEL_VLAB, self).__init__(name, devs, host, xcel, tool)
 
-Platform.aws_f1  = AWS_F1()
-Platform.xilinx_zc706  = XILINX_ZC706()
-Platform.intel_vlab    = INTEL_VLAB()
+
+Platform.aws_f1 = AWS_F1()
+Platform.xilinx_zc706 = XILINX_ZC706()
+Platform.intel_vlab = INTEL_VLAB()

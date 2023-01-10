@@ -1,6 +1,6 @@
 from contextvars import ContextVar
 
-#TODO: remove unecessary context vars
+# TODO: remove unecessary context vars
 
 from hcl_mlir.dialects import hcl as hcl_d
 from hcl_mlir.ir import *
@@ -14,6 +14,7 @@ StageName = ContextVar("StageName", default="")
 NestedStageLevel = ContextVar("NestedStageLevel", default=0)
 BreakFlag = ContextVar("BreakFlag", default=False)
 StageAttachGlobal = ContextVar("StageAttachGlobal", default=True)
+
 
 class UniqueName(object):
     scalar_idx = 0
@@ -81,6 +82,7 @@ class GlobalContext(object):
 
     def exit_context(self):
         GlobalContext.in_context = False
+
 
 global_ctx = GlobalContext()
 get_context = global_ctx.get_context

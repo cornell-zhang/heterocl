@@ -2,6 +2,7 @@ from ..ast import ast
 from .pass_manager import Pass
 from hcl_mlir.exceptions import *
 
+
 class PromoteFunc(Pass):
     """
     Move all function ops to global scope.
@@ -12,8 +13,7 @@ class PromoteFunc(Pass):
         self._ast = None
 
     def apply(self, _ast):
-        """ Pass entry point
-        """
+        """Pass entry point"""
         self._ast = _ast
         self.visit(_ast.region)
         return _ast

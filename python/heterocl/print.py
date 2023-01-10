@@ -10,6 +10,7 @@ from .utils import get_dtype_str
 from .ast import ast
 from .schedule import get_src_loc
 
+
 def print(vals, format_str=""):
     filename, lineno = get_src_loc()
     loc = ast.Location(filename, lineno)
@@ -30,8 +31,10 @@ def print(vals, format_str=""):
                 continue
             else:
                 raise HCLValueError(
-                    "Unsupported type of element in tuple: {} of type {}"
-                    .format(val, type(val)))
+                    "Unsupported type of element in tuple: {} of type {}".format(
+                        val, type(val)
+                    )
+                )
         # when vals is empty
         if len(vals) == 0:
             value = ast.immediate_to_constant(0, loc)

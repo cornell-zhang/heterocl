@@ -61,18 +61,18 @@ def scalar(init, name=None, dtype=None):
         name = UniqueName.get("scalar")
     if isinstance(dtype, str):
         dtype = dtype_to_hcl(dtype)
-    dtype = config.init_dtype if dtype == None else dtype # dtype is HeteroCL type
+    dtype = config.init_dtype if dtype == None else dtype  # dtype is HeteroCL type
     if isinstance(dtype, Struct) and isinstance(init, int):
         vals = list()
         for ftype in dtype.dtype_dict.values():
-            mask = (1 << (ftype.bits+1)) - 1
+            mask = (1 << (ftype.bits + 1)) - 1
             val = init & mask
             init = init >> ftype.bits
             vals.append(ast.ConstantOp(val, ftype, loc))
         init = tuple(vals)
 
     # Generate a ComputeOp
-    op = compute_body(name, (1,), lambda x : init, dtype, loc, None)
+    op = compute_body(name, (1,), lambda x: init, dtype, loc, None)
     return op.tensor
 
 
@@ -90,8 +90,10 @@ def cast(dtype, expr):
     if isinstance(dtype, str):
         dtype = dtype_to_hcl(dtype)
     if isinstance(expr, Tensor):
-        raise APIError("Tensor is not supported in hcl.cast. " +
-                        "If you are try to cast a hcl.scalar, please use hcl.cast(scalar.v)")
+        raise APIError(
+            "Tensor is not supported in hcl.cast. "
+            + "If you are try to cast a hcl.scalar, please use hcl.cast(scalar.v)"
+        )
     filename, lineno = get_src_loc()
     loc = ast.Location(filename, lineno)
     return ast.CastOp(expr, dtype, loc)
@@ -113,8 +115,12 @@ def const_tensor(values, name=None, dtype=None):
     region = ast.scope.get()
     region.append(cst_op)
     if isinstance(dtype, (Int, UInt)):
-        return compute(shape, lambda *args : cast(dtype, cst_op.tensor[args]), 
-            name=name+"_cast", dtype=dtype)
+        return compute(
+            shape,
+            lambda *args: cast(dtype, cst_op.tensor[args]),
+            name=name + "_cast",
+            dtype=dtype,
+        )
     return cst_op.tensor
 
 
@@ -168,7 +174,14 @@ def min(data, axis=None, dtype=None, name=""):
 
 def reduce(data, init_val, reduce_op, axis=None, dtype=None, name=""):
     raise HCLNotImplementedError("reduce is not implemented yet")
-    return hcl_mlir.ReduceOp(data, axis, get_dtype_str(dtype), prefix=name, init_val=init_val, reduce_op={"si": reduce_op})
+    return hcl_mlir.ReduceOp(
+        data,
+        axis,
+        get_dtype_str(dtype),
+        prefix=name,
+        init_val=init_val,
+        reduce_op={"si": reduce_op},
+    )
 
 
 def pack(tensor, axis=0, factor=None, name=None, dtype=None):
@@ -198,8 +211,7 @@ def pack(tensor, axis=0, factor=None, name=None, dtype=None):
                 for j, index in enumerate(indices)
             ]
             val = tensor[tuple(new_indices)]
-            result[0][bitwidth * i: bitwidth *
-                      (i + 1)] = tensor[tuple(new_indices)]
+            result[0][bitwidth * i : bitwidth * (i + 1)] = tensor[tuple(new_indices)]
         return result[0]
 
     return compute(tuple(new_shape), assign_val, name, new_type)
@@ -234,10 +246,10 @@ def unpack(tensor, axis=0, factor=None, name=None, dtype=None):
         return val
 
     return compute(tuple(new_shape), assign_val, name, new_type)
-    
+
 
 def compute_body(name, shape, fcompute, dtype, loc, tensor):
-    """ Create an ast.ComputeOp and its body operations
+    """Create an ast.ComputeOp and its body operations
 
     Parameters
     ----------
@@ -277,7 +289,9 @@ def compute_body(name, shape, fcompute, dtype, loc, tensor):
         # this is the case where fcompute is lambda *args: ...
         axis_names = ["i" + str(i) for i in range(len(shape))]
     if len(axis_names) != len(shape):
-        raise APIError(f"fcompute's number of axis does not match output tensor shape: {axis_names} vs {shape}")
+        raise APIError(
+            f"fcompute's number of axis does not match output tensor shape: {axis_names} vs {shape}"
+        )
     iter_vars = [ast.IterVar(name, None, loc) for name in axis_names]
     # attach iter_vars to the compute op
     # iter_var's parent_loop will be set in ir.ir_builder.build_compute
@@ -291,7 +305,9 @@ def compute_body(name, shape, fcompute, dtype, loc, tensor):
         if isinstance(res_expr, tuple) and isinstance(dtype, Struct):
             res_expr = ast.StructConstructOp(list(res_expr), dtype, loc)
         if res_expr is None:
-            if len(compute_op.body) > 0 and isinstance(compute_op.body[-1], ast.ReturnOp):
+            if len(compute_op.body) > 0 and isinstance(
+                compute_op.body[-1], ast.ReturnOp
+            ):
                 res_expr = ast.immediate_to_constant(compute_op.body[-1].expr, loc)
                 compute_op.body.pop()
         store_op = ast.StoreOp(compute_op.tensor, compute_op.iter_vars, res_expr, loc)
@@ -304,7 +320,9 @@ def compute_body(name, shape, fcompute, dtype, loc, tensor):
         if isinstance(res_expr, tuple) and isinstance(dtype, Struct):
             res_expr = ast.StructConstructOp(list(res_expr), dtype, loc)
         if res_expr is None:
-            if len(compute_op.body) > 0 and isinstance(compute_op.body[-1], ast.ReturnOp):
+            if len(compute_op.body) > 0 and isinstance(
+                compute_op.body[-1], ast.ReturnOp
+            ):
                 res_expr = ast.immediate_to_constant(compute_op.body[-1].expr, loc)
                 compute_op.body.pop()
         store_op = ast.StoreOp(tensor, iter_vars, res_expr, loc)
@@ -320,6 +338,7 @@ def compute_body(name, shape, fcompute, dtype, loc, tensor):
         raise APIError("Invalid tensor type")
 
     return compute_op
+
 
 def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
     if not isinstance(shape, tuple):
@@ -345,12 +364,11 @@ def update(tensor, fcompute, name=None):
         raise APIError("The input of update API must be an allocated tensor")
     if name is None:
         name = tensor.name + "_updated"
-    
+
     filename, lineno = get_src_loc()
     loc = ast.Location(filename, lineno)
     compute_body(name, tensor.shape, fcompute, tensor.dtype, loc, tensor)
     return tensor
-
 
 
 def mutate(domain, fcompute, name=None):
@@ -358,13 +376,12 @@ def mutate(domain, fcompute, name=None):
         raise APIError("The domain of mutate API must be a tuple")
     if name is None:
         name = UniqueName.get("tensor")
-    
+
     # Generate a ComputeOp
     filename, lineno = get_src_loc()
     loc = ast.Location(filename, lineno)
     compute_body(name, domain, fcompute, None, loc, "no_alloc")
     return
-
 
 
 def bitcast(tensor, dst_dtype, name=None):
@@ -425,15 +442,19 @@ def match(scope, pattern):
     if not inspect.isfunction(scope) and not isinstance(scope, Stage):
         raise APIError("The scope of match API must be a function or a stage.")
     if not isinstance(pattern, str) and not inspect.isfunction(pattern):
-        raise APIError("The pattern of match API must be a string or a lambda function.")
-    
+        raise APIError(
+            "The pattern of match API must be a string or a lambda function."
+        )
+
     matched = []
     if isinstance(pattern, str):
         # Check if pattern is a valid regular expression
         try:
             re.compile(pattern)
         except re.error:
-            raise APIError("The pattern of match API must be a valid regular expression.")
+            raise APIError(
+                "The pattern of match API must be a valid regular expression."
+            )
 
     def _ismatch(pattern, stage):
         if isinstance(pattern, str):
@@ -449,12 +470,12 @@ def match(scope, pattern):
                 if _ismatch(pattern, stage):
                     if stage not in matched:
                         matched.append(stage)
-        else: # search in local function
+        else:  # search in local function
             for stage in scope._stages:
                 if _ismatch(pattern, stage):
                     if stage not in matched:
                         matched.append(stage)
-    else: # search in stage
+    else:  # search in stage
         for stage in scope._sub_stages:
             if _ismatch(pattern, stage):
                 if stage not in matched:

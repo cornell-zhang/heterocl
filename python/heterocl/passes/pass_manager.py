@@ -8,20 +8,24 @@ from ..ast import ast
 from hcl_mlir.exceptions import *
 from hcl_mlir.ir import *
 
+
 class Pass(object):
     """Base class for all intermediate pass.
 
     A pass is a visitor that can mutate the Intermediate Layer.
     """
+
     def __init__(self, name):
-        self.name = name # name of the pass
+        self.name = name  # name of the pass
 
     def apply(self, _ast):
         """Apply the pass to the AST."""
-        raise HCLNotImplementedError("Pass.apply() is not implemented for pass: " + self.name)
+        raise HCLNotImplementedError(
+            "Pass.apply() is not implemented for pass: " + self.name
+        )
 
     def update_level(self, op):
-        """ Update the level of an operation and its children.
+        """Update the level of an operation and its children.
 
         Parameters
         ----------
@@ -33,15 +37,15 @@ class Pass(object):
                 body_op.level = op.level + 1
                 self.update_level(body_op)
 
+
 class PassManager(object):
-    """A pass manager that manages a pipeline of passes.
-    """
+    """A pass manager that manages a pipeline of passes."""
+
     def __init__(self):
         self.pipeline = []
-    
+
     def add_pass(self, pass_class):
-        """Add a pass to the pass pipeline.
-        """
+        """Add a pass to the pass pipeline."""
         self.pipeline.append(pass_class)
 
     def run(self, _ast):
@@ -49,4 +53,3 @@ class PassManager(object):
             pass_obj = pass_class()
             _ast = pass_obj.apply(_ast)
         return _ast
-

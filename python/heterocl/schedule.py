@@ -102,7 +102,7 @@ class Schedule(object):
     def __init__(self, name, inputs, func=None):
         self.name = name
         self.lowered = False
-        
+
         # MLIR modules:
         # Device-agnostic module:
         # used for transformation
@@ -122,7 +122,6 @@ class Schedule(object):
         # Used by Stages to refer to the current schedule
         Schedule._CurrentSchedule = self
         Schedule._TopFunction = func
-
 
     @property
     def device_module(self):
@@ -272,7 +271,9 @@ class Schedule(object):
         elif isinstance(dst, Stage):
             filename, lineno = get_src_loc()
             loc = ast.Location(filename, lineno)
-            inter_kernel_to_op = ast.InterKernelToOp(tensor, dst.stage_handle, fifo_depth, loc)
+            inter_kernel_to_op = ast.InterKernelToOp(
+                tensor, dst.stage_handle, fifo_depth, loc
+            )
             self.ast.top_func.body.append(inter_kernel_to_op)
             # outline both stages
             src = Stage.lookup(tensor.name)
@@ -313,6 +314,7 @@ class StageFunction(object):
     When .outline() unify is enabled, StageFunction provides a target
     function to be unified with.
     """
+
     def __init__(self, name):
         if not isinstance(name, list):
             name = [name]
@@ -551,7 +553,7 @@ class _CreateStagesFromAST(object):
             Stage._mapping.append((stage, stage))
             if top_func is not None:
                 top_func.__setattr__(op.name, stage)
-        else: # op.kind == "mutate"
+        else:  # op.kind == "mutate"
             Stage._mapping.append((stage, stage))
             if top_func is not None:
                 top_func.__setattr__(op.name, stage)
@@ -614,7 +616,7 @@ class _CreateDFGFromAST(object):
                 for t in op.input_tensors:
                     self.dfg.add_edge(t, op.tensor)
                     # print("add edge", t, op.tensor)
-            else: # update, mutate
+            else:  # update, mutate
                 for t in op.input_tensors:
                     self.dfg.add_edge(t, op.aux_tensor, stateful=True)
                     # print("add edge", t, op.aux_tensor)

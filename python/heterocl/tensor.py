@@ -12,21 +12,26 @@ from hcl_mlir.exceptions import *
 
 from .types import dtype_to_str, Int, UInt, Float, Fixed, UFixed
 from .context import get_context, get_location, NestedStageLevel
+
 # from .schedule import Schedule, Stage
 from .utils import get_extra_type_hints, hcl_dtype_to_mlir, get_dtype_str
+
 
 class Tensor(object):
     """A wrapper class for hcl-mlir tensor-related operations
     op can be placeholder (alloc) or compute op
     """
 
-    def __init__(self, shape, dtype, fcompute=None, name="", impl="tensor", output=None):
+    def __init__(
+        self, shape, dtype, fcompute=None, name="", impl="tensor", output=None
+    ):
         # hcl.Type before building
         # hcl_mlir.Type after building
         self.dtype = dtype
         if impl == "tensor":
             self.op = hcl_mlir.TensorOp(
-                shape, memref.AllocOp, get_dtype_str(dtype), name=name)
+                shape, memref.AllocOp, get_dtype_str(dtype), name=name
+            )
         elif impl == "compute":
             self.op = ComputeOp(shape, fcompute, dtype, name, output)
         else:
@@ -104,7 +109,6 @@ class Tensor(object):
 
 
 class ComputeOp(object):
-
     def __init__(self, shape, fcompute, dtype, name, output=None):
         # check if input arguments are valid
         out_ndim = len(shape)
@@ -121,7 +125,9 @@ class ComputeOp(object):
             # if there are fewer args than out dimensions, the remaining dimensions
             # are implicitly broadcasted
             out_ndim = len(arg_names)
-        assert argspec.varkw is None, "Variable keyword arguments not supported in fcompute"
+        assert (
+            argspec.varkw is None
+        ), "Variable keyword arguments not supported in fcompute"
         assert argspec.defaults is None, "Default arguments not supported in fcompute"
         assert (
             len(argspec.kwonlyargs) == 0
@@ -153,8 +159,9 @@ class ComputeOp(object):
                 self.output = None
             else:
                 self.kind = "compute"
-                self.output = Tensor(self.shape, self.dtype,
-                                     name=self.name, impl="tensor")  # placeholder
+                self.output = Tensor(
+                    self.shape, self.dtype, name=self.name, impl="tensor"
+                )  # placeholder
                 self.output.build()
         else:  # update
             self.kind = "update"
@@ -166,7 +173,7 @@ class ComputeOp(object):
     def build(self):
         # Schedule._CurrentStage.append(self.stage)
         # self.stage.stage_handle = hcl_d.CreateOpHandleOp(
-            # StringAttr.get(self.stage.name), ip=GlobalInsertionPoint.get()
+        # StringAttr.get(self.stage.name), ip=GlobalInsertionPoint.get()
         # )
         NestedStageLevel.set(NestedStageLevel.get() + 1)
         input_types = []
@@ -179,18 +186,18 @@ class ComputeOp(object):
         with get_context() as ctx, get_location() as loc:
             # create loop handles in the top function
             # with GlobalInsertionPoint.get():
-                # loop_handles = []
-                # for loop_name in self.arg_names:
-                #     loop_handles.append(
-                #         hcl_d.CreateLoopHandleOp(
-                #             self.stage.stage_handle.result, StringAttr.get(loop_name))
-                #     )
-                # for var in self.reduce_var:
-                #     loop_handles.append(
-                #         hcl_d.CreateLoopHandleOp(self.stage.stage_handle.result, StringAttr.get(var.name)))
+            # loop_handles = []
+            # for loop_name in self.arg_names:
+            #     loop_handles.append(
+            #         hcl_d.CreateLoopHandleOp(
+            #             self.stage.stage_handle.result, StringAttr.get(loop_name))
+            #     )
+            # for var in self.reduce_var:
+            #     loop_handles.append(
+            #         hcl_d.CreateLoopHandleOp(self.stage.stage_handle.result, StringAttr.get(var.name)))
             # set loop handles
             # if self.output is not None:
-                # self.stage.op.set_axis(loop_handles)
+            # self.stage.op.set_axis(loop_handles)
             # build output tensor
             # if self.kind == "compute" and Schedule._TopFunction == None:
             #     self.output.build()
@@ -215,8 +222,10 @@ class ComputeOp(object):
             # transform lambda function to MLIR
             GlobalInsertionPoint.save(body_ip)  # inner-most loop
             # get loop variables (BlockArgument)
-            iter_var = [hcl_mlir.IterVar(loop.induction_variable, name=loop_name)
-                        for loop, loop_name in zip(loops, self.arg_names)]
+            iter_var = [
+                hcl_mlir.IterVar(loop.induction_variable, name=loop_name)
+                for loop, loop_name in zip(loops, self.arg_names)
+            ]
             if self.output is not None:
                 self.output.iter_var = iter_var
 
@@ -233,7 +242,8 @@ class ComputeOp(object):
                 builder = ASTVisitor()
                 if isinstance(result_expr, (int, float)):
                     result_expr = hcl_mlir.ConstantOp(
-                        hcl_dtype_to_mlir(self.dtype), result_expr)
+                        hcl_dtype_to_mlir(self.dtype), result_expr
+                    )
                 # Build IR by traversing the AST tree (from leaf to root)
                 value = builder.visit(result_expr)
 
@@ -309,7 +319,10 @@ class Array(object):
                 sb = 1 << self.dtype.bits
                 sb_limit = 1 << (self.dtype.bits - 1)
                 np_array = np_array % sb
-                def cast_func(x): return x if x < sb_limit else x - sb
+
+                def cast_func(x):
+                    return x if x < sb_limit else x - sb
+
                 np_array = np.vectorize(cast_func)(np_array)
                 np_array = np_array.astype(np.uint64)
             elif isinstance(dtype, UInt):
@@ -321,15 +334,18 @@ class Array(object):
                 # Handle overflow
                 sb = 1 << self.dtype.bits
                 sb_limit = 1 << (self.dtype.bits - 1)
-                np_array = np_array * (2**dtype.fracs)
+                np_array = np_array * (2 ** dtype.fracs)
                 np_array = np.fix(np_array) % sb
-                def cast_func(x): return x if x < sb_limit else x - sb
+
+                def cast_func(x):
+                    return x if x < sb_limit else x - sb
+
                 np_array = np.vectorize(cast_func)(np_array)
                 np_array = np_array.astype(np.uint64)
             elif isinstance(dtype, UFixed):
                 # Handle overflow
                 sb = 1 << self.dtype.bits
-                np_array = np_array * (2**dtype.fracs)
+                np_array = np_array * (2 ** dtype.fracs)
                 np_array = np.fix(np_array) % sb
                 np_array = np_array.astype(np.uint64)
             else:
@@ -344,8 +360,7 @@ class Array(object):
                 res_array = self.np_array.astype(np.int64)
             else:
                 res_array = self.np_array
-            res_array = res_array.astype(
-                np.float64) / float(2**(self.dtype.fracs))
+            res_array = res_array.astype(np.float64) / float(2 ** (self.dtype.fracs))
             return res_array
         elif isinstance(self.dtype, Int):
             res_array = self.np_array.astype(np.int64)

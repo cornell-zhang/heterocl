@@ -2,6 +2,7 @@ from ..ast import ast
 from .pass_manager import Pass
 from hcl_mlir.exceptions import *
 
+
 class NestElseIf(Pass):
     """Convert all elif into nested if-else statements.
 
@@ -20,15 +21,14 @@ class NestElseIf(Pass):
                 self.visit(op)
 
     def apply(self, _ast):
-        """ Pass entry point
-        """
+        """Pass entry point"""
         for op in _ast.region:
             self.visit(op)
 
         return _ast
 
     def nest_elif(self, scope):
-        """ Convert all elif into nested if-else statements in a given scope.
+        """Convert all elif into nested if-else statements in a given scope.
 
         Parameters
         ----------
@@ -64,21 +64,21 @@ class NestElseIf(Pass):
                 continue
             for i in range(len(chain) - 1):
                 # convert elseif to if
-                if isinstance(chain[i+1], ast.ElseIfOp):
-                    if_op = ast.IfOp(chain[i+1].cond, chain[i+1].loc)
-                    if_op.body.extend(chain[i+1].body)
+                if isinstance(chain[i + 1], ast.ElseIfOp):
+                    if_op = ast.IfOp(chain[i + 1].cond, chain[i + 1].loc)
+                    if_op.body.extend(chain[i + 1].body)
                     if_op.level += 1
                     self.update_level(if_op)
                     chain[i].else_body.append(if_op)
                     chain[i].else_branch_valid = True
-                    chain[i+1] = if_op
-                elif isinstance(chain[i+1], ast.ElseOp):
-                    chain[i].else_body.extend(chain[i+1].body)
+                    chain[i + 1] = if_op
+                elif isinstance(chain[i + 1], ast.ElseOp):
+                    chain[i].else_body.extend(chain[i + 1].body)
                     chain[i].else_branch_valid = True
                     for op in chain[i].else_body:
                         op.level += 1
                         self.update_level(op)
-                    chain.remove(chain[i+1])
+                    chain.remove(chain[i + 1])
                 else:
                     raise APIError("Invalid if-elif-else chain: " + str(chain))
 
@@ -90,4 +90,3 @@ class NestElseIf(Pass):
             else:
                 new_body.append(op)
         scope.body = new_body
-

@@ -95,24 +95,27 @@ class DataflowGraph(object):
 
         def print_node(src, dst):
             print(src.name, "->", dst.name)
+
         self.visit(print_node)
 
     def visualize(self):
         import networkx as nx
         import matplotlib.pyplot as plt
         from networkx.drawing.nx_agraph import write_dot, graphviz_layout
+
         plt.figure(figsize=(8, 5), dpi=200)
 
         edges = []
 
         def append_edge(src, dst):
             edges.append((src.name, dst.name))
+
         self.visit(append_edge)
 
         graph_name = "dfg_{}".format(self.name)
         nx_G = nx.from_edgelist(edges, create_using=nx.DiGraph)
-        write_dot(nx_G, '{}.dot'.format(graph_name))
-        pos = graphviz_layout(nx_G, prog='dot')
+        write_dot(nx_G, "{}.dot".format(graph_name))
+        pos = graphviz_layout(nx_G, prog="dot")
         color_map = []
         for node in nx_G:
             if self.node_map[node].device == None:
@@ -137,6 +140,7 @@ class DataflowGraph(object):
 
         def set_annotation(src, dst):
             dst.set_device(attr)
+
         if attr == "CPU":
             node.set_device("FPGA")
         elif attr == "FPGA":
@@ -158,14 +162,17 @@ class DataflowGraph(object):
                 flag = False
             if src.device not in ["CPU", None] or dst.device not in ["CPU", None]:
                 has_xcel = True
+
         self.visit(check_valid)
 
         if not has_xcel:  # label all the graph nodes as CPU
+
             def label_cpu(src, dst):
                 self.device_map[src.name] = "CPU"
                 self.device_map[dst.name] = "CPU"
                 src.device = "CPU"
                 dst.device = "CPU"
+
             self.visit(label_cpu)
             flag = True
         return flag
@@ -177,8 +184,7 @@ class DataflowGraph(object):
                 node.device = "CPU"
         if not self.create_device_map():
             self.visualize()
-            raise RuntimeError(
-                "There exists DFG nodes not labeled target devices")
+            raise RuntimeError("There exists DFG nodes not labeled target devices")
 
         def extract_subgraph(src, dst):
             if src.device in ["host", "CPU"] and dst.device in ["device", "FPGA"]:
@@ -189,6 +195,7 @@ class DataflowGraph(object):
                     self.subgraph["outputs"].append(src)
             else:
                 pass
+
         self.visit(extract_subgraph)
         for output in self.leaves:
             if output.device in ["device", "FPGA"]:

@@ -11,14 +11,16 @@ from hcl_mlir.exceptions import *
 from ..context import *
 from ..types import *
 
+
 def print_indent(string, level):
     for _ in range(level):
         string += "  "
     return string
 
+
 def immediate_to_constant(value, loc, dtype=None):
     if not isinstance(value, (int, float)):
-        return value # pass through
+        return value  # pass through
     if dtype is not None:
         return ConstantOp(value, dtype, loc)
     if isinstance(value, int):
@@ -28,6 +30,7 @@ def immediate_to_constant(value, loc, dtype=None):
             return ConstantOp(value, Int(64), loc)
     else:
         return ConstantOp(value, Float(64), loc)
+
 
 def replace_all_uses_with(op, old_tensor, new_tensor):
     if isinstance(op, FuncOp):
@@ -50,8 +53,8 @@ def replace_all_uses_with(op, old_tensor, new_tensor):
 
 
 class Location(object):
-    """ Filename and linenumber
-    """
+    """Filename and linenumber"""
+
     def __init__(self, filename, lineno):
         self.filename = filename
         self.lineno = lineno
@@ -59,8 +62,10 @@ class Location(object):
     def __str__(self):
         return f"{self.filename}:{self.lineno}"
 
+
 class Scope(object):
-    """ Scope class to manage operation insertion scopes."""
+    """Scope class to manage operation insertion scopes."""
+
     def __init__(self):
         self.stack = list()
 
@@ -94,8 +99,10 @@ class Scope(object):
         # be inserted into the top-level function body scope
         self.stack.append(list())
 
+
 scope = Scope()
 scope.reset()
+
 
 class Operation(object):
     """Base class for all operations.
@@ -106,6 +113,7 @@ class Operation(object):
         The name of the operation
 
     """
+
     def __init__(self, name, loc):
         self.name = name
         self.loc = loc
@@ -118,6 +126,7 @@ class Operation(object):
     def __repr__(self):
         return self.name
 
+
 class Expr(object):
     """Base class for all expressions.
 
@@ -127,6 +136,7 @@ class Expr(object):
         The name of the expression
 
     """
+
     def __init__(self, name, loc):
         self.name = name
         self.loc = loc
@@ -153,7 +163,7 @@ class Expr(object):
 
     def __rmul__(self, other):
         return Mul(other, self, self.loc)
-    
+
     def __div__(self, other):
         return Div(self, other, self.loc)
 
@@ -213,7 +223,7 @@ class Expr(object):
         if other is None:
             return True
         return Cmp("ne", self, other, self.loc)
-    
+
     def __gt__(self, other):
         return Cmp("gt", self, other, self.loc)
 
@@ -221,8 +231,7 @@ class Expr(object):
         return Cmp("ge", self, other, self.loc)
 
     def __getitem__(self, indices):
-        """Bit slicing and bit selection
-        """
+        """Bit slicing and bit selection"""
         if isinstance(indices, slice):
             lo, hi = indices.start, indices.stop
             if isinstance(lo, int) and isinstance(hi, int):
@@ -298,9 +307,8 @@ class Expr(object):
         return CastOp(self, dtype)
 
     def __getattr__(self, key):
-        """Access a field of a struct value
-        """
-         # bypass the attribute lookup to avoid infinite recursion
+        """Access a field of a struct value"""
+        # bypass the attribute lookup to avoid infinite recursion
         if key in self.__dict__.keys():
             return self.__dict__[key]
         elif isinstance(self, LoadOp):
@@ -316,6 +324,7 @@ class Expr(object):
             # an attribute exists with hasattr().
             return
 
+
 class UnaryOp(Expr):
     """Base class for all unary operations.
 
@@ -325,6 +334,7 @@ class UnaryOp(Expr):
         The name of the operation
 
     """
+
     def __init__(self, op, expr, loc):
         super().__init__(op, loc)
         expr = immediate_to_constant(expr, loc)
@@ -332,6 +342,7 @@ class UnaryOp(Expr):
 
     def __repr__(self):
         return f"({self.name} {self.expr})"
+
 
 class BinaryOp(Expr):
     """Base class for all binary operations.
@@ -342,6 +353,7 @@ class BinaryOp(Expr):
         The name of the operation
 
     """
+
     def __init__(self, op, lhs, rhs, loc):
         super().__init__(op, loc)
         lhs = immediate_to_constant(lhs, loc)
@@ -352,6 +364,7 @@ class BinaryOp(Expr):
     def __repr__(self):
         return f"({self.lhs} {self.name} {self.rhs})"
 
+
 class TernaryOp(Expr):
     """Base class for all ternary operations.
 
@@ -361,6 +374,7 @@ class TernaryOp(Expr):
         The name of the operation
 
     """
+
     def __init__(self, op, cond, lhs, rhs, loc):
         super().__init__(op, loc)
         cond = immediate_to_constant(cond, loc)
@@ -373,6 +387,7 @@ class TernaryOp(Expr):
     def __repr__(self):
         return f"({self.cond} ? {self.lhs} : {self.rhs})"
 
+
 class CastOp(Expr):
     """Cast an expression to a given type.
 
@@ -380,6 +395,7 @@ class CastOp(Expr):
     ----------
 
     """
+
     def __init__(self, expr, dtype, loc):
         super().__init__(dtype_to_str(dtype), loc)
         expr = immediate_to_constant(expr, loc)
@@ -389,178 +405,207 @@ class CastOp(Expr):
     def __repr__(self):
         return f"({self.name} {self.expr} : {self.dtype})"
 
+
 class Add(BinaryOp):
-    """Addition operation.
-    """
+    """Addition operation."""
+
     def __init__(self, lhs, rhs, loc):
         super().__init__("+", lhs, rhs, loc)
 
+
 class Sub(BinaryOp):
-    """Subtraction operation.
-    """
+    """Subtraction operation."""
+
     def __init__(self, lhs, rhs, loc):
         super().__init__("-", lhs, rhs, loc)
 
+
 class Mul(BinaryOp):
-    """Multiplication operation.
-    """
+    """Multiplication operation."""
+
     def __init__(self, lhs, rhs, loc):
         super().__init__("*", lhs, rhs, loc)
 
+
 class Div(BinaryOp):
-    """Division operation.
-    """
+    """Division operation."""
+
     def __init__(self, lhs, rhs, loc):
         super().__init__("/", lhs, rhs, loc)
 
+
 class FloorDiv(BinaryOp):
-    """Floor division operation.
-    """
+    """Floor division operation."""
+
     def __init__(self, lhs, rhs, loc):
         super().__init__("//", lhs, rhs, loc)
 
+
 class Mod(BinaryOp):
-    """Modulo operation.
-    """
+    """Modulo operation."""
+
     def __init__(self, lhs, rhs, loc):
         super().__init__("%", lhs, rhs, loc)
 
+
 class LeftShiftOp(BinaryOp):
-    """Left shift operation.
-    """
+    """Left shift operation."""
+
     def __init__(self, lhs, rhs, loc):
         super().__init__("<<", lhs, rhs, loc)
 
+
 class RightShiftOp(BinaryOp):
-    """Right shift operation.
-    """
+    """Right shift operation."""
+
     def __init__(self, lhs, rhs, loc):
         super().__init__(">>", lhs, rhs, loc)
 
+
 class Cmp(BinaryOp):
-    """Comparison operation.
-    """
+    """Comparison operation."""
+
     def __init__(self, op, lhs, rhs, loc):
         super().__init__(op, lhs, rhs, loc)
 
+
 class And(BinaryOp):
-    """Bitwise and operation.
-    """
+    """Bitwise and operation."""
+
     def __init__(self, lhs, rhs, loc):
         super().__init__("&", lhs, rhs, loc)
 
+
 class Or(BinaryOp):
-    """Bitwise or operation.
-    """
+    """Bitwise or operation."""
+
     def __init__(self, lhs, rhs, loc):
         super().__init__("|", lhs, rhs, loc)
 
+
 class XOr(BinaryOp):
-    """Bitwise xor operation.
-    """
+    """Bitwise xor operation."""
+
     def __init__(self, lhs, rhs, loc):
         super().__init__("^", lhs, rhs, loc)
 
+
 class Invert(UnaryOp):
-    """Bitwise invert operation, e.g. 0b1011 -> 0b0100.
-    """
+    """Bitwise invert operation, e.g. 0b1011 -> 0b0100."""
+
     def __init__(self, expr, loc):
         super().__init__("~", expr, loc)
 
+
 class Neg(UnaryOp):
-    """Negate operation, i.e. -x for any expression x.
-    """
+    """Negate operation, i.e. -x for any expression x."""
+
     def __init__(self, expr, loc):
         super().__init__("neg", expr, loc)
 
+
 class BitReverseOp(UnaryOp):
-    """Bit reverse operation.
-    """
+    """Bit reverse operation."""
+
     def __init__(self, expr, loc):
         super().__init__("bit_reverse", expr, loc)
 
+
 class BitCastOp(UnaryOp):
-    """Bit cast operation.
-    """
+    """Bit cast operation."""
+
     def __init__(self, expr, dtype, loc):
         super().__init__("bit_cast", expr, loc)
         self.dtype = dtype
 
+
 class MathExpOp(UnaryOp):
-    """Mathematical exponential operation.
-    """
+    """Mathematical exponential operation."""
+
     def __init__(self, expr, loc):
         super().__init__("exp", expr, loc)
 
+
 class MathPowOp(BinaryOp):
-    """Mathematical power operation.
-    """
+    """Mathematical power operation."""
+
     def __init__(self, lhs, rhs, loc):
         super().__init__("pow", lhs, rhs, loc)
 
+
 class MathLogOp(UnaryOp):
-    """Mathematical log operation.
-    """
+    """Mathematical log operation."""
+
     def __init__(self, expr, loc):
         super().__init__("log", expr, loc)
 
+
 class MathLog2Op(UnaryOp):
-    """Mathematical log2 operation.
-    """
+    """Mathematical log2 operation."""
+
     def __init__(self, expr, loc):
         super().__init__("log2", expr, loc)
 
+
 class MathLog10Op(UnaryOp):
-    """Mathematical log10 operation.
-    """
+    """Mathematical log10 operation."""
+
     def __init__(self, expr, loc):
         super().__init__("log10", expr, loc)
 
+
 class MathSqrtOp(UnaryOp):
-    """Mathematical square root operation.
-    """
+    """Mathematical square root operation."""
+
     def __init__(self, expr, loc):
         super().__init__("sqrt", expr, loc)
 
+
 class MathSinOp(UnaryOp):
-    """Mathematical sine operation.
-    """
+    """Mathematical sine operation."""
+
     def __init__(self, expr, loc):
         super().__init__("sin", expr, loc)
 
+
 class MathCosOp(UnaryOp):
-    """Mathematical cosine operation.
-    """
+    """Mathematical cosine operation."""
+
     def __init__(self, expr, loc):
         super().__init__("cos", expr, loc)
 
+
 class MathTanhOp(UnaryOp):
-    """Mathematical tangent operation.
-    """
+    """Mathematical tangent operation."""
+
     def __init__(self, expr, loc):
         super().__init__("tanh", expr, loc)
 
+
 class LogicalAnd(BinaryOp):
-    """Logical and operation.
-    """
+    """Logical and operation."""
+
     def __init__(self, lhs, rhs, loc):
         super().__init__("&&", lhs, rhs, loc)
 
+
 class LogicalOr(BinaryOp):
-    """Logical or operation.
-    """
+    """Logical or operation."""
+
     def __init__(self, lhs, rhs, loc):
         super().__init__("||", lhs, rhs, loc)
 
+
 class LogicalXOr(BinaryOp):
-    """Logical xor operation.
-    """
+    """Logical xor operation."""
+
     def __init__(self, lhs, rhs, loc):
         super().__init__("^^", lhs, rhs, loc)
 
+
 class PrintOp(Operation):
-    """Print operation.
-    """
+    """Print operation."""
+
     def __init__(self, expr_list, loc, format_str=""):
         super().__init__("print", loc)
         self.expr_list = expr_list
@@ -572,9 +617,10 @@ class PrintOp(Operation):
         code_str += f"print({self.name} {self.expr_list}, fmt={self.format_str})"
         return code_str
 
+
 class PrintMemRefOp(Operation):
-    """Print memref operation.
-    """
+    """Print memref operation."""
+
     def __init__(self, memref, dtype, loc):
         super().__init__("print_memref", loc)
         self.memref = memref
@@ -587,9 +633,10 @@ class PrintMemRefOp(Operation):
         code_str += f"print_memref({self.name} {self.memref})"
         return code_str
 
+
 class ConstantOp(Expr):
-    """Constant scalar operation.
-    """
+    """Constant scalar operation."""
+
     def __init__(self, value, dtype, loc):
         super().__init__(str(value), loc)
         self.value = value
@@ -598,9 +645,10 @@ class ConstantOp(Expr):
     def __repr__(self):
         return f"{self.value}"
 
+
 class ConstantTensorOp(Expr):
-    """Constant tensor operation.
-    """
+    """Constant tensor operation."""
+
     # TODO(Niansong): handle overflow
     def __init__(self, values, name, shape, dtype, loc):
         super().__init__(name, loc)
@@ -613,12 +661,15 @@ class ConstantTensorOp(Expr):
     def __repr__(self):
         code_str = ""
         code_str += print_indent(code_str, self.level)
-        code_str += f"{self.name} = constant_tensor({self.values.shape}, {self.values.dtype})"
+        code_str += (
+            f"{self.name} = constant_tensor({self.values.shape}, {self.values.dtype})"
+        )
         return code_str
 
+
 class LoadOp(Expr):
-    """ Load operation.
-    """
+    """Load operation."""
+
     def __init__(self, tensor, index, loc):
         super().__init__("getitem", loc)
         self.tensor = tensor
@@ -628,9 +679,10 @@ class LoadOp(Expr):
     def __repr__(self):
         return f"{self.tensor.name}{self.index}"
 
+
 class StoreOp(Operation):
-    """ Store operation.
-    """
+    """Store operation."""
+
     def __init__(self, tensor, index, value, loc):
         super().__init__("setitem", loc)
         self.tensor = tensor
@@ -644,9 +696,10 @@ class StoreOp(Operation):
         code_str += f"{self.tensor.name}{self.index} = {self.value}"
         return code_str
 
+
 class GetBitOp(Expr):
-    """Get bit operation
-    """
+    """Get bit operation"""
+
     def __init__(self, expr, index, loc):
         super().__init__("getbit", loc)
         self.expr = immediate_to_constant(expr, loc)
@@ -655,9 +708,10 @@ class GetBitOp(Expr):
     def __repr__(self):
         return f"{self.expr}[{self.index}]"
 
+
 class SetBitOp(Operation):
-    """Set bit operation
-    """
+    """Set bit operation"""
+
     def __init__(self, expr, index, value, loc):
         super().__init__("setbit", loc)
         self.expr = expr
@@ -671,9 +725,10 @@ class SetBitOp(Operation):
         code_str += f"{self.expr}[{self.index}] = {self.value}"
         return code_str
 
+
 class GetSliceOp(Expr):
-    """Get slice operation
-    """
+    """Get slice operation"""
+
     def __init__(self, expr, start, end, loc):
         super().__init__("getslice", loc)
         self.expr = expr
@@ -685,11 +740,11 @@ class GetSliceOp(Expr):
 
 
 class SetSliceOp(Operation):
-    """Set slice operation
-    """
+    """Set slice operation"""
+
     def __init__(self, expr, start, end, value, loc):
         super().__init__("setslice", loc)
-        self.expr = expr 
+        self.expr = expr
         self.start = immediate_to_constant(start, loc, Index())
         self.end = immediate_to_constant(end, loc, Index())
         self.value = immediate_to_constant(value, loc)
@@ -757,8 +812,7 @@ class TensorSlice(Expr):
         if not isinstance(indices, tuple):
             indices = (indices,)
         if len(self.indices + indices) < len(self.full_shape):
-            raise HCLNotImplementedError(
-                "Writing to a slice of tensor is not allowed.")
+            raise HCLNotImplementedError("Writing to a slice of tensor is not allowed.")
         elif len(self.indices + indices) == len(self.full_shape):
             new_indices = []
             for index in list(self.indices) + list(indices):
@@ -769,11 +823,14 @@ class TensorSlice(Expr):
             region = scope.get()
             region.append(store_op)
         else:
-            raise TensorError("Indices length > # of array dimensions," \
-                + f"indices=[{self.indices + indices}], shape={self.full_shape}")
+            raise TensorError(
+                "Indices length > # of array dimensions,"
+                + f"indices=[{self.indices + indices}], shape={self.full_shape}"
+            )
+
 
 class AllocOp(Expr):
-    """ Allocate memory for a buffer
+    """Allocate memory for a buffer
 
     Parameters
     ----------
@@ -781,6 +838,7 @@ class AllocOp(Expr):
         The name of the operation
 
     """
+
     def __init__(self, name, shape, dtype, loc):
         super().__init__(name, loc)
         self.shape = shape
@@ -794,7 +852,7 @@ class AllocOp(Expr):
         # e.g. Host, FPGA, GPU
         self.device = None
         self.level = None
-    
+
     def __repr__(self):
         code_str = ""
         if self.level is not None:
@@ -808,9 +866,12 @@ class AllocOp(Expr):
         # if we are slicing tensor
         if len(indices) < len(self.shape):
             return TensorSlice(
-                full_shape=self.shape, dtype=self.dtype, 
-                parent=self, indices=indices, loc=self.loc,
-                name=self.name
+                full_shape=self.shape,
+                dtype=self.dtype,
+                parent=self,
+                indices=indices,
+                loc=self.loc,
+                name=self.name,
             )
         # if we are loading a value from the tensor
         elif len(indices) == len(self.shape):
@@ -828,8 +889,7 @@ class AllocOp(Expr):
         if not isinstance(indices, tuple):
             indices = (indices,)
         if len(indices) < len(self.shape):
-            raise HCLNotImplementedError(
-                "Writing to a slice of tensor is not allowed.")
+            raise HCLNotImplementedError("Writing to a slice of tensor is not allowed.")
         elif len(indices) == len(self.shape):
             # format indices
             new_indices = []
@@ -845,14 +905,13 @@ class AllocOp(Expr):
         else:
             raise TensorError("Indices length > # of array dimensions")
 
-
     @property
     def v(self):
         if len(self.shape) == 1 and self.shape[0] == 1:
             return self[0]
         else:
             raise TensorError(".v can only be used on scalars")
-    
+
     @v.setter
     def v(self, value):
         if len(self.shape) == 1 and self.shape[0] == 1:
@@ -863,21 +922,25 @@ class AllocOp(Expr):
 
 
 class ComputeOp(Operation):
-    """Compute operation
-    """
+    """Compute operation"""
+
     def __init__(self, name, shape, fcompute, dtype, loc, tensor=None):
         super().__init__(name, loc)
         self.fcompute = fcompute
         self.shape = shape
         self.dtype = dtype
         self.name = name
-        if tensor is None: # hcl.compute, which creates a new tensor
+        if tensor is None:  # hcl.compute, which creates a new tensor
             self.tensor = AllocOp(name, shape, dtype, loc)
             self.kind = "compute"
-        elif isinstance(tensor, str) and tensor == "no_alloc": # hcl.mutate, which doesn't create a new tensor
+        elif (
+            isinstance(tensor, str) and tensor == "no_alloc"
+        ):  # hcl.mutate, which doesn't create a new tensor
             self.tensor = None
             self.kind = "mutate"
-        elif isinstance(tensor, AllocOp): # hcl.update, which updates an existing tensor
+        elif isinstance(
+            tensor, AllocOp
+        ):  # hcl.update, which updates an existing tensor
             self.tensor = tensor
             self.kind = "update"
         else:
@@ -904,7 +967,7 @@ class ComputeOp(Operation):
 
 class IfOp(Operation):
     def __init__(self, cond, loc):
-        super().__init__('if', loc)
+        super().__init__("if", loc)
         self.cond = cond
         self.body = list()
         self.else_body = list()
@@ -927,9 +990,10 @@ class IfOp(Operation):
             code_str += "}"
         return code_str
 
+
 class ElseOp(Operation):
     def __init__(self, loc):
-        super().__init__('else', loc)
+        super().__init__("else", loc)
         self.body = list()
         self.level = len(scope)
 
@@ -943,9 +1007,10 @@ class ElseOp(Operation):
         code_str += "}"
         return code_str
 
+
 class ElseIfOp(Operation):
     def __init__(self, cond, loc):
-        super().__init__('elseif', loc)
+        super().__init__("elseif", loc)
         self.cond = cond
         self.body = list()
         self.level = len(scope)
@@ -960,9 +1025,10 @@ class ElseIfOp(Operation):
         code_str += "}"
         return code_str
 
+
 class IterVar(Expr):
-    """ Iteration variable.
-    """
+    """Iteration variable."""
+
     def __init__(self, name, parent_loop, loc):
         super().__init__(name, loc)
         self.parent_loop = parent_loop
@@ -971,9 +1037,10 @@ class IterVar(Expr):
     def __repr__(self):
         return self.name
 
+
 class ReduceVar(IterVar):
-    """ Reduction variable.
-    """
+    """Reduction variable."""
+
     def __init__(self, name, parent_loop, loc, bound=None):
         super().__init__(name, parent_loop, loc)
         self.bound = bound
@@ -985,10 +1052,11 @@ class ReduceVar(IterVar):
     @property
     def upper_bound(self):
         return self.bound[1]
-        
+
+
 class ReturnOp(Operation):
     def __init__(self, expr, loc):
-        super().__init__('return', loc)
+        super().__init__("return", loc)
         self.expr = expr
         self.level = len(scope)
 
@@ -1001,9 +1069,10 @@ class ReturnOp(Operation):
             code_str += "return {}".format(self.expr)
         return code_str
 
+
 class ForOp(Operation):
     def __init__(self, tag, name, low, high, step, loc):
-        super().__init__('for', loc)
+        super().__init__("for", loc)
         self.tag = tag
         self.name = name
         self.low = low
@@ -1017,16 +1086,18 @@ class ForOp(Operation):
         code_str = ""
         code_str = print_indent(code_str, self.level)
         code_str += "for ({} = {}; {} < {}; {} += {}) {{\n".format(
-            self.name, self.low, self.name, self.high, self.name, self.step)
+            self.name, self.low, self.name, self.high, self.name, self.step
+        )
         for stmt in self.body:
             code_str += f"{stmt}\n"
         code_str = print_indent(code_str, self.level)
         code_str += "}"
         return code_str
 
+
 class WhileOp(Operation):
     def __init__(self, cond, loc):
-        super().__init__('while', loc)
+        super().__init__("while", loc)
         self.cond = cond
         self.body = list()
         self.level = len(scope)
@@ -1041,9 +1112,10 @@ class WhileOp(Operation):
         code_str += "}"
         return code_str
 
+
 class FuncOp(Operation):
     def __init__(self, name, args, body, loc):
-        super().__init__('func', loc)
+        super().__init__("func", loc)
         self.name = name
         self.args = args
         self.body = body
@@ -1058,17 +1130,26 @@ class FuncOp(Operation):
         code_str = print_indent(code_str, self.level)
         if self.prototype:
             # This is a function declaration
-            code_str += "func {}({})".format(self.name, ", ".join([v.name for v in self.args]))
-            code_str += " -> ({})\n".format(", ".join([str(v.name) for v in self.return_tensors]))
+            code_str += "func {}({})".format(
+                self.name, ", ".join([v.name for v in self.args])
+            )
+            code_str += " -> ({})\n".format(
+                ", ".join([str(v.name) for v in self.return_tensors])
+            )
             return code_str
-        code_str += "func {}({}) {{\n".format(self.name, ", ".join([v.name for v in self.args]))
+        code_str += "func {}({}) {{\n".format(
+            self.name, ", ".join([v.name for v in self.args])
+        )
         for stmt in self.body:
             code_str += f"{stmt}\n"
         code_str = print_indent(code_str, self.level + 1)
-        code_str += "return {}\n".format(", ".join([str(v.name) for v in self.return_tensors]))
+        code_str += "return {}\n".format(
+            ", ".join([str(v.name) for v in self.return_tensors])
+        )
         code_str = print_indent(code_str, self.level)
         code_str += "}\n"
         return code_str
+
 
 class CallOp(Expr):
     def __init__(self, name, args, rets, loc):
@@ -1083,13 +1164,15 @@ class CallOp(Expr):
         code_str += print_indent(code_str, self.level)
         if len(self.rets) > 0:
             code_str += "{} = ".format(", ".join([str(v.name) for v in self.rets]))
-        code_str += "call {}({})".format(self.name, ", ".join([str(v.name) for v in self.args]))
+        code_str += "call {}({})".format(
+            self.name, ", ".join([str(v.name) for v in self.args])
+        )
         return code_str
 
 
 class SelectOp(Expr):
     def __init__(self, cond, true_value, false_value, loc):
-        super().__init__('select', loc)
+        super().__init__("select", loc)
         self.cond = cond
         self.true_value = true_value
         self.false_value = false_value
@@ -1101,7 +1184,7 @@ class SelectOp(Expr):
 
 class StructConstructOp(Expr):
     def __init__(self, args, dtype, loc):
-        super().__init__('struct', loc)
+        super().__init__("struct", loc)
         self.args = args
         self.dtype = dtype
         self.level = len(scope)
@@ -1112,7 +1195,7 @@ class StructConstructOp(Expr):
 
 class StructGetOp(Expr):
     def __init__(self, struct, field, loc):
-        super().__init__('struct_get', loc)
+        super().__init__("struct_get", loc)
         self.struct = struct
         self.field = field
         self.level = len(scope)
@@ -1123,7 +1206,7 @@ class StructGetOp(Expr):
 
 class ReduceOp(Expr):
     def __init__(self, name, expr, reduce_op, axis, dtype, init, loc):
-        super().__init__('reduce', loc)
+        super().__init__("reduce", loc)
         self.name = name
         self.expr = expr
         self.scalar = AllocOp(name, (1,), dtype, loc)
@@ -1135,26 +1218,29 @@ class ReduceOp(Expr):
 
     def __repr__(self):
         return "{}({}, {}, {}, {})".format(
-            self.reduce_op, self.init, self.axis, self.dtype, self.name)
+            self.reduce_op, self.init, self.axis, self.dtype, self.name
+        )
 
 
 class SumOp(ReduceOp):
     def __init__(self, name, expr, axis, dtype, loc):
-        super().__init__(name, expr, 'sum', axis, dtype, 0, loc)
+        super().__init__(name, expr, "sum", axis, dtype, 0, loc)
 
 
 class MinOp(ReduceOp):
     def __init__(self, name, expr, axis, dtype, loc):
-        #TODO(Niansong): why init is 0x3F3F3F3F?
-        super().__init__(name, expr, 'min', axis, dtype, 0x3F3F3F3F, loc)
+        # TODO(Niansong): why init is 0x3F3F3F3F?
+        super().__init__(name, expr, "min", axis, dtype, 0x3F3F3F3F, loc)
+
 
 class MaxOp(ReduceOp):
     def __init__(self, name, expr, axis, dtype, loc):
-        super().__init__(name, expr, 'max', axis, dtype, 0x3F3F3F3F, loc)
+        super().__init__(name, expr, "max", axis, dtype, 0x3F3F3F3F, loc)
+
 
 class PrintOp(Operation):
     def __init__(self, args, fmt, loc):
-        super().__init__('print', loc)
+        super().__init__("print", loc)
         self.args = args
         self.fmt = fmt
         self.level = len(scope)
@@ -1162,12 +1248,15 @@ class PrintOp(Operation):
     def __repr__(self):
         code_str = ""
         code_str = print_indent(code_str, self.level)
-        code_str += "print({}, {})".format(", ".join([str(v) for v in self.args], self.fmt))
+        code_str += "print({}, {})".format(
+            ", ".join([str(v) for v in self.args], self.fmt)
+        )
         return code_str
+
 
 class PrintTensorOp(Operation):
     def __init__(self, tensor, loc):
-        super().__init__('print_tensor', loc)
+        super().__init__("print_tensor", loc)
         self.tensor = tensor
         self.level = len(scope)
 
@@ -1177,10 +1266,11 @@ class PrintTensorOp(Operation):
         code_str += "print_tensor({})".format(self.tensor.name)
         return code_str
 
+
 # Customization Operations
 class OpHandle(Expr):
     def __init__(self, name, loc):
-        super().__init__('op_handle', loc)
+        super().__init__("op_handle", loc)
         self.name = name
         self.level = len(scope)
         self.is_customize_op = True
@@ -1192,9 +1282,10 @@ class OpHandle(Expr):
     def __repr__(self):
         return self.name
 
+
 class LoopHandle(Expr):
     def __init__(self, op_hdl, name, loc):
-        super().__init__('loop_handle', loc)
+        super().__init__("loop_handle", loc)
         self.op_hdl = op_hdl
         self.name = name
         self.level = len(scope)
@@ -1207,9 +1298,10 @@ class LoopHandle(Expr):
     def __repr__(self):
         return self.name
 
+
 class PartitionOp(Operation):
     def __init__(self, tensor, kind, dim, factor, loc):
-        super().__init__('partition', loc)
+        super().__init__("partition", loc)
         self.tensor = tensor
         self.kind = kind
         self.dim = dim
@@ -1220,8 +1312,11 @@ class PartitionOp(Operation):
     def __repr__(self):
         code_str = ""
         code_str = print_indent(code_str, self.level)
-        code_str += "hcl.partition({}, kind={}, dim={}, factor={})".format(self.tensor.name, self.kind, self.dim, self.factor)
+        code_str += "hcl.partition({}, kind={}, dim={}, factor={})".format(
+            self.tensor.name, self.kind, self.dim, self.factor
+        )
         return code_str
+
 
 class ReplaceOp(Operation):
     def __init__(self, src_tensor, dst_tensor, loc):
@@ -1230,12 +1325,15 @@ class ReplaceOp(Operation):
         self.dst_tensor = dst_tensor
         self.level = len(scope)
         self.is_customize_op = True
-    
+
     def __repr__(self):
         code_str = ""
         code_str = print_indent(code_str, self.level)
-        code_str += "hcl.replace({}, {})".format(self.src_tensor.name, self.dst_tensor.name)
+        code_str += "hcl.replace({}, {})".format(
+            self.src_tensor.name, self.dst_tensor.name
+        )
         return code_str
+
 
 class ReshapeOp(Operation):
     def __init__(self, tensor, shape, loc):
@@ -1251,6 +1349,7 @@ class ReshapeOp(Operation):
         code_str += "hcl.reshape({}, {})".format(self.tensor.name, self.shape)
         return code_str
 
+
 class ReformOp(Operation):
     def __init__(self, target, layout, loc):
         super().__init__("reform", loc)
@@ -1265,6 +1364,7 @@ class ReformOp(Operation):
         code_str += "hcl.reform({}, {})".format(self.target.name, self.layout)
         return code_str
 
+
 class ReuseAtOp(Operation):
     def __init__(self, target, axis, loc):
         super().__init__("reuse_at", loc)
@@ -1272,12 +1372,13 @@ class ReuseAtOp(Operation):
         self.axis = axis
         self.level = len(scope)
         self.is_customize_op = True
-    
+
     def __repr__(self):
         code_str = ""
         code_str = print_indent(code_str, self.level)
         code_str += "hcl.reuse_at({}, {})".format(self.target.name, self.axis)
         return code_str
+
 
 class BufferAtOp(Operation):
     def __init__(self, target, axis, loc):
@@ -1286,12 +1387,13 @@ class BufferAtOp(Operation):
         self.axis = axis
         self.level = len(scope)
         self.is_customize_op = True
-    
+
     def __repr__(self):
         code_str = ""
         code_str = print_indent(code_str, self.level)
         code_str += "hcl.buffer_at({}, {})".format(self.target.name, self.axis)
         return code_str
+
 
 class InterKernelToOp(Operation):
     def __init__(self, tensor, stage, fifo_depth, loc):
@@ -1305,7 +1407,9 @@ class InterKernelToOp(Operation):
     def __repr__(self):
         code_str = ""
         code_str = print_indent(code_str, self.level)
-        code_str += "hcl.inter_kernel_to({}, {}, {})".format(self.tensor.name, self.stage, self.fifo_depth)
+        code_str += "hcl.inter_kernel_to({}, {}, {})".format(
+            self.tensor.name, self.stage, self.fifo_depth
+        )
         return code_str
 
 
@@ -1317,12 +1421,15 @@ class OutlineOp(Operation):
         self.axis = None
         self.level = len(scope)
         self.is_customize_op = True
-    
+
     def __repr__(self):
         code_str = ""
         code_str = print_indent(code_str, self.level)
-        code_str += "hcl.outline({}, axis={}, unify={})".format(", ".join([v.name for v in self.stage_hdls]), self.axis, self.unify)
+        code_str += "hcl.outline({}, axis={}, unify={})".format(
+            ", ".join([v.name for v in self.stage_hdls]), self.axis, self.unify
+        )
         return code_str
+
 
 class ReorderOp(Operation):
     def __init__(self, args, loc):
@@ -1330,12 +1437,13 @@ class ReorderOp(Operation):
         self.args = args
         self.level = len(scope)
         self.is_customize_op = True
-    
+
     def __repr__(self):
         code_str = ""
         code_str = print_indent(code_str, self.level)
         code_str += "hcl.reorder({})".format(", ".join([v.name for v in self.args]))
         return code_str
+
 
 class SplitOp(Operation):
     def __init__(self, stage_hdl, parent, factor, loc):
@@ -1344,7 +1452,7 @@ class SplitOp(Operation):
         self.factor = factor
         self.results = [
             LoopHandle(stage_hdl, parent.name + ".outer", loc),
-            LoopHandle(stage_hdl, parent.name + ".inner", loc)
+            LoopHandle(stage_hdl, parent.name + ".inner", loc),
         ]
         self.level = len(scope)
         self.is_customize_op = True
@@ -1352,8 +1460,11 @@ class SplitOp(Operation):
     def __repr__(self):
         code_str = ""
         code_str = print_indent(code_str, self.level)
-        code_str += "{}, {} = hcl.split({})".format(self.results[0].name, self.results[1].name, self.parent.name)
+        code_str += "{}, {} = hcl.split({})".format(
+            self.results[0].name, self.results[1].name, self.parent.name
+        )
         return code_str
+
 
 class TileOp(Operation):
     def __init__(self, stage_hdl, x_parent, y_parent, x_factor, y_factor, loc):
@@ -1366,16 +1477,24 @@ class TileOp(Operation):
             LoopHandle(stage_hdl, x_parent.name + ".outer", loc),
             LoopHandle(stage_hdl, x_parent.name + ".inner", loc),
             LoopHandle(stage_hdl, y_parent.name + ".outer", loc),
-            LoopHandle(stage_hdl, y_parent.name + ".inner", loc)
+            LoopHandle(stage_hdl, y_parent.name + ".inner", loc),
         ]
         self.level = len(scope)
         self.is_customize_op = True
-    
+
     def __repr__(self):
         code_str = ""
         code_str = print_indent(code_str, self.level)
-        code_str += "{}, {}, {}, {} = hcl.tile({}, {})".format(self.results[0].name, self.results[1].name, self.results[2].name, self.results[3].name, self.x_parent.name, self.y_parent.name)
+        code_str += "{}, {}, {}, {} = hcl.tile({}, {})".format(
+            self.results[0].name,
+            self.results[1].name,
+            self.results[2].name,
+            self.results[3].name,
+            self.x_parent.name,
+            self.y_parent.name,
+        )
         return code_str
+
 
 class PipelineOp(Operation):
     def __init__(self, target, ii, loc):
@@ -1384,12 +1503,13 @@ class PipelineOp(Operation):
         self.ii = ii
         self.level = len(scope)
         self.is_customize_op = True
-    
+
     def __repr__(self):
         code_str = ""
         code_str = print_indent(code_str, self.level)
         code_str += "hcl.pipeline({}, {})".format(self.target.name, self.ii)
         return code_str
+
 
 class UnrollOp(Operation):
     def __init__(self, target, factor, loc):
@@ -1405,18 +1525,20 @@ class UnrollOp(Operation):
         code_str += "hcl.unroll({}, {})".format(self.target.name, self.factor)
         return code_str
 
+
 class ParallelOp(Operation):
     def __init__(self, target, loc):
         super().__init__("parallel", loc)
         self.target = target
         self.level = len(scope)
         self.is_customize_op = True
-    
+
     def __repr__(self):
         code_str = ""
         code_str = print_indent(code_str, self.level)
         code_str += "hcl.parallel({})".format(self.target.name)
         return code_str
+
 
 class FuseOp(Operation):
     def __init__(self, arg_list, loc):
@@ -1431,6 +1553,7 @@ class FuseOp(Operation):
         code_str += "hcl.fuse({})".format(", ".join([str(v) for v in self.arg_list]))
         return code_str
 
+
 class ComputeAtOp(Operation):
     def __init__(self, stage, parent, axis, loc):
         super().__init__("compute_at", loc)
@@ -1439,12 +1562,15 @@ class ComputeAtOp(Operation):
         self.axis = axis
         self.level = len(scope)
         self.is_customize_op = True
-    
+
     def __repr__(self):
         code_str = ""
         code_str = print_indent(code_str, self.level)
-        code_str += "hcl.compute_at({}, {}, {})".format(self.stage.name, self.parent.name, self.axis)
+        code_str += "hcl.compute_at({}, {}, {})".format(
+            self.stage.name, self.parent.name, self.axis
+        )
         return code_str
+
 
 class SystolicOp(Operation):
     def __init__(self, target, loc):
@@ -1452,16 +1578,17 @@ class SystolicOp(Operation):
         self.target = target
         self.level = len(scope)
         self.is_customize_op = True
-    
+
     def __repr__(self):
         code_str = ""
         code_str = print_indent(code_str, self.level)
         code_str += "hcl.systolic({})".format(self.target.name)
         return code_str
 
+
 class AST(object):
     """HeteroCL AST
-    
+
     HeteroCL AST is a hierarchical representation of the input program.
     It has a very simple model: a program is a list of operations.
     Each operation can optionally have a body, which is again a list of operations.
@@ -1482,6 +1609,7 @@ class AST(object):
         I think this is bad, instead of resetting results,
         we should make ast work with deep copy
         """
+
         def reset_op_build_result(op):
             if not hasattr(op, "__dict__"):
                 return
@@ -1498,5 +1626,6 @@ class AST(object):
                             reset_op_build_result(v)
                 if hasattr(value, "__dict__"):
                     reset_op_build_result(value)
+
         for op in self.region:
             reset_op_build_result(op)

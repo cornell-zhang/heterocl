@@ -10,19 +10,25 @@ from ..utils import hcl_dtype_to_mlir, get_extra_type_hints
 from .. import types as htypes
 from ..type_infer import TypeInfer
 import hcl_mlir
+
 # Import MLIR dialects
-# Naming rule: import dialect as dialect_d 
-from hcl_mlir.dialects import \
-    func as func_d, hcl as hcl_d, \
-    scf as scf_d, memref as memref_d, \
-    affine as affine_d, arith as arith_d, \
-    math as math_d
+# Naming rule: import dialect as dialect_d
+from hcl_mlir.dialects import (
+    func as func_d,
+    hcl as hcl_d,
+    scf as scf_d,
+    memref as memref_d,
+    affine as affine_d,
+    arith as arith_d,
+    math as math_d,
+)
 from hcl_mlir.exceptions import *
 
 
 """ IRBuilder Assumptions
 - All Python immediate should be converted to ConstantOp
 """
+
 
 def get_op_class(op, typ):
     """Get the class of the given op"""
@@ -64,7 +70,7 @@ def get_op_class(op, typ):
             return hcl_d.DivFixedOp
         else:
             raise APIError("Unsupported type for DivOp: {}".format(typ))
-    elif isinstance(op,ast.FloorDiv):
+    elif isinstance(op, ast.FloorDiv):
         if isinstance(typ, htypes.Int):
             return arith_d.FloorDivSIOp
         else:
@@ -136,19 +142,20 @@ def get_op_class(op, typ):
             raise APIError("Unsupported type for RightShiftOp: {}".format(typ))
     else:
         raise APIError("Unsupported op in get_op_class: {}".format(op))
-        
+
 
 class IRBuilder(object):
     """IRBuilder class to build MLIR
     operations from intermediate layer
     """
+
     def __init__(self, _ast):
         self._ast = _ast
         self.module = Module.create(get_location())
         self.top_func = None
-        self.iv = [] # a list to keep track of affine expression's induction variables
+        self.iv = []  # a list to keep track of affine expression's induction variables
         self.tinf_engine = TypeInfer()
-        self.tensor_dict = dict() # tensor name -> memref.allocOp
+        self.tensor_dict = dict()  # tensor name -> memref.allocOp
         self.BIT_OPS = False
 
     def build(self):
@@ -161,7 +168,7 @@ class IRBuilder(object):
             for op in self._ast.region:
                 ip = InsertionPoint.at_block_begin(self.module.body)
                 self.build_visitor(op, ip)
-        
+
         self.top_func = self._ast.top_func.ir_op
         # clean the build results of ast
         # because sometimes we want to build the same ast again
@@ -172,10 +179,10 @@ class IRBuilder(object):
 
     def build_visitor(self, op, ip):
         """Build dispatcher
-        
+
         Build MLIR operation from intermediate layer
         """
-        if hasattr(op, 'result') and op.result is not None:
+        if hasattr(op, "result") and op.result is not None:
             return
         if isinstance(op, ast.ComputeOp):
             self.build_compute(op, ip)
@@ -279,9 +286,11 @@ class IRBuilder(object):
         elif isinstance(op, ast.SystolicOp):
             self.build_systolic_op(op, ip)
         else:
-            raise HCLNotImplementedError(f"{type(op)}'s build visitor is not implemented yet.")
+            raise HCLNotImplementedError(
+                f"{type(op)}'s build visitor is not implemented yet."
+            )
 
-    def build_func_op(self, op : ast.FuncOp, ip):
+    def build_func_op(self, op: ast.FuncOp, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         # use global insetion point instead
         ip = InsertionPoint(self.module.body)
@@ -350,8 +359,7 @@ class IRBuilder(object):
         for arg in op.args:
             arg.result = None
 
-
-    def build_call_op(self, op : ast.CallOp, ip):
+    def build_call_op(self, op: ast.CallOp, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         func = FlatSymbolRefAttr.get(op.name)
         # build arguments
@@ -375,7 +383,9 @@ class IRBuilder(object):
             if len(op.rets) == 1:
                 op.result = call_op.results[0]
             else:
-                raise HCLNotImplementedError("Multiple return values are not supported by @def_.")
+                raise HCLNotImplementedError(
+                    "Multiple return values are not supported by @def_."
+                )
 
     def build_iter_var(self, iv, ip):
         """Build IterVar"""
@@ -383,7 +393,9 @@ class IRBuilder(object):
             raise APIError("IterVar {} parent loop has not been set".format(iv))
         iv.result = iv.parent_loop.induction_variable
 
-    def build_for_loop(self, lb, ub, step=1, name="", stage="", reduction=False, ip=None, loc=None):
+    def build_for_loop(
+        self, lb, ub, step=1, name="", stage="", reduction=False, ip=None, loc=None
+    ):
         """Build Affine or SCF for loop.
         If the upper and lower bounds are constant, build an AffineForOp.
         Otherwise, build an SCFForOp.
@@ -392,10 +404,10 @@ class IRBuilder(object):
         ----------
         lb : int or Expr
             Lower bound of the loop.
-        
+
         ub : int or Expr
             Upper bound of the loop.
-        
+
         step : int
             Step of the loop.
 
@@ -404,20 +416,20 @@ class IRBuilder(object):
 
         reduction : bool
             Whether the loop is a reduction loop.
-        
+
         ip : InsertPoint
             Insert point of the loop.
-        
+
         loc : MLIR Location
             Source file location.
         """
         if not isinstance(step, int):
             raise HCLNotImplementedError("Non-constant step size is not supported yet")
-        if step < 0: # swap lb and ub
+        if step < 0:  # swap lb and ub
             lb, ub = ub + 1, lb + 1
             step = -step
 
-        if isinstance(lb, int) and isinstance(ub, int): # build affine for loop
+        if isinstance(lb, int) and isinstance(ub, int):  # build affine for loop
             lbCst = AffineConstantExpr.get(lb)
             lbMap = AffineMap.get(dim_count=0, symbol_count=0, exprs=[lbCst])
             lbMapAttr = AffineMapAttr.get(lbMap)
@@ -433,15 +445,16 @@ class IRBuilder(object):
                 step,
                 lbMapAttr,
                 ubMapAttr,
-                name=(StringAttr.get("") if name in [
-                    "", None] else StringAttr.get(name)),
+                name=(
+                    StringAttr.get("") if name in ["", None] else StringAttr.get(name)
+                ),
                 stage=("" if stage == "" else StringAttr.get(stage)),
                 reduction=(UnitAttr.get() if reduction else None),
                 ip=ip,
                 loc=loc,
             )
             affine_d.AffineYieldOp([], ip=InsertionPoint(for_op.body))
-        else: # build scf for loop
+        else:  # build scf for loop
             # cast lb and up to index type
             itmd_loc = ast.Location("unknown", 0)
             lb = ast.CastOp(lb, htypes.Index(), loc=itmd_loc)
@@ -454,16 +467,16 @@ class IRBuilder(object):
                 lb.result,
                 ub.result,
                 step.result,
-                name=(StringAttr.get("") if name in [
-                    "", None] else StringAttr.get(name)),
+                name=(
+                    StringAttr.get("") if name in ["", None] else StringAttr.get(name)
+                ),
                 stage=("" if stage == "" else StringAttr.get(stage)),
-                reduction = (UnitAttr.get() if reduction else None),
+                reduction=(UnitAttr.get() if reduction else None),
                 ip=ip,
-                loc=loc
+                loc=loc,
             )
             scf_d.YieldOp([], ip=InsertionPoint(for_op.body))
         return for_op
-
 
     def build_compute(self, op, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
@@ -475,13 +488,18 @@ class IRBuilder(object):
                 self.build_visitor(alloc_op, ip)
                 op.result = alloc_op.result
                 op.ir_op = alloc_op
-            
+
             loops = list()
             for i, (ub, loop_name) in enumerate(zip(op.shape, iv_names)):
                 loop = self.build_for_loop(
-                    0, ub, step=1, name=loop_name,
+                    0,
+                    ub,
+                    step=1,
+                    name=loop_name,
                     stage=(op.name if i == 0 else ""),
-                    ip=ip, loc=loc)
+                    ip=ip,
+                    loc=loc,
+                )
                 loops.append(loop)
                 ip = InsertionPoint(loop.body.operations[0])
             for iter_var, loop in zip(op.iter_vars, loops):
@@ -489,18 +507,19 @@ class IRBuilder(object):
             for body_op in op.body:
                 self.build_visitor(body_op, ip)
 
-    def build_for_op(self, op : ast.ForOp, ip):
+    def build_for_op(self, op: ast.ForOp, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         with get_context(), loc:
             stage = "" if op.tag is None else op.tag
             loop = self.build_for_loop(
-                op.low, op.high, op.step, op.name, stage=stage, ip=ip, loc=loc)
+                op.low, op.high, op.step, op.name, stage=stage, ip=ip, loc=loc
+            )
             ip = InsertionPoint(loop.body.operations[0])
             op.iter_var.parent_loop = loop
             for body_op in op.body:
                 self.build_visitor(body_op, ip)
 
-    def build_while_op(self, op : ast.WhileOp, ip):
+    def build_while_op(self, op: ast.WhileOp, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         with get_context(), loc:
             # bulid empty while loop
@@ -556,7 +575,7 @@ class IRBuilder(object):
         if isinstance(t, (htypes.UInt, htypes.UFixed)):
             binary_op.attributes["unsigned"] = UnitAttr.get()
 
-    def build_math_tanh_op(self, op : ast.MathTanhOp, ip):
+    def build_math_tanh_op(self, op: ast.MathTanhOp, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         self.build_visitor(op.expr, ip)
         casted = ast.CastOp(op.expr, htypes.Float(64), loc)
@@ -573,18 +592,17 @@ class IRBuilder(object):
         if isinstance(t, htypes.Float):
             neg_op = arith_d.NegFOp(op.expr.result, ip=ip, loc=loc)
         else:
-            mul_neg_one = ast.BinaryOp(
-                op.expr, ast.ConstOp(-1, t, loc), "*", loc)
+            mul_neg_one = ast.BinaryOp(op.expr, ast.ConstOp(-1, t, loc), "*", loc)
             self.build_visitor(mul_neg_one, ip)
             neg_op = mul_neg_one.ir_op
-        
+
         op.result = neg_op.result
         op.ir_op = neg_op
 
         if isinstance(t, (htypes.UInt, htypes.UFixed)):
             neg_op.attributes["unsigned"] = UnitAttr.get()
 
-    def build_cmp_op(self, op : ast.Cmp, ip):
+    def build_cmp_op(self, op: ast.Cmp, ip):
         """
         # Check mlir/Dialect/Arithmetic/IR/ArithmeticBase.td
         # s/u: signed/unsigned
@@ -654,15 +672,15 @@ class IRBuilder(object):
             },
         }
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
-        
+
         # Step 1: build lhs and rhs
         self.build_visitor(op.lhs, ip)
         self.build_visitor(op.rhs, ip)
 
         # Step 2: cast lhs and rhs to the same type
         t = self.tinf_engine.infer(op)
-        if isinstance(t, tuple): 
-            t = t[0] # index 0 is src type, index 1 is res type
+        if isinstance(t, tuple):
+            t = t[0]  # index 0 is src type, index 1 is res type
         lhs = ast.CastOp(op.lhs, t, loc)
         rhs = ast.CastOp(op.rhs, t, loc)
         self.build_visitor(lhs, ip)
@@ -681,16 +699,16 @@ class IRBuilder(object):
             ]
         elif isinstance(t, htypes.Float):
             OpClass = arith_d.CmpFOp
-            attr = ATTR_MAP["float"]['o' + op.name]
+            attr = ATTR_MAP["float"]["o" + op.name]
         elif isinstance(t, htypes.Fixed):
             OpClass = hcl_d.CmpFixedOp
             attr = ATTR_MAP["fixed"][
-                's' + op.name if op.name not in ["eq", "ne"] else op.name
+                "s" + op.name if op.name not in ["eq", "ne"] else op.name
             ]
         elif isinstance(t, htypes.UFixed):
             OpClass = hcl_d.CmpFixedOp
             attr = ATTR_MAP["fixed"][
-                'u' + op.name if op.name not in ["eq", "ne"] else op.name
+                "u" + op.name if op.name not in ["eq", "ne"] else op.name
             ]
         else:
             raise NotImplementedError(f"Unsupported type for CmpOp build: {t}")
@@ -705,12 +723,12 @@ class IRBuilder(object):
         if isinstance(t, (htypes.UInt, htypes.UFixed)):
             cmp_op.attributes["unsigned"] = UnitAttr.get()
 
-    def build_load_op(self, op : ast.LoadOp, ip):
+    def build_load_op(self, op: ast.LoadOp, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         index_exprs = []
         flag = True
         load_op = None
-        self.iv.clear() # clear iv
+        self.iv.clear()  # clear iv
         for index in op.index:
             try:
                 affine_expr = self.build_affine_expr(index)
@@ -725,11 +743,7 @@ class IRBuilder(object):
             )
             affine_attr = AffineMapAttr.get(affine_map)
             load_op = affine_d.AffineLoadOp(
-                op.tensor.result,
-                self.iv,
-                affine_attr,
-                ip=ip,
-                loc=loc
+                op.tensor.result, self.iv, affine_attr, ip=ip, loc=loc
             )
             op.result = load_op.result
             op.ir_op = load_op
@@ -749,7 +763,7 @@ class IRBuilder(object):
         if isinstance(op.dtype, htypes.UInt):
             load_op.attributes["unsigned"] = UnitAttr.get()
 
-    def build_store_op(self, op : ast.StoreOp, ip):
+    def build_store_op(self, op: ast.StoreOp, ip):
         index_exprs = []
         flag = True
         store_op = None
@@ -757,7 +771,7 @@ class IRBuilder(object):
             self.build_visitor(op.value, ip)
         casted_expr = ast.CastOp(op.value, op.tensor.dtype, op.loc)
         self.build_visitor(casted_expr, ip)
-        self.iv.clear() # clear iv
+        self.iv.clear()  # clear iv
         for index in op.index:
             try:
                 affine_expr = self.build_affine_expr(index)
@@ -772,11 +786,7 @@ class IRBuilder(object):
             )
             affine_attr = AffineMapAttr.get(affine_map)
             store_op = affine_d.AffineStoreOp(
-                casted_expr.result,
-                op.tensor.result,
-                self.iv,
-                affine_attr,
-                ip=ip
+                casted_expr.result, op.tensor.result, self.iv, affine_attr, ip=ip
             )
         else:
             new_indices = []
@@ -785,12 +795,14 @@ class IRBuilder(object):
                 index = ast.CastOp(index, htypes.Index(), op.loc)
                 self.build_visitor(index, ip)
                 new_indices.append(index.result)
-            store_op = memref_d.StoreOp(casted_expr.result, op.tensor.result, new_indices, ip=ip)
+            store_op = memref_d.StoreOp(
+                casted_expr.result, op.tensor.result, new_indices, ip=ip
+            )
         # we don't need to set the result of store op
         # because store op doesn't have a result
         store_op.attributes["to"] = StringAttr.get(op.tensor.name)
         if isinstance(op.tensor.dtype, htypes.UInt):
-            store_op.attributes["unsigned"] = UnitAttr.get()        
+            store_op.attributes["unsigned"] = UnitAttr.get()
 
     def build_constant_op(self, op, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
@@ -823,14 +835,13 @@ class IRBuilder(object):
             const_op = arith_d.ConstantOp(dtype, value_attr, ip=ip, loc=loc)
         else:
             raise DTypeError("Unsupported type: {}".format(op.dtype))
-        
+
         op.result = const_op.result
         op.ir_op = const_op
 
         # attach necessary attributes
         if isinstance(op.dtype, (htypes.UInt, htypes.UFixed)):
             const_op.attributes["unsigned"] = UnitAttr.get()
-
 
     def build_cast_op(self, op, ip):
         if op.expr.result is None:
@@ -845,9 +856,13 @@ class IRBuilder(object):
             op.result = op.expr.result
             op.ir_op = op.expr.ir_op
             return
-        elif isinstance(src_type, (htypes.Int, htypes.UInt)) and isinstance(res_type, htypes.Index):
+        elif isinstance(src_type, (htypes.Int, htypes.UInt)) and isinstance(
+            res_type, htypes.Index
+        ):
             CastOpClass = arith_d.IndexCastOp
-        elif isinstance(src_type, htypes.Index) and isinstance(res_type, (htypes.Int, htypes.UInt)):
+        elif isinstance(src_type, htypes.Index) and isinstance(
+            res_type, (htypes.Int, htypes.UInt)
+        ):
             CastOpClass = arith_d.IndexCastOp
         elif isinstance(src_type, htypes.Int) and isinstance(res_type, htypes.Float):
             CastOpClass = arith_d.SIToFPOp
@@ -857,14 +872,16 @@ class IRBuilder(object):
             CastOpClass = arith_d.FPToSIOp
         elif isinstance(src_type, htypes.Float) and isinstance(res_type, htypes.UInt):
             CastOpClass = arith_d.FPToUIOp
-        elif isinstance(src_type, (htypes.Int, htypes.UInt)) and isinstance(res_type, (htypes.Int, htypes.UInt)):
+        elif isinstance(src_type, (htypes.Int, htypes.UInt)) and isinstance(
+            res_type, (htypes.Int, htypes.UInt)
+        ):
             if src_type.bits > res_type.bits:
                 CastOpClass = arith_d.TruncIOp
             elif src_type.bits == res_type.bits:
                 op.result = op.expr.result
                 op.ir_op = op.expr.ir_op
                 return
-            else: # src_type.bits < res_type.bits
+            else:  # src_type.bits < res_type.bits
                 if (
                     isinstance(op.expr, (ast.GetBitOp, ast.GetSliceOp, ast.LeftShiftOp))
                     or src_type.bits == 1
@@ -883,46 +900,64 @@ class IRBuilder(object):
                 op.result = op.expr.result
                 op.ir_op = op.expr.ir_op
                 return
-        elif isinstance(src_type, htypes.Float) and isinstance(res_type, (htypes.Fixed, htypes.UFixed)):
+        elif isinstance(src_type, htypes.Float) and isinstance(
+            res_type, (htypes.Fixed, htypes.UFixed)
+        ):
             CastOpClass = hcl_d.FloatToFixedOp
-        elif isinstance(src_type, (htypes.Fixed, htypes.UFixed)) and isinstance(res_type, htypes.Float):
+        elif isinstance(src_type, (htypes.Fixed, htypes.UFixed)) and isinstance(
+            res_type, htypes.Float
+        ):
             CastOpClass = hcl_d.FixedToFloatOp
-        elif isinstance(src_type, (htypes.Fixed, htypes.UFixed)) and isinstance(res_type, (htypes.Int, htypes.UInt)):
+        elif isinstance(src_type, (htypes.Fixed, htypes.UFixed)) and isinstance(
+            res_type, (htypes.Int, htypes.UInt)
+        ):
             CastOpClass = hcl_d.FixedToIntOp
-        elif isinstance(src_type, (htypes.Int, htypes.UInt)) and isinstance(res_type, (htypes.Fixed, htypes.UFixed)):
+        elif isinstance(src_type, (htypes.Int, htypes.UInt)) and isinstance(
+            res_type, (htypes.Fixed, htypes.UFixed)
+        ):
             CastOpClass = hcl_d.IntToFixedOp
-        elif isinstance(src_type, (htypes.Fixed, htypes.UFixed)) and isinstance(res_type, (htypes.Fixed, htypes.UFixed)):
+        elif isinstance(src_type, (htypes.Fixed, htypes.UFixed)) and isinstance(
+            res_type, (htypes.Fixed, htypes.UFixed)
+        ):
             if src_type == res_type:
                 op.result = op.expr.result
                 op.ir_op = op.expr.ir_op
                 return
             else:
                 CastOpClass = hcl_d.FixedToFixedOp
-        elif isinstance(src_type, htypes.Struct) and isinstance(res_type, htypes.Struct):
+        elif isinstance(src_type, htypes.Struct) and isinstance(
+            res_type, htypes.Struct
+        ):
             # We don't actually cast between struct types,
             # here we check if two structs are identical when all
             # integer fields are signless.
             if len(src_type.dtype_dict) != len(res_type.dtype_dict):
                 raise DTypeError(
-                    "Casting between structs with different number of fields. " +
-                    f"src type: {src_type}, dst type: {res_type}"
+                    "Casting between structs with different number of fields. "
+                    + f"src type: {src_type}, dst type: {res_type}"
                 )
-            for res_ftype, src_ftype in zip(res_type.dtype_dict.values(), src_type.dtype_dict.values()):
-                if isinstance(src_ftype, (htypes.Int, htypes.UInt)) and isinstance(res_ftype, (htypes.Int, htypes.UInt)):
+            for res_ftype, src_ftype in zip(
+                res_type.dtype_dict.values(), src_type.dtype_dict.values()
+            ):
+                if isinstance(src_ftype, (htypes.Int, htypes.UInt)) and isinstance(
+                    res_ftype, (htypes.Int, htypes.UInt)
+                ):
                     if src_ftype.width != res_ftype.width:
                         raise DTypeError(
-                            "Casting between structs with different field width. " +
-                            f"src type: {src_type}, dst type: {res_type}"
+                            "Casting between structs with different field width. "
+                            + f"src type: {src_type}, dst type: {res_type}"
                         )
                 else:
                     raise DTypeError(
-                        "Casting between structs with different field types. " +
-                        f"src type: {src_type}, dst type: {res_type}"
+                        "Casting between structs with different field types. "
+                        + f"src type: {src_type}, dst type: {res_type}"
                     )
             op.result = op.expr.result
             op.ir_op = op.expr.ir_op
             return
-        elif isinstance(src_type, htypes.Struct) and isinstance(res_type, (htypes.Int, htypes.UInt)):
+        elif isinstance(src_type, htypes.Struct) and isinstance(
+            res_type, (htypes.Int, htypes.UInt)
+        ):
             all_field_int = True
             total_width = 0
             for ftype in src_type.dtype_dict.values():
@@ -932,19 +967,19 @@ class IRBuilder(object):
                 total_width += ftype.bits
             if not all_field_int:
                 raise DTypeError(
-                        "Casting from integer to struct with non-integer fields. " +
-                        f"src type: {src_type}, dst type: {res_type}"
-                    )
+                    "Casting from integer to struct with non-integer fields. "
+                    + f"src type: {src_type}, dst type: {res_type}"
+                )
             if total_width != res_type.bits:
                 raise DTypeError(
-                        "Casting from integer to struct with different width. " +
-                        f"src type: {src_type}, dst type: {res_type}"
-                    )
+                    "Casting from integer to struct with different width. "
+                    + f"src type: {src_type}, dst type: {res_type}"
+                )
             CastOpClass = hcl_d.IntToStructOp
         else:
             raise DTypeError(
-                "Casting between unsupported types. " +
-                f"src type: {src_type}, dst type: {res_type}"
+                "Casting between unsupported types. "
+                + f"src type: {src_type}, dst type: {res_type}"
             )
 
         # build the cast op
@@ -964,7 +999,9 @@ class IRBuilder(object):
         * Should all be binary op
         * AffineExpr can be automatically simplied
         """
-        if not isinstance(expr, (ast.IterVar, ast.ConstantOp, ast.CastOp, ast.BinaryOp)):
+        if not isinstance(
+            expr, (ast.IterVar, ast.ConstantOp, ast.CastOp, ast.BinaryOp)
+        ):
             raise HCLValueError(f"{expr} is not an affine index")
         if isinstance(expr, ast.IterVar):
             if expr.parent_loop is None:
@@ -975,7 +1012,9 @@ class IRBuilder(object):
                 self.iv.append(expr.parent_loop.induction_variable)  # BlockArgument
                 return AffineExpr.get_dim(len(self.iv) - 1)
             else:
-                return AffineExpr.get_dim(self.iv.index(expr.parent_loop.induction_variable))
+                return AffineExpr.get_dim(
+                    self.iv.index(expr.parent_loop.induction_variable)
+                )
         elif isinstance(expr, ast.ConstantOp):
             return AffineExpr.get_constant(expr.value)
         elif isinstance(expr, ast.CastOp):
@@ -995,8 +1034,7 @@ class IRBuilder(object):
         else:
             raise HCLValueError(f"{expr} is not an affine index!")
 
-
-    def build_if_op(self, op : ast.IfOp, ip):
+    def build_if_op(self, op: ast.IfOp, ip):
         """Build IfOp"""
         # TODO: support affine if
         # build condition
@@ -1014,7 +1052,6 @@ class IRBuilder(object):
             for body_op in op.else_body:
                 self.build_visitor(body_op, ip)
             scf_d.YieldOp([], ip=ip)
-
 
     def build_reduce(self, op: ast.ReduceOp, ip):
         """Build ReduceOp"""
@@ -1035,11 +1072,7 @@ class IRBuilder(object):
         for axis in op.axis:
             lb, ub = axis.bound
             loop = self.build_for_loop(
-                lb, ub, step=1,
-                reduction=True,
-                name=axis.name,
-                ip=body_ip,
-                loc=loc
+                lb, ub, step=1, reduction=True, name=axis.name, ip=body_ip, loc=loc
             )
             axis.parent_loop = loop
             loops.append(loop)
@@ -1070,7 +1103,7 @@ class IRBuilder(object):
         op.ir_op = load_op
         op.result = load_op.result
 
-    def build_select_op(self, op : ast.SelectOp, ip):
+    def build_select_op(self, op: ast.SelectOp, ip):
         # Step 1: get condition, true, and false value
         # if any of them is an immediate, convert it to a constant
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
@@ -1080,7 +1113,7 @@ class IRBuilder(object):
         self.build_visitor(true_value, ip)
         false_value = ast.immediate_to_constant(op.false_value, op.loc)
         self.build_visitor(false_value, ip)
-        
+
         # Step 2: type inference and cast
         res_type = self.tinf_engine.infer(op)
         # cast condition to uint1
@@ -1092,9 +1125,11 @@ class IRBuilder(object):
         self.build_visitor(true_value, ip)
         false_value = ast.CastOp(false_value, res_type, op.loc)
         self.build_visitor(false_value, ip)
-        
+
         # Step 3: build select op
-        select_op = arith_d.SelectOp(cond.result, true_value.result, false_value.result, ip=ip, loc=loc)
+        select_op = arith_d.SelectOp(
+            cond.result, true_value.result, false_value.result, ip=ip, loc=loc
+        )
         op.ir_op = select_op
         op.result = select_op.result
 
@@ -1108,7 +1143,7 @@ class IRBuilder(object):
                 "Destination datatype bitwidth does not match source bitwidth:"
                 + f"source bitwidth: {src_dtype.bits} , destination bitwidth {op.dtype}."
             )
-        dst_dtype = hcl_dtype_to_mlir(dst_dtype, signless=True) 
+        dst_dtype = hcl_dtype_to_mlir(dst_dtype, signless=True)
         bitcast_op = arith_d.BitcastOp(dst_dtype, op.expr.result, ip=ip, loc=loc)
         op.ir_op = bitcast_op
         op.result = bitcast_op.result
@@ -1132,7 +1167,7 @@ class IRBuilder(object):
                 default_fmt += "%.3f "
                 signedness_str += "_"
             default_fmt += "\n"
-    
+
         if op.fmt == "":
             op.fmt = default_fmt
 
@@ -1157,29 +1192,26 @@ class IRBuilder(object):
         # check if expr is int type
         expr_dtype = self.tinf_engine.infer(op.expr)
         if not isinstance(expr_dtype, (htypes.Int, htypes.UInt)):
-            raise APIError(
-                "Get bit operation only supports integer type"
-            )
+            raise APIError("Get bit operation only supports integer type")
         # cast index to index type
         index = ast.CastOp(op.index, htypes.Index(), op.loc)
         self.build_visitor(index, ip)
 
         # build get bit op
         res_dtype = hcl_dtype_to_mlir(htypes.UInt(1), signless=True)
-        getbit_op = hcl_d.GetIntBitOp(res_dtype, op.expr.result, index.result, ip=ip, loc=loc)
+        getbit_op = hcl_d.GetIntBitOp(
+            res_dtype, op.expr.result, index.result, ip=ip, loc=loc
+        )
         op.ir_op = getbit_op
         op.result = getbit_op.result
 
-    
-    def build_get_slice_op(self, op : ast.GetSliceOp, ip):
+    def build_get_slice_op(self, op: ast.GetSliceOp, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         self.build_visitor(op.expr, ip)
         # check if expr is int type
         expr_dtype = self.tinf_engine.infer(op.expr)
         if not isinstance(expr_dtype, (htypes.Int, htypes.UInt)):
-            raise APIError(
-                "Get bit operation only supports integer type"
-            )
+            raise APIError("Get bit operation only supports integer type")
         # cast start index to index type
         start = ast.CastOp(op.start, htypes.Index(), op.loc)
         self.build_visitor(start, ip)
@@ -1189,7 +1221,9 @@ class IRBuilder(object):
 
         res_dtype = hcl_dtype_to_mlir(expr_dtype, signless=True)
         op.dtype = expr_dtype
-        getbit_op = hcl_d.GetIntSliceOp(res_dtype, op.expr.result, end.result, start.result, ip=ip, loc=loc)
+        getbit_op = hcl_d.GetIntSliceOp(
+            res_dtype, op.expr.result, end.result, start.result, ip=ip, loc=loc
+        )
         op.ir_op = getbit_op
         op.result = getbit_op.result
 
@@ -1200,9 +1234,7 @@ class IRBuilder(object):
         # check if expr is int type
         expr_dtype = self.tinf_engine.infer(op.expr)
         if not isinstance(expr_dtype, (htypes.Int, htypes.UInt)):
-            raise APIError(
-                "Set bit operation only supports integer type"
-            )
+            raise APIError("Set bit operation only supports integer type")
         expr_dtype = hcl_dtype_to_mlir(expr_dtype, signless=True)
         # cast index to index type
         index = ast.CastOp(op.index, htypes.Index(), op.loc)
@@ -1212,7 +1244,9 @@ class IRBuilder(object):
         self.build_visitor(value, ip)
 
         # build set bit op
-        setbit_op = hcl_d.SetIntBitOp(op.expr.result, index.result, value.result, ip=ip, loc=loc)
+        setbit_op = hcl_d.SetIntBitOp(
+            op.expr.result, index.result, value.result, ip=ip, loc=loc
+        )
         op.ir_op = setbit_op
 
         # if expr is a LoadOp, we need to update the value in the tensor
@@ -1222,16 +1256,14 @@ class IRBuilder(object):
             store_op = ast.StoreOp(load_op.tensor, load_op.index, op.expr, op.loc)
             self.build_visitor(store_op, ip)
 
-    def build_set_slice_op(self, op : ast.SetSliceOp, ip):
+    def build_set_slice_op(self, op: ast.SetSliceOp, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         self.build_visitor(op.expr, ip)
         self.build_visitor(op.value, ip)
         # check if expr is int type
         expr_dtype = self.tinf_engine.infer(op.expr)
         if not isinstance(expr_dtype, (htypes.Int, htypes.UInt)):
-            raise APIError(
-                "Set bit operation only supports integer type expr"
-            )
+            raise APIError("Set bit operation only supports integer type expr")
 
         # cast start, end indices to index type
         start = ast.CastOp(op.start, htypes.Index(), op.loc)
@@ -1240,10 +1272,11 @@ class IRBuilder(object):
         self.build_visitor(end, ip)
 
         # build set bit op
-        setbit_op = hcl_d.SetIntSliceOp(op.expr.result, 
-            end.result, start.result, op.value.result, ip=ip, loc=loc)
+        setbit_op = hcl_d.SetIntSliceOp(
+            op.expr.result, end.result, start.result, op.value.result, ip=ip, loc=loc
+        )
         op.ir_op = setbit_op
-        
+
         # if expr is a LoadOp, we need to update the value in the tensor
         if isinstance(op.expr, ast.LoadOp):
             # build store op
@@ -1251,20 +1284,18 @@ class IRBuilder(object):
             store_op = ast.StoreOp(load_op.tensor, load_op.index, op.expr, op.loc)
             self.build_visitor(store_op, ip)
 
-    def build_bit_reverse_op(self, op : ast.BitReverseOp, ip):
+    def build_bit_reverse_op(self, op: ast.BitReverseOp, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         self.build_visitor(op.expr, ip)
         # check if expr is int type
         expr_dtype = self.tinf_engine.infer(op.expr)
         if not isinstance(expr_dtype, (htypes.Int, htypes.UInt)):
-            raise APIError(
-                "Bit reverse operation only supports integer type"
-            )
+            raise APIError("Bit reverse operation only supports integer type")
         bitreverse_op = hcl_d.BitReverseOp(op.expr.result, ip=ip, loc=loc)
         op.ir_op = bitreverse_op
         op.result = bitreverse_op.result
 
-    def build_constant_tensor_op(self, op : ast.ConstantTensorOp, ip):
+    def build_constant_tensor_op(self, op: ast.ConstantTensorOp, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         dtype = hcl_dtype_to_mlir(op.dtype, signless=True)
         val = op.values
@@ -1284,7 +1315,7 @@ class IRBuilder(object):
             constant=True,
             alignment=None,
             ip=InsertionPoint(self.module.body),
-            loc=loc
+            loc=loc,
         )
         const_tensor.attributes["constant"] = UnitAttr.get()
         if isinstance(op.dtype, (htypes.UInt, htypes.UFixed)):
@@ -1293,24 +1324,18 @@ class IRBuilder(object):
         if isinstance(op.dtype, (htypes.Fixed, htypes.UFixed)):
             fixed_memref_type = MemRefType.get(val.shape, dtype)
             get_global = hcl_d.GetGlobalFixedOp(
-                fixed_memref_type,
-                FlatSymbolRefAttr.get(op.name),
-                ip=ip,
-                loc=loc
+                fixed_memref_type, FlatSymbolRefAttr.get(op.name), ip=ip, loc=loc
             )
         else:
             get_global = memref_d.GetGlobalOp(
-                memref_type,
-                FlatSymbolRefAttr.get(op.name),
-                ip=ip,
-                loc=loc
+                memref_type, FlatSymbolRefAttr.get(op.name), ip=ip, loc=loc
             )
         op.ir_op = get_global
         op.result = get_global.result
         op.tensor.ir_op = get_global
         op.tensor.result = get_global.result
 
-    def build_struct_construct_op(self, op : ast.StructConstructOp, ip):
+    def build_struct_construct_op(self, op: ast.StructConstructOp, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         # build fields
         field_results = list()
@@ -1322,40 +1347,39 @@ class IRBuilder(object):
             field_results.append(field.result)
         field_types = [f.type for f in field_results]
         struct_type = hcl_d.StructType.get(field_types)
-        struct_op = hcl_d.StructConstructOp(
-            struct_type, field_results, ip=ip, loc=loc)
+        struct_op = hcl_d.StructConstructOp(struct_type, field_results, ip=ip, loc=loc)
         op.ir_op = struct_op
         op.result = struct_op.result
 
-    def build_struct_get_op(self, op : ast.StructGetOp, ip):
+    def build_struct_get_op(self, op: ast.StructGetOp, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         self.build_visitor(op.struct, ip)
         dtype = self.tinf_engine.infer(op)
         dtype = hcl_dtype_to_mlir(dtype, signless=True)
         assert isinstance(op.field, int)
         attr = IntegerAttr.get(IntegerType.get_signless(64), op.field)
-        struct_get_op = hcl_d.StructGetOp(
-            dtype, op.struct.result, attr, ip=ip, loc=loc)
+        struct_get_op = hcl_d.StructGetOp(dtype, op.struct.result, attr, ip=ip, loc=loc)
         if isinstance(dtype, (htypes.UInt, htypes.UFixed)):
             struct_get_op.attr["unsigned"] = UnitAttr.get()
         op.ir_op = struct_get_op
         op.result = struct_get_op.result
 
-    def build_op_handle(self, op : ast.OpHandle, ip):
+    def build_op_handle(self, op: ast.OpHandle, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         hdl_op = hcl_d.CreateOpHandleOp(StringAttr.get(op.name), ip=ip, loc=loc)
         op.ir_op = hdl_op
         op.result = hdl_op.result
 
-    def build_loop_handle(self, op : ast.LoopHandle, ip):
+    def build_loop_handle(self, op: ast.LoopHandle, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         self.build_visitor(op.op_hdl, ip)
         hdl_op = hcl_d.CreateLoopHandleOp(
-            op.op_hdl.result, StringAttr.get(op.name), ip=ip, loc=loc)
+            op.op_hdl.result, StringAttr.get(op.name), ip=ip, loc=loc
+        )
         op.ir_op = hdl_op
         op.result = hdl_op.result
 
-    def build_partition_op(self, op : ast.PartitionOp, ip):
+    def build_partition_op(self, op: ast.PartitionOp, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         i32 = IntegerType.get_signless(32)
         ui32 = IntegerType.get_unsigned(32)
@@ -1364,19 +1388,23 @@ class IRBuilder(object):
         factor = IntegerAttr.get(ui32, op.factor)
         self.build_visitor(op.tensor, ip)
         partition_op = hcl_d.PartitionOp(
-            op.tensor.result, 
-            partition_kind=partition_type, 
-            dim=dim, factor=factor, ip=ip, loc=loc)
+            op.tensor.result,
+            partition_kind=partition_type,
+            dim=dim,
+            factor=factor,
+            ip=ip,
+            loc=loc,
+        )
         op.ir_op = partition_op
 
-    def build_replace_op(self, op : ast.ReplaceOp, ip):
+    def build_replace_op(self, op: ast.ReplaceOp, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         self.build_visitor(op.target, ip)
         self.build_visitor(op.src, ip)
         replace_op = hcl_d.ReplaceOp(op.target.result, op.src.result, ip=ip, loc=loc)
         op.ir_op = replace_op
 
-    def build_reshape_op(self, op : ast.ReshapeOp, ip):
+    def build_reshape_op(self, op: ast.ReshapeOp, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         self.build_visitor(op.tensor, ip)
         eletype = hcl_dtype_to_mlir(op.tensor.dtype)
@@ -1384,7 +1412,7 @@ class IRBuilder(object):
         reshape_op = hcl_d.ReshapeOp(memref_type, op.tensor.result, ip=ip, loc=loc)
         op.ir_op = reshape_op
 
-    def build_reform_op(self, op : ast.ReformOp, ip):
+    def build_reform_op(self, op: ast.ReformOp, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         self.build_visitor(op.target, ip)
         if op.layout == "nhwc":
@@ -1395,28 +1423,32 @@ class IRBuilder(object):
         reform_op = hcl_d.ReformOp(memref_type, op.target.result, ip=ip, loc=loc)
         reform_op.attributes["layout"] = AffineMapAttr.get(attr)
         op.ir_op = reform_op
-    
-    def build_reuse_at_op(self, op : ast.ReuseAtOp, ip):
+
+    def build_reuse_at_op(self, op: ast.ReuseAtOp, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         self.build_visitor(op.target, ip)
         self.build_visitor(op.axis, ip)
         f32 = F32Type.get()
         memref_type = MemRefType.get((1,), f32, loc=loc)
-        reuse_at_op = hcl_d.ReuseAtOp(memref_type, op.target.result, op.axis.result, ip=ip, loc=loc)
+        reuse_at_op = hcl_d.ReuseAtOp(
+            memref_type, op.target.result, op.axis.result, ip=ip, loc=loc
+        )
         op.ir_op = reuse_at_op
         op.result = reuse_at_op.result
 
-    def build_buffer_at_op(self, op : ast.BufferAtOp, ip):
+    def build_buffer_at_op(self, op: ast.BufferAtOp, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         self.build_visitor(op.target, ip)
         self.build_visitor(op.axis, ip)
         f32 = F32Type.get()
         memref_type = MemRefType.get((1,), f32, loc=loc)
-        buffer_at_op = hcl_d.BufferAt(memref_type, op.target.result, op.axis.result, ip=ip, loc=loc)
+        buffer_at_op = hcl_d.BufferAt(
+            memref_type, op.target.result, op.axis.result, ip=ip, loc=loc
+        )
         op.ir_op = buffer_at_op
         op.result = buffer_at_op.result
 
-    def build_inter_kernel_to_op(self, op : ast.InterKernelToOp, ip):
+    def build_inter_kernel_to_op(self, op: ast.InterKernelToOp, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         self.build_visitor(op.tensor, ip)
         self.build_visitor(op.stage, ip)
@@ -1426,10 +1458,11 @@ class IRBuilder(object):
         assert top_func is not None
         top_func.attributes["dataflow"] = UnitAttr.get()
         to_op = hcl_d.InterKernelToOp(
-            op.tensor.result, op.stage.result, fifo_depth=fifo_depth, ip=ip, loc=loc)
+            op.tensor.result, op.stage.result, fifo_depth=fifo_depth, ip=ip, loc=loc
+        )
         op.ir_op = to_op
-        
-    def build_outline_op(self, op : ast.OutlineOp, ip):
+
+    def build_outline_op(self, op: ast.OutlineOp, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         for stage_hdl in op.stage_hdls:
             self.build_visitor(stage_hdl, ip)
@@ -1441,7 +1474,7 @@ class IRBuilder(object):
             outline_op.attributes["axis"] = StringAttr.get(op.axis)
         op.ir_op = outline_op
 
-    def build_reorder_op(self, op : ast.ReorderOp, ip):
+    def build_reorder_op(self, op: ast.ReorderOp, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         for arg in op.args:
             self.build_visitor(arg, ip)
@@ -1449,7 +1482,7 @@ class IRBuilder(object):
         reorder_op = hcl_d.ReorderOp(arg_results, ip=ip, loc=loc)
         op.ir_op = reorder_op
 
-    def build_split_op(self, op : ast.SplitOp, ip):
+    def build_split_op(self, op: ast.SplitOp, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         self.build_visitor(op.parent, ip)
         i32 = IntegerType.get_unsigned(32)
@@ -1459,7 +1492,7 @@ class IRBuilder(object):
         for result_loop_hdl, hdl_result in zip(op.results, split_op.results):
             result_loop_hdl.result = hdl_result
 
-    def build_tile_op(self, op : ast.TileOp, ip):
+    def build_tile_op(self, op: ast.TileOp, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         i32 = IntegerType.get_unsigned(32)
         x_factor = IntegerAttr.get(i32, op.x_factor)
@@ -1467,12 +1500,13 @@ class IRBuilder(object):
         self.build_visitor(op.x_parent, ip)
         self.build_visitor(op.y_parent, ip)
         tile_op = hcl_d.TileOp(
-            op.x_parent.result, op.y_parent.result, x_factor, y_factor, ip=ip, loc=loc)
+            op.x_parent.result, op.y_parent.result, x_factor, y_factor, ip=ip, loc=loc
+        )
         op.ir_op = tile_op
         for result_loop_hdl, hdl_result in zip(op.results, tile_op.results):
             result_loop_hdl.result = hdl_result
 
-    def build_pipeline_op(self, op : ast.PipelineOp, ip):
+    def build_pipeline_op(self, op: ast.PipelineOp, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         self.build_visitor(op.target, ip)
         i32 = IntegerType.get_unsigned(32)
@@ -1480,7 +1514,7 @@ class IRBuilder(object):
         pipeline_op = hcl_d.PipelineOp(op.target.result, ii=ii, ip=ip, loc=loc)
         op.ir_op = pipeline_op
 
-    def build_unroll_op(self, op : ast.UnrollOp, ip):
+    def build_unroll_op(self, op: ast.UnrollOp, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         self.build_visitor(op.target, ip)
         i32 = IntegerType.get_unsigned(32)
@@ -1488,13 +1522,13 @@ class IRBuilder(object):
         unroll_op = hcl_d.UnrollOp(op.target.result, factor=factor, ip=ip, loc=loc)
         op.ir_op = unroll_op
 
-    def build_parallel_op(self, op : ast.ParallelOp, ip):
+    def build_parallel_op(self, op: ast.ParallelOp, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         self.build_visitor(op.target, ip)
         parallel_op = hcl_d.ParallelOp(op.target.result, ip=ip, loc=loc)
         op.ir_op = parallel_op
-    
-    def build_fuse_op(self, op : ast.FuseOp, ip):
+
+    def build_fuse_op(self, op: ast.FuseOp, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         for arg in op.arg_list:
             self.build_visitor(arg, ip)
@@ -1503,14 +1537,15 @@ class IRBuilder(object):
         op.ir_op = fuse_op
         op.result = fuse_op.result
 
-    def build_compute_at_op(self, op : ast.ComputeAtOp, ip):
+    def build_compute_at_op(self, op: ast.ComputeAtOp, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         self.build_visitor(op.stage, ip)
         self.build_visitor(op.parent, ip)
         self.build_visitor(op.axis, ip)
         compute_at_op = hcl_d.ComputeAtOp(
-            op.stage.result, op.parent.result, op.axis.result, ip=ip, loc=loc)
+            op.stage.result, op.parent.result, op.axis.result, ip=ip, loc=loc
+        )
         op.ir_op = compute_at_op
 
-    def build_systolic_op(self, op : ast.SystolicOp, ip):
+    def build_systolic_op(self, op: ast.SystolicOp, ip):
         op.target.ir_op.attributes["systolic"] = UnitAttr.get()

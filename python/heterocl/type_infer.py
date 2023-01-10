@@ -7,16 +7,16 @@ from .ast import ast
 from .types import *
 from .type_rules import get_type_rules, TypeRule
 
+
 class TypeInfer(object):
-    """A type inference engine for HeteroCL programs.
-    """
+    """A type inference engine for HeteroCL programs."""
+
     def __init__(self):
         self._rules = get_type_rules()
         self.build_rule_dict()
 
     def build_rule_dict(self):
-        """Build a dictionary of rules, where the key is the operation type
-        """
+        """Build a dictionary of rules, where the key is the operation type"""
         self._rule_dict = dict()
         for type_rule in self._rules:
             if not isinstance(type_rule, TypeRule):
@@ -25,8 +25,7 @@ class TypeInfer(object):
                 self._rule_dict[op_type] = type_rule
 
     def infer(self, expr):
-        """Infer the type of an expression
-        """
+        """Infer the type of an expression"""
         if isinstance(expr, ast.LoadOp):
             return self.infer_load(expr)
         elif isinstance(expr, ast.BinaryOp):
@@ -65,10 +64,12 @@ class TypeInfer(object):
         elif isinstance(expr, ast.MathTanhOp):
             return Float(64)
         else:
-            raise APIError(f"Type inference not defined for expression of type: {type(expr)}")
+            raise APIError(
+                f"Type inference not defined for expression of type: {type(expr)}"
+            )
 
     def infer_binary(self, expr):
-        lhs_type = self.infer(expr.lhs)    
+        lhs_type = self.infer(expr.lhs)
         rhs_type = self.infer(expr.rhs)
         # find the rule set based on the operation type
         if type(expr) not in self._rule_dict:
@@ -89,6 +90,7 @@ class TypeInfer(object):
     """
         Operations that do not require type inference
     """
+
     def infer_load(self, expr):
         return expr.tensor.dtype
 

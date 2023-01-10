@@ -1,10 +1,11 @@
 from hcl_mlir.exceptions import *
 
-from .context import UniqueName 
+from .context import UniqueName
 from .schedule import Schedule
 from .utils import get_src_loc
 from .ast import ast
 from .types import UInt
+
 
 class WithScope(object):
     """Auxiliary scope with"""
@@ -32,6 +33,7 @@ def and_(*args):
         expr = ast.LogicalAnd(expr, arg, loc)
     return expr
 
+
 def or_(*args):
     """Compute the logic OR between expressions."""
     if len(args) < 2:
@@ -46,8 +48,7 @@ def or_(*args):
 
 
 def not_(arg):
-    """Compute the logic NOT operation.
-    """
+    """Compute the logic NOT operation."""
     filename, loc = get_src_loc()
     loc = ast.Location(filename, loc)
     one = ast.ConstantOp(1, UInt(1), loc)
@@ -80,7 +81,6 @@ def for_(begin, end, step=1, tag=None, name=None):
     return WithScope(forOp.iter_var, _exit_cb)
 
 
-
 def if_(cond):
     region = ast.scope.get()
     filename, lineno = get_src_loc()
@@ -92,6 +92,7 @@ def if_(cond):
         ast.scope.pop()
 
     return WithScope(None, _exit_cb)
+
 
 def else_():
     region = ast.scope.get()
@@ -106,7 +107,6 @@ def else_():
     return WithScope(None, _exit_cb)
 
 
-
 def elif_(cond):
     region = ast.scope.get()
     filename, lineno = get_src_loc()
@@ -118,6 +118,7 @@ def elif_(cond):
         ast.scope.pop()
 
     return WithScope(None, _exit_cb)
+
 
 def while_(cond):
     region = ast.scope.get()
@@ -141,7 +142,9 @@ def def_(shapes=None, dtypes=None, ret_dtype=None, name=None, arg_names=None):
     loc = ast.Location(filename, lineno)
 
     def decorator(fmodule):
-        HCLDeprecationWarning("hcl.def_() is deprecated, please use .outline() instead.").warn()
+        HCLDeprecationWarning(
+            "hcl.def_() is deprecated, please use .outline() instead."
+        ).warn()
         fname = fmodule.__name__
         region = ast.scope.get()
         func_op = ast.FuncOp(fname, [], [], loc)
@@ -161,14 +164,16 @@ def def_(shapes=None, dtypes=None, ret_dtype=None, name=None, arg_names=None):
                 ast.scope.pop()
                 if ret is None:
                     outputs = list()
-                    if len(func_op.body) > 0 and isinstance(func_op.body[-1], ast.ReturnOp):
+                    if len(func_op.body) > 0 and isinstance(
+                        func_op.body[-1], ast.ReturnOp
+                    ):
                         outputs = [func_op.body[-1].expr]
                         func_op.body.pop()
                 elif isinstance(ret, tuple):
                     outputs = list(ret)
                 else:
                     outputs = [ret]
-                
+
                 func_op.return_tensors.extend(outputs)
                 Schedule._FuncDefs[func_sig] = func_op
 
@@ -194,7 +199,6 @@ def def_(shapes=None, dtypes=None, ret_dtype=None, name=None, arg_names=None):
     return decorator
 
 
-
 def return_(expr=None):
     filename, lineno = get_src_loc()
     loc = ast.Location(filename, lineno)
@@ -205,7 +209,8 @@ def return_(expr=None):
 
 def break_():
     raise RuntimeError(
-        "Currently we cannot support hcl.break_ due to MLIR's limitation. Please rewrite your prorgam.")
+        "Currently we cannot support hcl.break_ due to MLIR's limitation. Please rewrite your prorgam."
+    )
     # hcl_mlir.enable_build_inplace()
     # BreakFlag.set(True)
     # if len(Schedule._IfElseStack) == 0:
@@ -217,6 +222,7 @@ def break_():
     # else:
     #     scf.YieldOp([], ip=hcl_mlir.InsertionPoint(last_if_op.else_block))
     # hcl_mlir.GlobalInsertionPoint.save(last_if_op.else_block.operations[0])
+
 
 # def break_():
 #     BreakFlag.set(True)
