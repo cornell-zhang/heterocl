@@ -1,5 +1,7 @@
 from contextvars import ContextVar
 
+#TODO: remove unecessary context vars
+
 from hcl_mlir.dialects import hcl as hcl_d
 from hcl_mlir.ir import *
 

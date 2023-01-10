@@ -339,59 +339,6 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
     compute_op = compute_body(name, shape, fcompute, dtype, loc, None)
     return compute_op.tensor
 
-def old_compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
-    """
-    This function call does not directly build IR, it only creates a node
-    """
-    # check API correctness
-    if not isinstance(shape, tuple):
-        raise APIError("The shape of compute API must be a tuple")
-    shape = tuple([int(s) if isinstance(s, float) else s for s in shape])
-    if name is None:
-        name = UniqueName.get("tensor")
-    if not dtype == None and not isinstance(dtype, (Type, str)):
-        raise APIError("Type error")
-    dtype = config.init_dtype if dtype == None else dtype
-    if isinstance(dtype, str):
-        dtype = dtype_to_hcl(dtype)
-
-    ret_tensor = Tensor(shape, dtype, name=name,
-                        fcompute=fcompute, impl="compute")
-    for tensor in ret_tensor.op.inputs:
-        tensor.add_use(ret_tensor)
-
-
-    # Check the caller function
-    caller_func_name = inspect.stack()[1].function
-    if Schedule._TopFunction is None:
-        called_from_top = False
-    else:
-        called_from_top = caller_func_name == Schedule._TopFunction.__name__
-    caller_func = Schedule._TopFunction if called_from_top else get_func_obj(caller_func_name)
-    if not called_from_top:
-        # Caller function up one level
-        caller_parent_func_name = inspect.stack()[2].function
-        caller_parent_func = get_func_obj(caller_parent_func_name)
-        # If haven't already, attach the caller function
-        # to its parent function as an attribute
-        if not hasattr(caller_parent_func, caller_func_name):
-            caller_parent_func.__setattr__(caller_func_name, caller_func)
-    stage = ret_tensor.op.stage
-    if Schedule._TopFunction != None:
-        if NestedStageLevel.get() > 0:
-            # Attach the stage to the parent stage
-            # TODO(Niansong): test this
-            Schedule._CurrentStage[-1].__setattr__(name, stage)
-            Schedule._CurrentStage[-1]._sub_stages.append(stage)
-        else:
-            caller_func.__setattr__(stage.name, stage.op)
-            # Set up a list of stages for the caller function
-            if not hasattr(caller_func, "_stages"):
-                caller_func.__setattr__("_stages", [stage])
-            else:
-                caller_func._stages.append(stage)    
-    
-    return ret_tensor
 
 def update(tensor, fcompute, name=None):
     if not isinstance(tensor, ast.AllocOp):
@@ -404,71 +351,6 @@ def update(tensor, fcompute, name=None):
     compute_body(name, tensor.shape, fcompute, tensor.dtype, loc, tensor)
     return tensor
 
-def old_update(tensor: Tensor, fcompute, name=None):
-    """
-    fcompute: function, callable
-    name: str
-    """
-    # Check the caller function
-    caller_func_name = inspect.stack()[1].function
-    if Schedule._TopFunction is None:
-        called_from_top = False
-    else:
-        called_from_top = caller_func_name == Schedule._TopFunction.__name__
-    caller_func = get_func_obj(caller_func_name)
-    if not called_from_top:
-        # Caller function up one level
-        caller_parent_func_name = inspect.stack()[2].function
-        caller_parent_func = get_func_obj(caller_parent_func_name)
-        # If haven't already, attach the caller function
-        # to its parent function as an attribute
-        if not hasattr(caller_parent_func, caller_func_name):
-            caller_parent_func.__setattr__(caller_func_name, caller_func)
-
-    # Check tensor type
-    if not isinstance(tensor, Tensor):
-        raise APIError(
-            "Unexpected argument type of the "
-            + "first argument: {}, update API expects tensor as input.".format(
-                type(tensor)
-            )
-        )
-    if name is None:
-        name = tensor.name + "_updated"
-    # Create a new Tensor, along with its stage
-    new_tensor = Tensor(
-        tensor.shape,
-        tensor.dtype,
-        fcompute=fcompute,
-        name=name,
-        impl="compute",
-        output=tensor if isinstance(
-            tensor.op, hcl_mlir.TensorOp) else tensor.op.output,
-    )
-    tensor.add_use(new_tensor)
-    Schedule._CurrentSchedule.DataflowGraph.add_edge(
-        tensor, new_tensor, stateful=True)
-
-    if Schedule._TopFunction != None:
-        stage = new_tensor.op.stage
-        stage.__setattr__(tensor.name, new_tensor)
-        with get_context() as ctx, get_location() as loc:
-            stage.stage_handle = hcl_d.CreateOpHandleOp(
-                StringAttr.get(name), ip=hcl_mlir.GlobalInsertionPoint.get()
-            )
-        Schedule._CurrentStage.append(stage)
-        if NestedStageLevel.get() > 0:
-            # Attach the stage to the parent stage
-            Schedule._CurrentStage[-2].__setattr__(name, stage)
-            Schedule._CurrentStage[-2]._sub_stages.append(stage)
-        else:
-            # Attach the stage to the caller function as an attribute
-            caller_func.__setattr__(name, stage)
-            # Set up a list of stages for the caller function
-            if not hasattr(caller_func, "_stages"):
-                caller_func.__setattr__("_stages", [stage])
-            else:
-                caller_func._stages.append(stage)
 
 
 def mutate(domain, fcompute, name=None):
@@ -483,48 +365,6 @@ def mutate(domain, fcompute, name=None):
     compute_body(name, domain, fcompute, None, loc, "no_alloc")
     return
 
-def old_mutate(domain, fcompute, name=None):
-    """
-    For now, assume no return value
-    """
-    # check API correctness
-    if not isinstance(domain, tuple):
-        raise APIError("The domain of mutate API must be a tuple")
-    if name is None:
-        name = UniqueName.get("tensor")
-    ret_tensor = Tensor(domain, None, name=name,
-                        fcompute=fcompute, impl="compute")
-
-    # Check the caller function
-    caller_func_name = inspect.stack()[1].function
-    if Schedule._TopFunction is None:
-        called_from_top = False
-    else:
-        called_from_top = caller_func_name == Schedule._TopFunction.__name__
-    caller_func = get_func_obj(caller_func_name)
-    if not called_from_top:
-        # Caller function up one level
-        caller_parent_func_name = inspect.stack()[2].function
-        caller_parent_func = get_func_obj(caller_parent_func_name)
-        # If haven't already, attach the caller function
-        # to its parent function as an attribute
-        if not hasattr(caller_parent_func, caller_func_name):
-            caller_parent_func.__setattr__(caller_func_name, caller_func)
-    stage = ret_tensor.op.stage
-    if Schedule._TopFunction != None:
-        if NestedStageLevel.get() > 0:
-            # Attach the stage to the parent stage
-            # TODO(Niansong): test this
-            Schedule._CurrentStage[-1].__setattr__(name, stage)
-            Schedule._CurrentStage[-1]._sub_stages.append(stage)
-        else:
-            caller_func.__setattr__(stage.name, stage.op)
-            # Set up a list of stages for the caller function
-            if not hasattr(caller_func, "_stages"):
-                caller_func.__setattr__("_stages", [stage])
-            else:
-                caller_func._stages.append(stage)    
-    return ret_tensor
 
 
 def bitcast(tensor, dst_dtype, name=None):
