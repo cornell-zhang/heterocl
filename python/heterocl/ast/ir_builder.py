@@ -9,7 +9,6 @@ from ..context import *
 from ..utils import hcl_dtype_to_mlir, get_extra_type_hints
 from .. import types as htypes
 from ..type_infer import TypeInfer
-import hcl_mlir
 
 # Import MLIR dialects
 # Naming rule: import dialect as dialect_d
