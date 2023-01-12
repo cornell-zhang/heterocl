@@ -5,12 +5,16 @@ from hcl_mlir.exceptions import MLIRLimitationError
 
 
 def _test_logic_op(op):
-    def kernel(A, B):
-        return hcl.compute(A.shape, lambda x: hcl.select(op(A[x] > 5, B[x] > 5), 0, 1))
+    def kernel(A, B, C):
+        one_operand = hcl.compute(A.shape, lambda x: hcl.select(op(A[x] > 5), 0, 1))
+        two_operands = hcl.compute(A.shape, lambda x: hcl.select(op(A[x] > 5, B[x] > 5), 0, 1))
+        three_operands = hcl.compute(A.shape, lambda x: hcl.select(op(A[x] > 5, B[x] > 5, C[x] > 5), 0, 1))
+        return one_operand, two_operands, three_operands
 
     A = hcl.placeholder((10,))
     B = hcl.placeholder((10,))
-    s = hcl.create_schedule([A, B], kernel)
+    C = hcl.placeholder((10,))
+    s = hcl.create_schedule([A, B, C], kernel)
     f = hcl.build(s)
 
     return f
@@ -22,18 +26,31 @@ def test_and():
 
     np_A = np.random.randint(10, size=(10,))
     np_B = np.random.randint(10, size=(10,))
-    np_C = np.zeros(10)
+    np_C = np.random.randint(10, size=(10,))
 
-    golden_C = [0 if np_A[i] > 5 and np_B[i] > 5 else 1 for i in range(0, 10)]
+    res1 = np.zeros(10)
+    res2 = np.zeros(10)
+    res3 = np.zeros(10)
+
+    golden1 = [0 if np_A[i] > 5 else 1 for i in range(0, 10)]
+    golden2 = [0 if np_A[i] > 5 and np_B[i] > 5 else 1 for i in range(0, 10)]
+    golden3 = [0 if np_A[i] > 5 and np_B[i] > 5 and np_C[i] > 5 else 1 for i in range(0, 10)]
 
     hcl_A = hcl.asarray(np_A)
     hcl_B = hcl.asarray(np_B)
     hcl_C = hcl.asarray(np_C)
+    hcl_res1 = hcl.asarray(res1)
+    hcl_res2 = hcl.asarray(res2)
+    hcl_res3 = hcl.asarray(res3)
 
-    f(hcl_A, hcl_B, hcl_C)
+    f(hcl_A, hcl_B, hcl_C, hcl_res1, hcl_res2, hcl_res3)
 
-    ret_C = hcl_C.asnumpy()
-    assert np.array_equal(ret_C, golden_C)
+    ret_1 = hcl_res1.asnumpy()
+    ret_2 = hcl_res2.asnumpy()
+    ret_3 = hcl_res3.asnumpy()
+    assert np.array_equal(ret_1, golden1)
+    assert np.array_equal(ret_2, golden2)
+    assert np.array_equal(ret_3, golden3)
 
 
 def test_or():
@@ -41,18 +58,32 @@ def test_or():
 
     np_A = np.random.randint(10, size=(10,))
     np_B = np.random.randint(10, size=(10,))
-    np_C = np.zeros(10)
+    np_C = np.random.randint(10, size=(10,))
 
-    golden_C = [0 if np_A[i] > 5 or np_B[i] > 5 else 1 for i in range(0, 10)]
+    res1 = np.zeros(10)
+    res2 = np.zeros(10)
+    res3 = np.zeros(10)
+
+    golden1 = [0 if np_A[i] > 5 else 1 for i in range(0, 10)]
+    golden2 = [0 if np_A[i] > 5 or np_B[i] > 5 else 1 for i in range(0, 10)]
+    golden3 = [0 if np_A[i] > 5 or np_B[i] > 5 or np_C[i] > 5 else 1 for i in range(0, 10)]
 
     hcl_A = hcl.asarray(np_A)
     hcl_B = hcl.asarray(np_B)
     hcl_C = hcl.asarray(np_C)
+    hcl_res1 = hcl.asarray(res1)
+    hcl_res2 = hcl.asarray(res2)
+    hcl_res3 = hcl.asarray(res3)
 
-    f(hcl_A, hcl_B, hcl_C)
+    f(hcl_A, hcl_B, hcl_C, hcl_res1, hcl_res2, hcl_res3)
 
-    ret_C = hcl_C.asnumpy()
-    assert np.array_equal(ret_C, golden_C)
+    ret_1 = hcl_res1.asnumpy()
+    ret_2 = hcl_res2.asnumpy()
+    ret_3 = hcl_res3.asnumpy()
+    assert np.array_equal(ret_1, golden1)
+    assert np.array_equal(ret_2, golden2)
+    assert np.array_equal(ret_3, golden3)
+
 
 def test_if():
     def kernel(A):
