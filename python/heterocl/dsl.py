@@ -23,8 +23,8 @@ class WithScope(object):
 
 def and_(*args):
     """Compute the logic AND between expressions."""
-    if len(args) < 2:
-        raise ValueError("And must take at least 2 arguments")
+    if len(args) < 1:
+        raise ValueError("And must take at least 1 argument")
     filename, loc = get_src_loc()
     loc = ast.Location(filename, loc)
     expr = ast.CastOp(args[0], UInt(1), loc)
@@ -36,8 +36,8 @@ def and_(*args):
 
 def or_(*args):
     """Compute the logic OR between expressions."""
-    if len(args) < 2:
-        raise ValueError("Or must take at least 2 arguments")
+    if len(args) < 1:
+        raise ValueError("Or must take at least 1 argument")
     filename, loc = get_src_loc()
     loc = ast.Location(filename, loc)
     expr = ast.CastOp(args[0], UInt(1), loc)
