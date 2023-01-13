@@ -13,7 +13,6 @@ class ASTCleaner(ast_visitor.ASTVisitor):
         super().__init__("cleaner")
 
     def visit_ast(self, _ast, *args, **kwargs):
-        self.top_func = None
         for op in _ast.region:
             self.visit(op, *args, **kwargs)
 
@@ -35,8 +34,11 @@ class ASTCleaner(ast_visitor.ASTVisitor):
 
     def visit_compute(self, op, *args, **kwargs):
         self.visit(op.tensor, *args, **kwargs)
+        self.visit(op.aux_tensor, *args, **kwargs)
         for body_op in op.body:
             self.visit(body_op, *args, **kwargs)
+        op.ir_op = None
+        op.result = None
 
     def visit_for(self, op, *args, **kwargs):
         op.iter_var.parent_loop = None
