@@ -528,6 +528,7 @@ class Invert(UnaryOp):
 
     def __init__(self, expr, loc):
         super().__init__("~", expr, loc)
+        self.dtype = self.tinf_engine.infer(self)
 
 
 class Neg(UnaryOp):
@@ -535,6 +536,7 @@ class Neg(UnaryOp):
 
     def __init__(self, expr, loc):
         super().__init__("neg", expr, loc)
+        self.dtype = self.tinf_engine.infer(self)
 
 
 class BitReverseOp(UnaryOp):
@@ -542,6 +544,7 @@ class BitReverseOp(UnaryOp):
 
     def __init__(self, expr, loc):
         super().__init__("bit_reverse", expr, loc)
+        self.dtype = self.tinf_engine.infer(self)
 
 
 class BitCastOp(UnaryOp):
@@ -557,6 +560,7 @@ class MathExpOp(UnaryOp):
 
     def __init__(self, expr, loc):
         super().__init__("exp", expr, loc)
+        self.dtype = self.tinf_engine.infer(self)
 
 
 class MathPowOp(BinaryOp):
@@ -564,6 +568,7 @@ class MathPowOp(BinaryOp):
 
     def __init__(self, lhs, rhs, loc):
         super().__init__("pow", lhs, rhs, loc)
+        self.dtype = self.tinf_engine.infer(self)
 
 
 class MathLogOp(UnaryOp):
@@ -571,6 +576,7 @@ class MathLogOp(UnaryOp):
 
     def __init__(self, expr, loc):
         super().__init__("log", expr, loc)
+        self.dtype = self.tinf_engine.infer(self)
 
 
 class MathLog2Op(UnaryOp):
@@ -578,6 +584,7 @@ class MathLog2Op(UnaryOp):
 
     def __init__(self, expr, loc):
         super().__init__("log2", expr, loc)
+        self.dtype = self.tinf_engine.infer(self)
 
 
 class MathLog10Op(UnaryOp):
@@ -585,6 +592,7 @@ class MathLog10Op(UnaryOp):
 
     def __init__(self, expr, loc):
         super().__init__("log10", expr, loc)
+        self.dtype = self.tinf_engine.infer(self)
 
 
 class MathSqrtOp(UnaryOp):
@@ -592,6 +600,7 @@ class MathSqrtOp(UnaryOp):
 
     def __init__(self, expr, loc):
         super().__init__("sqrt", expr, loc)
+        self.dtype = self.tinf_engine.infer(self)
 
 
 class MathSinOp(UnaryOp):
@@ -599,6 +608,7 @@ class MathSinOp(UnaryOp):
 
     def __init__(self, expr, loc):
         super().__init__("sin", expr, loc)
+        self.dtype = self.tinf_engine.infer(self)
 
 
 class MathCosOp(UnaryOp):
@@ -606,6 +616,7 @@ class MathCosOp(UnaryOp):
 
     def __init__(self, expr, loc):
         super().__init__("cos", expr, loc)
+        self.dtype = self.tinf_engine.infer(self)
 
 
 class MathTanhOp(UnaryOp):
@@ -613,6 +624,7 @@ class MathTanhOp(UnaryOp):
 
     def __init__(self, expr, loc):
         super().__init__("tanh", expr, loc)
+        self.dtype = self.tinf_engine.infer(self)
 
 
 class LogicalAnd(BinaryOp):
@@ -1258,6 +1270,7 @@ class StructGetOp(Expr):
 class ReduceOp(Expr):
     def __init__(self, name, expr, reduce_op, axis, dtype, init, loc):
         super().__init__("reduce", loc)
+        #TODO(Niansong): use type inference to check data loss
         self.name = name
         self.expr = expr
         self.scalar = AllocOp(name, (1,), dtype, loc)
