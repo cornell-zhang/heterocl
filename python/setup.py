@@ -12,5 +12,7 @@ setup(
         "matplotlib",
         "pandas",
         "imageio",
+        "psutil",
+        "sympy"
     ],
 )
