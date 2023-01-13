@@ -21,7 +21,7 @@ class ASTCleaner(ast_visitor.ASTVisitor):
         op.ir_op = None
         for body_op in op.body:
             self.visit(body_op, *args, **kwargs)
-        for ret in op.return_tensor:
+        for ret in op.return_tensors:
             self.visit(ret, *args, **kwargs)
 
     def visit_call(self, op, *args, **kwargs):
