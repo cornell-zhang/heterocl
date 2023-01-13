@@ -377,7 +377,7 @@ def test_dtype_struct():
         F = hcl.compute(A.shape, lambda x: D[x].fb, dtype=hcl.Fixed(13, 11))
         G = hcl.compute(A.shape, lambda x: D[x].fc, dtype=hcl.Float())
         # Check the data type
-        assert D[0].fa.dtype == hcl.Int(9)
+        assert D[0].fa.dtype == hcl.Int(8)
         assert D[0].fb.dtype == hcl.Fixed(13, 11)
         assert D[0].fc.dtype == hcl.Float()
         return E, F, G
