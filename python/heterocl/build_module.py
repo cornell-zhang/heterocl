@@ -30,9 +30,10 @@ def _mlir_lower_pipeline(module):
         with get_context():
             mlir_pass_manager.parse(pipeline).run(module)
         return module
-    except:
+    except Exception as e:
         print("Error: failed to run MLIR lower pipeline, printing module...")
         print(module)
+        raise e
 
 
 def lower(
