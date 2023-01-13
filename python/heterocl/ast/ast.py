@@ -3,13 +3,11 @@
 # Copyright 2021-2022 The HCL-MLIR Authors.
 #
 # ===----------------------------------------------------------------------=== #
-import os
-import sys
-import inspect
-from ..utils import get_src_loc, hcl_dtype_to_mlir
+import sympy as sp
 from hcl_mlir.exceptions import *
 from ..context import *
 from ..types import *
+from ..type_infer import TypeInfer
 
 
 def print_indent(string, level):
@@ -51,6 +49,38 @@ def replace_all_uses_with(op, old_tensor, new_tensor):
         if hasattr(value, "__dict__"):
             replace_all_uses_with(value, old_tensor, new_tensor)
 
+def simplify(expr):
+    """
+    simplifies an expression by replacing all constants with their values
+    and compute the result if possible
+    Only supports affine expressions on integers and floats
+    """
+    if isinstance(expr, (int, float)):
+        return expr
+    if isinstance(expr, ConstantOp):
+        return expr.value
+    if isinstance(expr, IterVar):
+        return sp.symbols(expr.name)
+    if isinstance(expr, Add):
+        return sp.simplify(simplify(expr.lhs) + simplify(expr.rhs))
+    elif isinstance(expr, Sub):
+        return sp.simplify(simplify(expr.lhs) - simplify(expr.rhs))
+    elif isinstance(expr, Mul):
+        return sp.simplify(simplify(expr.lhs) * simplify(expr.rhs))
+    elif isinstance(expr, Div):
+        return sp.simplify(simplify(expr.lhs) / simplify(expr.rhs))
+    elif isinstance(expr, FloorDiv):
+        return sp.simplify(simplify(expr.lhs) // simplify(expr.rhs))
+    elif isinstance(expr, Mod):
+        return sp.simplify(simplify(expr.lhs) % simplify(expr.rhs))
+    elif isinstance(expr, LoadOp):
+        tensor = expr.tensor
+        if tensor.fcompute is None:
+            return expr
+        index = expr.index
+        return sp.simplify(simplify(tensor.fcompute(*index)))
+    else:
+        raise HCLError("Unsupported expression type: {}".format(type(expr)))
 
 class Location(object):
     """Filename and linenumber"""
@@ -140,6 +170,7 @@ class Expr(object):
     def __init__(self, name, loc):
         self.name = name
         self.loc = loc
+        self.dtype = None
         # When an expression is built, its result will be set
         self.result = None
 
@@ -704,6 +735,7 @@ class GetBitOp(Expr):
         super().__init__("getbit", loc)
         self.expr = immediate_to_constant(expr, loc)
         self.index = immediate_to_constant(index, loc, Index())
+        self.dtype = UInt(1)
 
     def __repr__(self):
         return f"{self.expr}[{self.index}]"
@@ -734,6 +766,13 @@ class GetSliceOp(Expr):
         self.expr = expr
         self.start = immediate_to_constant(start, loc, Index())
         self.end = immediate_to_constant(end, loc, Index())
+        bitwidth = self.end - self.start + 1
+        bitwidth = simplify(bitwidth)
+        if bitwidth.is_constant():
+            self.dtype = UInt(int(bitwidth))
+        else:
+            self.dtype = None
+            DTypeWarning(f"{self}'s bitwidth cannot be determined at compile time.").warn()
 
     def __repr__(self):
         return f"{self.expr}[{self.start}:{self.end}]"
@@ -843,6 +882,8 @@ class AllocOp(Expr):
         super().__init__(name, loc)
         self.shape = shape
         self.dtype = dtype
+        # an optional reference to python function that computes the tensor
+        self.fcompute = None
         # uses is a list of ComputeOp that uses the tensor produced by this op
         # we need such list to support create_schedule without an enclosing function
         self.uses = list()
@@ -953,6 +994,11 @@ class ComputeOp(Operation):
         # we use an auxiliary tensor to attach loop axis
         self.aux_tensor = AllocOp(name, shape, dtype, loc)
         self.input_tensors = list()
+        
+        # update tensor's reference to fcompute
+        if self.tensor is not None:
+            self.tensor.fcompute = fcompute
+        self.aux_tensor.fcompute = fcompute
 
     def __repr__(self):
         code_str = ""
