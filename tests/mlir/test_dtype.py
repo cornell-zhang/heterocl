@@ -377,12 +377,9 @@ def test_dtype_struct():
         F = hcl.compute(A.shape, lambda x: D[x].fb, dtype=hcl.Fixed(13, 11))
         G = hcl.compute(A.shape, lambda x: D[x].fc, dtype=hcl.Float())
         # Check the data type
-        # Note:
-        # After moving to MLIR, the datatype of StructGetOp
-        # has to be a MLIR type object, instead of a string
-        # assert D[0].fa.dtype == "int8"
-        # assert D[0].fb.dtype == "fixed13_11"
-        # assert D[0].fc.dtype == "float32"
+        assert D[0].fa.dtype == hcl.Int(9)
+        assert D[0].fb.dtype == hcl.Fixed(13, 11)
+        assert D[0].fc.dtype == hcl.Float()
         return E, F, G
 
     s = hcl.create_schedule([A, B, C], kernel)
@@ -476,9 +473,9 @@ def test_dtype_bit_slice():
 
     def kernel():
         A = hcl.compute((10,), lambda x: x)
-        A[0][0:4].dtype
-        A[0][A[0] : A[4]].dtype
-        A[0][A[0] : A[0] + 4].dtype
+        assert A[0][0:4].dtype == hcl.UInt(4)
+        assert A[0][A[0] : A[4]].dtype == hcl.UInt(4)
+        assert A[0][A[0] : A[0] + 4].dtype == hcl.UInt(4)
         return A
 
     s = hcl.create_schedule([], kernel)
