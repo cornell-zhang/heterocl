@@ -20,6 +20,7 @@ from .passes.pass_manager import PassManager as ast_pass_manager
 from .passes.nest_if import NestElseIf
 from .passes.promote_func import PromoteFunc
 from .ast.ir_builder import IRBuilder
+from .ast.build_cleaner import ASTCleaner
 from .ast import ast
 
 
@@ -250,6 +251,9 @@ def build_fpga_kernel(schedule, target=None, stmt=None):
         # release mode: host-xcel partition is generated
         # and written to kernel.cpp and host.cpp
         device_agnostic_ast = schedule.ast
+        # Clean device_agnostic_ast build results
+        ast_cleaner = ASTCleaner()
+        ast_cleaner.visit(device_agnostic_ast)
         # Separate host and device
         host_ast, xcel_ast = separate_host_xcel(schedule, device_agnostic_ast)
 
