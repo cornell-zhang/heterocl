@@ -171,6 +171,7 @@ class Expr(object):
         self.name = name
         self.loc = loc
         self.dtype = None
+        self.tinf_engine = TypeInfer()
         # When an expression is built, its result will be set
         self.result = None
 
@@ -330,7 +331,7 @@ class Expr(object):
         return self.__nonzero__()
 
     def equal(self, other):
-        # TODO(Niansong): not sure when this should be called
+        # TODO(Niansong): not sure when this method is called
         # throw an error for now
         raise HCLNotImplementedError("equal is not implemented yet")
 
@@ -391,6 +392,7 @@ class BinaryOp(Expr):
         rhs = immediate_to_constant(rhs, loc)
         self.lhs = lhs
         self.rhs = rhs
+        self.dtype = self.tinf_engine.infer(self)
 
     def __repr__(self):
         return f"({self.lhs} {self.name} {self.rhs})"
@@ -1079,6 +1081,7 @@ class IterVar(Expr):
         super().__init__(name, loc)
         self.parent_loop = parent_loop
         self.level = len(scope)
+        self.dtype = Index()
 
     def __repr__(self):
         return self.name
@@ -1223,6 +1226,7 @@ class SelectOp(Expr):
         self.true_value = true_value
         self.false_value = false_value
         self.level = len(scope)
+        self.dtype = self.tinf_engine.infer(self)
 
     def __repr__(self):
         return "({} ? {} : {})".format(self.cond, self.true_value, self.false_value)
@@ -1245,6 +1249,7 @@ class StructGetOp(Expr):
         self.struct = struct
         self.field = field
         self.level = len(scope)
+        self.dtype = self.tinf_engine.infer(self)
 
     def __repr__(self):
         return "{}.{}".format(self.struct, self.field)
