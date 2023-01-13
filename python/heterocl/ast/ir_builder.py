@@ -9,6 +9,7 @@ from ..context import *
 from ..utils import hcl_dtype_to_mlir, get_extra_type_hints
 from .. import types as htypes
 from ..type_infer import TypeInfer
+from . import build_cleaner
 
 # Import MLIR dialects
 # Naming rule: import dialect as dialect_d
@@ -154,6 +155,7 @@ class IRBuilder(object):
         self.top_func = None
         self.iv = []  # a list to keep track of affine expression's induction variables
         self.tinf_engine = TypeInfer()
+        self.cleaner = build_cleaner.ASTCleaner()
         self.tensor_dict = dict()  # tensor name -> memref.allocOp
         self.BIT_OPS = False
 
@@ -802,6 +804,7 @@ class IRBuilder(object):
         store_op.attributes["to"] = StringAttr.get(op.tensor.name)
         if isinstance(op.tensor.dtype, htypes.UInt):
             store_op.attributes["unsigned"] = UnitAttr.get()
+        op.ir_op = store_op
 
     def build_constant_op(self, op, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
@@ -1037,6 +1040,8 @@ class IRBuilder(object):
         """Build IfOp"""
         # TODO: support affine if
         # build condition
+        # clear condition build result from previous build
+        self.cleaner.visit(op.cond)
         self.build_visitor(op.cond, ip)
         has_else = op.else_branch_valid
         if_op = scf_d.IfOp(op.cond.result, hasElse=has_else, results_=[], ip=ip)
@@ -1051,6 +1056,7 @@ class IRBuilder(object):
             for body_op in op.else_body:
                 self.build_visitor(body_op, ip)
             scf_d.YieldOp([], ip=ip)
+        op.ir_op = if_op
 
     def build_reduce(self, op: ast.ReduceOp, ip):
         """Build ReduceOp"""
