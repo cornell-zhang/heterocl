@@ -44,7 +44,7 @@ class TypeInfer(object):
         elif isinstance(expr, ast.BitCastOp):
             return expr.dtype
         elif isinstance(expr, ast.GetBitOp):
-            return UInt(1)
+            return expr.dtype
         elif isinstance(expr, ast.GetSliceOp):
             return expr.dtype
         elif isinstance(expr, ast.BitReverseOp):
