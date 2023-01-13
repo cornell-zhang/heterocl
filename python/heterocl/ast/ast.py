@@ -1603,29 +1603,3 @@ class AST(object):
         for op in self.region:
             code_str += str(op)
         return code_str
-
-    def reset_build_results(self):
-        """
-        I think this is bad, instead of resetting results,
-        we should make ast work with deep copy
-        """
-
-        def reset_op_build_result(op):
-            if not hasattr(op, "__dict__"):
-                return
-            for attr, value in op.__dict__.items():
-                if attr == "result":
-                    setattr(op, attr, None)
-                if attr == "ir_op":
-                    setattr(op, attr, None)
-                if attr == "parent_loop":
-                    setattr(op, attr, None)
-                if isinstance(value, (list, tuple)):
-                    for v in value:
-                        if hasattr(v, "__dict__"):
-                            reset_op_build_result(v)
-                if hasattr(value, "__dict__"):
-                    reset_op_build_result(value)
-
-        for op in self.region:
-            reset_op_build_result(op)

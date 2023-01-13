@@ -171,12 +171,6 @@ class IRBuilder(object):
                 self.build_visitor(op, ip)
 
         self.top_func = self._ast.top_func.ir_op
-        # clean the build results of ast
-        # because sometimes we want to build the same ast again
-        # into a different MLIR module. In that case, all
-        # operation.result and operation.ir_op should be reset
-        # to None to guarantee a fresh build.
-        self._ast.reset_build_results()
 
     def build_visitor(self, op, ip):
         """Build dispatcher
