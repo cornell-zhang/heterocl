@@ -1,12 +1,6 @@
-import hcl_mlir
 from hcl_mlir.ir import *
 from hcl_mlir.exceptions import HCLValueError
 
-from .types import Float, Int
-from .context import UniqueName
-from .operation import placeholder
-from .tensor import Tensor
-from .utils import get_dtype_str
 from .ast import ast
 from .schedule import get_src_loc
 

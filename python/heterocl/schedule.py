@@ -65,7 +65,7 @@ def _build_schedule(_ast, inputs, func, name):
 def _reset_builder():
     ast.scope.reset()
     Schedule._FuncDefs.clear()
-    # TODO(Niansong): clear unique namer
+    UniqueName.reset()
 
 
 def customize(inputs, func=None, name=""):

@@ -58,9 +58,6 @@ def for_(begin, end, step=1, tag=None, name=None):
     Be careful: should not be used with other compute APIs like sum
     """
 
-    # TODO(Niansong): use unique naming for
-    # loops without tag or name
-    # loop_axis = UniqueName.get("loop")
     if name is None:
         name = UniqueName.get("loop")
 

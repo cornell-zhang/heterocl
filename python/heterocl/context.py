@@ -1,19 +1,5 @@
-from contextvars import ContextVar
-
-# TODO: remove unecessary context vars
-
 from hcl_mlir.dialects import hcl as hcl_d
 from hcl_mlir.ir import *
-
-ImperativeLoopNestCount = ContextVar("ImperativeLoopNestCount", default=1)
-ImperativeLoopDepth = ContextVar("ImperativeLoopDepth", default=0)
-# IP Pointer points to the insertion point of the loop nest's parent region
-# in GlobalInsertionPoint.ip_stack
-IPPointer = ContextVar("IPPointer", default=None)
-StageName = ContextVar("StageName", default="")
-NestedStageLevel = ContextVar("NestedStageLevel", default=0)
-BreakFlag = ContextVar("BreakFlag", default=False)
-StageAttachGlobal = ContextVar("StageAttachGlobal", default=True)
 
 
 class UniqueName(object):
@@ -28,6 +14,17 @@ class UniqueName(object):
 
     def __init__(self):
         pass
+
+    @classmethod
+    def reset(cls):
+        cls.scalar_idx = 0
+        cls.loop_idx = 0
+        cls.tensor_idx = 0
+        cls.stage_idx = 0
+        cls.schedule_idx = 0
+        cls.reduction_axis_idx = 0
+        cls.instance_idx = 0
+        cls.op_idx = 0
 
     @classmethod
     def get(cls, case="stage"):

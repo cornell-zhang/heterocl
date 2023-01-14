@@ -1,22 +1,19 @@
 import inspect
 from collections import OrderedDict
-from typing import List
 
 import hcl_mlir
 import numpy as np
 import re
-from hcl_mlir.dialects import hcl as hcl_d
 from hcl_mlir.ir import *
 from hcl_mlir.exceptions import *
 
 from . import config
 from .types import Int, Type, UInt, Struct, dtype_to_hcl
-from .context import NestedStageLevel, UniqueName
+from .context import UniqueName
 from .dsl import for_
 from .schedule import Schedule, Stage
-from .tensor import Array, Tensor
+from .tensor import Array
 from .utils import *
-from .context import get_context, get_location
 from .ast import ast
 
 
@@ -80,7 +77,6 @@ def reduce_axis(lower, upper, name=None):
     """Create a reduction axis for reduction operations."""
     if name is None:
         name = UniqueName.get("reduction_axis")
-    # return hcl_mlir.ReduceVar(None, bound=(lower, upper), name=name)
     filename, lineno = get_src_loc()
     loc = ast.Location(filename, lineno)
     return ast.ReduceVar(name, parent_loop=None, loc=loc, bound=(lower, upper))
@@ -89,7 +85,7 @@ def reduce_axis(lower, upper, name=None):
 def cast(dtype, expr):
     if isinstance(dtype, str):
         dtype = dtype_to_hcl(dtype)
-    if isinstance(expr, Tensor):
+    if isinstance(expr, ast.AllocOp):
         raise APIError(
             "Tensor is not supported in hcl.cast. "
             + "If you are try to cast a hcl.scalar, please use hcl.cast(scalar.v)"
