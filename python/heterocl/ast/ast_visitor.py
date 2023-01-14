@@ -7,8 +7,8 @@
 from . import ast
 from hcl_mlir.exceptions import *
 
-class ASTVisitor(object):
 
+class ASTVisitor(object):
     def __init__(self, name):
         self.name = name
 
@@ -142,7 +142,7 @@ class ASTVisitor(object):
 
     def visit_bitcast(self, op, *args, **kwargs):
         return
-    
+
     def visit_load(self, op, *args, **kwargs):
         return
 
@@ -196,13 +196,13 @@ class ASTVisitor(object):
 
     def visit_struct_get(self, op, *args, **kwargs):
         return
-    
+
     def visit_func(self, op, *args, **kwargs):
         return
-    
+
     def visit_call(self, op, *args, **kwargs):
         return
-    
+
     def visit_neg(self, op, *args, **kwargs):
         return
 
@@ -262,4 +262,3 @@ class ASTVisitor(object):
 
     def visit_systolic(self, op, *args, **kwargs):
         return
-

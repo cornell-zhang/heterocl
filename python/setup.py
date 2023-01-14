@@ -13,6 +13,6 @@ setup(
         "pandas",
         "imageio",
         "psutil",
-        "sympy"
+        "sympy",
     ],
 )

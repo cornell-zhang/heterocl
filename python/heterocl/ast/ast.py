@@ -49,6 +49,7 @@ def replace_all_uses_with(op, old_tensor, new_tensor):
         if hasattr(value, "__dict__"):
             replace_all_uses_with(value, old_tensor, new_tensor)
 
+
 def simplify(expr):
     """
     simplifies an expression by replacing all constants with their values
@@ -81,6 +82,7 @@ def simplify(expr):
         return sp.simplify(simplify(tensor.fcompute(*index)))
     else:
         raise HCLError("Unsupported expression type: {}".format(type(expr)))
+
 
 class Location(object):
     """Filename and linenumber"""
@@ -786,7 +788,9 @@ class GetSliceOp(Expr):
             self.dtype = UInt(int(bitwidth))
         else:
             self.dtype = None
-            DTypeWarning(f"{self}'s bitwidth cannot be determined at compile time.").warn()
+            DTypeWarning(
+                f"{self}'s bitwidth cannot be determined at compile time."
+            ).warn()
 
     def __repr__(self):
         return f"{self.expr}[{self.start}:{self.end}]"
@@ -1008,7 +1012,7 @@ class ComputeOp(Operation):
         # we use an auxiliary tensor to attach loop axis
         self.aux_tensor = AllocOp(name, shape, dtype, loc)
         self.input_tensors = list()
-        
+
         # update tensor's reference to fcompute
         if self.tensor is not None:
             self.tensor.fcompute = fcompute
@@ -1270,7 +1274,7 @@ class StructGetOp(Expr):
 class ReduceOp(Expr):
     def __init__(self, name, expr, reduce_op, axis, dtype, init, loc):
         super().__init__("reduce", loc)
-        #TODO(Niansong): use type inference to check data loss
+        # TODO(Niansong): use type inference to check data loss
         self.name = name
         self.expr = expr
         self.scalar = AllocOp(name, (1,), dtype, loc)
