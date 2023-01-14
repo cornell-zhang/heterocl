@@ -25,8 +25,8 @@ def init(init_dtype=Int(32), raise_assert_exception=True):
 
 def placeholder(shape, name=None, dtype=None):
     """Construct a HeteroCL placeholder for inputs/outputs."""
-    if name is None:
-        name = UniqueName.get("tensor")
+    name = UniqueName.get(name, "tensor")
+    
     if (
         not dtype == None
         and not isinstance(dtype, (Type, str))
@@ -54,8 +54,7 @@ def asarray(np_array, dtype=None):
 def scalar(init, name=None, dtype=None):
     filename, lineno = get_src_loc()
     loc = ast.Location(filename, lineno)
-    if name is None:
-        name = UniqueName.get("scalar")
+    name = UniqueName.get(name, "scalar")
     if isinstance(dtype, str):
         dtype = dtype_to_hcl(dtype)
     dtype = config.init_dtype if dtype == None else dtype  # dtype is HeteroCL type
@@ -75,8 +74,7 @@ def scalar(init, name=None, dtype=None):
 
 def reduce_axis(lower, upper, name=None):
     """Create a reduction axis for reduction operations."""
-    if name is None:
-        name = UniqueName.get("reduction_axis")
+    name = UniqueName.get(name, "reduction_axis")
     filename, lineno = get_src_loc()
     loc = ast.Location(filename, lineno)
     return ast.ReduceVar(name, parent_loop=None, loc=loc, bound=(lower, upper))
@@ -97,8 +95,7 @@ def cast(dtype, expr):
 
 def const_tensor(values, name=None, dtype=None):
     """Create a constant tensor"""
-    if name is None:
-        name = UniqueName.get("tensor")
+    name = UniqueName.get(name, "tensor")
     dtype = config.init_dtype if dtype == None else dtype
     filename, lineno = get_src_loc()
     loc = ast.Location(filename, lineno)
@@ -122,8 +119,7 @@ def const_tensor(values, name=None, dtype=None):
 
 def copy(values, name=None, dtype=None):
     """A syntactic sugar for copying an existing tensor."""
-    if name is None:
-        name = UniqueName.get("tensor")
+    name = UniqueName.get(name, "tensor")
     dtype = config.init_dtype if dtype == None else dtype
     return const_tensor(values, name, dtype)
 
@@ -138,8 +134,7 @@ def select(cond, true_val, false_val):
 
 
 def sum(expr, axis=None, dtype=None, name=None):
-    if name is None:
-        name = UniqueName.get("op")
+    name = UniqueName.get(name, "op")
     if axis is None:
         raise HCLNotImplementedError("sum with axis=None is not supported")
     if isinstance(axis, tuple):
@@ -188,8 +183,7 @@ def pack(tensor, axis=0, factor=None, name=None, dtype=None):
         raise APIError("Should specify factor")
     if not isinstance(tensor.dtype, (Int, UInt)):
         raise APIError("Only support integer packing")
-    if name == None or name == "":
-        name = UniqueName.get("tensor")
+    name = UniqueName.get(name, "tensor")
     bitwidth = tensor.dtype.bits
     if isinstance(tensor.dtype, Int):
         new_type = Int(bitwidth * factor)
@@ -221,8 +215,7 @@ def unpack(tensor, axis=0, factor=None, name=None, dtype=None):
         raise APIError("Should specify factor")
     if not isinstance(tensor.dtype, (Int, UInt)):
         raise APIError("Only support integer packing")
-    if name == None or name == "":
-        name = UniqueName.get("tensor")
+    name = UniqueName.get(name, "tensor")
     bitwidth = tensor.dtype.bits
     if isinstance(tensor.dtype, Int):
         new_type = Int(bitwidth // factor)
@@ -340,8 +333,7 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
     if not isinstance(shape, tuple):
         raise APIError("The shape of compute API must be a tuple")
     shape = tuple([int(s) if isinstance(s, float) else s for s in shape])
-    if name is None:
-        name = UniqueName.get("tensor")
+    name = UniqueName.get(name, "tensor")
     if not dtype == None and not isinstance(dtype, (Type, str)):
         raise APIError("Type error")
     dtype = config.init_dtype if dtype == None else dtype
@@ -370,8 +362,7 @@ def update(tensor, fcompute, name=None):
 def mutate(domain, fcompute, name=None):
     if not isinstance(domain, tuple):
         raise APIError("The domain of mutate API must be a tuple")
-    if name is None:
-        name = UniqueName.get("tensor")
+    name = UniqueName.get(name, "tensor")
 
     # Generate a ComputeOp
     filename, lineno = get_src_loc()

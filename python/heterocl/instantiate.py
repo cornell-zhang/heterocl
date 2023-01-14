@@ -26,9 +26,9 @@ def instantiate(func, name=None, count=1):
     """
     if name is None:
         if count == 1:
-            name = UniqueName.get("instance")
+            name = UniqueName.get(name, "instance")
         else:
-            names = [UniqueName.get("instance") for _ in range(count)]
+            names = [UniqueName.get(name, "instance") for _ in range(count)]
 
     if count == 1:
         return Instance(func, name)

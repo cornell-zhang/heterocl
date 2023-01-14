@@ -58,8 +58,7 @@ def for_(begin, end, step=1, tag=None, name=None):
     Be careful: should not be used with other compute APIs like sum
     """
 
-    if name is None:
-        name = UniqueName.get("loop")
+    name = UniqueName.get(name, "loop")
 
     region = ast.scope.get()
     filename, lineno = get_src_loc()

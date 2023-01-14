@@ -338,8 +338,7 @@ class Stage(object):
     _mapping = []
 
     def __init__(self, name=None):
-        if name is None:
-            name = UniqueName.get("stage")
+        name = UniqueName.get(name, "stage")
         self.name = name
         self.tensor = None
         self.stage_handle = None
