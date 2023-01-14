@@ -465,7 +465,7 @@ def and_or_rule():
         (Int, UInt): lambda t1, t2: Int(max(t1.bits, t2.bits)),
         (UInt, UInt): lambda t1, t2: UInt(max(t1.bits, t2.bits)),
     }
-    return TypeRule(ops, [int_rules])
+    return TypeRule(ops, [int_rules], commutative=True)
 
 
 def logic_op_rule():

@@ -582,3 +582,16 @@ def test_struct_scalar():
     golden[0] = 0x12
     golden[1] = 0x34
     assert np.array_equal(golden, np_res)
+
+def test_bitand_type():
+    hcl.init()
+    def kernel():
+        x = hcl.scalar(0, "x", dtype='uint16')
+        with hcl.if_((x.v & 0x15) == 1): 
+            hcl.print((),"A\n")
+        r = hcl.compute((2,), lambda i: 0, dtype=hcl.UInt(32))
+        return r
+    s = hcl.create_schedule([], kernel)
+    hcl_res = hcl.asarray(np.zeros((2,), dtype=np.uint32), dtype=hcl.UInt(32))
+    f = hcl.build(s)
+    f(hcl_res)
