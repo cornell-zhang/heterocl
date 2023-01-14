@@ -587,8 +587,12 @@ def test_bitand_type():
     hcl.init()
     def kernel():
         x = hcl.scalar(0, "x", dtype='uint16')
-        with hcl.if_((x.v & 0x15) == 1): 
-            hcl.print((),"A\n")
+        def do(i):
+            with hcl.if_((x.v & 0x15) == 1):    # test regular variable
+                hcl.print((),"A\n")
+            with hcl.if_((i & 1) == 1):         # test index
+                hcl.print((),"B\n")
+        hcl.mutate((1,), do)
         r = hcl.compute((2,), lambda i: 0, dtype=hcl.UInt(32))
         return r
     s = hcl.create_schedule([], kernel)
