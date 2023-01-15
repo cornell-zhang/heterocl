@@ -1,6 +1,7 @@
 import heterocl as hcl
 import numpy as np
 
+
 def test_int():
     hcl.init(hcl.Int())
 
@@ -45,6 +46,7 @@ def test_large_int():
     np_golden = np.power(np_a, np_b)
     assert np.allclose(np_golden, hcl_c.asnumpy())
 
+
 def test_float():
     hcl.init(hcl.Float())
 
@@ -64,6 +66,7 @@ def test_float():
 
     np_golden = np.power(2, np_a)
     assert np.allclose(np_golden, hcl_b.asnumpy())
+
 
 def test_var():
     hcl.init(hcl.Float())

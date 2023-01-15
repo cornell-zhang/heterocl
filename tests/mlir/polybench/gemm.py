@@ -1,6 +1,7 @@
 import heterocl as hcl
 import numpy as np
 
+
 def top_gemm(P, Q, R, alpha, beta, dtype=hcl.Int(), target=None):
 
     hcl.init(dtype)
@@ -10,27 +11,25 @@ def top_gemm(P, Q, R, alpha, beta, dtype=hcl.Int(), target=None):
 
     def kernel_gemm(A, B, C):
         r = hcl.reduce_axis(0, Q, "r")
-        out_AB = hcl.compute((P, R), 
-                         lambda x, y: hcl.sum(alpha * A[x, r] * B[r, y], 
-                         axis=r, dtype=dtype
-                         ), 
-                         name="out_AB"
-                         )
+        out_AB = hcl.compute(
+            (P, R),
+            lambda x, y: hcl.sum(alpha * A[x, r] * B[r, y], axis=r, dtype=dtype),
+            name="out_AB",
+        )
 
-        return hcl.compute(C.shape, 
-                   lambda x, y: beta * C[x, y] + out_AB[x, y],
-                   name="C"
-                   )
+        return hcl.compute(
+            C.shape, lambda x, y: beta * C[x, y] + out_AB[x, y], name="C"
+        )
 
     s1 = hcl.create_schedule([A, B, C], kernel_gemm)
     s2 = hcl.create_schedule([A, B, C], kernel_gemm)
     s3 = hcl.create_schedule([A, B, C], kernel_gemm)
 
     #### Applying customizations ####
-    
+
     AB = kernel_gemm.out_AB
-    C  = kernel_gemm.C
-    
+    C = kernel_gemm.C
+
     s1[AB].compute_at(s1[C], C.axis[0])
     s1[AB].parallel(AB.axis[0])
     s1[C].parallel(C.axis[0])
@@ -44,7 +43,11 @@ def top_gemm(P, Q, R, alpha, beta, dtype=hcl.Int(), target=None):
     ab_y_outer, ab_y_inner = s3[AB].split(AB.axis[1], factor=2)
     s3[AB].reorder(ab_y_inner, ab_y_outer)
 
-    return hcl.build(s1, target=target), hcl.build(s2, target=target), hcl.build(s3, target=target)
+    return (
+        hcl.build(s1, target=target),
+        hcl.build(s2, target=target),
+        hcl.build(s3, target=target),
+    )
 
 
 def main(P=16, Q=22, R=18, alpha=0.1, beta=0.1, dtype=hcl.Float(32), target=None):

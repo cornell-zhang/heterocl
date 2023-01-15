@@ -1,6 +1,7 @@
 import heterocl as hcl
 import numpy as np
 
+
 def test_pipeline():
     hcl.init()
     initiation_interval = 4
@@ -10,8 +11,9 @@ def test_pipeline():
     s = hcl.create_schedule([a, b, c])
     s[c].pipeline(c.axis[0], initiation_interval)
     ir = hcl.lower(s)
-    pipeline_hint_str = "\"initiation_interval\"="+str(initiation_interval)
+    pipeline_hint_str = '"initiation_interval"=' + str(initiation_interval)
     assert pipeline_hint_str in str(ir)
+
 
 def test_pipeline_num_axis():
     hcl.init()
@@ -22,8 +24,9 @@ def test_pipeline_num_axis():
     s = hcl.create_schedule([a, b, c])
     s[c].pipeline(0, initiation_interval)
     ir = hcl.lower(s)
-    pipeline_hint_str = "\"initiation_interval\"="+str(initiation_interval)
+    pipeline_hint_str = '"initiation_interval"=' + str(initiation_interval)
     assert pipeline_hint_str in str(ir)
+
 
 def test_unroll():
     hcl.init()
@@ -34,8 +37,9 @@ def test_unroll():
     s = hcl.create_schedule([a, b, c])
     s[c].unroll(c.axis[0], factor=factor)
     ir = hcl.lower(s)
-    unroll_hint_str = "\"factor\"="+str(factor)
+    unroll_hint_str = '"factor"=' + str(factor)
     assert unroll_hint_str in str(ir)
+
 
 def test_unroll_num_axis():
     hcl.init()
@@ -46,8 +50,9 @@ def test_unroll_num_axis():
     s = hcl.create_schedule([a, b, c])
     s[c].unroll(0, factor=factor)
     ir = hcl.lower(s)
-    unroll_hint_str = "\"factor\"="+str(factor)
+    unroll_hint_str = '"factor"=' + str(factor)
     assert unroll_hint_str in str(ir)
+
 
 def test_fuse():
     hcl.init()
@@ -59,6 +64,7 @@ def test_fuse():
     ir = hcl.lower(s)
     assert "j.k.fused" in str(ir)
 
+
 def test_fuse_num_axis():
     hcl.init()
     a = hcl.placeholder((10, 20, 30, 40))
@@ -68,6 +74,7 @@ def test_fuse_num_axis():
     s[c].fuse(1, 2)
     ir = hcl.lower(s)
     assert "j.k.fused" in str(ir)
+
 
 def test_reorder():
     hcl.init()
@@ -98,6 +105,7 @@ def test_reorder():
     test_case_1()
     test_case_2()
 
+
 def test_reorder_num_axis():
     hcl.init()
     a = hcl.placeholder((10, 20, 30, 40), name="a")
@@ -111,6 +119,7 @@ def test_reorder_num_axis():
     assert "(k, 0, 30)" in str(ir.body.body.body)
     assert "(j, 0, 20)" in str(ir.body.body.body.body)
     assert "(l, 0, 40)" in str(ir.body.body.body.body.body)
+
 
 def test_split():
     hcl.init()
@@ -137,19 +146,21 @@ def test_split():
         assert "(j.outer, 0, 7)" in str(ir.body.body.body)
         assert "(j.inner, 0, 3)" in str(ir.body.body.body.body)
         assert str(ir.body.body.body.body.body).startswith(
-            "if ((j.inner < (20 - (j.outer*3))))")
+            "if ((j.inner < (20 - (j.outer*3))))"
+        )
 
     def test_annotate_mode():
         split_factor = 3
         s = hcl.create_schedule([a, b, c])
         s[c].split(c.axis[1], factor=split_factor, mode="annotate")
-        split_hint_str = "\"split_factor\"="+str(split_factor)
+        split_hint_str = '"split_factor"=' + str(split_factor)
         ir = hcl.lower(s)
         assert split_hint_str in str(ir)
 
     test_transform_mode_1()
     test_transform_mode_2()
     test_annotate_mode()
+
 
 def test_split_num_axis():
     hcl.init()
@@ -164,6 +175,7 @@ def test_split_num_axis():
     assert "(j.outer, 0, 5)" in str(ir.body.body.body)
     assert "(j.inner, 0, 4)" in str(ir.body.body.body.body)
     assert str(ir.body.body.body.body.body).startswith("c[")
+
 
 def test_split_reorder():
     hcl.init()
@@ -193,12 +205,15 @@ def test_split_reorder():
         assert "(j.outer, 0, 7)" in str(ir.body.body.body.body)
         assert "(i.outer, 0, 4)" in str(ir.body.body.body.body.body)
         assert str(ir.body.body.body.body.body.body).startswith(
-            "if ((j.inner < (20 - (j.outer*3))))")
+            "if ((j.inner < (20 - (j.outer*3))))"
+        )
         assert str(ir.body.body.body.body.body.body.then_case).startswith(
-            "if ((i.inner < (10 - (i.outer*3)))")
+            "if ((i.inner < (10 - (i.outer*3)))"
+        )
 
     test_case_1()
     test_case_2()
+
 
 def test_split_reorder_num_axis():
     # note that this is not the recommanded way
@@ -216,6 +231,7 @@ def test_split_reorder_num_axis():
     assert "(i.outer, 0, 5)" in str(ir.body.body.body)
     assert "(j.inner, 0, 5)" in str(ir.body.body.body.body)
     assert "(i.inner, 0, 2)" in str(ir.body.body.body.body.body)
+
 
 def test_compute_at():
     def _build_kernel():
@@ -316,6 +332,7 @@ def test_compute_at():
     test_case_5()
     test_case_6()
 
+
 def test_compute_at_complex():
     hcl.init()
     A = hcl.placeholder((10, 20, 30), name="A")
@@ -335,6 +352,7 @@ def test_compute_at_complex():
     f(a_hcl, d_hcl)
     d_np = (a_np * 2 + 1) % 3
     np.testing.assert_allclose(d_np, d_hcl.asnumpy())
+
 
 def test_compute_at_complex_num_axis():
     hcl.init()
@@ -356,10 +374,11 @@ def test_compute_at_complex_num_axis():
     d_np = (a_np * 2 + 1) % 3
     np.testing.assert_allclose(d_np, d_hcl.asnumpy())
 
+
 def test_compute_at_with_reuse_1D():
     hcl.init()
     A = hcl.compute((10, 10), lambda y, x: x + y, "A")
-    B = hcl.compute((10, 8), lambda y, x: A[y, x] + A[y, x+1] + A[y, x+2], "B")
+    B = hcl.compute((10, 8), lambda y, x: A[y, x] + A[y, x + 1] + A[y, x + 2], "B")
     s = hcl.create_schedule([B])
     s[A].compute_at(s[B], B.axis[1])
     ir = hcl.lower(s)
@@ -370,15 +389,18 @@ def test_compute_at_with_reuse_1D():
     c_np = np.zeros(B.shape, dtype="int")
     for y in range(0, 10):
         for x in range(0, 8):
-            c_np[y][x] = a_np[y][x] + a_np[y][x+1] + a_np[y][x+2]
+            c_np[y][x] = a_np[y][x] + a_np[y][x + 1] + a_np[y][x + 2]
     b_hcl = hcl.asarray(b_np)
     f(b_hcl)
     np.testing.assert_array_equal(c_np, b_hcl.asnumpy())
 
+
 def test_compute_at_with_reuse_2D():
     hcl.init()
     A = hcl.compute((10, 10), lambda y, x: x + y, "A")
-    B = hcl.compute((8, 8), lambda y, x: A[y, x] + A[y+1, x+1] + A[y+2, x+2], "B")
+    B = hcl.compute(
+        (8, 8), lambda y, x: A[y, x] + A[y + 1, x + 1] + A[y + 2, x + 2], "B"
+    )
     s = hcl.create_schedule([B])
     s[A].compute_at(s[B], B.axis[1])
     ir = hcl.lower(s)
@@ -389,15 +411,18 @@ def test_compute_at_with_reuse_2D():
     c_np = np.zeros(B.shape, dtype="int")
     for y in range(0, 8):
         for x in range(0, 8):
-            c_np[y][x] = a_np[y][x] + a_np[y+1][x+1] + a_np[y+2][x+2]
+            c_np[y][x] = a_np[y][x] + a_np[y + 1][x + 1] + a_np[y + 2][x + 2]
     b_hcl = hcl.asarray(b_np)
     f(b_hcl)
     np.testing.assert_array_equal(c_np, b_hcl.asnumpy())
 
+
 def test_compute_at_with_reuse_2D_complex():
     hcl.init()
     A = hcl.compute((10, 10), lambda y, x: x + y, "A")
-    B = hcl.compute((8, 8), lambda y, x: A[y, x] + A[y+1, x+1] + A[y+2, x+2], "B")
+    B = hcl.compute(
+        (8, 8), lambda y, x: A[y, x] + A[y + 1, x + 1] + A[y + 2, x + 2], "B"
+    )
     s = hcl.create_schedule([B])
     s[A].compute_at(s[B], B.axis[1])
     s[B].split(B.axis[1], 4)
@@ -409,10 +434,11 @@ def test_compute_at_with_reuse_2D_complex():
     c_np = np.zeros(B.shape, dtype="int")
     for y in range(0, 8):
         for x in range(0, 8):
-            c_np[y][x] = a_np[y][x] + a_np[y+1][x+1] + a_np[y+2][x+2]
+            c_np[y][x] = a_np[y][x] + a_np[y + 1][x + 1] + a_np[y + 2][x + 2]
     b_hcl = hcl.asarray(b_np)
     f(b_hcl)
     np.testing.assert_array_equal(c_np, b_hcl.asnumpy())
+
 
 def test_compute_at_no_dep():
     hcl.init()
@@ -429,6 +455,7 @@ def test_compute_at_no_dep():
     np.testing.assert_array_equal(a_np, a_hcl.asnumpy())
     np.testing.assert_array_equal(b_np, b_hcl.asnumpy())
 
+
 def test_compute_at_no_dep_diff_shape_smaller():
     hcl.init()
     A = hcl.compute((8, 8), lambda y, x: y + x, "A")
@@ -443,6 +470,7 @@ def test_compute_at_no_dep_diff_shape_smaller():
     b_np = np.fromfunction(lambda i, j: i - j, B.shape, dtype="int")
     np.testing.assert_array_equal(a_np, a_hcl.asnumpy())
     np.testing.assert_array_equal(b_np, b_hcl.asnumpy())
+
 
 def test_compute_at_no_dep_diff_shape_larger():
     hcl.init()
@@ -459,17 +487,20 @@ def test_compute_at_no_dep_diff_shape_larger():
     b_np = np.fromfunction(lambda i, j: i - j, B.shape, dtype="int")
     for i in range(0, 12):
         for j in range(0, 12):
-            if (i >= 10 or j >= 10):
+            if i >= 10 or j >= 10:
                 a_np[i][j] = 0
     np.testing.assert_array_equal(a_np, a_hcl.asnumpy())
     np.testing.assert_array_equal(b_np, b_hcl.asnumpy())
 
+
 def test_multi_stage():
     hcl.init()
+
     def test(A):
         r = hcl.reduce_axis(0, 10)
         B = hcl.compute((10,), lambda x: hcl.sum(A[x, r], axis=r), "B")
         return B
+
     A = hcl.placeholder((10, 10))
     s = hcl.create_schedule([A], test)
     s[test.B].split(test.B.axis[0], 5)

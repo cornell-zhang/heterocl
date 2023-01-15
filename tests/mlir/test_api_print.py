@@ -76,8 +76,8 @@ def test_print_tensor_2D_rect():
 
     assert hcl_print_output == np_print_output
 
+
 def test_print_tensor_ele():
     outputs = get_stdout("print_tensor_ele").split("\n")
     target_str = outputs[2]
-    assert target_str == "here 53"    
-
+    assert target_str == "here 53"

@@ -2,14 +2,14 @@ import heterocl as hcl
 import math as mt
 import os
 
+
 def top_jacobi_1d(N, TSTEPS, dtype=hcl.Int(), target=None):
 
     hcl.init(dtype)
-    A = hcl.placeholder((N,) , "A")
-    B = hcl.placeholder((N,) , "B")
+    A = hcl.placeholder((N,), "A")
+    B = hcl.placeholder((N,), "B")
 
     def kernel_jacobi_1d(A, B):
-        
         def update(A, B):
             with hcl.for_(1, N - 1, name="L1") as i:
                 B[i] = 0.33333 * (A[i - 1] + A[i] + A[i + 1])
@@ -22,16 +22,18 @@ def top_jacobi_1d(N, TSTEPS, dtype=hcl.Int(), target=None):
     s = hcl.create_schedule([A, B], kernel_jacobi_1d)
 
     #### Apply customizations ####
-    
+
     main_loop = kernel_jacobi_1d.main_loop
 
     s[main_loop].unroll(main_loop.L1)
     s[main_loop].unroll(main_loop.L2)
-    
+
     #### Apply customizations ####
     return hcl.build(s, target=target)
 
+
 import numpy as np
+
 
 def jacobi_1d_golden(N, TSTEPS, A, B, DATA_TYPE):
 

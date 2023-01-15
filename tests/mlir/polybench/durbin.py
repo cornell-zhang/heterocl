@@ -6,11 +6,11 @@ import os
 def top_durbin(N=40, dtype=hcl.Int(), target=None):
 
     hcl.init(dtype)
-    r = hcl.placeholder((N,) , "r")
-    y = hcl.placeholder((N,) , "y")
+    r = hcl.placeholder((N,), "r")
+    y = hcl.placeholder((N,), "y")
 
     def kernel_durbin(r, y):
-        
+
         y[0] = -r[0]
         beta = hcl.scalar(1.0)
         alpha = hcl.scalar(-r[0])
@@ -22,39 +22,41 @@ def top_durbin(N=40, dtype=hcl.Int(), target=None):
             z = hcl.compute((N,), lambda m: 0, name="z")
 
             with hcl.for_(0, k, name="i") as i:
-                sum_.v = sum_.v + r[k -i - 1] * y[i]
+                sum_.v = sum_.v + r[k - i - 1] * y[i]
 
             alpha.v = -1.0 * (r[k] + sum_.v) / beta.v
 
             with hcl.for_(0, k, name="j") as j:
-                z[j] = y[j] + alpha.v * y[k -j - 1]
+                z[j] = y[j] + alpha.v * y[k - j - 1]
 
             with hcl.for_(0, k, name="m") as m:
                 y[m] = z[m]
 
             y[k] = alpha.v
 
-        hcl.mutate((N - 1, ), lambda k: update(r, y, k + 1), "main_loop")
+        hcl.mutate((N - 1,), lambda k: update(r, y, k + 1), "main_loop")
 
     s = hcl.create_schedule([r, y], kernel_durbin)
 
     #### Apply customizations ####
 
     # N Buggy 1
-    #main_loop = kernel_durbin.main_loop
-    #s[main_loop].pipeline(main_loop.i)
-    #s[main_loop].pipeline(main_loop.j)
-    #s[main_loop].pipeline(main_loop.m)
+    # main_loop = kernel_durbin.main_loop
+    # s[main_loop].pipeline(main_loop.i)
+    # s[main_loop].pipeline(main_loop.j)
+    # s[main_loop].pipeline(main_loop.m)
 
     #### Apply customizations ####
 
     return hcl.build(s, target=target)
 
+
 import numpy as np
 from utils.helper import *
 
+
 def durbin_golden(N, r, y, DATA_TYPE):
-    
+
     dtype = NDATA_TYPE_DICT[DATA_TYPE.lower()]
 
     z = np.zeros((N,), dtype=dtype)
@@ -74,7 +76,7 @@ def durbin_golden(N, r, y, DATA_TYPE):
 
         for i in range(k):
             z[i] = y[i] + alpha * y[k - i - 1]
-        
+
         for i in range(k):
             y[i] = z[i]
 

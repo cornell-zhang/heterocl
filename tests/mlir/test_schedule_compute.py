@@ -83,7 +83,9 @@ def test_reorder():
         hcl.init()
         a = hcl.placeholder((10, 20, 30, 40), name="a")
         b = hcl.placeholder((10, 20, 30, 40), name="b")
-        c = hcl.compute(a.shape, lambda i, j, k, l: a[i, j, k, l] + b[i, j, k, l], name="c")
+        c = hcl.compute(
+            a.shape, lambda i, j, k, l: a[i, j, k, l] + b[i, j, k, l], name="c"
+        )
         return a, b, c
 
     # axes are consecutive
@@ -448,6 +450,7 @@ def test_compute_at_complex():
     d_np = (a_np * 2 + 1) % 3
     np.testing.assert_allclose(d_np, d_hcl.asnumpy())
 
+
 def test_compute_at_complex_num_axis():
     hcl.init()
     A = hcl.placeholder((10, 20, 30), name="A")
@@ -475,10 +478,12 @@ def test_compute_at_complex_num_axis():
 
 def test_compute_at_with_reuse_1D():
     hcl.init()
+
     def _kernel():
         A = hcl.compute((10, 10), lambda y, x: x + y, "A")
         B = hcl.compute((10, 8), lambda y, x: A[y, x] + A[y, x + 1] + A[y, x + 2], "B")
         return B
+
     s = hcl.create_schedule([], _kernel)
     A = _kernel.A
     B = _kernel.B
@@ -500,6 +505,7 @@ def test_compute_at_with_reuse_1D():
 
 def test_compute_at_with_reuse_2D():
     hcl.init()
+
     def _kernel():
         A = hcl.compute((10, 10), lambda y, x: x + y, name="A", dtype=hcl.Int(32))
         B = hcl.compute(
@@ -509,6 +515,7 @@ def test_compute_at_with_reuse_2D():
             dtype=hcl.Int(32),
         )
         return B
+
     s = hcl.create_schedule([], _kernel)
     A = _kernel.A
     B = _kernel.B
@@ -530,12 +537,14 @@ def test_compute_at_with_reuse_2D():
 
 def test_compute_at_with_reuse_2D_complex():
     hcl.init()
+
     def _kernel():
         A = hcl.compute((10, 10), lambda y0, x0: x0 + y0, "A")
         B = hcl.compute(
             (8, 8), lambda y, x: A[y, x] + A[y + 1, x + 1] + A[y + 2, x + 2], "B"
         )
         return B
+
     s = hcl.create_schedule([], _kernel)
     A = _kernel.A
     B = _kernel.B
@@ -599,6 +608,8 @@ Note:
     In MLIR-based HeteroCL, A will not be capped. 
     i.e., compute_at does not change the algorithm.
 """
+
+
 def test_compute_at_no_dep_diff_shape_larger():
     hcl.init()
     A = hcl.compute((12, 12), lambda y, x: y + x, "A")

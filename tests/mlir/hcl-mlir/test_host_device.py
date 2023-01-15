@@ -26,5 +26,6 @@ def test_host_xcel():
     mod = hcl.build(s, target)
     mod()
 
+
 if __name__ == "__main__":
     test_host_xcel()

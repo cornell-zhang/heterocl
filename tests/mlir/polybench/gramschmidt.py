@@ -13,7 +13,6 @@ def top_gramschmidt(M=30, N=20, dtype=hcl.Int(), target=None):
     R = hcl.placeholder((N, N), "R")
 
     def kernel_gramschmidt(A, Q, R):
-
         def loop_1():
             with hcl.for_(0, N, name="l1") as k:
                 nrm = hcl.scalar(0.0)
@@ -28,22 +27,24 @@ def top_gramschmidt(M=30, N=20, dtype=hcl.Int(), target=None):
                         R[k][j] = R[k][j] + Q[i][k] * A[i][j]
                     with hcl.for_(0, M, name="l6") as i:
                         A[i][j] = A[i][j] - Q[i][k] * R[k][j]
-        
+
         hcl.mutate((1,), lambda x: loop_1(), name="L1")
 
     s = hcl.create_schedule([A, Q, R], kernel_gramschmidt)
 
     #### Apply customizations ####
 
-    L1 = kernel_gramschmidt.L1    
+    L1 = kernel_gramschmidt.L1
     s[L1].pipeline(L1.l1)
 
     #### Apply customizations ####
 
     return hcl.build(s, target=target)
 
+
 import numpy as np
 import math as mt
+
 
 def gramschmidt_golden(M, N, A, Q, R, DATA_TYPE):
 

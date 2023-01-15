@@ -4,16 +4,15 @@ import time
 import os
 import random
 
+
 def test_duplicated():
     if os.system("which vivado_hls >> /dev/null") != 0:
-        return 
+        return
     A = hcl.placeholder((10,), "A")
 
     def kernel(A):
-        B = hcl.compute(A.shape, 
-                lambda i: A[i] + 1, "B")
-        C = hcl.compute(B.shape,
-                lambda i: B[i] + 1, "C")
+        B = hcl.compute(A.shape, lambda i: A[i] + 1, "B")
+        C = hcl.compute(B.shape, lambda i: B[i] + 1, "C")
         return C
 
     target = hcl.Platform.zc706
@@ -24,7 +23,7 @@ def test_duplicated():
 
     s.to(kernel.B, s[kernel.C])
     # ignored duplicated streaming
-    s.to(kernel.B, s[kernel.C]) 
+    s.to(kernel.B, s[kernel.C])
 
     f = hcl.build(s, target)
     np_A = np.zeros((10,))
@@ -33,5 +32,6 @@ def test_duplicated():
     hcl_C = hcl.asarray(np_C)
     f(hcl_A, hcl_C)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     test_duplicated()

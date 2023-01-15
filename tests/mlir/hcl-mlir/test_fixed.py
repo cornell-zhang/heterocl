@@ -2,6 +2,7 @@ import heterocl as hcl
 
 hcl.init(hcl.Fixed(12, 6))
 
+
 def test_fixed():
 
     A = hcl.placeholder((32, 32), "A")

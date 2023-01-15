@@ -5,6 +5,7 @@ import numpy as np
 def test_if():
 
     hcl.init()
+
     def absolute(A, B):
         with hcl.for_(0, A.shape[0], name="x") as x:
             with hcl.for_(0, A.shape[1], name="y") as y:
@@ -24,16 +25,19 @@ def test_if():
     ir = hcl.lower(s)
     assert str(ir.body.body.body.body).startswith("for (x.inner, 0, 3)")
     assert str(ir.body.body.body.body.body).startswith("for (x.outer, 0, 4)")
-    assert str(ir.body.body.body.body.body.body).startswith(
-        "for (y, 0, 20)")
+    assert str(ir.body.body.body.body.body.body).startswith("for (y, 0, 20)")
     assert str(ir.body.body.body.body.body.body.body.condition).startswith(
-        "(x.inner < (10 - (x.outer*3)))")
+        "(x.inner < (10 - (x.outer*3)))"
+    )
     assert str(ir.body.body.body.body.body.body.body.then_case.condition).startswith(
-        "(0.000000f <= A[(y + ((x.inner + (x.outer*3))*20))])")
+        "(0.000000f <= A[(y + ((x.inner + (x.outer*3))*20))])"
+    )
     assert str(ir.body.body.body.body.body.body.body.then_case.then_case).startswith(
-        "B[(y + ((x.inner + (x.outer*3))*20))] = A[(y + ((x.inner + (x.outer*3))*20))]")
+        "B[(y + ((x.inner + (x.outer*3))*20))] = A[(y + ((x.inner + (x.outer*3))*20))]"
+    )
     assert str(ir.body.body.body.body.body.body.body.then_case.else_case).startswith(
-        "B[(y + ((x.inner + (x.outer*3))*20))] = (A[(y + ((x.inner + (x.outer*3))*20))]*-1.000000f)")
+        "B[(y + ((x.inner + (x.outer*3))*20))] = (A[(y + ((x.inner + (x.outer*3))*20))]*-1.000000f)"
+    )
     # test build
     f = hcl.build(s)
     a_np = np.random.random((A.shape))
@@ -47,7 +51,8 @@ def test_if():
 def test_schedule_intra_stage():
 
     hcl.init()
-    def popcount(A, B): # each element in A is a 32-bit integer
+
+    def popcount(A, B):  # each element in A is a 32-bit integer
         with hcl.for_(0, A.shape[0], name="x") as x:
             with hcl.for_(0, A.shape[1], name="y") as y:
                 B[x, y] = 0
@@ -63,7 +68,7 @@ def test_schedule_intra_stage():
         s = hcl.create_schedule([A, B])
         s[C].unroll(C.x, factor=3)
         ir = hcl.lower(s)
-        assert "unrolled \"factor\"=3" in str(ir)
+        assert 'unrolled "factor"=3' in str(ir)
 
     def test_reorder():
         s = hcl.create_schedule([A, B])
@@ -84,10 +89,10 @@ def test_schedule_intra_stage():
         ir = hcl.lower(s)
         assert str(ir.body.body.body.body).startswith("for (x.outer, 0, 4)")
         assert str(ir.body.body.body.body.body).startswith("for (x.inner, 0, 3)")
-        assert str(ir.body.body.body.body.body.body).startswith(
-            "for (y, 0, 20)")
+        assert str(ir.body.body.body.body.body.body).startswith("for (y, 0, 20)")
         assert str(ir.body.body.body.body.body.body.body).startswith(
-            "if ((x.inner < (10 - (x.outer*3))))")
+            "if ((x.inner < (10 - (x.outer*3))))"
+        )
 
     test_unroll()
     test_reorder()
@@ -98,7 +103,8 @@ def test_schedule_intra_stage():
 def test_schedule_inter_stage():
 
     hcl.init()
-    def popcount(A, B): # each element in A is a 32-bit integer
+
+    def popcount(A, B):  # each element in A is a 32-bit integer
         with hcl.for_(0, A.shape[0], name="x") as x:
             with hcl.for_(0, A.shape[1], name="y") as y:
                 B[x, y] = 0
@@ -120,7 +126,7 @@ def test_schedule_inter_stage():
     test_compute_at()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     test_if()
     test_schedule_intra_stage()
     test_schedule_inter_stage()

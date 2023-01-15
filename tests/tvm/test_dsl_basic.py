@@ -1,11 +1,10 @@
 import heterocl as hcl
 import numpy as np
 
-def _test_logic_op(op):
 
+def _test_logic_op(op):
     def kernel(A, B):
-        return hcl.compute(A.shape,
-                lambda x: hcl.select(op(A[x]>5, B[x]>5), 0, 1))
+        return hcl.compute(A.shape, lambda x: hcl.select(op(A[x] > 5, B[x] > 5), 0, 1))
 
     A = hcl.placeholder((10,))
     B = hcl.placeholder((10,))
@@ -13,6 +12,7 @@ def _test_logic_op(op):
     f = hcl.build(s)
 
     return f
+
 
 def test_and():
 
@@ -22,7 +22,7 @@ def test_and():
     np_B = np.random.randint(10, size=(10,))
     np_C = np.zeros(10)
 
-    golden_C = [0 if np_A[i]>5 and np_B[i]>5 else 1 for i in range(0, 10)]
+    golden_C = [0 if np_A[i] > 5 and np_B[i] > 5 else 1 for i in range(0, 10)]
 
     hcl_A = hcl.asarray(np_A)
     hcl_B = hcl.asarray(np_B)
@@ -32,6 +32,7 @@ def test_and():
 
     ret_C = hcl_C.asnumpy()
     assert np.array_equal(ret_C, golden_C)
+
 
 def test_or():
 
@@ -41,7 +42,7 @@ def test_or():
     np_B = np.random.randint(10, size=(10,))
     np_C = np.zeros(10)
 
-    golden_C = [0 if np_A[i]>5 or np_B[i]>5 else 1 for i in range(0, 10)]
+    golden_C = [0 if np_A[i] > 5 or np_B[i] > 5 else 1 for i in range(0, 10)]
 
     hcl_A = hcl.asarray(np_A)
     hcl_B = hcl.asarray(np_B)
@@ -52,8 +53,8 @@ def test_or():
     ret_C = hcl_C.asnumpy()
     assert np.array_equal(ret_C, golden_C)
 
-def test_if():
 
+def test_if():
     def kernel(A):
         with hcl.if_(A[0] > 5):
             A[0] = 5
@@ -63,7 +64,7 @@ def test_if():
     f = hcl.build(s)
 
     np_A = np.random.randint(10, size=(1,))
-    golden_A = [5 if np_A[0]>5 else np_A[0]]
+    golden_A = [5 if np_A[0] > 5 else np_A[0]]
 
     hcl_A = hcl.asarray(np_A)
 
@@ -72,8 +73,8 @@ def test_if():
     ret_A = hcl_A.asnumpy()
     assert np.array_equal(golden_A, ret_A)
 
-def test_else():
 
+def test_else():
     def kernel(A):
         with hcl.if_(A[0] > 5):
             A[0] = 5
@@ -85,7 +86,7 @@ def test_else():
     f = hcl.build(s)
 
     np_A = np.random.randint(10, size=(1,))
-    golden_A = [5 if np_A[0]>5 else -1]
+    golden_A = [5 if np_A[0] > 5 else -1]
 
     hcl_A = hcl.asarray(np_A)
 
@@ -94,8 +95,8 @@ def test_else():
     ret_A = hcl_A.asnumpy()
     assert np.array_equal(golden_A, ret_A)
 
-def test_elif():
 
+def test_elif():
     def kernel(A):
         with hcl.if_(A[0] > 5):
             A[0] = 5
@@ -107,7 +108,7 @@ def test_elif():
     f = hcl.build(s)
 
     np_A = np.random.randint(10, size=(1,))
-    golden_A = [5 if np_A[0]>5 else (3 if np_A[0]>3 else np_A[0])]
+    golden_A = [5 if np_A[0] > 5 else (3 if np_A[0] > 3 else np_A[0])]
 
     hcl_A = hcl.asarray(np_A)
 
@@ -116,8 +117,8 @@ def test_elif():
     ret_A = hcl_A.asnumpy()
     assert np.array_equal(golden_A, ret_A)
 
-def test_cond_all():
 
+def test_cond_all():
     def kernel(A):
         with hcl.if_(A[0] > 5):
             A[0] = 5
@@ -131,7 +132,7 @@ def test_cond_all():
     f = hcl.build(s)
 
     np_A = np.random.randint(10, size=(1,))
-    golden_A = [5 if np_A[0]>5 else (3 if np_A[0]>3 else 0)]
+    golden_A = [5 if np_A[0] > 5 else (3 if np_A[0] > 3 else 0)]
 
     hcl_A = hcl.asarray(np_A)
 
@@ -139,8 +140,8 @@ def test_cond_all():
 
     ret_A = hcl_A.asnumpy()
 
-def test_elif():
 
+def test_elif():
     def kernel(A):
         with hcl.if_(A[0] > 5):
             A[0] = 5
@@ -152,7 +153,7 @@ def test_elif():
     f = hcl.build(s)
 
     np_A = np.random.randint(10, size=(1,))
-    golden_A = [5 if np_A[0]>5 else (3 if np_A[0]>3 else np_A[0])]
+    golden_A = [5 if np_A[0] > 5 else (3 if np_A[0] > 3 else np_A[0])]
 
     hcl_A = hcl.asarray(np_A)
 
@@ -160,8 +161,8 @@ def test_elif():
 
     ret_A = hcl_A.asnumpy()
 
-def test_for_basic():
 
+def test_for_basic():
     def kernel(A):
         with hcl.for_(0, 10) as i:
             A[i] = i
@@ -180,8 +181,8 @@ def test_for_basic():
     ret_A = hcl_A.asnumpy()
     assert np.array_equal(golden_A, ret_A)
 
-def test_for_irregular_bound():
 
+def test_for_irregular_bound():
     def kernel(A):
         with hcl.for_(4, 8) as i:
             A[i] = i
@@ -202,8 +203,8 @@ def test_for_irregular_bound():
     ret_A = hcl_A.asnumpy()
     assert np.array_equal(golden_A, ret_A)
 
-def test_for_step_non_one():
 
+def test_for_step_non_one():
     def kernel(A):
         with hcl.for_(0, 10, 2) as i:
             A[i] = i
@@ -224,8 +225,8 @@ def test_for_step_non_one():
     ret_A = hcl_A.asnumpy()
     assert np.array_equal(golden_A, ret_A)
 
-def test_for_step_negative():
 
+def test_for_step_negative():
     def kernel(A):
         with hcl.for_(9, -1, -1) as i:
             A[i] = i
@@ -244,8 +245,8 @@ def test_for_step_negative():
     ret_A = hcl_A.asnumpy()
     assert np.array_equal(golden_A, ret_A)
 
-def test_for_index_casting():
 
+def test_for_index_casting():
     def kernel(A):
         with hcl.for_(0, 10) as i:
             with hcl.for_(i, 10) as j:
@@ -269,8 +270,8 @@ def test_for_index_casting():
     ret_A = hcl_A.asnumpy()
     assert np.array_equal(golden_A, ret_A)
 
-def test_while_basic():
 
+def test_while_basic():
     def kernel(A):
         a = hcl.scalar(0)
         with hcl.while_(a[0] < 10):
@@ -291,8 +292,8 @@ def test_while_basic():
     ret_A = hcl_A.asnumpy()
     assert np.array_equal(golden_A, ret_A)
 
-def test_break_in_for():
 
+def test_break_in_for():
     def kernel(A):
         with hcl.for_(0, 10) as i:
             with hcl.if_(i > 5):
@@ -315,8 +316,8 @@ def test_break_in_for():
     ret_A = hcl_A.asnumpy()
     assert np.array_equal(golden_A, ret_A)
 
-def test_break_in_while():
 
+def test_break_in_while():
     def kernel(A):
         i = hcl.scalar(0)
         with hcl.while_(True):
@@ -341,8 +342,8 @@ def test_break_in_while():
     ret_A = hcl_A.asnumpy()
     assert np.array_equal(golden_A, ret_A)
 
-def test_break_multi_level():
 
+def test_break_multi_level():
     def kernel(A):
         with hcl.for_(0, 10) as i:
             with hcl.for_(0, 10) as j:
@@ -367,6 +368,7 @@ def test_break_multi_level():
     ret_A = hcl_A.asnumpy()
     assert np.array_equal(golden_A, ret_A)
 
+
 def test_get_bit_expr():
 
     hcl.init()
@@ -388,6 +390,7 @@ def test_get_bit_expr():
 
     ret = hcl_B.asnumpy()
     assert np.array_equal(golden, ret)
+
 
 def test_get_bit_tensor():
 
@@ -411,13 +414,14 @@ def test_get_bit_tensor():
     ret = hcl_B.asnumpy()
     assert np.array_equal(golden, ret)
 
+
 def test_set_bit_expr():
 
     hcl.init()
 
     def kernel(A, B):
         with hcl.for_(0, 10) as i:
-            (B[i]+1)[0] = A[i]
+            (B[i] + 1)[0] = A[i]
 
     A = hcl.placeholder((10,))
     B = hcl.placeholder((10,))
@@ -427,6 +431,7 @@ def test_set_bit_expr():
         pass
     else:
         assert False
+
 
 def test_set_bit_tensor():
 
@@ -452,6 +457,7 @@ def test_set_bit_tensor():
     ret = hcl_B.asnumpy()
     assert np.array_equal(golden, ret)
 
+
 def test_get_slice_expr():
 
     hcl.init()
@@ -473,6 +479,7 @@ def test_get_slice_expr():
 
     ret = hcl_B.asnumpy()
     assert np.array_equal(golden, ret)
+
 
 def test_get_slice_tensor():
 
@@ -496,6 +503,7 @@ def test_get_slice_tensor():
     ret = hcl_B.asnumpy()
     assert np.array_equal(golden, ret)
 
+
 def test_get_slice_tensor_reverse():
 
     hcl.init()
@@ -510,14 +518,14 @@ def test_get_slice_tensor_reverse():
     np_A = np.random.randint(10, size=(10,))
     np_B = np.zeros(10)
     golden = np_A & 0xFF
-    golden = golden.astype('uint8')
+    golden = golden.astype("uint8")
     hcl_A = hcl.asarray(np_A)
     hcl_B = hcl.asarray(np_B)
 
     f(hcl_A, hcl_B)
 
     ret = hcl_B.asnumpy()
-    ret = ret.astype('uint8')
+    ret = ret.astype("uint8")
 
     for i in range(0, 10):
         x = np.unpackbits(golden[i])
@@ -525,13 +533,14 @@ def test_get_slice_tensor_reverse():
         y = np.unpackbits(ret[i])
         assert np.array_equal(x, y)
 
+
 def test_set_slice_expr():
 
     hcl.init()
 
     def kernel(A, B):
         with hcl.for_(0, 10) as i:
-            (B[i]+1)[2:0] = A[i]
+            (B[i] + 1)[2:0] = A[i]
 
     A = hcl.placeholder((10,))
     B = hcl.placeholder((10,))
@@ -541,6 +550,7 @@ def test_set_slice_expr():
         pass
     else:
         assert False
+
 
 def test_set_slice_tensor():
 
@@ -566,6 +576,7 @@ def test_set_slice_tensor():
     ret = hcl_B.asnumpy()
     assert np.array_equal(golden, ret)
 
+
 def test_set_slice_tensor_reverse():
 
     hcl.init(hcl.UInt(8))
@@ -581,20 +592,21 @@ def test_set_slice_tensor_reverse():
 
     np_A = np.random.randint(1, size=(10,))
     np_B = np.random.randint(10, size=(10,))
-    np_A = np_A.astype('uint8')
-    np_B = np_B.astype('uint8')
+    np_A = np_A.astype("uint8")
+    np_B = np_B.astype("uint8")
     hcl_A = hcl.asarray(np_A)
     hcl_B = hcl.asarray(np_B)
 
     f(hcl_A, hcl_B)
 
     ret = hcl_B.asnumpy()
-    ret = ret.astype('uint8')
+    ret = ret.astype("uint8")
 
     for i in range(0, 10):
         a = np.flip(np.unpackbits(np_A[i]))
         b = np.unpackbits(ret[i])
         assert np.array_equal(a, b)
+
 
 def test_slice_op():
 

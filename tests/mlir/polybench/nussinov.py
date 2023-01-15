@@ -1,6 +1,7 @@
 import heterocl as hcl
 import math as mt
 
+
 def top_nussinov(N, dtype=hcl.Int(), target=None):
 
     hcl.init(dtype)
@@ -10,21 +11,21 @@ def top_nussinov(N, dtype=hcl.Int(), target=None):
     def kernel_nussinov(seq, table):
         # We will enumerate A G C T (or U in place of T)
         # as 0, 1, 2, and 3 respectively
-        # NOTE: Can we use match and max_score function 
+        # NOTE: Can we use match and max_score function
         #       with scalar arguments? Need to see @Debjit
         # This is completely based on PolyBench implementation
         # Dynamic programming-based analysis
         with hcl.for_(N - 1, -1, -1, name="i") as i:
             with hcl.for_(i + 1, N, name="j") as j:
-                 
+
                 with hcl.if_(j - 1 >= 0):
                     with hcl.if_(table[i][j] < table[i][j - 1]):
                         table[i][j] = table[i][j - 1]
-                
+
                 with hcl.if_(i + 1 < N):
                     with hcl.if_(table[i][j] < table[i + 1][j]):
                         table[i][j] = table[i + 1][j]
-                
+
                 with hcl.if_(j - 1 >= 0):
                     with hcl.if_(i + 1 < N):
                         with hcl.if_(i < j - 1):
@@ -53,8 +54,10 @@ def top_nussinov(N, dtype=hcl.Int(), target=None):
     s = hcl.create_schedule([seq, table], kernel_nussinov)
     return hcl.build(s, target=target)
 
+
 import numpy as np
 import math as mt
+
 
 def match(b1, b2):
     if b1 + b2 == 3:
@@ -62,14 +65,16 @@ def match(b1, b2):
     else:
         return 0
 
+
 def max_score(s1, s2):
     if s1 >= s2:
         return s1
     else:
         return s2
 
+
 def nussinov_golden(N, seq, table, DATA_TYPE):
-    
+
     dtype = NDATA_TYPE_DICT[DATA_TYPE.lower()]
 
     for i in range(N - 1, -1, -1):
@@ -81,8 +86,9 @@ def nussinov_golden(N, seq, table, DATA_TYPE):
 
             if j - 1 >= 0 and i + 1 < N:
                 if i < j - 1:
-                    table[i][j] = max_score(table[i][j], table[i + 1][j - 1] +
-                            match(seq[i], seq[j]))
+                    table[i][j] = max_score(
+                        table[i][j], table[i + 1][j - 1] + match(seq[i], seq[j])
+                    )
                 else:
                     table[i][j] = max_score(table[i][j], table[i + 1][j - 1])
 

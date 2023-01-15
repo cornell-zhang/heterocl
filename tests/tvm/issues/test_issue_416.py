@@ -11,6 +11,7 @@ dtype_image = hcl.UInt(N)
 dtype_knnmat = hcl.UInt(max_bit)
 hcl.init(dtype_image)
 
+
 def top(target=None):
 
     # Algorithm definition (§1)
@@ -37,24 +38,20 @@ def top(target=None):
 
         # Main algorithm (§3)
         # Fist step: XOR (§3.1)
-        diff = hcl.compute(train_images.shape,
-                           lambda x, y: train_images[x][y] ^ test_image,
-                           "diff")
+        diff = hcl.compute(
+            train_images.shape, lambda x, y: train_images[x][y] ^ test_image, "diff"
+        )
 
         # Second step: popcount (§3.2)
-        dist = hcl.compute(diff.shape,
-                           lambda x, y: popcount(diff[x][y]),
-                           "dist")
-
+        dist = hcl.compute(diff.shape, lambda x, y: popcount(diff[x][y]), "dist")
 
         # Third step: initialize the candidates (§3.3)
         knn_mat = hcl.compute((10, 3), lambda x, y: 50, "knn_mat")
 
-
         # Fourth step: update the candidates (§3.4)
-        hcl.mutate(dist.shape,
-                        lambda x, y: update_knn(dist, knn_mat, x, y),
-                        "knn_update")
+        hcl.mutate(
+            dist.shape, lambda x, y: update_knn(dist, knn_mat, x, y), "knn_update"
+        )
 
         # Final step: return the candidates (§3.5)
         return knn_mat

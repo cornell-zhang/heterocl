@@ -1,13 +1,14 @@
 import heterocl as hcl
 import numpy as np
+
 m = 64
 k = 64
+
 
 def test_assert_module_no_return():
     hcl.init(raise_assert_exception=False)
 
     def algorithm(A, B):
-
         @hcl.def_([A.shape, B.shape, ()])
         def update_B(A, B, x):
             hcl.print(0, "print1\n")
@@ -18,13 +19,17 @@ def test_assert_module_no_return():
             B[x] = A[x] + 1
 
         with hcl.Stage():
-            matrix_B = hcl.compute((m,k), lambda x, y: A[x] + B[x] + 1, "matrix_B")
+            matrix_B = hcl.compute((m, k), lambda x, y: A[x] + B[x] + 1, "matrix_B")
             with hcl.for_(0, 10) as i:
-                matrix_C = hcl.compute((m,k), lambda x, y: A[x] + B[x] + 2, "matrix_C")
+                matrix_C = hcl.compute((m, k), lambda x, y: A[x] + B[x] + 2, "matrix_C")
                 with hcl.for_(0, 10) as z:
-                    matrix_D = hcl.compute((m,k), lambda x, y: A[x] + B[x] + 3, "matrix_D")
+                    matrix_D = hcl.compute(
+                        (m, k), lambda x, y: A[x] + B[x] + 3, "matrix_D"
+                    )
                     update_B(A, B, i)
-                    matrix_E = hcl.compute((m,k), lambda x, y: A[x] + B[x] + 4, "matrix_E")
+                    matrix_E = hcl.compute(
+                        (m, k), lambda x, y: A[x] + B[x] + 4, "matrix_E"
+                    )
             hcl.print(0, "end\n")
 
     A = hcl.placeholder((10,))
@@ -42,11 +47,11 @@ def test_assert_module_no_return():
     # only print1 and print2 should print on the 11th iteration
     f(_A, _B)
 
+
 def test_assert_module_with_return():
     hcl.init(raise_assert_exception=False)
 
     def algorithm(A, B):
-
         @hcl.def_([A.shape, ()])
         def update_B(A, x):
             hcl.print(0, "print1\n")
@@ -54,9 +59,9 @@ def test_assert_module_with_return():
             hcl.print(0, "print2\n")
             hcl.return_(A[x] + 1)
 
-        matrix_B = hcl.compute((m,k), lambda x, y: A[x] + B[x] + 7, "matrix_B")
+        matrix_B = hcl.compute((m, k), lambda x, y: A[x] + B[x] + 7, "matrix_B")
         hcl.update(B, lambda x: update_B(A, x))
-        matrix_C = hcl.compute((m,k), lambda x, y: A[x] + B[x] + 7, "matrix_C")
+        matrix_C = hcl.compute((m, k), lambda x, y: A[x] + B[x] + 7, "matrix_C")
 
         hcl.print(0, "should not print\n")
 
@@ -75,10 +80,9 @@ def test_assert_module_with_return():
     # only print1 prints on 8th iteration
     f(_A, _B)
 
+
 def test_assert_module_cond_return_if_only():
-
     def algorithm(A, B):
-
         @hcl.def_([A.shape, ()])
         def update_B(A, x):
             with hcl.if_(A[x] < 5):
@@ -89,7 +93,8 @@ def test_assert_module_cond_return_if_only():
             hcl.assert_(A[x] >= 5, "assert message 2")
             hcl.print(0, "not in if\n")
             hcl.return_(A[x] + 1)
-        matrix_B = hcl.compute((m,k), lambda x, y: A[x] + B[x] + 7, "matrix_B")
+
+        matrix_B = hcl.compute((m, k), lambda x, y: A[x] + B[x] + 7, "matrix_B")
 
         hcl.update(B, lambda x: update_B(A, x))
 
@@ -108,11 +113,11 @@ def test_assert_module_cond_return_if_only():
     # assert condition in the if statement becomes false on the 5th iteration
     f(_A, _B)
 
+
 def test_assert_module_cond_return_if_else():
     hcl.init(raise_assert_exception=False)
 
     def algorithm(A, B):
-
         @hcl.def_([A.shape, ()])
         def update_B(A, x):
             with hcl.if_(A[x] > 5):
@@ -128,6 +133,7 @@ def test_assert_module_cond_return_if_else():
 
         hcl.update(B, lambda x: update_B(A, x))
         hcl.print(0, "shouldn't be printed")
+
     A = hcl.placeholder((10,))
     B = hcl.placeholder((10,))
 
@@ -143,11 +149,11 @@ def test_assert_module_cond_return_if_else():
     # enters if statement once: assert condition in the if is false the first time entering
     f(_A, _B)
 
+
 def test_assert_module_cond_return_multi_if_else():
     hcl.init(raise_assert_exception=False)
 
     def algorithm(A, B):
-
         @hcl.def_([A.shape, ()])
         def update_B(A, x):
             with hcl.if_(A[x] > 5):
@@ -183,11 +189,11 @@ def test_assert_module_cond_return_multi_if_else():
     # assert condition for "assert in else" is false on the second iteration
     f(_A, _B)
 
+
 def test_assert_module_cond_return_for():
     hcl.init(raise_assert_exception=False)
 
     def algorithm(A, B):
-
         @hcl.def_([A.shape, ()])
         def update_B(A, x):
             with hcl.for_(0, 10) as i:
@@ -217,11 +223,11 @@ def test_assert_module_cond_return_for():
     # "assert in if" is false the first time entering the if statement
     f(_A, _B)
 
+
 def test_assert_module_multi_calls():
     hcl.init(raise_assert_exception=False)
 
     def algorithm(A, B):
-
         @hcl.def_([A.shape, B.shape, ()])
         def add(A, B, x):
             hcl.assert_(x < 3, "assert in add")
@@ -237,7 +243,7 @@ def test_assert_module_multi_calls():
                 hcl.print(0, "in for\n")
             hcl.return_(temp[0])
 
-        tmp =  hcl.compute(A.shape, lambda x: mul(A, B, x))
+        tmp = hcl.compute(A.shape, lambda x: mul(A, B, x))
         hcl.print(0, "shouldn't print\n")
         return tmp
 
@@ -258,11 +264,11 @@ def test_assert_module_multi_calls():
     # on fourth time entering add, the condition for assert in add is false
     f(_A, _B, _C)
 
+
 def test_assert_module_declarative():
     hcl.init(raise_assert_exception=False)
 
     def algorithm(a, b, c):
-
         @hcl.def_([a.shape, b.shape, c.shape])
         def add(a, b, c):
             hcl.update(c, lambda *x: a[x] + b[x])
@@ -292,11 +298,11 @@ def test_assert_module_declarative():
     f(_a, _b, _c)
     assert np.array_equal(_c.asnumpy(), a + b)
 
+
 def test_assert_module_declarative_internal_allocate():
     hcl.init(raise_assert_exception=False)
 
     def algorithm(a, b, c):
-
         @hcl.def_([a.shape, b.shape, c.shape])
         def add(a, b, c):
             d = hcl.compute(a.shape, lambda *x: a[x] + b[x])
@@ -305,6 +311,7 @@ def test_assert_module_declarative_internal_allocate():
             hcl.update(c, lambda *x: d[x] + 1)
             hcl.assert_(False)
             hcl.print(0, "print2")
+
         tmp = hcl.compute((64, 64), lambda x, y: 4 + 8)
         add(a, b, c)
 
@@ -327,11 +334,11 @@ def test_assert_module_declarative_internal_allocate():
     f(_a, _b, _c)
     assert np.array_equal(_c.asnumpy(), np.zeros(10))
 
+
 def test_assert_module_declarative_compute_at():
     hcl.init(raise_assert_exception=False)
 
     def algorithm(a, b, c):
-
         @hcl.def_([a.shape, b.shape, c.shape])
         def add(a, b, c):
             d = hcl.compute(a.shape, lambda *x: a[x] + b[x], "d")
@@ -340,6 +347,7 @@ def test_assert_module_declarative_compute_at():
             hcl.update(c, lambda *x: d[x] + 1, "u")
             hcl.assert_(False, "assert error 2")
             hcl.print(0, "print2")
+
         tmp = hcl.compute((64, 64), lambda x, y: 4 + 8)
         add(a, b, c)
         hcl.print(0, "print end")
@@ -365,11 +373,11 @@ def test_assert_module_declarative_compute_at():
     f(_a, _b, _c)
     assert np.array_equal(_c.asnumpy(), a + b + 1)
 
+
 def test_assert_all_true():
     hcl.init(raise_assert_exception=False)
 
     def algorithm(a, b, c):
-
         @hcl.def_([a.shape, b.shape, c.shape])
         def add(a, b, c):
             with hcl.for_(0, 10) as i:
@@ -400,6 +408,7 @@ def test_assert_all_true():
     f(_a, _b, _c)
 
     assert np.array_equal(_c.asnumpy(), b + 1)
+
 
 test_assert_module_no_return()
 test_assert_module_with_return()

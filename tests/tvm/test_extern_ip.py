@@ -4,8 +4,12 @@ import numpy.testing as tst
 import hlib
 import os
 from hlib.op.extern import (
-    create_extern_module, register_extern_ip, 
-    register_tensors, include_dependency)
+    create_extern_module,
+    register_extern_ip,
+    register_tensors,
+    include_dependency,
+)
+
 
 def test_vadd_vhls():
 
@@ -24,7 +28,8 @@ void vadd(const float* in1, float* in2, int size) {
 
     @register_extern_ip(type="vhls")
     def vadd_vhls_ip(op1, op2, size, name=None):
-        if name is None: name = "vadd"
+        if name is None:
+            name = "vadd"
         with hcl.Stage("ExternModule.vadd") as Module:
             register_tensors([op1, op2])
 
@@ -33,7 +38,7 @@ void vadd(const float* in1, float* in2, int size) {
 
         # include cpp/hpp files
         deps = os.path.dirname(os.path.abspath(__file__))
-        source = [ "vadd.cpp" ]
+        source = ["vadd.cpp"]
         Module.source = include_dependency(source)
         create_extern_module(Module, ip_type="HLS")
 
@@ -43,6 +48,7 @@ void vadd(const float* in1, float* in2, int size) {
     size = 1024
     op1 = hcl.placeholder((size,), dtype=dtype, name="op1")
     op2 = hcl.placeholder((size,), dtype=dtype, name="op2")
+
     def math_func(op1, op2):
         vadd_vhls_ip(op1, op2, size)
 
@@ -51,11 +57,12 @@ void vadd(const float* in1, float* in2, int size) {
     s.to(op1, target.xcel)
     s.to(op2, target.host)
 
-    # test ir correctness 
+    # test ir correctness
     target.config(compiler="vitis", mode="debug")
     code = hcl.build(s, target)
     assert "#pragma HLS PIPELINE II=1" in code
     os.remove("vadd.cpp")
+
 
 if __name__ == "__main__":
     test_vadd_vhls()

@@ -2,6 +2,7 @@ import heterocl as hcl
 import heterocl.tvm as tvm
 import numpy as np
 
+
 def test_schedule_no_return():
     hcl.init()
     A = hcl.placeholder((10,))
@@ -13,8 +14,8 @@ def test_schedule_no_return():
     s = hcl.create_schedule([A, B], algorithm)
     f = hcl.build(s)
 
-    _A = hcl.asarray(np.random.randint(100, size=(10,)), dtype = hcl.Int(32))
-    _B = hcl.asarray(np.zeros(10), dtype = hcl.Int(32))
+    _A = hcl.asarray(np.random.randint(100, size=(10,)), dtype=hcl.Int(32))
+    _B = hcl.asarray(np.zeros(10), dtype=hcl.Int(32))
 
     f(_A, _B)
 
@@ -22,7 +23,8 @@ def test_schedule_no_return():
     _B = _B.asnumpy()
 
     for i in range(10):
-        assert(_B[i] == _A[i] + 1)
+        assert _B[i] == _A[i] + 1
+
 
 def test_schedule_return():
     hcl.init()
@@ -34,8 +36,8 @@ def test_schedule_return():
     s = hcl.create_schedule([A], algorithm)
     f = hcl.build(s)
 
-    _A = hcl.asarray(np.random.randint(100, size=(10,)), dtype = hcl.Int(32))
-    _B = hcl.asarray(np.zeros(10), dtype = hcl.Int(32))
+    _A = hcl.asarray(np.random.randint(100, size=(10,)), dtype=hcl.Int(32))
+    _B = hcl.asarray(np.zeros(10), dtype=hcl.Int(32))
 
     f(_A, _B)
 
@@ -43,7 +45,8 @@ def test_schedule_return():
     _B = _B.asnumpy()
 
     for i in range(10):
-        assert(_B[i] == _A[i] + 1)
+        assert _B[i] == _A[i] + 1
+
 
 def test_schedule_return_multi():
     hcl.init()
@@ -57,9 +60,9 @@ def test_schedule_return_multi():
     s = hcl.create_schedule([A], algorithm)
     f = hcl.build(s)
 
-    _A = hcl.asarray(np.random.randint(100, size=(10,)), dtype = hcl.Int(32))
-    _B = hcl.asarray(np.zeros(10), dtype = hcl.Int(32))
-    _C = hcl.asarray(np.zeros(10), dtype = hcl.Int(32))
+    _A = hcl.asarray(np.random.randint(100, size=(10,)), dtype=hcl.Int(32))
+    _B = hcl.asarray(np.zeros(10), dtype=hcl.Int(32))
+    _C = hcl.asarray(np.zeros(10), dtype=hcl.Int(32))
 
     f(_A, _B, _C)
 
@@ -68,8 +71,9 @@ def test_schedule_return_multi():
     _C = _C.asnumpy()
 
     for i in range(10):
-        assert(_B[i] == _A[i] + 1)
-        assert(_C[i] == _A[i] + 2)
+        assert _B[i] == _A[i] + 1
+        assert _C[i] == _A[i] + 2
+
 
 def test_resize():
     hcl.init()
@@ -77,7 +81,7 @@ def test_resize():
     def algorithm(A):
         return hcl.compute(A.shape, lambda x: A[x] + 1, "B")
 
-    A = hcl.placeholder((10,), dtype = hcl.UInt(32))
+    A = hcl.placeholder((10,), dtype=hcl.UInt(32))
 
     scheme = hcl.create_scheme([A], algorithm)
     scheme.downsize(algorithm.B, hcl.UInt(2))
@@ -85,8 +89,8 @@ def test_resize():
     f = hcl.build(s)
 
     a = np.random.randint(100, size=(10,))
-    _A = hcl.asarray(a, dtype = hcl.UInt(32))
-    _B = hcl.asarray(np.zeros(10), dtype = hcl.UInt(2))
+    _A = hcl.asarray(a, dtype=hcl.UInt(32))
+    _B = hcl.asarray(np.zeros(10), dtype=hcl.UInt(2))
 
     f(_A, _B)
 
@@ -94,7 +98,8 @@ def test_resize():
     _B = _B.asnumpy()
 
     for i in range(10):
-        assert(_B[i] == (a[i] + 1)%4)
+        assert _B[i] == (a[i] + 1) % 4
+
 
 def test_select():
     hcl.init(hcl.Float())
@@ -118,6 +123,7 @@ def test_select():
     np_B = hcl_B.asnumpy()
 
     assert np.allclose(np_B, np_C)
+
 
 def test_bitwise_and():
     hcl.init(hcl.UInt(8))
@@ -143,6 +149,7 @@ def test_bitwise_and():
     f(hcl_a, hcl_b, hcl_c)
     assert np.array_equal(hcl_c.asnumpy(), g)
 
+
 def test_bitwise_or():
     hcl.init(hcl.UInt(8))
 
@@ -167,19 +174,21 @@ def test_bitwise_or():
     f(hcl_a, hcl_b, hcl_c)
     assert np.array_equal(hcl_c.asnumpy(), g)
 
+
 def test_tesnro_slice_shape():
     A = hcl.placeholder((3, 4, 5))
 
-    assert(A.shape == (3, 4, 5))
-    assert(A[0].shape == (4, 5))
-    assert(A[0][1].shape == (5,))
+    assert A.shape == (3, 4, 5)
+    assert A[0].shape == (4, 5)
+    assert A[0][1].shape == (5,)
+
 
 def test_build_from_stmt():
     hcl.init(hcl.Int())
     # First, we still need to create HeteroCL inputs
     A = hcl.placeholder((10,), "A")
     B = hcl.placeholder((10,), "B")
-    X = hcl.placeholder((), "X") # a scalar input
+    X = hcl.placeholder((), "X")  # a scalar input
 
     # Second, we create variables for loop var
     # The first field is the name
@@ -236,4 +245,4 @@ def test_build_from_stmt():
     np_golden = 5 * (np_A + 1)
     np_B = hcl_B.asnumpy()
 
-    assert(np.array_equal(np_B, np_golden))
+    assert np.array_equal(np_B, np_golden)

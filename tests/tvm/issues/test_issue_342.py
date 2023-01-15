@@ -1,6 +1,7 @@
 import heterocl as hcl
 import numpy as np
 
+
 def test_numpy_operator_err_msg_0():
     hcl.init()
 
@@ -12,6 +13,7 @@ def test_numpy_operator_err_msg_0():
     except hcl.debug.APIError:
         return
     assert False
+
 
 def test_numpy_operator_err_msg_1():
     hcl.init()
@@ -25,6 +27,7 @@ def test_numpy_operator_err_msg_1():
         return
     assert False
 
+
 def test_numpy_operator_no_err_0():
     hcl.init()
 
@@ -32,6 +35,7 @@ def test_numpy_operator_no_err_0():
     np_A = np.array([5, 10, 15])
 
     A[5, 5] > np_A[1]
+
 
 def test_numpy_operator_no_err_1():
     hcl.init()

@@ -8,8 +8,8 @@ def test_stream():
     A = hcl.placeholder((32, 32), "A")
 
     def kernel_two(A):
-        B = hcl.compute(A.shape, lambda i, j : A[i, j] + 1, "B")
-        C = hcl.compute(A.shape, lambda i, j : B[ii, jj] + 1, "C")
+        B = hcl.compute(A.shape, lambda i, j: A[i, j] + 1, "B")
+        C = hcl.compute(A.shape, lambda i, j: B[ii, jj] + 1, "C")
         return C
 
     target = hcl.Platform.xilinx_zc706
@@ -23,6 +23,7 @@ def test_stream():
     # mod()
     report = mod.report()
     report.display()
+
 
 if __name__ == "__main__":
     test_stream()

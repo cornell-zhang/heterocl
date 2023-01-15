@@ -79,6 +79,7 @@ def fdtd_2d_golden(Nx, Ny, Tmax, ex, ey, hz, fict):
                     ex[i][j + 1] - ex[i][j] + ey[i + 1][j] - ey[i][j]
                 )
 
+
 def main(Nx=20, Ny=30, Tmax=20, dtype=hcl.Float(32), target=None):
     f = top_fdtd_2d(Nx, Ny, Tmax, dtype, target)
     ex = np.random.randint(10, size=(Nx, Ny)).astype(np.float32)
@@ -86,6 +87,7 @@ def main(Nx=20, Ny=30, Tmax=20, dtype=hcl.Float(32), target=None):
     hz = np.random.randint(10, size=(Nx, Ny)).astype(np.float32)
     fict = np.random.randint(10, size=(Tmax,)).astype(np.float32)
     f(ex, ey, hz, fict)
+
 
 if __name__ == "__main__":
     main()

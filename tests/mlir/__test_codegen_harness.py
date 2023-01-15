@@ -1,6 +1,7 @@
 import heterocl as hcl
 import re
 
+
 def test_dtype(target, strings, test_fixed_point=True):
     def test_int():
         hcl.init()
@@ -28,6 +29,7 @@ def test_dtype(target, strings, test_fixed_point=True):
     if test_fixed_point:
         test_fixed()
 
+
 # def test_print(target):
 #     hcl.init()
 #     A = hcl.placeholder((10, 32))
@@ -37,12 +39,15 @@ def test_dtype(target, strings, test_fixed_point=True):
 #     s = hcl.create_schedule([A], kernel)
 #     code = hcl.build(s, target=target)
 
+
 def test_pragma(target, strings, test_partition=True):
     hcl.init()
     A = hcl.placeholder((10, 32), "A")
     B = hcl.placeholder((10, 32), "B")
+
     def algo(A, B):
         C = hcl.compute(A.shape, lambda i, j: A[i][j] + B[i][j], name="C")
+
     # unroll
     s1 = hcl.create_schedule([A, B], algo)
     C = algo.C
@@ -66,19 +71,23 @@ def test_pragma(target, strings, test_partition=True):
 def test_set_bit(target, string):
     hcl.init()
     A = hcl.placeholder((10,), "A")
+
     def kernel(A):
         A[0][4] = 1
+
     s = hcl.create_schedule([A], kernel)
     print(hcl.lower(s))
     code = hcl.build(s, target=target)
     assert string in code
 
+
 def test_set_slice(target, string):
     hcl.init()
     A = hcl.placeholder((10,), "A")
+
     def kernel(A):
         A[0][1:5] = 1
+
     s = hcl.create_schedule([A], kernel)
     code = hcl.build(s, target=target)
     assert string in code
-

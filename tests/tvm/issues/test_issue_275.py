@@ -1,15 +1,14 @@
 import heterocl as hcl
 import numpy as np
 
+
 def test_vitis():
     A = hcl.placeholder((10,), "A")
     W = hcl.placeholder((10,), "W")
 
     def kernel(A, W):
-        B = hcl.compute(A.shape, 
-                lambda i: A[i] + 1, "B")
-        C = hcl.compute(B.shape,
-                lambda i: B[i] + W[i], "C")
+        B = hcl.compute(A.shape, lambda i: A[i] + 1, "B")
+        C = hcl.compute(B.shape, lambda i: B[i] + W[i], "C")
         return C
 
     target = hcl.Platform.aws_f1
@@ -28,4 +27,3 @@ def test_vitis():
     assert "bundle=gmem0" in f
     assert "bundle=gmem1" in f
     assert "bundle=gmem2" in f
-

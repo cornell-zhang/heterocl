@@ -6,13 +6,14 @@ import numpy as np
 def test_loop():
 
     A = hcl.placeholder((32, 32), "A")
+
     def kernel(A):
-        B = hcl.compute(A.shape, lambda i, j : A[i, j] + 1, "B")
+        B = hcl.compute(A.shape, lambda i, j: A[i, j] + 1, "B")
         return B
 
     def kernel_two(A):
-        B = hcl.compute(A.shape, lambda i, j : A[i, j] + 1, "B")
-        C = hcl.compute(A.shape, lambda i, j : B[i, j] + 1, "C")
+        B = hcl.compute(A.shape, lambda i, j: A[i, j] + 1, "B")
+        C = hcl.compute(A.shape, lambda i, j: B[i, j] + 1, "C")
         return C
 
     target = hcl.Platform.xilinx_zc706
@@ -35,6 +36,7 @@ def test_loop():
     # s.buffer_at(A, s[s_B], s_B.axis[0])
     mod = hcl.build(s, target=target)
     print(mod.src)
+
 
 if __name__ == "__main__":
     test_loop()

@@ -1,8 +1,8 @@
 import heterocl as hcl
 import numpy as np
 
-def test_for_index_casting():
 
+def test_for_index_casting():
     def kernel(A):
         with hcl.for_(0, 10) as i:
             with hcl.for_(i, 10) as j:
@@ -25,4 +25,3 @@ def test_for_index_casting():
 
     ret_A = hcl_A.asnumpy()
     assert np.array_equal(golden_A, ret_A)
-

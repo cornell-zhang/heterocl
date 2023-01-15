@@ -18,8 +18,7 @@ def test_stages():
         return F
 
     target = hcl.Platform.xilinx_zc706
-    target.config(compiler="vivado_hls", mode="csyn",
-                  project="stages-depth-1-new.prj")
+    target.config(compiler="vivado_hls", mode="csyn", project="stages-depth-1-new.prj")
     s = hcl.create_schedule([A], kernel)
     s.to(A, target.xcel)
     s.to(kernel.B, s[kernel.D], fifo_depth=1)
@@ -52,8 +51,7 @@ def test_outline():
         return D
 
     target = hcl.Platform.xilinx_zc706
-    target.config(compiler="vivado_hls", mode="debug",
-                  project="stages-outline.prj")
+    target.config(compiler="vivado_hls", mode="debug", project="stages-outline.prj")
     s = hcl.create_schedule([A], kernel)
     s[kernel.B].pipeline(kernel.B.axis[1])
     # s.partition(kernel.B, dim=2)
@@ -86,6 +84,7 @@ def test_outline_extension():
     s.outline(s[kernel.B], s[kernel.C], s[kernel.D], unify=True)
     print(hcl.lower(s))
 
+
 def test_outline_extension_axis():
 
     A = hcl.placeholder((32, 32), "A")
@@ -100,6 +99,7 @@ def test_outline_extension_axis():
     func_B = s[s_B].outline(axis=y_i)
     print(s.device_module)
     print(hcl.lower(s))
+
 
 def test_outline_extension_unify():
 
@@ -121,6 +121,7 @@ def test_outline_extension_unify():
     hcl_D = hcl.asarray(np_D)
     mod(hcl_A, hcl_D)
     print(hcl_D.asnumpy())
+
 
 def test_outline_cpu():
 
@@ -145,11 +146,11 @@ def test_outline_cpu():
     mod.modules[1](hcl_B, hcl_C, hcl_D)
     print(hcl_D.asnumpy())
 
+
 def test_module_mixed_paradigm():
     hcl.init()
 
     def algorithm(a, b, c):
-
         @hcl.def_([a.shape, b.shape, c.shape])
         def add(a, b, c):
             with hcl.for_(0, 10, tag="A") as i:
@@ -181,6 +182,7 @@ def test_module_mixed_paradigm():
     f(_a, _b, _c)
 
     assert np.array_equal(_c.asnumpy(), b + 1)
+
 
 if __name__ == "__main__":
     # test_stages()

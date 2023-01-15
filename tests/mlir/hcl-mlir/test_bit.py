@@ -5,12 +5,13 @@ import pytest
 
 hcl.init(hcl.Int(12))
 
+
 def test_bit():
 
     A = hcl.placeholder((32, 12), "A")
 
     def kernel(A):
-        B = hcl.compute(A.shape, lambda i, j : A[i, j][j], "B", hcl.Int(1))
+        B = hcl.compute(A.shape, lambda i, j: A[i, j][j], "B", hcl.Int(1))
         return B
 
     target = hcl.Platform.xilinx_zc706
@@ -21,6 +22,7 @@ def test_bit():
     s.to(s_B, target.host)
     mod = hcl.build(s, target)
     mod()
+
 
 if __name__ == "__main__":
     test_bit()

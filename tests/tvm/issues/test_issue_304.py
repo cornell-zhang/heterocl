@@ -1,8 +1,8 @@
 import heterocl as hcl
 import numpy as np
 
-def test_zero_allocate():
 
+def test_zero_allocate():
     def kernel(A):
         with hcl.for_(0, 10) as i:
             with hcl.for_(i, 10) as j:
@@ -17,4 +17,3 @@ def test_zero_allocate():
         f = hcl.build(s, p)
     except:
         print("passed")
-

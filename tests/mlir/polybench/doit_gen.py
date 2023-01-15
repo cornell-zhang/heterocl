@@ -1,6 +1,7 @@
 import heterocl as hcl
 import numpy as np
 
+
 def top_doitgen(P=12, Q=8, R=10, S=12, dtype=hcl.Float(32), target=None):
 
     hcl.init(dtype)
@@ -8,9 +9,9 @@ def top_doitgen(P=12, Q=8, R=10, S=12, dtype=hcl.Float(32), target=None):
     x = hcl.placeholder((P, S), "x")
 
     def kernel_doitgen(A, x):
-        
+
         sum_ = hcl.compute((P,), lambda x: 0, name="sum_")
-        
+
         with hcl.for_(0, R, name="r") as r:
             with hcl.for_(0, Q, name="q") as q:
                 with hcl.for_(0, P, name="p") as p:
@@ -20,17 +21,18 @@ def top_doitgen(P=12, Q=8, R=10, S=12, dtype=hcl.Float(32), target=None):
                 with hcl.for_(0, P, name="p") as p:
                     A[r][q][p] = sum_[p]
         return A
-    
+
     s = hcl.create_schedule([A, x], kernel_doitgen)
 
     #### Applying customizations ####
-    
+
     #### Applying customizations ####
 
     return hcl.build(s, target=target)
 
+
 def doitgen_golden(P, Q, R, S, A, x):
-    dtype=np.float32
+    dtype = np.float32
     sum_ = np.zeros((P,), dtype=dtype)
     for r in range(R):
         for q in range(Q):
@@ -53,6 +55,7 @@ def main(P=12, Q=8, R=10, S=12, dtype=hcl.Float(32), target=None):
         print("pass")
     else:
         print("fail")
+
 
 if __name__ == "__main__":
     main()

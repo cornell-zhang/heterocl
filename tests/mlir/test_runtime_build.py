@@ -3,15 +3,19 @@ import os
 import numpy as np
 import pytest
 
-@pytest.mark.skip(reason="TypeError: expected str, bytes or os.PathLike object, not NoneType")
+
+@pytest.mark.skip(
+    reason="TypeError: expected str, bytes or os.PathLike object, not NoneType"
+)
 def test_debug_mode():
 
     hcl.init()
     A = hcl.placeholder((10, 32), "A")
+
     def kernel(A):
-        B = hcl.compute(A.shape, lambda *args : A[args] + 1, "B")
-        C = hcl.compute(A.shape, lambda *args : B[args] + 1, "C")
-        D = hcl.compute(A.shape, lambda *args : C[args] * 2, "D")
+        B = hcl.compute(A.shape, lambda *args: A[args] + 1, "B")
+        C = hcl.compute(A.shape, lambda *args: B[args] + 1, "C")
+        D = hcl.compute(A.shape, lambda *args: C[args] * 2, "D")
         return D
 
     def test_sdaccel_debug():
@@ -22,7 +26,7 @@ def test_debug_mode():
         target.config(compiler="sdaccel", mode="debug", backend="vhls")
         code = hcl.build(s, target)
         print(code)
-        assert "cl::Kernel kernel(program, \"test\", &err)" in code
+        assert 'cl::Kernel kernel(program, "test", &err)' in code
 
     def test_vhls_debug():
         target = hcl.Platform.xilinx_zc706
@@ -37,19 +41,21 @@ def test_debug_mode():
     test_sdaccel_debug()
     test_vhls_debug()
 
+
 def test_vivado_hls():
     if os.system("which vivado_hls >> /dev/null") != 0:
-        return 
+        return
 
     def test_hls(target_mode):
         hcl.init()
         A = hcl.placeholder((10, 32), "A")
+
         def kernel(A):
-            B = hcl.compute(A.shape, lambda *args : A[args] + 1, "B")
-            C = hcl.compute(A.shape, lambda *args : B[args] + 1, "C")
-            D = hcl.compute(A.shape, lambda *args : C[args] * 2, "D")
+            B = hcl.compute(A.shape, lambda *args: A[args] + 1, "B")
+            C = hcl.compute(A.shape, lambda *args: B[args] + 1, "C")
+            D = hcl.compute(A.shape, lambda *args: C[args] * 2, "D")
             return D
-        
+
         target = hcl.Platform.aws_f1
         s = hcl.create_schedule([A], kernel)
         s.to(kernel.B, target.xcel)
@@ -57,8 +63,8 @@ def test_vivado_hls():
         target.config(compiler="vivado_hls", mode=target_mode)
         f = hcl.build(s, target)
 
-        np_A = np.random.randint(10, size=(10,32))
-        np_B = np.zeros((10,32))
+        np_A = np.random.randint(10, size=(10, 32))
+        np_B = np.zeros((10, 32))
 
         hcl_A = hcl.asarray(np_A)
         hcl_B = hcl.asarray(np_B, dtype=hcl.Int(32))
@@ -69,15 +75,16 @@ def test_vivado_hls():
             report = f.report()
             assert "ReportVersion" in report
         elif "csim" in target_mode:
-            np.testing.assert_array_equal(ret_B, (np_A+2)*2)
+            np.testing.assert_array_equal(ret_B, (np_A + 2) * 2)
 
     test_hls("csim")
     test_hls("csyn")
     test_hls("csim|csyn")
 
+
 def test_mixed_stream():
     if os.system("which vivado_hls >> /dev/null") != 0:
-        return 
+        return
 
     A = hcl.placeholder((10, 32), "A")
     B = hcl.placeholder((10, 32), "B")
@@ -98,9 +105,9 @@ def test_mixed_stream():
     target.config(compiler="vivado_hls", mode="csim")
     f = hcl.build(s, target)
 
-    np_A = np.random.randint(10, size=(10,32))
-    np_B = np.random.randint(10, size=(10,32))
-    np_C = np.zeros((10,32))
+    np_A = np.random.randint(10, size=(10, 32))
+    np_B = np.random.randint(10, size=(10, 32))
+    np_C = np.zeros((10, 32))
 
     hcl_A = hcl.asarray(np_A)
     hcl_B = hcl.asarray(np_B)
@@ -109,19 +116,21 @@ def test_mixed_stream():
     ret_C = hcl_C.asnumpy()
     np.testing.assert_array_equal(ret_C, (np_A + np_B) * 6)
 
+
 def test_vitis():
     if os.system("which v++ >> /dev/null") != 0:
-        return 
+        return
 
     def test_arith_ops():
         hcl.init()
         A = hcl.placeholder((10, 32), "A")
+
         def kernel(A):
-            B = hcl.compute(A.shape, lambda *args : A[args] + 1, "B")
-            C = hcl.compute(A.shape, lambda *args : B[args] + 1, "C")
-            D = hcl.compute(A.shape, lambda *args : C[args] * 2, "D")
+            B = hcl.compute(A.shape, lambda *args: A[args] + 1, "B")
+            C = hcl.compute(A.shape, lambda *args: B[args] + 1, "C")
+            D = hcl.compute(A.shape, lambda *args: C[args] * 2, "D")
             return D
-        
+
         target = hcl.Platform.aws_f1
         s = hcl.create_schedule([A], kernel)
         s.to(kernel.B, target.xcel)
@@ -129,15 +138,15 @@ def test_vitis():
         target.config(compiler="vitis", mode="hw_sim")
         f = hcl.build(s, target)
 
-        np_A = np.random.randint(10, size=(10,32))
-        np_B = np.zeros((10,32))
+        np_A = np.random.randint(10, size=(10, 32))
+        np_B = np.zeros((10, 32))
 
         hcl_A = hcl.asarray(np_A)
         hcl_B = hcl.asarray(np_B, dtype=hcl.Int(32))
         f(hcl_A, hcl_B)
         ret_B = hcl_B.asnumpy()
 
-        assert np.array_equal(ret_B, (np_A+2)*2)
+        assert np.array_equal(ret_B, (np_A + 2) * 2)
 
     def test_xrt_stream():
         hcl.init()
@@ -145,8 +154,8 @@ def test_vitis():
         B = hcl.placeholder((10, 32), "B")
 
         def kernel(A, B):
-            C = hcl.compute(A.shape, lambda i, j: A[i,j] + B[i,j], "C")
-            D = hcl.compute(C.shape, lambda i, j: C[i,j] + 1, "D")
+            C = hcl.compute(A.shape, lambda i, j: A[i, j] + B[i, j], "C")
+            D = hcl.compute(C.shape, lambda i, j: C[i, j] + 1, "D")
             return D
 
         target = hcl.Platform.aws_f1
@@ -157,9 +166,9 @@ def test_vitis():
         s.to(kernel.D, target.host, mode=hcl.IO.FIFO)
 
         f = hcl.build(s, target)
-        np_A = np.random.randint(10, size=(10,32))
-        np_B = np.random.randint(10, size=(10,32))
-        np_D = np.zeros((10,32))
+        np_A = np.random.randint(10, size=(10, 32))
+        np_B = np.random.randint(10, size=(10, 32))
+        np_D = np.zeros((10, 32))
 
         hcl_A = hcl.asarray(np_A)
         hcl_B = hcl.asarray(np_B, dtype=hcl.Int(32))
@@ -171,19 +180,21 @@ def test_vitis():
     test_arith_ops()
     test_xrt_stream()
 
+
 def test_xilinx_sdsoc():
     if os.system("which sds++ >> /dev/null") != 0:
-        return 
+        return
 
     def test_add_mul():
         hcl.init()
         A = hcl.placeholder((10, 32), "A")
+
         def kernel(A):
-            B = hcl.compute(A.shape, lambda *args : A[args] + 1, "B")
-            C = hcl.compute(A.shape, lambda *args : B[args] + 1, "C")
-            D = hcl.compute(A.shape, lambda *args : C[args] * 2, "D")
+            B = hcl.compute(A.shape, lambda *args: A[args] + 1, "B")
+            C = hcl.compute(A.shape, lambda *args: B[args] + 1, "C")
+            D = hcl.compute(A.shape, lambda *args: C[args] * 2, "D")
             return D
-        
+
         target = hcl.Platform.xilinx_zc706
         s = hcl.create_schedule([A], kernel)
         s.to(kernel.B, target.xcel)
@@ -191,8 +202,8 @@ def test_xilinx_sdsoc():
         target.config(compiler="sdsoc", mode="sw_sim")
         f = hcl.build(s, target)
 
-        np_A = np.random.randint(10, size=(10,32))
-        np_B = np.zeros((10,32))
+        np_A = np.random.randint(10, size=(10, 32))
+        np_B = np.zeros((10, 32))
 
         hcl_A = hcl.asarray(np_A)
         hcl_B = hcl.asarray(np_B, dtype=hcl.Int(32))
@@ -202,18 +213,20 @@ def test_xilinx_sdsoc():
 
     test_add_mul()
 
+
 def test_intel_aocl():
     if os.system("which aocl >> /dev/null") != 0:
-        return 
+        return
 
     hcl.init()
     A = hcl.placeholder((10, 32), "A")
+
     def kernel(A):
-        B = hcl.compute(A.shape, lambda *args : A[args] + 1, "B")
-        C = hcl.compute(A.shape, lambda *args : B[args] + 1, "C")
-        D = hcl.compute(A.shape, lambda *args : C[args] * 2, "D")
+        B = hcl.compute(A.shape, lambda *args: A[args] + 1, "B")
+        C = hcl.compute(A.shape, lambda *args: B[args] + 1, "C")
+        D = hcl.compute(A.shape, lambda *args: C[args] * 2, "D")
         return D
-    
+
     target = hcl.Platform.intel_vlab
     s = hcl.create_schedule([A], kernel)
     s.to(A, target.xcel)
@@ -222,8 +235,8 @@ def test_intel_aocl():
     target.config(compiler="aocl", mode="sw_sim")
     f = hcl.build(s, target)
 
-    np_A = np.random.randint(10, size=(10,32))
-    np_B = np.zeros((10,32))
+    np_A = np.random.randint(10, size=(10, 32))
+    np_B = np.zeros((10, 32))
 
     hcl_A = hcl.asarray(np_A)
     hcl_B = hcl.asarray(np_B, dtype=hcl.Int(32))
@@ -232,9 +245,10 @@ def test_intel_aocl():
 
     np.testing.assert_array_equal(ret_B, (np_A + 2) * 2)
 
+
 def test_project():
     if os.system("which vivado_hls >> /dev/null") != 0:
-        return 
+        return
 
     dtype = hcl.Float()
     M = 64
@@ -243,22 +257,28 @@ def test_project():
     A = hcl.placeholder((M, K), "A", dtype=dtype)
     B = hcl.placeholder((K, N), "B", dtype=dtype)
     k = hcl.reduce_axis(0, K)
+
     def kernel(A, B):
-        C = hcl.compute((M, N), lambda x, y: hcl.sum(A[x, k] * B[k, y], axis=k, dtype=dtype), "C", dtype=dtype)
+        C = hcl.compute(
+            (M, N),
+            lambda x, y: hcl.sum(A[x, k] * B[k, y], axis=k, dtype=dtype),
+            "C",
+            dtype=dtype,
+        )
         return C
-    
+
     target = hcl.Platform.xilinx_zc706
     target.config(compiler="vivado_hls", mode="csyn", project="gemm.prj")
 
     def make_schedule(opt=False):
         s = hcl.create_schedule([A, B], kernel, name=("s2" if opt else "s1"))
-        s.to([A, B],target.xcel)
-        s.to(kernel.C,target.host)
+        s.to([A, B], target.xcel)
+        s.to(kernel.C, target.host)
 
         def optimization():
             s[kernel.C].pipeline(kernel.C.axis[1])
-            s.partition(A,hcl.Partition.Block,dim=2,factor=16)
-            s.partition(B,hcl.Partition.Block,dim=1,factor=16)
+            s.partition(A, hcl.Partition.Block, dim=2, factor=16)
+            s.partition(B, hcl.Partition.Block, dim=1, factor=16)
 
         if opt:
             optimization()
@@ -278,7 +298,8 @@ def test_project():
     f2 = make_schedule(opt=True)
     assert os.path.isdir("gemm-s2.prj/out.prj")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     test_debug_mode()
     test_vivado_hls()
     test_mixed_stream()

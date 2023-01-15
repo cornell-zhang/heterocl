@@ -2,17 +2,19 @@ import heterocl as hcl
 import numpy as np
 import pytest
 
-def test_dtype_basic_uint():
 
+def test_dtype_basic_uint():
     def _test_dtype(dtype):
         hcl.init(dtype)
-        np_a = np.random.randint(0, 1<<63, 100)
+        np_a = np.random.randint(0, 1 << 63, 100)
         hcl_a = hcl.asarray(np_a)
         np_a2 = hcl_a.asnumpy()
+
         def cast(val):
             sb = 1 << dtype.bits
             val = val % sb
             return val
+
         vfunc = np.vectorize(cast)
         np_a3 = vfunc(np_a)
         assert np.array_equal(np_a2, np_a3)
@@ -21,20 +23,22 @@ def test_dtype_basic_uint():
         for i in range(2, 66, 4):
             _test_dtype(hcl.UInt(i))
 
-def test_dtype_basic_int():
 
+def test_dtype_basic_int():
     def _test_dtype(dtype):
         hcl.init(dtype)
         s = 1 << 63
-        np_a = np.random.randint(-s+1, s, 100)
+        np_a = np.random.randint(-s + 1, s, 100)
         hcl_a = hcl.asarray(np_a)
         np_a2 = hcl_a.asnumpy()
+
         def cast(val):
             sb = 1 << dtype.bits
-            sb1 = 1 << (dtype.bits-1)
+            sb1 = 1 << (dtype.bits - 1)
             val = val % sb
             val = val if val < sb1 else val - sb
             return val
+
         vfunc = np.vectorize(cast)
         np_a3 = vfunc(np_a)
         assert np.array_equal(np_a2, np_a3)
@@ -43,13 +47,14 @@ def test_dtype_basic_int():
         for i in range(2, 66, 4):
             _test_dtype(hcl.Int(i))
 
-def test_dtype_basic_ufixed():
 
+def test_dtype_basic_ufixed():
     def _test_dtype(dtype):
         hcl.init(dtype)
         np_A = np.random.rand(100)
         hcl_A = hcl.asarray(np_A)
         np_A2 = hcl_A.asnumpy()
+
         def cast(val):
             sf = 1 << dtype.fracs
             sb = 1 << dtype.bits
@@ -57,21 +62,23 @@ def test_dtype_basic_ufixed():
             val = int(val) % sb
             val = float(val) / sf
             return val
+
         vfunc = np.vectorize(cast)
         np_A3 = vfunc(np_A)
         assert np.array_equal(np_A2, np_A3)
 
     for j in range(0, 10):
         for i in range(2, 66, 4):
-            _test_dtype(hcl.UFixed(i, i-2))
+            _test_dtype(hcl.UFixed(i, i - 2))
+
 
 def test_dtype_overflow_ufixed():
-
     def _test_dtype(dtype):
         hcl.init(dtype)
         np_A = np.random.rand(100) * 10
         hcl_A = hcl.asarray(np_A)
         np_A2 = hcl_A.asnumpy()
+
         def cast(val):
             sf = 1 << dtype.fracs
             sb = 1 << dtype.bits
@@ -79,61 +86,67 @@ def test_dtype_overflow_ufixed():
             val = int(val) % sb
             val = float(val) / sf
             return val
+
         vfunc = np.vectorize(cast)
         np_A3 = vfunc(np_A)
         assert np.array_equal(np_A2, np_A3)
 
     for j in range(0, 10):
         for i in range(2, 66, 4):
-            _test_dtype(hcl.UFixed(i, i-2))
+            _test_dtype(hcl.UFixed(i, i - 2))
+
 
 def test_dtype_basic_fixed():
-
     def _test_dtype(dtype):
         hcl.init(dtype)
         np_A = np.random.rand(100) - 0.5
         hcl_A = hcl.asarray(np_A)
         np_A2 = hcl_A.asnumpy()
+
         def cast(val):
             sf = 1 << dtype.fracs
             sb = 1 << dtype.bits
-            sb1 = 1 << (dtype.bits-1)
+            sb1 = 1 << (dtype.bits - 1)
             val = val * sf
             val = int(val) % sb
             val = val if val < sb1 else val - sb
             val = float(val) / sf
             return val
+
         vfunc = np.vectorize(cast)
         np_A3 = vfunc(np_A)
         assert np.array_equal(np_A2, np_A3)
 
     for j in range(0, 10):
         for i in range(2, 66, 4):
-            _test_dtype(hcl.Fixed(i, i-2))
+            _test_dtype(hcl.Fixed(i, i - 2))
+
 
 def test_dtype_overflow_fixed():
-
     def _test_dtype(dtype):
         hcl.init(dtype)
         np_A = (np.random.rand(100) - 0.5) * 100
         hcl_A = hcl.asarray(np_A)
         np_A2 = hcl_A.asnumpy()
+
         def cast(val):
             sf = 1 << dtype.fracs
             sb = 1 << dtype.bits
-            sb1 = 1 << (dtype.bits-1)
+            sb1 = 1 << (dtype.bits - 1)
             val = val * sf
             val = int(val) % sb
             val = val if val < sb1 else val - sb
             val = float(val) / sf
             return val
+
         vfunc = np.vectorize(cast)
         np_A3 = vfunc(np_A)
         assert np.array_equal(np_A2, np_A3)
 
     for j in range(0, 10):
         for i in range(2, 66, 4):
-            _test_dtype(hcl.Fixed(i, i-2))
+            _test_dtype(hcl.Fixed(i, i - 2))
+
 
 def test_dtype_basic_float():
     hcl.init(hcl.Float())
@@ -142,8 +155,8 @@ def test_dtype_basic_float():
     np_A2 = hcl_A.asnumpy()
     assert np.allclose(np_A, np_A2)
 
-def test_dtype_compute_fixed():
 
+def test_dtype_compute_fixed():
     def _test_dtype(dtype):
         hcl.init(dtype)
         A = hcl.placeholder((100,))
@@ -154,8 +167,8 @@ def test_dtype_compute_fixed():
             D = hcl.compute(A.shape, lambda x: A[x] - B[x])
             E = hcl.compute(A.shape, lambda x: A[x] * B[x])
             # division is not recommended
-            #F = hcl.compute(A.shape, lambda x: A[x] / B[x])
-            #return C, D, E, F
+            # F = hcl.compute(A.shape, lambda x: A[x] / B[x])
+            # return C, D, E, F
             return C, D, E
 
         s = hcl.create_schedule([A, B], kernel)
@@ -168,28 +181,28 @@ def test_dtype_compute_fixed():
         hcl_C = hcl.asarray(np.zeros(A.shape))
         hcl_D = hcl.asarray(np.zeros(A.shape))
         hcl_E = hcl.asarray(np.zeros(A.shape))
-        #hcl_F = hcl.asarray(np.zeros(A.shape))
-        #f(hcl_A, hcl_B, hcl_C, hcl_D, hcl_E, hcl_F)
+        # hcl_F = hcl.asarray(np.zeros(A.shape))
+        # f(hcl_A, hcl_B, hcl_C, hcl_D, hcl_E, hcl_F)
         f(hcl_A, hcl_B, hcl_C, hcl_D, hcl_E)
 
         np_C = hcl.cast_np(hcl_A.asnumpy() + hcl_B.asnumpy(), dtype)
         np_D = hcl.cast_np(hcl_A.asnumpy() - hcl_B.asnumpy(), dtype)
         np_E = hcl.cast_np(hcl_A.asnumpy() * hcl_B.asnumpy(), dtype)
-        #np_F = hcl.cast_np(hcl_A.asnumpy() / hcl_B.asnumpy(), dtype)
+        # np_F = hcl.cast_np(hcl_A.asnumpy() / hcl_B.asnumpy(), dtype)
 
         assert np.allclose(np_C, hcl_C.asnumpy())
         assert np.allclose(np_D, hcl_D.asnumpy())
         assert np.allclose(np_E, hcl_E.asnumpy())
-        #assert np.allclose(np_F, hcl_F.asnumpy())
+        # assert np.allclose(np_F, hcl_F.asnumpy())
 
     for j in range(0, 10):
         for i in range(6, 66, 4):
             # To avoid floating point exception during division
-            _test_dtype(hcl.UFixed(i, i-2))
-            _test_dtype(hcl.Fixed(i, i-2))
+            _test_dtype(hcl.UFixed(i, i - 2))
+            _test_dtype(hcl.Fixed(i, i - 2))
+
 
 def test_dtype_cast():
-
     def _test_body(dtype1, dtype2, dtype3):
 
         hcl.init()
@@ -221,9 +234,21 @@ def test_dtype_cast():
     from itertools import permutations
 
     perm = permutations(
-            [hcl.UInt(1), hcl.Int(1), hcl.UInt(10), hcl.Int(10),
-             hcl.UInt(32), hcl.Int(32), hcl.UFixed(4, 2), hcl.Fixed(4, 2),
-             hcl.UFixed(32, 16), hcl.Fixed(32, 16), hcl.Float()], 3)
+        [
+            hcl.UInt(1),
+            hcl.Int(1),
+            hcl.UInt(10),
+            hcl.Int(10),
+            hcl.UInt(32),
+            hcl.Int(32),
+            hcl.UFixed(4, 2),
+            hcl.Fixed(4, 2),
+            hcl.UFixed(32, 16),
+            hcl.Fixed(32, 16),
+            hcl.Float(),
+        ],
+        3,
+    )
 
     for dtypes in list(perm):
         _test_body(*dtypes)
@@ -238,15 +263,19 @@ def test_dtype_long_int():
         B = hcl.placeholder((100,))
 
         def kernel(A, B):
-            C = hcl.compute(A.shape, lambda x: hcl.cast(hcl.UInt(bw), A[x]) << sl, dtype=hcl.UInt(bw))
+            C = hcl.compute(
+                A.shape,
+                lambda x: hcl.cast(hcl.UInt(bw), A[x]) << sl,
+                dtype=hcl.UInt(bw),
+            )
             D = hcl.compute(A.shape, lambda x: B[x] + C[x], dtype=hcl.UInt(bw))
             E = hcl.compute(A.shape, lambda x: A[x])
             return E
 
         s = hcl.create_schedule([A, B], kernel)
         f = hcl.build(s)
-        np_A = np.random.randint(0, 1<<31, 100)
-        np_B = np.random.randint(0, 1<<31, 100)
+        np_A = np.random.randint(0, 1 << 31, 100)
+        np_B = np.random.randint(0, 1 << 31, 100)
         hcl_A = hcl.asarray(np_A)
         hcl_B = hcl.asarray(np_B)
         hcl_E = hcl.asarray(np.zeros(A.shape))
@@ -261,6 +290,7 @@ def test_dtype_long_int():
     test_kernel(1000, 750)
     test_kernel(2000, 1800)
 
+
 def test_dtype_too_long_int():
     # the longest we can support right now is 2047-bit
 
@@ -274,6 +304,7 @@ def test_dtype_too_long_int():
         with pytest.raises(hcl.debug.DTypeError):
             func()
 
+
 def test_dtype_struct():
     hcl.init()
     A = hcl.placeholder((100,), dtype=hcl.Int(8))
@@ -281,7 +312,9 @@ def test_dtype_struct():
     C = hcl.placeholder((100,), dtype=hcl.Float())
 
     def kernel(A, B, C):
-        stype = hcl.Struct({"fa": hcl.Int(8), "fb": hcl.Fixed(13, 11), "fc": hcl.Float()})
+        stype = hcl.Struct(
+            {"fa": hcl.Int(8), "fb": hcl.Fixed(13, 11), "fc": hcl.Float()}
+        )
         D = hcl.compute(A.shape, lambda x: (A[x], B[x], C[x]), dtype=stype)
         E = hcl.compute(A.shape, lambda x: D[x].fa, dtype=hcl.Int(8))
         F = hcl.compute(A.shape, lambda x: D[x].fb, dtype=hcl.Fixed(13, 11))
@@ -313,6 +346,7 @@ def test_dtype_struct():
     assert np.allclose(hcl_B.asnumpy(), hcl_F.asnumpy())
     assert np.allclose(hcl_C.asnumpy(), hcl_G.asnumpy())
 
+
 def test_dtye_strcut_complex():
     hcl.init()
     A = hcl.placeholder((100,))
@@ -322,20 +356,30 @@ def test_dtye_strcut_complex():
 
     def kernel(A, B, C, O):
         dtype_xyz = hcl.Struct({"x": hcl.Int(), "y": hcl.Int(), "z": hcl.Int()})
-        dtype_out = hcl.Struct({"v0": hcl.Int(),
-                                "v1": hcl.Int(),
-                                "v2": hcl.Int(),
-                                "v3": hcl.Int(),
-                                "v4": hcl.Int(),
-                                "v5": hcl.Int()})
+        dtype_out = hcl.Struct(
+            {
+                "v0": hcl.Int(),
+                "v1": hcl.Int(),
+                "v2": hcl.Int(),
+                "v3": hcl.Int(),
+                "v4": hcl.Int(),
+                "v5": hcl.Int(),
+            }
+        )
 
         D = hcl.compute(A.shape, lambda x: (A[x], B[x], C[x]), dtype=dtype_xyz)
-        E = hcl.compute(A.shape, lambda x: (D[x].x * D[x].x,
-                                            D[x].y * D[x].y,
-                                            D[x].z * D[x].z,
-                                            D[x].x * D[x].y,
-                                            D[x].y * D[x].z,
-                                            D[x].x * D[x].z), dtype=dtype_out)
+        E = hcl.compute(
+            A.shape,
+            lambda x: (
+                D[x].x * D[x].x,
+                D[x].y * D[x].y,
+                D[x].z * D[x].z,
+                D[x].x * D[x].y,
+                D[x].y * D[x].z,
+                D[x].x * D[x].z,
+            ),
+            dtype=dtype_out,
+        )
         with hcl.Stage():
             with hcl.for_(0, 100) as i:
                 for j in range(0, 6):
@@ -366,6 +410,7 @@ def test_dtye_strcut_complex():
 
     assert np.array_equal(hcl_O.asnumpy(), np_G)
 
+
 def test_dtype_bit_slice():
 
     hcl.init(hcl.Int())
@@ -373,8 +418,8 @@ def test_dtype_bit_slice():
     def kernel():
         A = hcl.compute((10,), lambda x: x)
         assert A[0][0:4].dtype == "uint4"
-        assert A[0][A[0]:A[4]].dtype == "int32"
-        assert A[0][A[0]:A[0]+4].dtype == "uint4"
+        assert A[0][A[0] : A[4]].dtype == "int32"
+        assert A[0][A[0] : A[0] + 4].dtype == "uint4"
         return A
 
     s = hcl.create_schedule([], kernel)
@@ -382,6 +427,7 @@ def test_dtype_bit_slice():
     np_A = np.zeros((10,))
     hcl_A = hcl.asarray(np_A)
     f(hcl_A)
+
 
 def test_dtype_const_long_int():
 
@@ -401,8 +447,8 @@ def test_dtype_const_long_int():
 
     assert np.array_equal(r, hcl_B.asnumpy())
 
-def test_dtype_large_array():
 
+def test_dtype_large_array():
     def test_kernel(dtype):
         hcl.init(dtype)
 
@@ -432,5 +478,6 @@ def test_dtype_large_array():
     test_kernel(hcl.Fixed(11, 9))
     test_kernel(hcl.Fixed(18, 16))
     test_kernel(hcl.Fixed(37, 35))
+
 
 test_dtype_long_int()

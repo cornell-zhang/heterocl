@@ -1,19 +1,23 @@
 import heterocl as hcl
 import numpy as np
 
+
 def test_stages():
 
     A = hcl.placeholder((32, 32), "A")
     C = hcl.placeholder((32, 32), "C")
+
     def kernel(A, C):
-        B = hcl.compute(A.shape, lambda i, j : A[i, j] + 1, "B")
-        D = hcl.compute(A.shape, lambda i, j : B[i, j] + 1, "D")
-        E = hcl.compute(A.shape, lambda i, j : C[i, j] + 1, "E")
-        F = hcl.compute(A.shape, lambda i, j : D[i, j] + E[i, j], "F")
+        B = hcl.compute(A.shape, lambda i, j: A[i, j] + 1, "B")
+        D = hcl.compute(A.shape, lambda i, j: B[i, j] + 1, "D")
+        E = hcl.compute(A.shape, lambda i, j: C[i, j] + 1, "E")
+        F = hcl.compute(A.shape, lambda i, j: D[i, j] + E[i, j], "F")
         return F
 
     target = hcl.Platform.xilinx_zc706
-    target.config(compiler="vivado_hls", mode="csim|csyn", project="stages-mlir-seq.prj")
+    target.config(
+        compiler="vivado_hls", mode="csim|csyn", project="stages-mlir-seq.prj"
+    )
     s = hcl.create_schedule([A, C], kernel)
     s.to([A, C], target.xcel)
     s.to(kernel.B, s[kernel.D], fifo_depth=1)
@@ -32,7 +36,7 @@ def test_stages():
     # mod(hcl_A, hcl_C, hcl_F)
     # report = mod.report()
     # report.display()
-    
+
 
 if __name__ == "__main__":
     test_stages()

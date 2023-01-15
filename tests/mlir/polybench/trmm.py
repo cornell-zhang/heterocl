@@ -2,6 +2,7 @@ import heterocl as hcl
 import os
 import numpy as np
 
+
 def top_trmm(M=20, N=30, alpha=1.5, dtype=hcl.Int(), target=None):
 
     hcl.init(dtype)
@@ -9,7 +10,7 @@ def top_trmm(M=20, N=30, alpha=1.5, dtype=hcl.Int(), target=None):
     B = hcl.placeholder((M, N), "B")
 
     def kernel_trmm(A, B):
-        
+
         with hcl.Stage("loop_1"):
             with hcl.for_(0, M, name="i") as i:
                 with hcl.for_(0, N, name="j") as j:
@@ -20,7 +21,6 @@ def top_trmm(M=20, N=30, alpha=1.5, dtype=hcl.Int(), target=None):
     s = hcl.create_schedule([A, B], kernel_trmm)
 
     #### Apply customizations ####
-    
 
     #### Apply customizations ####
 

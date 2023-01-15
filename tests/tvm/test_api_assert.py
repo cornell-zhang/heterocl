@@ -3,12 +3,14 @@ import numpy as np
 import pathlib
 import subprocess
 
+
 def get_stdout(filename):
     path = pathlib.Path(__file__).parent.absolute()
     path = str(path) + "/test_api_assert_cases/" + filename + ".py"
-    p = subprocess.run(['python', path], stdout = subprocess.PIPE)
-    output = p.stdout.decode('utf-8')
+    p = subprocess.run(["python", path], stdout=subprocess.PIPE)
+    output = p.stdout.decode("utf-8")
     return str(output)
+
 
 def test_basic_assert():
     output = get_stdout("basic_assert_tests")
@@ -21,6 +23,7 @@ def test_basic_assert():
     golden += "\nassert message in the second for loop\nassert 0 message  0 number 2\n"
 
     assert str(output) == golden
+
 
 def test_memory_assert():
     output = get_stdout("memory_assert_tests")
@@ -37,11 +40,13 @@ def test_memory_assert():
 
     assert str(output) == golden
 
+
 def test_dsl_def_assert():
     output = get_stdout("dsl_def_assert_tests")
     golden = get_stdout("dsl_def_assert_tests_golden")
 
     assert str(output) == golden
+
 
 def test_assert_exception():
     hcl.init()

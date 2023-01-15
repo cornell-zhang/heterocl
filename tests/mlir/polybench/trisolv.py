@@ -2,6 +2,7 @@ import heterocl as hcl
 import numpy as np
 import math as mt
 
+
 def top_trisolv(N, dtype=hcl.Int(), target=None):
 
     hcl.init(dtype)
@@ -18,12 +19,12 @@ def top_trisolv(N, dtype=hcl.Int(), target=None):
                 x[i] = x[i] / L[i][i]
 
         hcl.mutate((1,), lambda x: loop_1(), name="L1")
-    
+
     s = hcl.create_schedule([L, b, x], kernel_trisolv)
 
     #### Apply customizations ####
-    
-    L1 = kernel_trisolv.L1 
+
+    L1 = kernel_trisolv.L1
 
     ## N Buggy 1
     s[L1].pipeline(L1.l1)
@@ -33,9 +34,8 @@ def top_trisolv(N, dtype=hcl.Int(), target=None):
     return hcl.build(s, target=target)
 
 
-
 def trisolv_golden(N, L, b, x, DATA_TYPE):
-    
+
     for i in range(N):
         x[i] = b[i]
         for j in range(i):

@@ -20,11 +20,9 @@ def top_syr2k(M=20, N=30, alpha=1.5, beta=1.2, dtype=hcl.Int(), target=None):
                     with hcl.for_(0, i + 1, name="j") as j:
                         C[i][j] += A[j][k] * alpha * B[i][k] + B[j][k] * alpha * A[i][k]
 
-        
     s = hcl.create_schedule([A, B, C], kernel_syr2k)
 
     #### Apply customizations ####
-
 
     #### Apply customizations ####
 

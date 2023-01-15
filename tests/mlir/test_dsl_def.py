@@ -4,9 +4,7 @@ import pytest
 
 
 def test_module_no_return():
-
     def algorithm(A, B):
-
         @hcl.def_()
         def update_B(A, B, x):
             B[x] = A[x] + 1
@@ -31,13 +29,11 @@ def test_module_no_return():
     _B = _B.asnumpy()
 
     for i in range(0, 10):
-        assert(_B[i] == a[i]+1)
+        assert _B[i] == a[i] + 1
 
 
 def test_module_with_return():
-
     def algorithm(A, B):
-
         @hcl.def_([A.shape, ()])
         def update_B(A, x):
             hcl.return_(A[x] + 1)
@@ -61,13 +57,11 @@ def test_module_with_return():
     _B = _B.asnumpy()
 
     for i in range(0, 10):
-        assert(_B[i] == a[i]+1)
+        assert _B[i] == a[i] + 1
 
 
 def _test_module_cond_return_if_only():
-
     def algorithm(A, B):
-
         @hcl.def_([A.shape, ()])
         def update_B(A, x):
             with hcl.if_(A[x] > 5):
@@ -93,7 +87,7 @@ def _test_module_cond_return_if_only():
     _B = _B.asnumpy()
 
     for i in range(0, 10):
-        assert(_B[i] == a[i]+1 if a[i] <= 5 else -1)
+        assert _B[i] == a[i] + 1 if a[i] <= 5 else -1
 
 
 def test_module_cond_return_if_only():
@@ -102,9 +96,7 @@ def test_module_cond_return_if_only():
 
 
 def _test_module_cond_return_if_else():
-
     def algorithm(A, B):
-
         @hcl.def_([A.shape, ()])
         def update_B(A, x):
             with hcl.if_(A[x] > 5):
@@ -131,7 +123,7 @@ def _test_module_cond_return_if_else():
     _B = _B.asnumpy()
 
     for i in range(0, 10):
-        assert(_B[i] == a[i]+1 if a[i] <= 5 else -1)
+        assert _B[i] == a[i] + 1 if a[i] <= 5 else -1
 
 
 def test_module_cond_return_if_else():
@@ -140,9 +132,7 @@ def test_module_cond_return_if_else():
 
 
 def _test_module_cond_return_multi_if_else():
-
     def algorithm(A, B):
-
         @hcl.def_([A.shape, ()])
         def update_B(A, x):
             with hcl.if_(A[x] > 5):
@@ -180,10 +170,10 @@ def _test_module_cond_return_multi_if_else():
         else:
             if val > 3:
                 return -3
-        return val+1
+        return val + 1
 
     for i in range(0, 10):
-        assert(_B[i] == check_res(a[i]))
+        assert _B[i] == check_res(a[i])
 
 
 def test_module_cond_return_multi_if_else():
@@ -192,9 +182,7 @@ def test_module_cond_return_multi_if_else():
 
 
 def _test_module_cond_return_for():
-
     def algorithm(A, B):
-
         @hcl.def_([A.shape, ()])
         def update_B(A, x):
             with hcl.for_(0, 10) as i:
@@ -221,7 +209,7 @@ def _test_module_cond_return_for():
     _B = _B.asnumpy()
 
     for i in range(0, 10):
-        assert(_B[i] == 1 if a[i] < 10 else -1)
+        assert _B[i] == 1 if a[i] < 10 else -1
 
 
 def test_module_cond_return_for():
@@ -231,9 +219,7 @@ def test_module_cond_return_for():
 
 @pytest.mark.skip(reason="AttributeError: Stage object has no attribute iter_var")
 def test_module_multi_calls():
-
     def algorithm(A, B):
-
         @hcl.def_([A.shape, B.shape, ()])
         def add(A, B, x):
             hcl.return_(A[x] + B[x])
@@ -267,13 +253,12 @@ def test_module_multi_calls():
     _C = _C.asnumpy()
 
     for i in range(0, 10):
-        assert(_C[i] == (a[i]+b[i])*i)
+        assert _C[i] == (a[i] + b[i]) * i
+
 
 @pytest.mark.skip(reason="verification failure")
 def test_module_ret_dtype():
-
     def algorithm(A, B):
-
         @hcl.def_([A.shape, B.shape, ()], ret_dtype=hcl.UInt(2))
         def add(A, B, x):
             hcl.return_(A[x] + B[x])
@@ -300,7 +285,7 @@ def test_module_ret_dtype():
     _C = _C.asnumpy()
 
     for i in range(0, 10):
-        assert(_C[i] == (a[i]+b[i]) % 4)
+        assert _C[i] == (a[i] + b[i]) % 4
 
 
 def _test_module_quantize_ret_dtype():
@@ -308,7 +293,6 @@ def _test_module_quantize_ret_dtype():
     hcl.init()
 
     def algorithm(A, B):
-
         @hcl.def_([A.shape, B.shape, ()])
         def add(A, B, x):
             hcl.return_(A[x] + B[x])
@@ -337,7 +321,7 @@ def _test_module_quantize_ret_dtype():
     _C = _C.asnumpy()
 
     for i in range(0, 10):
-        assert(_C[i] == (a[i]+b[i]) % 4)
+        assert _C[i] == (a[i] + b[i]) % 4
 
 
 def test_module_quantize_ret_dtype():
@@ -350,7 +334,6 @@ def test_module_args_dtype():
     hcl.init()
 
     def algorithm(A, B):
-
         @hcl.def_([A.shape, B.shape, ()], [hcl.UInt(2), hcl.Int(32), hcl.Int(32)])
         def add(A, B, x):
             hcl.return_(A[x] + B[x])
@@ -377,7 +360,7 @@ def test_module_args_dtype():
     _C = _C.asnumpy()
 
     for i in range(0, 10):
-        assert(_C[i] == a[i] % 4 + b[i])
+        assert _C[i] == a[i] % 4 + b[i]
 
 
 def _test_module_quantize_args():
@@ -385,7 +368,6 @@ def _test_module_quantize_args():
     hcl.init()
 
     def algorithm(A, B):
-
         @hcl.def_([A.shape, B.shape, ()])
         def add(A, B, x):
             hcl.return_(A[x] + B[x])
@@ -414,7 +396,7 @@ def _test_module_quantize_args():
     _C = _C.asnumpy()
 
     for i in range(0, 10):
-        assert(_C[i] == a[i] % 4 + b[i])
+        assert _C[i] == a[i] % 4 + b[i]
 
 
 def test_module_quantize_args():
@@ -426,7 +408,6 @@ def test_module_declarative():
     hcl.init()
 
     def algorithm(a, b, c):
-
         @hcl.def_([a.shape, b.shape, c.shape])
         def add(a, b, c):
             hcl.update(c, lambda *x: a[x] + b[x])
@@ -456,7 +437,6 @@ def test_module_declarative_internal_allocate():
     hcl.init()
 
     def algorithm(a, b, c):
-
         @hcl.def_([a.shape, b.shape, c.shape])
         def add(a, b, c):
             d = hcl.compute(a.shape, lambda *x: a[x] + b[x])
@@ -488,7 +468,6 @@ def test_module_declarative_compute_at():
     hcl.init()
 
     def algorithm(a, b, c):
-
         @hcl.def_([a.shape, b.shape, c.shape])
         def add(a, b, c):
             d = hcl.compute(a.shape, lambda *x: a[x] + b[x], "d")
@@ -521,7 +500,6 @@ def test_module_mixed_paradigm():
     hcl.init()
 
     def algorithm(a, b, c):
-
         @hcl.def_([a.shape, b.shape, c.shape])
         def add(a, b, c):
             with hcl.for_(0, 10) as i:

@@ -26,7 +26,7 @@ def init(init_dtype=Int(32), raise_assert_exception=True):
 def placeholder(shape, name=None, dtype=None):
     """Construct a HeteroCL placeholder for inputs/outputs."""
     name = UniqueName.get(name, "tensor")
-    
+
     if (
         not dtype == None
         and not isinstance(dtype, (Type, str))

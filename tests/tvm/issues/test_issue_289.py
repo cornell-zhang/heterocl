@@ -1,6 +1,7 @@
 import heterocl as hcl
 import numpy as np
 
+
 def test_slice_op():
 
     hcl.init()

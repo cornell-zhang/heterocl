@@ -1,6 +1,7 @@
 import heterocl as hcl
 import numpy as np
 
+
 def top_mvt(N=40, dtype=hcl.Float(32), target=None):
     hcl.init(dtype)
     A = hcl.placeholder((N, N), "A")
@@ -10,12 +11,12 @@ def top_mvt(N=40, dtype=hcl.Float(32), target=None):
     x2 = hcl.placeholder((N,), "x2")
 
     def kernel_mvt(A, y1, y2, x1, x2):
-        
+
         with hcl.Stage("C"):
             with hcl.for_(0, N, name="i") as i:
                 with hcl.for_(0, N, name="j") as j:
                     x1[i] = x1[i] + A[i][j] * y1[j]
-    
+
         with hcl.Stage("D"):
             with hcl.for_(0, N, name="i") as i:
                 with hcl.for_(0, N, name="j") as j:
@@ -27,12 +28,13 @@ def top_mvt(N=40, dtype=hcl.Float(32), target=None):
 
     C = kernel_mvt.C
     D = kernel_mvt.D
-    
+
     # s[D].reorder(D.axis[1], D.axis[0])
     # s[C].compute_at(s[D], D.axis[1])
 
     #### Applying customizations ####
     return hcl.build(s, target=target)
+
 
 def mvt_golden(N, A, y1, y2, x1, x2):
     for i in range(N):
@@ -43,6 +45,7 @@ def mvt_golden(N, A, y1, y2, x1, x2):
         for j in range(N):
             x2[i] = x2[i] + A[j][i] * y2[j]
     return x2
+
 
 def main(N=40, dtype=hcl.Float(32), target=None):
     f = top_mvt(N, dtype, target)
@@ -62,6 +65,6 @@ def main(N=40, dtype=hcl.Float(32), target=None):
         print("golden:")
         print(res_golden)
 
+
 if __name__ == "__main__":
     main()
-    

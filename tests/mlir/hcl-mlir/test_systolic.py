@@ -3,12 +3,13 @@ import os, sys
 import numpy as np
 import pytest
 
+
 def test_systolic():
 
     A = hcl.placeholder((32, 32), "A")
 
     def kernel(A):
-        B = hcl.compute(A.shape, lambda i, j : A[i, j] + 1, "B")
+        B = hcl.compute(A.shape, lambda i, j: A[i, j] + 1, "B")
         # C = hcl.compute(A.shape, lambda i, j : B[i, j] + 1, "C")
         k = hcl.reduce_axis(0, 32, "k")
         C = hcl.compute(A.shape, lambda i, j: hcl.sum(A[i, k] * B[k, j], axis=k), "C")
@@ -24,6 +25,7 @@ def test_systolic():
     s.to(s_C, target.host)
     mod = hcl.build(s, target)
     # mod()
+
 
 if __name__ == "__main__":
     test_systolic()
