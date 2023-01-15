@@ -144,6 +144,32 @@ def get_op_class(op, typ):
         raise APIError("Unsupported op in get_op_class: {}".format(op))
 
 
+def is_all_field_int(dtype):
+    """Check if a struct type has all integer fields
+    When it has nested struct field, recursively check
+    the nested struct field.
+    """
+    if not isinstance(dtype, htypes.Struct):
+        return False
+    for field_type in dtype.dtype_dict.values():
+        if isinstance(field_type, htypes.Struct):
+            if not is_all_field_int(field_type):
+                return False
+        elif not isinstance(field_type, (htypes.Int, htypes.UInt)):
+            return False
+    return True
+
+
+def get_struct_bitwidth(dtype):
+    bitwidth = 0
+    for field in dtype.dtype_dict.values():
+        if isinstance(field, htypes.Struct):
+            bitwidth += get_struct_bitwidth(field)
+        else:
+            bitwidth += field.bits
+    return bitwidth
+
+
 class IRBuilder(object):
     """IRBuilder class to build MLIR
     operations from intermediate layer
@@ -951,27 +977,30 @@ class IRBuilder(object):
             op.result = op.expr.result
             op.ir_op = op.expr.ir_op
             return
-        elif isinstance(src_type, htypes.Struct) and isinstance(
-            res_type, (htypes.Int, htypes.UInt)
+        elif isinstance(src_type, (htypes.Int, htypes.UInt)) and isinstance(
+            res_type, htypes.Struct
         ):
-            all_field_int = True
-            total_width = 0
-            for ftype in src_type.dtype_dict.values():
-                if not isinstance(ftype, (htypes.Int, htypes.UInt)):
-                    all_field_int = False
-                    break
-                total_width += ftype.bits
-            if not all_field_int:
+            # Int -> Struct Cast
+            if not is_all_field_int(res_type):
                 raise DTypeError(
                     "Casting from integer to struct with non-integer fields. "
                     + f"src type: {src_type}, dst type: {res_type}"
                 )
-            if total_width != res_type.bits:
+            total_width = get_struct_bitwidth(res_type)
+            if total_width != src_type.bits:
                 raise DTypeError(
                     "Casting from integer to struct with different width. "
                     + f"src type: {src_type}, dst type: {res_type}"
                 )
             CastOpClass = hcl_d.IntToStructOp
+        elif isinstance(src_type, htypes.Struct) and isinstance(
+            res_type, (htypes.Int, htypes.UInt)
+        ):
+            # Struct -> Int Cast
+            raise HCLNotImplementedError(
+                "Struct -> Int Cast is not implemented yet. "
+                + "We plan to add an as_int() API for struct values."
+            )
         else:
             raise DTypeError(
                 "Casting between unsupported types. "

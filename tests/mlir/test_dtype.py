@@ -583,18 +583,47 @@ def test_struct_scalar():
     golden[1] = 0x34
     assert np.array_equal(golden, np_res)
 
+
+def test_struct_uint():
+    hcl.init()
+    rshape = (1,)
+
+    def kernel():
+        stype = hcl.Struct({"x": "uint8", "y": "uint8"})
+        ival = hcl.cast("uint16", 0)
+        d = hcl.scalar(ival, "d", dtype=stype).v
+        r = hcl.compute(rshape, lambda _: 0, dtype=hcl.UInt(32))
+        stype_nested = hcl.Struct({"x": "uint8", "y": stype})
+        d_nested = hcl.scalar(hcl.cast("uint24", ival), "d_nested", dtype=stype_nested)
+        r[0] = d.x
+        return r
+
+    s = hcl.create_schedule([], kernel)
+    hcl_res = hcl.asarray(np.zeros(rshape, dtype=np.uint32), dtype=hcl.UInt(32))
+    f = hcl.build(s)
+    f(hcl_res)
+    np_res = hcl_res.asnumpy()
+    golden = np.zeros(rshape, dtype=np.uint32)
+    golden[0] = 0
+    assert np.array_equal(golden, np_res)
+
+
 def test_bitand_type():
     hcl.init()
+
     def kernel():
-        x = hcl.scalar(0, "x", dtype='uint16')
+        x = hcl.scalar(0, "x", dtype="uint16")
+
         def do(i):
-            with hcl.if_((x.v & 0x15) == 1):    # test regular variable
-                hcl.print((),"A\n")
-            with hcl.if_((i & 1) == 1):         # test index
-                hcl.print((),"B\n")
+            with hcl.if_((x.v & 0x15) == 1):  # test regular variable
+                hcl.print((), "A\n")
+            with hcl.if_((i & 1) == 1):  # test index
+                hcl.print((), "B\n")
+
         hcl.mutate((1,), do)
         r = hcl.compute((2,), lambda i: 0, dtype=hcl.UInt(32))
         return r
+
     s = hcl.create_schedule([], kernel)
     hcl_res = hcl.asarray(np.zeros((2,), dtype=np.uint32), dtype=hcl.UInt(32))
     f = hcl.build(s)
