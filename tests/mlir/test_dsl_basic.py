@@ -144,6 +144,22 @@ def test_else():
     assert np.array_equal(golden_A, ret_A)
 
 
+def test_neg():
+    hcl.init()
+
+    def kernel():
+        x = hcl.scalar(10, "x", "int32")
+        a = hcl.scalar(-x.v, "a", "int32")
+        return a
+
+    s = hcl.create_schedule([], kernel)
+    hcl_res = hcl.asarray(np.zeros((1,), dtype=np.int32), dtype=hcl.Int(32))
+    f = hcl.build(s)
+    f(hcl_res)
+    np_res = hcl_res.asnumpy()
+    assert np_res[0] == -10
+
+
 def test_if_scope():
     hcl.init()
     rshape = (1,)

@@ -612,10 +612,18 @@ class IRBuilder(object):
 
         if isinstance(t, htypes.Float):
             neg_op = arith_d.NegFOp(op.expr.result, ip=ip, loc=loc)
+        elif isinstance(t, htypes.Int):
+            # A bypass to avoid type casting for type safety.
+            # Since we know this is a negation on integer,
+            # we don't have to worry about overflow.
+            neg_one = ast.ConstantOp(-1, t, op.loc)
+            self.build_visitor(neg_one, ip)
+            neg_op = arith_d.MulIOp(op.expr.result, neg_one.result, ip=ip, loc=loc)
         else:
-            mul_neg_one = ast.BinaryOp(op.expr, ast.ConstOp(-1, t, loc), "*", loc)
-            self.build_visitor(mul_neg_one, ip)
-            neg_op = mul_neg_one.ir_op
+            mul_neg_one = ast.Mul(op.expr, -1, op.loc)
+            casted = ast.CastOp(mul_neg_one, t, op.loc)
+            self.build_visitor(casted, ip)
+            neg_op = casted.ir_op
 
         op.result = neg_op.result
         op.ir_op = neg_op
