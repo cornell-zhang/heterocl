@@ -65,6 +65,9 @@ class NestElseIf(Pass):
             for i in range(len(chain) - 1):
                 # convert elseif to if
                 if isinstance(chain[i + 1], ast.ElseIfOp):
+                    # The body of ElseIfOp is also a scope, we need to
+                    # recursively convert all elif in the body
+                    self.nest_elif(chain[i + 1])
                     if_op = ast.IfOp(chain[i + 1].cond, chain[i + 1].loc)
                     if_op.body.extend(chain[i + 1].body)
                     if_op.level += 1
@@ -73,6 +76,9 @@ class NestElseIf(Pass):
                     chain[i].else_branch_valid = True
                     chain[i + 1] = if_op
                 elif isinstance(chain[i + 1], ast.ElseOp):
+                    # The body of ElseOp is also a scope, we need to
+                    # recursively convert all elif in the body
+                    self.nest_elif(chain[i + 1])
                     chain[i].else_body.extend(chain[i + 1].body)
                     chain[i].else_branch_valid = True
                     for op in chain[i].else_body:
