@@ -1,11 +1,14 @@
 import heterocl as hcl
 import numpy as np
 
-def test_unexpected_elseop():
+
+def test_nest_if_else():
     hcl.init()
+
     def kernel():
-        x = hcl.scalar(3,'x',dtype='uint8')
-        z = hcl.scalar(0,'z',dtype='uint1')
+        x = hcl.scalar(3, "x", dtype="uint8")
+        z = hcl.scalar(0, "z", dtype="uint1")
+
         def rec(y):
             if y == 3:
                 z.v = 1
@@ -13,10 +16,12 @@ def test_unexpected_elseop():
                 with hcl.if_(x.v == y):
                     z.v = 0
                 with hcl.else_():
-                    rec(y+1)
+                    rec(y + 1)
+
         rec(0)
         r = hcl.compute((1,), lambda i: z.v, dtype=hcl.UInt(32))
         return r
+
     s = hcl.create_schedule([], kernel)
     hcl_res = hcl.asarray(np.zeros((1,), dtype=np.uint32), dtype=hcl.UInt(32))
     f = hcl.build(s)
@@ -25,8 +30,41 @@ def test_unexpected_elseop():
     np_res[0] = 1
     assert np.array_equal(hcl_res.asnumpy(), np_res)
 
+
+def test_nesst_if_if_else():
+    hcl.init()
+
+    def kernel():
+        a = hcl.scalar(0, "a", dtype="uint8")
+        x = hcl.scalar(0, "x", dtype="uint8")
+        z = hcl.scalar(0, "z", dtype="uint1")
+
+        def rec(y):
+            if y == 3:
+                z.v = 1
+            else:
+                with hcl.if_(x.v == y):
+                    z.v = 0
+                    with hcl.if_(a.v == 0):  # add this if/else statement
+                        a.v = y
+                    with hcl.else_():
+                        a.v = y + 1
+                with hcl.else_():
+                    rec(y + 1)
+
+        rec(0)
+        r = hcl.compute((2,), lambda i: z.v, dtype=hcl.UInt(32))
+        return r
+
+    s = hcl.create_schedule([], kernel)
+    hcl_res = hcl.asarray(np.zeros((2,), dtype=np.uint32), dtype=hcl.UInt(32))
+    f = hcl.build(s)
+    f(hcl_res)
+
+
 def test_nested_if_elif_else():
     hcl.init()
+
     def kernel(x, y, z):
         with hcl.if_(x.v == 1):
             with hcl.if_(y.v == 1):
@@ -49,6 +87,7 @@ def test_nested_if_elif_else():
                 z.v = 32
             with hcl.else_():
                 z.v = 33
+
     x = hcl.placeholder((1,), "x", dtype=hcl.UInt(32))
     y = hcl.placeholder((1,), "y", dtype=hcl.UInt(32))
     z = hcl.placeholder((1,), "z", dtype=hcl.UInt(32))

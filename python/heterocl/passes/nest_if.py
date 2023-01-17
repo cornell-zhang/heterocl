@@ -48,11 +48,15 @@ class NestElseIf(Pass):
             if isinstance(op, ast.IfOp):
                 chains.append([op])
             elif isinstance(op, ast.ElseIfOp):
-                if not chains:
-                    raise APIError("elif must follow an if")
+                if len(chains) == 0 or not isinstance(
+                    chains[-1][-1], (ast.IfOp, ast.ElseIfOp)
+                ):
+                    raise APIError("elif must follow an if or elif")
                 chains[-1].append(op)
             elif isinstance(op, ast.ElseOp):
-                if not chains:
+                if len(chains) == 0 or not isinstance(
+                    chains[-1][0], (ast.IfOp, ast.ElseIfOp)
+                ):
                     raise APIError("else must follow an if or elif")
                 chains[-1].append(op)
             else:
@@ -60,8 +64,12 @@ class NestElseIf(Pass):
 
         # convert if-elif-else chains into nested if-else statements
         for chain in chains:
+            # convert the first if
+            self.nest_elif(chain[0])
+
             if len(chain) == 1:
                 continue
+
             for i in range(len(chain) - 1):
                 # convert elseif to if
                 if isinstance(chain[i + 1], ast.ElseIfOp):
