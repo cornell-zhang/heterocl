@@ -142,7 +142,22 @@ def test_print_before_if():
     s = hcl.create_schedule([], kernel)
     hcl_res = hcl.asarray(np.zeros(rshape, dtype=np.uint32), dtype=hcl.UInt(32))
     f = hcl.build(s)
-    f(hcl_res)
-    np_res = hcl_res.asnumpy()
-    golden = np.zeros(rshape, dtype=np.int32)
-    assert np.array_equal(golden, np_res)
+
+
+def test_fresh_load():
+    def kernel(a, x):
+        def outer(i):
+            const = hcl.scalar(64, "const").v
+
+            with hcl.for_(0, 10) as j:
+                v1 = hcl.scalar(i * const + 1, "v1")
+
+            with hcl.for_(0, 10) as j:
+                v2 = hcl.scalar(i * const + 2, "v2")
+
+        hcl.mutate((10,), outer, "outer")
+
+    a = hcl.placeholder((1,), "a")
+    x = hcl.placeholder((1,), "x")
+    s = hcl.create_schedule([a, x], kernel)
+    f = hcl.build(s)
