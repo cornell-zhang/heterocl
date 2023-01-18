@@ -1036,7 +1036,9 @@ class ComputeOp(Operation):
     def __repr__(self):
         code_str = ""
         code_str = print_indent(code_str, self.level)
-        code_str += f"{self.name} = compute({self.shape}, {self.dtype}) {{\n"
+        code_str += f"{self.name} = compute({self.shape}, {self.dtype})"
+        code_str += " (" + ", ".join([i.name for i in self.iter_vars]) + ")"
+        code_str += " {\n"
         for op in self.body:
             code_str += f"{op}\n"
         code_str = print_indent(code_str, self.level)
