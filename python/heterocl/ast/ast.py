@@ -154,6 +154,9 @@ class Operation(object):
         # the MLIR operation's result
         # when an operation is built, its result will be set
         self.result = None
+        # whether a new MLIR operation is built
+        # when .result is present
+        self.reusable = True
 
     def __repr__(self):
         return self.name
@@ -176,6 +179,9 @@ class Expr(object):
         self.tinf_engine = TypeInfer()
         # When an expression is built, its result will be set
         self.result = None
+        # whether a new MLIR operation is built
+        # when .result is present
+        self.reusable = True
 
     def __repr__(self):
         return self.name
@@ -722,6 +728,15 @@ class LoadOp(Expr):
         self.tensor = tensor
         self.index = index
         self.dtype = tensor.dtype
+        # load is not reusable
+        # e.g. 
+        # const = hcl.scalar(64).v
+        # v1 = hcl.scalar(const + 1)
+        # v2 = hcl.scalar(const + 2)
+        # each `const` is a load operation,
+        # but they are not reusable, meaning
+        # that we build two different load operations
+        self.reusable = False
 
     def __repr__(self):
         return f"{self.tensor.name}{self.index}"

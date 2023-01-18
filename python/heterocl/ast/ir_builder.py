@@ -204,7 +204,10 @@ class IRBuilder(object):
         Build MLIR operation from intermediate layer
         """
         if hasattr(op, "result") and op.result is not None:
-            return
+            if op.reusable:
+                # if operation as result and is reusable
+                # return without building new operation
+                return
         if isinstance(op, ast.ComputeOp):
             self.build_compute(op, ip)
         elif isinstance(op, ast.IterVar):
