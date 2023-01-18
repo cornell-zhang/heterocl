@@ -15,10 +15,11 @@ class NestElseIf(Pass):
 
     def visit(self, op):
         if hasattr(op, "body") and op.body is not None:
+            for body_op in op.body:
+                self.visit(body_op)
             self.nest_elif(op)
-            for op in op.body:
-                # recursively visit the body operations
-                self.visit(op)
+        else:
+            return
 
     def apply(self, _ast):
         """Pass entry point"""
@@ -37,9 +38,9 @@ class NestElseIf(Pass):
         """
 
         if not hasattr(scope, "body"):
-            raise APIError("The scope passed to nest_elif must have a body")
+            return
 
-        if scope.body is None:
+        if scope.body is None or len(scope.body) == 0:
             return
 
         # if-elif-else chains
@@ -64,8 +65,6 @@ class NestElseIf(Pass):
 
         # convert if-elif-else chains into nested if-else statements
         for chain in chains:
-            # convert the first if
-            self.nest_elif(chain[0])
 
             if len(chain) == 1:
                 continue
@@ -73,9 +72,6 @@ class NestElseIf(Pass):
             for i in range(len(chain) - 1):
                 # convert elseif to if
                 if isinstance(chain[i + 1], ast.ElseIfOp):
-                    # The body of ElseIfOp is also a scope, we need to
-                    # recursively convert all elif in the body
-                    self.nest_elif(chain[i + 1])
                     if_op = ast.IfOp(chain[i + 1].cond, chain[i + 1].loc)
                     if_op.body.extend(chain[i + 1].body)
                     if_op.level += 1
@@ -84,9 +80,6 @@ class NestElseIf(Pass):
                     chain[i].else_branch_valid = True
                     chain[i + 1] = if_op
                 elif isinstance(chain[i + 1], ast.ElseOp):
-                    # The body of ElseOp is also a scope, we need to
-                    # recursively convert all elif in the body
-                    self.nest_elif(chain[i + 1])
                     chain[i].else_body.extend(chain[i + 1].body)
                     chain[i].else_branch_valid = True
                     for op in chain[i].else_body:
