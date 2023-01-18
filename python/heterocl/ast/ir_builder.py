@@ -551,12 +551,13 @@ class IRBuilder(object):
             cond_ip = InsertionPoint(while_op.before.blocks[0])
             self.build_visitor(op.cond, cond_ip)
             scf_d.ConditionOp(op.cond.result, [], ip=cond_ip, loc=loc)
-            # build body
             body_ip = InsertionPoint(while_op.after.blocks[0])
-            for body_op in op.body:
-                self.build_visitor(body_op, body_ip)
             # build yield
             scf_d.YieldOp([], ip=body_ip, loc=loc)
+            # build body
+            body_ip = InsertionPoint(while_op.after.blocks[0].operations[0])
+            for body_op in op.body:
+                self.build_visitor(body_op, body_ip)
         op.ir_op = while_op
 
     def build_alloc_op(self, op, ip):
