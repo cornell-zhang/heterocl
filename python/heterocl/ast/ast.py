@@ -1317,8 +1317,7 @@ class PrintOp(Operation):
         code_str = ""
         code_str = print_indent(code_str, self.level)
         code_str += "print({}, {})".format(
-            ", ".join([str(v) for v in self.args], self.fmt)
-        )
+            ", ".join([str(v) for v in self.args]), self.fmt)
         return code_str
 
 
