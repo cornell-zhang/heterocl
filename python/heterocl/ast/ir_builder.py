@@ -481,6 +481,10 @@ class IRBuilder(object):
         else:  # build scf for loop
             # cast lb and up to index type
             itmd_loc = ast.Location("unknown", 0)
+            lb = ast.immediate_to_constant(lb, itmd_loc, htypes.Index())
+            ub = ast.immediate_to_constant(ub, itmd_loc, htypes.Index())
+            self.build_visitor(lb, ip)
+            self.build_visitor(ub, ip)
             lb = ast.CastOp(lb, htypes.Index(), loc=itmd_loc)
             ub = ast.CastOp(ub, htypes.Index(), loc=itmd_loc)
             self.build_visitor(lb, ip)
