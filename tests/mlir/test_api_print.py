@@ -1,5 +1,6 @@
 import pathlib
 import subprocess
+import heterocl as hcl
 
 unwanted_char = [",", "[", "]", " ", "\n", "\t"]
 
@@ -81,3 +82,12 @@ def test_print_tensor_ele():
     outputs = get_stdout("print_tensor_ele").split("\n")
     target_str = outputs[2]
     assert target_str == "here 53"
+
+
+def test_print_index():
+    def kernel():
+        with hcl.for_(0, 10) as i:
+            hcl.print(i)
+
+    s = hcl.create_schedule([], kernel)
+    f = hcl.build(s)
