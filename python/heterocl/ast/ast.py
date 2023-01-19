@@ -181,7 +181,9 @@ class Expr(object):
         self.result = None
         # whether a new MLIR operation is built
         # when .result is present
-        self.reusable = True
+        # If reusable is False, a new MLIR operation will be built
+        # everytime an expression is used
+        self.reusable = False
 
     def __repr__(self):
         return self.name
@@ -926,6 +928,7 @@ class AllocOp(Expr):
         # e.g. Host, FPGA, GPU
         self.device = None
         self.level = None
+        self.reusable = True
 
     def __repr__(self):
         code_str = ""
@@ -1115,6 +1118,7 @@ class IterVar(Expr):
         self.parent_loop = parent_loop
         self.level = len(scope)
         self.dtype = Index()
+        self.reusable = True
 
     def __repr__(self):
         return self.name
