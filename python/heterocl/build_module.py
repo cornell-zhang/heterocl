@@ -334,6 +334,7 @@ def build_llvm(schedule, top_func_name="top"):
         # type hints.
         hcl_d.move_return_to_input(module)
         hcl_d.lower_bit_ops(module)
+        # print(module)
         hcl_d.legalize_cast(module)
         hcl_d.remove_stride_map(module)
         hcl_d.lower_hcl_to_llvm(module, ctx)
@@ -353,13 +354,15 @@ def build_llvm(schedule, top_func_name="top"):
                 "LLVM_BUILD_DIR is not set, print memref feature is not available."
             ).warn()
             shared_libs = None
+        
+        opt_level = 1
 
         if shared_libs is not None:
             execution_engine = ExecutionEngine(
-                module, opt_level=0, shared_libs=shared_libs
+                module, opt_level=opt_level, shared_libs=shared_libs
             )
         else:
-            execution_engine = ExecutionEngine(module, opt_level=0)
+            execution_engine = ExecutionEngine(module, opt_level=opt_level)
         hcl_module = HCLModule(
             top_func_name, execution_engine, "llvm", host_src=host_src, return_num=0
         )

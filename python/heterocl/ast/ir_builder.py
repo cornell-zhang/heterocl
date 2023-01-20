@@ -1263,8 +1263,7 @@ class IRBuilder(object):
         end = ast.CastOp(op.end, htypes.Index(), op.loc)
         self.build_visitor(end, ip)
 
-        res_dtype = hcl_dtype_to_mlir(expr_dtype, signless=True)
-        op.dtype = expr_dtype
+        res_dtype = hcl_dtype_to_mlir(op.dtype, signless=True)
         getbit_op = hcl_d.GetIntSliceOp(
             res_dtype, op.expr.result, end.result, start.result, ip=ip, loc=loc
         )
@@ -1289,15 +1288,16 @@ class IRBuilder(object):
 
         # build set bit op
         setbit_op = hcl_d.SetIntBitOp(
-            op.expr.result, index.result, value.result, ip=ip, loc=loc
+            expr_dtype, op.expr.result, index.result, value.result, ip=ip, loc=loc
         )
         op.ir_op = setbit_op
+        op.result = setbit_op.result
 
         # if expr is a LoadOp, we need to update the value in the tensor
         if isinstance(op.expr, ast.LoadOp):
             # build store op
             load_op = op.expr
-            store_op = ast.StoreOp(load_op.tensor, load_op.index, op.expr, op.loc)
+            store_op = ast.StoreOp(load_op.tensor, load_op.index, op, op.loc)
             self.build_visitor(store_op, ip)
 
     def build_set_slice_op(self, op: ast.SetSliceOp, ip):
@@ -1315,17 +1315,20 @@ class IRBuilder(object):
         end = ast.CastOp(op.end, htypes.Index(), op.loc)
         self.build_visitor(end, ip)
 
+        expr_dtype = hcl_dtype_to_mlir(expr_dtype, signless=True)
+
         # build set bit op
         setbit_op = hcl_d.SetIntSliceOp(
-            op.expr.result, end.result, start.result, op.value.result, ip=ip, loc=loc
+            expr_dtype, op.expr.result, end.result, start.result, op.value.result, ip=ip, loc=loc
         )
         op.ir_op = setbit_op
+        op.result = setbit_op.result
 
         # if expr is a LoadOp, we need to update the value in the tensor
         if isinstance(op.expr, ast.LoadOp):
             # build store op
             load_op = op.expr
-            store_op = ast.StoreOp(load_op.tensor, load_op.index, op.expr, op.loc)
+            store_op = ast.StoreOp(load_op.tensor, load_op.index, op, op.loc)
             self.build_visitor(store_op, ip)
 
     def build_bit_reverse_op(self, op: ast.BitReverseOp, ip):

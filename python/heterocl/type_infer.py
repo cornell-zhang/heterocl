@@ -47,6 +47,10 @@ class TypeInfer(object):
             return expr.dtype
         elif isinstance(expr, ast.GetSliceOp):
             return expr.dtype
+        elif isinstance(expr, ast.SetBitOp):
+            return self.infer(expr.expr)
+        elif isinstance(expr, ast.SetSliceOp):
+            return self.infer(expr.expr)
         elif isinstance(expr, ast.BitReverseOp):
             return self.infer(expr.expr)
         elif isinstance(expr, ast.StructConstructOp):
