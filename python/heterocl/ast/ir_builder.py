@@ -594,6 +594,21 @@ class IRBuilder(object):
         self.build_visitor(lhs, ip)
         self.build_visitor(rhs, ip)
 
+        # bypass integer left shift by bitwidth
+        # because of the limitation of MLIR's
+        # JIT Compiler
+        if isinstance(op, ast.LeftShiftOp) and \
+                isinstance(t, (htypes.Int, htypes.UInt)):
+            # build a constant 0 instead
+            attr_type = IntegerType.get_signless(t.bits)
+            value_attr = IntegerAttr.get(attr_type, 0)
+            const_op = arith_d.ConstantOp(attr_type, value_attr, ip=ip, loc=loc)
+            op.result = const_op.result
+            op.ir_op = const_op
+            if isinstance(t, htypes.UInt):
+                const_op.attributes["unsigned"] = UnitAttr.get()
+            return
+
         # Step 3: build binary op
         OpClass = get_op_class(op, t)
         binary_op = OpClass(lhs.result, rhs.result, ip=ip, loc=loc)
