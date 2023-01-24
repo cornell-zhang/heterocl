@@ -343,6 +343,18 @@ def build_llvm(schedule, top_func_name="top"):
         # print(module)
         hcl_d.legalize_cast(module)
         hcl_d.remove_stride_map(module)
+        pipeline = (
+            f"lower-affine,"
+            f"func.func"
+            f"(buffer-loop-hoisting)"
+        )
+        try:
+            with get_context():
+                PassManager.parse(pipeline).run(module)
+        except Exception as e:
+            PassWarning(str(e)).warn()
+            print(module)
+        
         hcl_d.lower_hcl_to_llvm(module, ctx)
 
         # Add shared library
