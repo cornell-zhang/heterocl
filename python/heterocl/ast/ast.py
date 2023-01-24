@@ -7,7 +7,7 @@ import sympy as sp
 from hcl_mlir.exceptions import *
 from ..context import *
 from ..types import *
-from ..type_infer import TypeInfer
+from ..type_infer import TypeInference
 
 
 def print_indent(string, level):
@@ -176,7 +176,7 @@ class Expr(object):
         self.name = name
         self.loc = loc
         self.dtype = None
-        self.tinf_engine = TypeInfer()
+        self.tinf_engine = TypeInference()
         # When an expression is built, its result will be set
         self.result = None
         # whether a new MLIR operation is built

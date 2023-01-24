@@ -8,7 +8,7 @@ from . import ast
 from ..context import *
 from ..utils import hcl_dtype_to_mlir, get_extra_type_hints
 from .. import types as htypes
-from ..type_infer import TypeInfer
+from ..type_infer import TypeInference
 from . import build_cleaner
 
 # Import MLIR dialects
@@ -180,7 +180,7 @@ class IRBuilder(object):
         self.module = Module.create(get_location())
         self.top_func = None
         self.iv = []  # a list to keep track of affine expression's induction variables
-        self.tinf_engine = TypeInfer()
+        self.tinf_engine = TypeInference()
         self.cleaner = build_cleaner.ASTCleaner()
         self.tensor_dict = dict()  # tensor name -> memref.allocOp
         self.BIT_OPS = False

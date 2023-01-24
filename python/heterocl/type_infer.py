@@ -8,7 +8,7 @@ from .types import *
 from .type_rules import get_type_rules, TypeRule
 
 
-class TypeInfer(object):
+class TypeInference(object):
     """A type inference engine for HeteroCL programs."""
 
     def __init__(self):
