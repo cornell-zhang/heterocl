@@ -109,7 +109,8 @@ def kernel(A):
 
 ##############################################################################
 # Note that for the slicing operations, we follow the convention of Python,
-# which is **left exclusive and right inclusive**. Now we can test the results.
+# which is **lower bound inclusive and upper bound exclusive**. 
+# Now we can test the results.
 s = hcl.create_schedule(A, kernel)
 f = hcl.build(s)
 

@@ -44,7 +44,7 @@ s_B = two_stage.B
 #
 # This is the generated IR without applying any hardware customization.
 
-print(s.ast)
+print(hcl.lower(s))
 
 ##############################################################################
 # We can take a look at the dataflow graph to visualize the relation between
@@ -66,6 +66,7 @@ except:
 # The first primitive we introduce here is loop reordering. With this primitive,
 # we can redefine the order of a loop nest. For example,
 
+s = hcl.create_schedule([A], two_stage)
 s[s_B].reorder(s_B.axis[1], s_B.axis[0])
 
 ##############################################################################
@@ -74,7 +75,7 @@ s[s_B].reorder(s_B.axis[1], s_B.axis[0])
 # example, `s_B.axis[0]` refers to axis `x`. Similarly, `s_B.axis[1]` refers
 # to axis `y`. We can take a look at the generated IR.
 
-print(s.ast)
+print(hcl.lower(s))
 
 ##############################################################################
 # We can see that axis `x` and axis `y` are indeed reordered.
@@ -94,7 +95,7 @@ x_out, x_in = s[s_B].split(s_B.axis[0], 5)
 # two new axes `x_out` and `x_in`. To make it clear, let's take a look at the
 # generated IR.
 
-print(s.ast)
+print(hcl.lower(s))
 
 ##############################################################################
 # The returned variable `x_out` corresponds to the axis `x.outer` in the IR.
@@ -102,6 +103,7 @@ print(s.ast)
 # two times with the inner loop iterating from 0 to 5. We can further combine
 # the `reorder` primitive we just introduced.
 
+s = hcl.create_schedule([A], two_stage)
 s[s_B].reorder(s_B.axis[1], x_out, x_in)
 
 print(hcl.lower(s))
