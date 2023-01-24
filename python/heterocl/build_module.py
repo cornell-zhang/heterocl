@@ -350,7 +350,7 @@ def build_llvm(schedule, top_func_name="top"):
         )
         try:
             with get_context():
-                PassManager.parse(pipeline).run(module)
+                mlir_pass_manager.parse(pipeline).run(module)
         except Exception as e:
             PassWarning(str(e)).warn()
             print(module)
