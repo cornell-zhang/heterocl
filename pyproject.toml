@@ -3,9 +3,9 @@
 minversion = "6.0"
 addopts = "-ra"
 testpaths = [
-    "mlir",
+    "tests",
 ]
 norecursedirs = [
-    "mlir/hcl-mlir",
-    "mlir/polybench"
+    "tests/hcl-mlir",
+    "tests/polybench"
 ]
