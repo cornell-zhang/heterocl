@@ -1,6 +1,6 @@
 # ===----------------------------------------------------------------------=== #
 #
-# Copyright 2021-2022 The HCL-MLIR Authors.
+# Copyright 2021-2023 The HCL-MLIR Authors.
 #
 # ===----------------------------------------------------------------------=== #
 
@@ -597,8 +597,7 @@ class IRBuilder(object):
         # bypass integer left shift by bitwidth
         # because of the limitation of MLIR's
         # JIT Compiler
-        if isinstance(op, ast.LeftShiftOp) and \
-                isinstance(t, (htypes.Int, htypes.UInt)):
+        if isinstance(op, ast.LeftShiftOp) and isinstance(t, (htypes.Int, htypes.UInt)):
             # build a constant 0 instead
             attr_type = IntegerType.get_signless(t.bits)
             value_attr = IntegerAttr.get(attr_type, 0)
@@ -1334,7 +1333,13 @@ class IRBuilder(object):
 
         # build set bit op
         setbit_op = hcl_d.SetIntSliceOp(
-            expr_dtype, op.expr.result, end.result, start.result, op.value.result, ip=ip, loc=loc
+            expr_dtype,
+            op.expr.result,
+            end.result,
+            start.result,
+            op.value.result,
+            ip=ip,
+            loc=loc,
         )
         op.ir_op = setbit_op
         op.result = setbit_op.result

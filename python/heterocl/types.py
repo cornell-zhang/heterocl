@@ -1,3 +1,10 @@
+# ===----------------------------------------------------------------------=== #
+#
+# Copyright 2021-2023 The HCL-MLIR Authors.
+#
+# ===----------------------------------------------------------------------=== #
+
+
 """Define HeteroCL data types"""
 # pylint: disable=too-few-public-methods, too-many-return-statements
 import numbers

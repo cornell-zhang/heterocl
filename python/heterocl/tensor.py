@@ -1,3 +1,9 @@
+# ===----------------------------------------------------------------------=== #
+#
+# Copyright 2021-2023 The HCL-MLIR Authors.
+#
+# ===----------------------------------------------------------------------=== #
+
 import numpy as np
 from hcl_mlir.ir import *
 from hcl_mlir.exceptions import *

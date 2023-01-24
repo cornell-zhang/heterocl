@@ -1,3 +1,9 @@
+# ===----------------------------------------------------------------------=== #
+#
+# Copyright 2021-2023 The HCL-MLIR Authors.
+#
+# ===----------------------------------------------------------------------=== #
+
 import copy
 from multiprocessing import Process
 import numpy as np

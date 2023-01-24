@@ -1,3 +1,9 @@
+# ===----------------------------------------------------------------------=== #
+#
+# Copyright 2021-2023 The HCL-MLIR Authors.
+#
+# ===----------------------------------------------------------------------=== #
+
 import os, subprocess, json, time, sys, json
 from .devices import Platform, CPU, FPGA, PIM
 from .devices import *

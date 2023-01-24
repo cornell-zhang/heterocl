@@ -1,3 +1,9 @@
+# ===----------------------------------------------------------------------=== #
+#
+# Copyright 2021-2023 The HCL-MLIR Authors.
+#
+# ===----------------------------------------------------------------------=== #
+
 import io
 import os
 import copy
@@ -354,7 +360,7 @@ def build_llvm(schedule, top_func_name="top"):
                 "LLVM_BUILD_DIR is not set, print memref feature is not available."
             ).warn()
             shared_libs = None
-        
+
         opt_level = 1
 
         if shared_libs is not None:

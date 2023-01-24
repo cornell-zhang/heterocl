@@ -1,3 +1,9 @@
+# ===----------------------------------------------------------------------=== #
+#
+# Copyright 2021-2023 The HCL-MLIR Authors.
+#
+# ===----------------------------------------------------------------------=== #
+
 from ..ast import ast
 from .pass_manager import Pass
 from hcl_mlir.exceptions import *

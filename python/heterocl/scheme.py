@@ -1,3 +1,9 @@
+# ===----------------------------------------------------------------------=== #
+#
+# Copyright 2021-2023 The HCL-MLIR Authors.
+#
+# ===----------------------------------------------------------------------=== #
+
 from . import types
 from .schedule import _reset_builder, _build_schedule, _build_ast, Stage
 from hcl_mlir.exceptions import *

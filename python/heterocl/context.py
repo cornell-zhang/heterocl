@@ -1,3 +1,9 @@
+# ===----------------------------------------------------------------------=== #
+#
+# Copyright 2021-2023 The HCL-MLIR Authors.
+#
+# ===----------------------------------------------------------------------=== #
+
 from hcl_mlir.dialects import hcl as hcl_d
 from hcl_mlir.ir import *
 from hcl_mlir.exceptions import *

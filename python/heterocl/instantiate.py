@@ -1,3 +1,9 @@
+# ===----------------------------------------------------------------------=== #
+#
+# Copyright 2021-2023 The HCL-MLIR Authors.
+#
+# ===----------------------------------------------------------------------=== #
+
 import hcl_mlir
 from hcl_mlir.dialects import func as func_d
 from hcl_mlir import GlobalInsertionPoint

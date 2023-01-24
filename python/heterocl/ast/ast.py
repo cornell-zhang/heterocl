@@ -1,6 +1,6 @@
 # ===----------------------------------------------------------------------=== #
 #
-# Copyright 2021-2022 The HCL-MLIR Authors.
+# Copyright 2021-2023 The HCL-MLIR Authors.
 #
 # ===----------------------------------------------------------------------=== #
 import sympy as sp
@@ -731,7 +731,7 @@ class LoadOp(Expr):
         self.index = index
         self.dtype = tensor.dtype
         # load is not reusable
-        # e.g. 
+        # e.g.
         # const = hcl.scalar(64).v
         # v1 = hcl.scalar(const + 1)
         # v2 = hcl.scalar(const + 2)
@@ -1338,7 +1338,8 @@ class PrintOp(Operation):
         code_str = ""
         code_str = print_indent(code_str, self.level)
         code_str += "print({}, {})".format(
-            ", ".join([str(v) for v in self.args]), self.fmt)
+            ", ".join([str(v) for v in self.args]), self.fmt
+        )
         return code_str
 
 

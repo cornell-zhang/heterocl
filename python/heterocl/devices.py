@@ -1,3 +1,9 @@
+# ===----------------------------------------------------------------------=== #
+#
+# Copyright 2021-2023 The HCL-MLIR Authors.
+#
+# ===----------------------------------------------------------------------=== #
+
 """Define HeteroCL device types"""
 # pylint: disable=too-few-public-methods, too-many-return-statements
 from .tools import Tool

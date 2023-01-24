@@ -1,3 +1,9 @@
+# ===----------------------------------------------------------------------=== #
+#
+# Copyright 2021-2023 The HCL-MLIR Authors.
+#
+# ===----------------------------------------------------------------------=== #
+
 """Exception handler in HeteroCL
 
 This module defines various HeteroCL exceptions. Developers are free to
