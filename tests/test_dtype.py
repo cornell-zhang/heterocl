@@ -628,3 +628,44 @@ def test_bitand_type():
     hcl_res = hcl.asarray(np.zeros((2,), dtype=np.uint32), dtype=hcl.UInt(32))
     f = hcl.build(s)
     f(hcl_res)
+
+
+def test_int_to_fixed_cast():
+    for in_precision in range(6, 33, 2):
+        for out_precision in range(8, 33, 2):
+            in_dtype, out_dtype = hcl.Int(in_precision), hcl.Fixed(
+                out_precision, int(out_precision / 2)
+            )
+
+            def cast(A):
+                casted = hcl.compute(
+                    A.shape,
+                    lambda *args: hcl.cast(out_dtype, A[args]),
+                    "cast",
+                    dtype=out_dtype,
+                )
+                hcl.print(casted)
+                return casted
+
+            A = hcl.placeholder((10,), "A", dtype=in_dtype)
+            s = hcl.create_schedule([A], cast)
+            f = hcl.build(s)
+
+            A_np = np.random.randint(0, 5, A.shape)
+
+            A_hcl = hcl.asarray(A_np, dtype=in_dtype)
+            C_hcl = hcl.asarray(np.zeros(A.shape), dtype=out_dtype)
+
+            f(A_hcl, C_hcl)
+
+            A_np = A_hcl.asnumpy()
+            C_np = C_hcl.asnumpy()
+
+            if not np.allclose(A_np, C_np):
+                print(
+                    "{} -> {} failed, wrong result value".format(in_dtype, out_dtype),
+                    flush=True,
+                )
+                print("A_np: ", A_np)
+                print("C_np: ", C_np)
+                assert False, "test failed, see failed test case above"
