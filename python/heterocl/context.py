@@ -1,57 +1,60 @@
-from contextvars import ContextVar
+# ===----------------------------------------------------------------------=== #
+#
+# Copyright 2021-2023 The HCL-MLIR Authors.
+#
+# ===----------------------------------------------------------------------=== #
 
 from hcl_mlir.dialects import hcl as hcl_d
 from hcl_mlir.ir import *
+from hcl_mlir.exceptions import *
 
-ImperativeLoopNestCount = ContextVar("ImperativeLoopNestCount", default=1)
-ImperativeLoopDepth = ContextVar("ImperativeLoopDepth", default=0)
-# IP Pointer points to the insertion point of the loop nest's parent region
-# in GlobalInsertionPoint.ip_stack
-IPPointer = ContextVar("IPPointer", default=None)
-StageName = ContextVar("StageName", default="")
-NestedStageLevel = ContextVar("NestedStageLevel", default=0)
-BreakFlag = ContextVar("BreakFlag", default=False)
-StageAttachGlobal = ContextVar("StageAttachGlobal", default=True)
 
 class UniqueName(object):
-    scalar_idx = 0
-    loop_idx = 0
-    tensor_idx = 0
-    stage_idx = 0
-    schedule_idx = 0
-    reduction_axis_idx = 0
-    instance_idx = 0
+
+    sets = {
+        "scalar": set(),
+        "loop": set(),
+        "tensor": set(),
+        "stage": set(),
+        "schedule": set(),
+        "reduction_axis": set(),
+        "instance": set(),
+        "op": set(),
+    }
 
     def __init__(self):
         pass
 
     @classmethod
-    def get(cls, case="stage"):
-        if case == "stage":
-            # Imperative computing stage
-            name = "stage_" + str(cls.stage_idx)
-            cls.stage_idx += 1
-        elif case == "loop":
-            name = "loop_" + str(cls.loop_idx)
-            cls.loop_idx += 1
-        elif case == "scalar":
-            name = "scalar_" + str(cls.scalar_idx)
-            cls.scalar_idx += 1
-        elif case == "tensor":
-            name = "compute_" + str(cls.tensor_idx)
-            cls.tensor_idx += 1
-        elif case == "schedule":
-            name = "schedule_" + str(cls.schedule_idx)
-            cls.schedule_idx += 1
-        elif case == "reduction_axis":
-            name = "rx_" + str(cls.reduction_axis_idx)
-            cls.reduction_axis_idx += 1
-        elif case == "instance":
-            name = "instance_" + str(cls.instance_idx)
-            cls.instance_idx += 1
+    def reset(cls):
+        for _, v in cls.sets.items():
+            v.clear()
+
+    @classmethod
+    def get(cls, name, case):
+        if case not in cls.sets.keys():
+            raise APIError(f"Unrecognized case in UniqueName.get(): {case}")
+
+        if name is None or name == "":
+            # generate a name if name is not given
+            case_set = cls.sets[case]
+            set_size = len(case_set)
+            name = case + "_" + str(set_size)
+            cls.sets[case].add(name)
+            return name
+
+        if name in cls.sets[case]:
+            # name is not unique
+            # generate a unique name
+            case_set = cls.sets[case]
+            set_size = len(case_set)
+            name = name + "_" + str(set_size)
+            cls.sets[case].add(name)
+            return name
         else:
-            raise RuntimeError(f"Unrecognized case in get_unique_name: {case}")
-        return name
+            # name is unique
+            cls.sets[case].add(name)
+            return name
 
 
 class GlobalContext(object):
@@ -75,6 +78,7 @@ class GlobalContext(object):
 
     def exit_context(self):
         GlobalContext.in_context = False
+
 
 global_ctx = GlobalContext()
 get_context = global_ctx.get_context

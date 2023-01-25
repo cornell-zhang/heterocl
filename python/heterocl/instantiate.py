@@ -1,10 +1,17 @@
+# ===----------------------------------------------------------------------=== #
+#
+# Copyright 2021-2023 The HCL-MLIR Authors.
+#
+# ===----------------------------------------------------------------------=== #
+
 import hcl_mlir
 from hcl_mlir.dialects import func as func_d
 from hcl_mlir import GlobalInsertionPoint
 from hcl_mlir.ir import *
 from .context import *
 from .utils import hcl_dtype_to_mlir
-from .schedule import Schedule, build_schedule
+from .schedule import Schedule, _build_schedule
+
 
 def instantiate(func, name=None, count=1):
     """Instantiate a function.
@@ -25,10 +32,10 @@ def instantiate(func, name=None, count=1):
     """
     if name is None:
         if count == 1:
-            name = UniqueName.get("instance")
+            name = UniqueName.get(name, "instance")
         else:
-            names = [UniqueName.get("instance") for _ in range(count)]
-    
+            names = [UniqueName.get(name, "instance") for _ in range(count)]
+
     if count == 1:
         return Instance(func, name)
     else:
@@ -36,7 +43,6 @@ def instantiate(func, name=None, count=1):
 
 
 class Instance(object):
-
     def __init__(self, func, name):
         self.func = func
         self.name = name
@@ -62,14 +68,16 @@ class Instance(object):
         self.instance_sch = Schedule._ScheduleStack.pop()
         Schedule._CurrentSchedule = Schedule._ScheduleStack[-1]
         # TODO(Niansong): change top func name in instance_sch
-        Schedule._CurrentSchedule._instance_modules.append(self.instance_sch.device_module)
+        Schedule._CurrentSchedule._instance_modules.append(
+            self.instance_sch.device_module
+        )
 
         # Build a FuncOp with no function body as declaration
         func_op = func_d.FuncOp(
             name=self.name,
             type=FunctionType.get(inputs=input_types, results=result_types),
             visibility="private",
-            ip=GlobalInsertionPoint.get_global()
+            ip=GlobalInsertionPoint.get_global(),
         )
         call_op = hcl_mlir.CallOp(result_types[0], self.name, call_arg_list)
         call_op.build()
@@ -78,12 +86,12 @@ class Instance(object):
         # attach a 'memref_type' attribute to the call op
         call_op.memref_type = call_op.result.type
         # attach element type to the call op
-        setattr(call_op.op, 'dtype', hcl_dtype_to_mlir(ret.dtype))
+        setattr(call_op.op, "dtype", hcl_dtype_to_mlir(ret.dtype))
         # attach a name to the call op
-        setattr(call_op, 'name', ret.name)
+        setattr(call_op, "name", ret.name)
 
         # Set up a dataflow node for this instance
         node = Schedule._CurrentSchedule.DataflowGraph.create_node(call_op)
         Schedule._CurrentSchedule.DataflowGraph.add_edges(list(args), [node])
-        
+
         return call_op

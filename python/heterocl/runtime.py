@@ -1,3 +1,9 @@
+# ===----------------------------------------------------------------------=== #
+#
+# Copyright 2021-2023 The HCL-MLIR Authors.
+#
+# ===----------------------------------------------------------------------=== #
+
 import os
 import re
 import subprocess
@@ -102,12 +108,10 @@ def execute_fpga_backend(target, shell=True):
             else:
                 subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE).wait()
             if mode != "custom":
-                out = parse_xml(project, "Vivado HLS",
-                                top=target.top, print_flag=True)
+                out = parse_xml(project, "Vivado HLS", top=target.top, print_flag=True)
 
         else:
-            raise RuntimeError(
-                "{} does not support {} mode".format(platform, mode))
+            raise RuntimeError("{} does not support {} mode".format(platform, mode))
     else:
         raise RuntimeError("Not implemented")
 
@@ -140,4 +144,4 @@ def execute_llvm_backend(execution_engine, name, return_num, *argv):
     # Copy output arrays back
     for i, return_p in enumerate(return_pointers):
         out_array = rt.ranked_memref_to_numpy(return_p[0])
-        np.copyto(argv[-(len(return_args)-i)].np_array, out_array)
+        np.copyto(argv[-(len(return_args) - i)].np_array, out_array)

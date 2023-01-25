@@ -1,28 +1,62 @@
-import hcl_mlir
+# ===----------------------------------------------------------------------=== #
+#
+# Copyright 2021-2023 The HCL-MLIR Authors.
+#
+# ===----------------------------------------------------------------------=== #
+
+from .ast import ast
+from .utils import get_src_loc
+
 
 def exp(x):
-    return hcl_mlir.MathExpOp(x)
+    filename, lineno = get_src_loc()
+    loc = ast.Location(filename, lineno)
+    return ast.MathExpOp(x, loc)
+
 
 def power(x, y):
-    return hcl_mlir.MathPowOp(x, y)
+    filename, lineno = get_src_loc()
+    loc = ast.Location(filename, lineno)
+    return ast.MathPowOp(x, y, loc)
+
 
 def log(x):
-    return hcl_mlir.MathLogOp(x)
+    filename, lineno = get_src_loc()
+    loc = ast.Location(filename, lineno)
+    return ast.MathLogOp(x, loc)
+
 
 def log2(x):
-    return hcl_mlir.MathLog2Op(x)
+    filename, lineno = get_src_loc()
+    loc = ast.Location(filename, lineno)
+    return ast.MathLog2Op(x, loc)
+
 
 def log10(x):
-    return hcl_mlir.MathLog10Op(x)
+    filename, lineno = get_src_loc()
+    loc = ast.Location(filename, lineno)
+    return ast.MathLog10Op(x, loc)
+
 
 def sqrt(x):
-    return hcl_mlir.MathSqrtOp(x)
+    filename, lineno = get_src_loc()
+    loc = ast.Location(filename, lineno)
+    return ast.MathSqrtOp(x, loc)
+
 
 def sin(x):
-    return hcl_mlir.MathSinOp(x)
+    filename, lineno = get_src_loc()
+    loc = ast.Location(filename, lineno)
+    return ast.MathSinOp(x, loc)
+
 
 def cos(x):
-    return hcl_mlir.MathCosOp(x)
+    filename, lineno = get_src_loc()
+    loc = ast.Location(filename, lineno)
+    return ast.MathCosOp(x, loc)
+
 
 def tanh(x):
-    return hcl_mlir.MathTanhOp(x)
+    filename, lineno = get_src_loc()
+    loc = ast.Location(filename, lineno)
+    return ast.MathTanhOp(x, loc)

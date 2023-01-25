@@ -1,0 +1,11 @@
+# pyproject.toml
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra"
+testpaths = [
+    "tests",
+]
+norecursedirs = [
+    "tests/hcl-mlir",
+    "tests/polybench"
+]

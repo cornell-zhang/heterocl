@@ -6,3 +6,5 @@ networkx
 matplotlib
 pandas
 imageio
+psutil
+sympy

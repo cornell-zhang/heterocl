@@ -1,8 +1,15 @@
+# ===----------------------------------------------------------------------=== #
+#
+# Copyright 2021-2023 The HCL-MLIR Authors.
+#
+# ===----------------------------------------------------------------------=== #
+
 IR = "mlir"
 print("Using {} as IR".format(IR))
 
 import hcl_mlir
 from hcl_mlir.ir import *
+
 print("Done HCL-MLIR initialization")
 
 from .schedule import *

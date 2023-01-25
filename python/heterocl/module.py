@@ -1,3 +1,9 @@
+# ===----------------------------------------------------------------------=== #
+#
+# Copyright 2021-2023 The HCL-MLIR Authors.
+#
+# ===----------------------------------------------------------------------=== #
+
 import copy
 from multiprocessing import Process
 import numpy as np
@@ -11,6 +17,7 @@ from .devices import Platform
 from .report import report_stats
 from .runtime import execute_fpga_backend, execute_llvm_backend
 from .utils import hcl_dtype_to_mlir
+from .operation import asarray
 
 
 class HCLModule(object):
@@ -39,6 +46,12 @@ class HCLModule(object):
         ]:
             self.run_hls(shell=True)
         elif target == "llvm":
+            # convert python immediate to heterocl tensor
+            argv = list(argv)
+            for i, arg in enumerate(argv):
+                if isinstance(arg, (int, float)):
+                    np_array = np.array([arg], dtype=type(arg))
+                    argv[i] = asarray(np_array)
             original_results = []
             with get_context() as ctx, get_location():
                 for op in self.host_src.body.operations:

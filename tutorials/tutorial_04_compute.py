@@ -66,6 +66,7 @@ except:
 # The first primitive we introduce here is loop reordering. With this primitive,
 # we can redefine the order of a loop nest. For example,
 
+s = hcl.create_schedule([A], two_stage)
 s[s_B].reorder(s_B.axis[1], s_B.axis[0])
 
 ##############################################################################
@@ -102,6 +103,7 @@ print(hcl.lower(s))
 # two times with the inner loop iterating from 0 to 5. We can further combine
 # the `reorder` primitive we just introduced.
 
+s = hcl.create_schedule([A], two_stage)
 s[s_B].reorder(s_B.axis[1], x_out, x_in)
 
 print(hcl.lower(s))
@@ -190,9 +192,8 @@ hcl.init()
 A = hcl.placeholder((10,))
 
 def custom_imperative(A):
-    with hcl.Stage("S"):
-        with hcl.for_(0, 10, name="i") as i:
-            A[i] = i - 10
+    with hcl.for_(0, 10, tag="S", name="i") as i:
+        A[i] = i - 10
 
 s = hcl.create_schedule([A], custom_imperative)
 s_S = custom_imperative.S

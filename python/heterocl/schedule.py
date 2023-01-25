@@ -1,164 +1,88 @@
-import functools
-import warnings
+# ===----------------------------------------------------------------------=== #
+#
+# Copyright 2021-2023 The HCL-MLIR Authors.
+#
+# ===----------------------------------------------------------------------=== #
 
-import hcl_mlir
-from hcl_mlir import GlobalInsertionPoint
-from hcl_mlir.dialects import hcl as hcl_d
-from hcl_mlir.dialects import func as func_d
+import functools
+
 from hcl_mlir.ir import *
 from hcl_mlir.exceptions import *
 
 from .devices import Device, DevMemoryPair
-from .context import (BreakFlag, ImperativeLoopDepth, ImperativeLoopNestCount,
-                      NestedStageLevel, StageName, UniqueName, StageAttachGlobal,
-                      get_context, get_location, set_context, exit_context)
 from .dfg import DataflowGraph
-from .utils import get_extra_type_hints, remove_moved_attr
-
-# By default, Python ignores deprecation warnings.
-# we have to enable it to see the warning.
-warnings.simplefilter('always', DeprecationWarning)
+from .context import UniqueName
+from .utils import get_src_loc
+from .ast import ast
 
 
-def build_schedule(inputs, func=None, name=""):
-    """Create a schedule for compute optimizations.
+def _build_ast(inputs, func=None, name=""):
+    """Build a schedule for compute optimizations.
     inputs: list of Tensor
     """
     if not isinstance(inputs, list):
         inputs = [inputs]
-    new_inputs = []
-    for tensor in inputs:
-        if not isinstance(tensor.op, hcl_mlir.TensorOp) and len(tensor.op.inputs) != 0:
-            raise RuntimeError("Inputs are not roots!")
-        new_inputs.append(tensor)
-    inputs = new_inputs
-    # initialization
-    GlobalInsertionPoint.clear()
-    set_context()
-
-    # create actual HCL IR nodes
-    if name == "":
-        if func != None:
-            name = func.__name__
+    filename, lineno = get_src_loc()
+    loc = ast.Location(filename, lineno)
+    top_func = ast.FuncOp("top", inputs, [], loc)
+    top_func.level = 0
+    if func is None:
+        # All operations have been inserted in the scope already!
+        outputs = list()
+        for op in ast.scope.pop():
+            top_func.body.append(op)
+        if len(top_func.body) == 0:
+            raise APIError(
+                "received an empty algorithm specification, no operations present"
+            )
+    else:
+        ast.scope.pop()
+        ast.scope.push(top_func.body)
+        ret = func(*inputs)
+        top_func.python_callable = func
+        if ret is None:
+            outputs = list()
+        elif isinstance(ret, tuple):
+            outputs = list(ret)
         else:
-            name = UniqueName.get("schedule")
-    sch = Schedule(name, inputs, func)
+            outputs = [ret]
+    top_func.return_tensors.extend(outputs)
+    _ast = ast.AST(top_func)
+    create_stage_pass = _CreateStagesFromAST(_ast)
+    create_stage_pass.apply()
+    return _ast
 
-    # build IR
-    with get_context() as ctx, get_location() as loc:
-        # create actual IR reference
-        func_op = sch.device_top
-        for placeholder, arg in zip(inputs, func_op.entry_block.arguments):
-            placeholder.op.update_op(arg)
 
-        # execute all fcompute and generate inner IR nodes
-        # 1) func is hcl.compute: IR nodes not build inplace (default)
-        # 2) func is defined by imperative DSL: IR nodes build inplace
-        hcl_mlir.flags.BIT_OP = False
-        if func != None:  # can build function directly
-            """
-            When having code like
-            def kernel(A):
-                A[0][4] = 1
-            It should automatically enable in-place building
-            """
-            hcl_mlir.enable_build_inplace()
-            ret = func(*inputs)
-            hcl_mlir.disable_build_inplace()
-        else:
-            ret = None
-            # traverse forward in AST to build IR
+def _build_schedule(_ast, inputs, func, name):
+    """Create a schedule from an intermediate representation.
+    Also used by creating schedule from scheme.
+    """
+    s = Schedule(name, inputs, func)
+    s._ast = _ast
 
-            def topological_sort(roots):
-                lst = []
-                output_tensor = []
-                working_set = roots.copy()
-                while len(working_set) != 0:
-                    node = working_set.pop(0)
-                    lst.append(node)
-                    if len(node.uses) == 0:  # also get the output tensors
-                        output_tensor.append(node)
-                    for use in node.uses:
-                        flags = [
-                            in_tensor in lst for in_tensor in use.op.inputs]
-                        if sum(flags) == len(use.op.inputs):
-                            working_set.append(use)
-                return lst, output_tensor
+    # create a dataflow graph
+    create_dfg_pass = _CreateDFGFromAST(_ast)
+    create_dfg_pass.apply()
 
-            order, ret = topological_sort(inputs)
-            # Unwrap the stage's output tensor
-            # The Tensor wrapping around ComputeOp/TensorOp acts as a container
-            # The ComputeOp's output Tensor is the actual returned result
-            ret = [t.op.output for t in ret if not isinstance(
-                t.op, hcl_mlir.TensorOp)]
-            for tensor in order:
-                if not isinstance(tensor.op, hcl_mlir.TensorOp):
-                    tensor.build()
-        if hcl_mlir.flags.BIT_OP:
-            sch.device_top.attributes["bit"] = UnitAttr.get()
+    s._dfg = create_dfg_pass.dfg
+    return s
 
-        if ret is not None:
-            outputs = []
-            if isinstance(ret, (list, tuple)):
-                outputs = list(ret)
-            else:
-                outputs.append(ret)
-            # recompute the function type
-            return_types = [v.memref_type for v in outputs]
-            function_type = FunctionType.get(
-                inputs=func_op.type.inputs, results=return_types)
-            func_op.attributes["function_type"] = TypeAttr.get(function_type)
-            otypes = "".join(
-                [get_extra_type_hints(v.op.dtype) for v in outputs])
-            func_op.attributes["otypes"] = StringAttr.get(otypes)
 
-            # create block terminator
-            new_outputs = []
-            for output in outputs:
-                new_outputs.append(output.result)
-            sch.DataflowGraph.set_leaves(outputs)
-            assert len(new_outputs) == len(outputs)
-            ret_op = func_d.ReturnOp(
-                new_outputs, ip=GlobalInsertionPoint.get())
-            GlobalInsertionPoint.restore()
-
-            # let the later schedule nodes insert before ret_op
-            #   compute1
-            #   compute2
-            #   schedule1 # inserted _before_ the point
-            #   ret_op    <- InsertionPoint
-            GlobalInsertionPoint.save(InsertionPoint(ret_op))
-        else:  # there's no return value
-            function_type = FunctionType.get(
-                inputs=func_op.type.inputs, results=[])
-            func_op.attributes["function_type"] = TypeAttr.get(function_type)
-            func_op.attributes["otypes"] = StringAttr.get("")
-            # create block terminator
-            ret_op = func_d.ReturnOp([], ip=GlobalInsertionPoint.get())
-            GlobalInsertionPoint.restore()
-            GlobalInsertionPoint.save(InsertionPoint(ret_op))
-
-    # let each stage's output be an attribute of the function
-    if StageAttachGlobal.get():
-        if func != None:
-            func.__dict__.clear()
-            for op, stage in Stage._mapping:
-                if op is not None:
-                    func.__setattr__(op.name, op)
-
-    exit_context()
-    remove_moved_attr(sch.device_module)
-    return sch
+def _reset_builder():
+    ast.scope.reset()
+    Schedule._FuncDefs.clear()
+    UniqueName.reset()
 
 
 def customize(inputs, func=None, name=""):
     try:
-        return build_schedule(inputs, func, name)
+        _ast = _build_ast(inputs, func, name)
+        s = _build_schedule(_ast, inputs, func, name)
+        return s
     except Exception as e:
         raise e
     finally:
-        hcl_mlir.reset_build_inplace()
-        NestedStageLevel.set(0)
+        _reset_builder()
 
 
 def create_schedule(inputs, func=None, name=""):
@@ -175,157 +99,69 @@ class Partition(object):
 
 
 class Schedule(object):
-    """Create a compute schedule
-    """
-    _IfElseStack = []
-    _DefFuncReturn = []
-    _CurrentSchedule = None
-    _CurrentStage = []
-    _CurrentLoops = []  # only used in imperative DSL
+    """Create a compute schedule"""
+
     _TopFunction = None
-    _ScheduleStack = []
-    _CurrentIf = 0 # ptr in _IfElseStack
+    _CurrentSchedule = None
+    _FuncDefs = dict()
 
     def __init__(self, name, inputs, func=None):
         self.name = name
         self.lowered = False
+
+        # MLIR modules:
         # Device-agnostic module:
         # used for transformation
-        self._device_module = Module.create(get_location())
-        self._device_top = None
-
+        self._module = None
+        self._top_func = None
         # Device-aware module:
         # used for generating host & xcel code
         self._host_module = None
         self._xcel_module = None
-        self._host_top = None
-        self._xcel_top = None
-        self._host_ret = None
-        self._xcel_ret = None
 
-        # Instance modules for hierarchical construction
-        self._instance_modules = []
+        # HeteroCL AST
+        self._ast = None
 
-        # External module:
-        # used for generating other backend codes
-        self._extern_module = None
-        self._extern_top = None
+        # Dataflow Graph
+        self._dfg = None
 
-        # Other facilities
-        Stage._mapping = []  # operation->stage
+        # Used by Stages to refer to the current schedule
         Schedule._CurrentSchedule = self
-        Schedule._ScheduleStack.append(self)
-        Schedule._CurrentStage = []
-        Schedule._CurrentLoops = []
         Schedule._TopFunction = func
-        Schedule._IfElseStack = []
-        Schedule._DefFuncReturn = []
-        Schedule._CurrentIf = 0
-        self.DataflowGraph = DataflowGraph(name, inputs)
-
-        # create top-level function
-        itypes = ""
-        with get_context() as ctx, get_location() as loc:
-            input_types = []
-            for tensor in inputs:
-                if not isinstance(tensor.op, hcl_mlir.TensorOp):
-                    continue
-                    # raise RuntimeError("Inputs should be hcl_mlir.TensorOp")
-                tensor.init()
-                input_types.append(tensor.op.memref_type)
-                itypes += get_extra_type_hints(tensor.op.dtype)
-            device_top = func_d.FuncOp(name="top", type=FunctionType.get(
-                inputs=input_types, results=[]), ip=InsertionPoint(self._device_module.body))
-            device_top.attributes["itypes"] = StringAttr.get(
-                itypes)
-            device_top.attributes["otypes"] = StringAttr.get("")
-            device_top.add_entry_block()
-        GlobalInsertionPoint.save(InsertionPoint(device_top))
-        GlobalInsertionPoint.save(InsertionPoint(device_top.entry_block))
-        self._device_top = device_top
-
-    def create_host_module(self):
-        set_context()
-        with get_context() as ctx, get_location() as loc:
-            self._host_module = Module.create(loc)
-            self._host_module.operation.attributes["sym_name"] = StringAttr.get(
-                "host")
-            # create top-level function
-            self._host_top = func_d.FuncOp(name="main", type=FunctionType.get(
-                inputs=[], results=[IntegerType.get_signless(32)]), ip=InsertionPoint(self._host_module.body))
-            self._host_top.add_entry_block()
-            # main function return
-            GlobalInsertionPoint.save(InsertionPoint(self._host_module.body))
-            GlobalInsertionPoint.save(
-                InsertionPoint(self._host_top.entry_block))
-            ret_zero = hcl_mlir.ConstantOp(IntegerType.get_signless(32), 0)
-            ret_zero.build()
-            ret_op = func_d.ReturnOp(
-                [ret_zero.result], ip=GlobalInsertionPoint.get())
-            GlobalInsertionPoint.save(InsertionPoint(ret_op))
-            self._host_ret = ret_op
-        return self._host_module
-
-    def create_xcel_module(self):
-        # just a copy of the device module
-        self._xcel_module = Module.parse(
-            str(self._device_module), get_context())
-        with get_context() as ctx:
-            self._xcel_module.operation.attributes["sym_name"] = StringAttr.get(
-                "xcel")
-        for op in self._xcel_module.body.operations:
-            if str(op.name) == "\"top\"":
-                self._xcel_top = op
-        for op in self._xcel_top.entry_block.operations:
-            if isinstance(op, func_d.ReturnOp):
-                self._xcel_ret = op
-        return self._xcel_module
-
-    def create_extern_module(self):
-        set_context()
-        with get_context() as ctx, get_location() as loc:
-            self._extern_module = Module.create(loc)
-            # create top-level function
-            self._extern_top = func_d.FuncOp(name="top", type=FunctionType.get(
-                inputs=[], results=[]), ip=InsertionPoint(self._extern_module.body))
-            self._extern_top.add_entry_block()
-        return self._extern_module
 
     @property
     def device_module(self):
-        return self._device_module
+        DeprecationWarning("device_module is deprecated, use module instead")
+        return self._module
+
+    @property
+    def module(self):
+        return self._module
 
     @property
     def device_top(self):
-        return self._device_top
+        DeprecationWarning("device_top is deprecated, use top_func instead")
+        return self._top_func
+
+    @property
+    def top_func(self):
+        return self._top_func
 
     @property
     def host_module(self):
         return self._host_module
 
     @property
-    def host_top(self):
-        return self._host_top
-
-    @property
     def xcel_module(self):
         return self._xcel_module
 
     @property
-    def xcel_top(self):
-        return self._xcel_top
+    def ast(self):
+        return self._ast
 
     @property
-    def extern_module(self):
-        return self._extern_module
-
-    @property
-    def extern_top(self):
-        return self._extern_top
-
-    @property
-    def instance_modules(self):
-        return self._instance_modules
+    def DataflowGraph(self):
+        return self._dfg
 
     def set_lowered(self):
         self.lowered = True
@@ -334,160 +170,97 @@ class Schedule(object):
         return self.lowered
 
     def __getitem__(self, target):
-        """Return a Stage
-        """
+        """Return a Stage"""
         if isinstance(target, Stage):
             return target
-        for op, stage in Stage._mapping:
-            if op.name == target.name:
-                return stage
-        raise RuntimeError("Cannot find stage")
+        return Stage.lookup(target.name)
 
     def partition(self, target, partition_type=Partition.Complete, dim=0, factor=0):
-        """Partition a Tensor into smaller Tensors or even registers
-        """
+        """Partition a Tensor into smaller Tensors or even registers"""
         if self.is_lowered():
             raise APIError(".partition() must be called before lowering")
         if partition_type > 2:
-            raise RuntimeError("Invalid partition type")
+            raise HCLValueError("Invalid partition type")
         if dim < 0:
-            raise RuntimeError("Invalid dimension")
+            raise HCLValueError("Invalid dimension")
         if factor < 0:
-            raise RuntimeError("Invalid factor")
-        try:
-            target = target.tensor
-        except (AttributeError, ValueError):
-            try:
-                target = target._op
-            except AttributeError:
-                pass
-        if not isinstance(target, OpResult):
-            target = target.result
+            raise HCLValueError("Invalid factor")
 
-        with get_context() as ctx, get_location():
-            i32 = IntegerType.get_signless(32)
-            if partition_type == Partition.Complete:
-                partition_type = IntegerAttr.get(i32, 0)
-            elif partition_type == Partition.Block:
-                partition_type = IntegerAttr.get(i32, 1)
-            elif partition_type == Partition.Cyclic:
-                partition_type = IntegerAttr.get(i32, 2)
-            else:
-                raise RuntimeError("Not supported partition type")
-            ui32 = IntegerType.get_unsigned(32)
-            factor = IntegerAttr.get(ui32, factor)
-            # if dim > len(MemRefType(target.type).shape):
-            #     raise RuntimeError("Out-of-bound partition dimensionr. Got dim={}, but the target is of shape {}".format(dim, MemRefType(target.type).shape))
-            dim = IntegerAttr.get(ui32, dim)
-            res = hcl_d.PartitionOp(
-                target, partition_kind=partition_type, dim=dim, factor=factor, ip=GlobalInsertionPoint.get())
+        filename, lineno = get_src_loc()
+        loc = ast.Location(filename, lineno)
+        if partition_type == Partition.Complete:
+            partition_type = 0
+        elif partition_type == Partition.Block:
+            partition_type = 1
+        elif partition_type == Partition.Cyclic:
+            partition_type = 2
+        else:
+            raise HCLValueError("Not supported partition type")
+        partition_op = ast.PartitionOp(target, partition_type, dim, factor, loc)
+        self.ast.top_func.body.append(partition_op)
 
     def replace(self, src, dst):
-        """Replace a Tensor with another Tensor
-        """
+        """Replace a Tensor with another Tensor"""
         if self.is_lowered():
             raise APIError(".replace() must be called before lowering")
-        if not isinstance(src, OpResult):
-            src = src.result
-        if not isinstance(dst, OpResult):
-            dst = dst.result
 
-        with get_context() as ctx, get_location():
-            hcl_d.ReplaceOp(src, dst, ip=GlobalInsertionPoint.get())
+        filename, lineno = get_src_loc()
+        loc = ast.Location(filename, lineno)
+        replace_op = ast.ReplaceOp(src, dst, loc)
+        self.ast.top_func.body.append(replace_op)
 
     def reshape(self, target, shape):
-        """Reshape a Tensor to a specified new shape
-        """
+        """Reshape a Tensor to a specified new shape"""
         if self.is_lowered():
             raise APIError(".reshape() must be called before lowering")
-        try:
-            target = target.tensor
-        except (AttributeError, ValueError):
-            try:
-                target = target._op
-            except AttributeError:
-                pass
-        ori_size = functools.reduce(lambda a, b: a*b, target.shape, 1)
-        new_size = functools.reduce(lambda a, b: a*b, shape, 1)
+        ori_size = functools.reduce(lambda a, b: a * b, target.shape, 1)
+        new_size = functools.reduce(lambda a, b: a * b, shape, 1)
         if ori_size != new_size:
             raise RuntimeError(
-                "The reshaped tensor should have the same total size with the original tensor")
-        with get_context() as ctx, get_location():
-            res = hcl_d.ReshapeOp(MemRefType.get(
-                shape, target.op.dtype), target.result, ip=GlobalInsertionPoint.get())
+                "The reshaped tensor should have the same total size with the original tensor"
+            )
+        filename, lineno = get_src_loc()
+        loc = ast.Location(filename, lineno)
+        reshape_op = ast.ReshapeOp(target, shape, loc)
+        self.ast.top_func.body.append(reshape_op)
 
     def reform(self, target, layout):
-        """Change the layout of a tensor
-        """
+        """Change the layout of a tensor"""
         if self.is_lowered():
             raise APIError(".reform() must be called before lowering")
-        try:
-            target = target.tensor
-        except (AttributeError, ValueError):
-            try:
-                target = target._op
-            except AttributeError:
-                pass
-        with get_context() as ctx, get_location():
-            if layout == "nhwc":
-                attr = AffineMap.get_permutation([0, 2, 3, 1])
-            else:
-                raise RuntimeError("Not supported layout")
-            res = hcl_d.ReformOp(MemRefType.get(
-                target.shape, target.op.dtype), target.result, ip=GlobalInsertionPoint.get())
-            res.attributes["layout"] = AffineMapAttr.get(attr)
+        filename, lineno = get_src_loc()
+        loc = ast.Location(filename, lineno)
+        reform_op = ast.ReformOp(target, layout, loc)
+        self.ast.top_func.body.append(reform_op)
 
     def reuse_at(self, target, parent, axis, name=None):
-        """Create a reuse buffer reusing the output of current stage
-        """
         if self.is_lowered():
             raise APIError(".reuse_at() must be called before lowering")
-        try:
-            target = target.tensor
-        except (AttributeError, ValueError):
-            try:
-                target = target._op
-            except AttributeError:
-                pass
-        if not isinstance(target, OpResult):
-            target = target.result
-        if not isinstance(axis, OpResult):
-            axis = axis.result
+        if not isinstance(axis, ast.LoopHandle):
+            raise DTypeError(
+                "reuse_at() got invalid axis of type {}".format(type(axis))
+            )
+        if not isinstance(target, (ast.AllocOp, ast.ReuseAtOp)):
+            raise DTypeError(
+                "reuse_at() got invalid target of type {}".format(type(target))
+            )
 
-        with get_context() as ctx, get_location() as loc:
-            i32 = IntegerType.get_signless(32)
-            f32 = F32Type.get(ctx)
-            # TODO: Need to do shape inference
-            memref_type = MemRefType.get((1,), f32, loc=loc)
-            res = hcl_d.ReuseAtOp(memref_type, target,
-                                  axis, ip=GlobalInsertionPoint.get())
-        return res.result
+        filename, lineno = get_src_loc()
+        loc = ast.Location(filename, lineno)
+        reuse_at_op = ast.ReuseAtOp(target, axis, loc)
+        self.ast.top_func.body.append(reuse_at_op)
+        return reuse_at_op
 
     def buffer_at(self, target, parent, axis, name=None):
         """Create a write buffer reusing the output of current stage"""
         if self.is_lowered():
             raise APIError(".buffer_at() must be called before lowering")
-        try:
-            target = target.tensor
-        except (AttributeError, ValueError):
-            try:
-                target = target._op
-            except AttributeError:
-                pass
-        if not isinstance(target, OpResult):
-            shape = target.shape
-            target = target.result
-        if not isinstance(axis, OpResult):
-            axis = axis.result
 
-        with get_context() as ctx, get_location() as loc:
-            i32 = IntegerType.get_signless(32)
-            f32 = F32Type.get(ctx)
-            # TODO: Need to do shape inference
-            memref_type = MemRefType.get(shape, f32, loc=loc)
-            res = hcl_d.BufferAtOp(memref_type, target,
-                                   axis, ip=GlobalInsertionPoint.get())
-        return res.result
+        filename, lineno = get_src_loc()
+        loc = ast.Location(filename, lineno)
+        buffer_at_op = ast.BufferAtOp(target, axis, loc)
+        self.ast.top_func.body.append(buffer_at_op)
+        return buffer_at_op
 
     def to(self, tensor, dst=None, fifo_depth=-1):
         if self.is_lowered():
@@ -496,30 +269,22 @@ class Schedule(object):
         if isinstance(dst, (Device, DevMemoryPair)):
             # only do annotation not mutation here
             # code change happens when building the module
-            # dst.types is a str
             if not isinstance(tensor, list):
                 tensor = [tensor]
             for t in tensor:
-                self.DataflowGraph.propagate_annotation(t, dst.types)
+                self._dfg.propagate_annotation(t, dst.types)
         # inter-stage data movement
         elif isinstance(dst, Stage):
-            try:
-                tensor = tensor.tensor
-            except (AttributeError, ValueError):
-                try:
-                    tensor = tensor._op
-                except AttributeError:
-                    pass
-            if not isinstance(tensor, OpResult):
-                tensor = tensor.result
-            with get_context() as ctx, get_location() as loc:
-                # automatically set dataflow pragma
-                self.device_top.attributes["dataflow"] = UnitAttr.get()
-                i32 = IntegerType.get_signless(32)
-                fifo_depth = IntegerAttr.get(i32, fifo_depth)
-                # do .to() scheduling
-                to_op = hcl_d.InterKernelToOp(
-                    tensor, dst.stage_handle.result, fifo_depth=fifo_depth, ip=GlobalInsertionPoint.get())
+            filename, lineno = get_src_loc()
+            loc = ast.Location(filename, lineno)
+            inter_kernel_to_op = ast.InterKernelToOp(
+                tensor, dst.stage_handle, fifo_depth, loc
+            )
+            self.ast.top_func.body.append(inter_kernel_to_op)
+            # outline both stages
+            src = Stage.lookup(tensor.name)
+            self.outline(src)
+            self.outline(dst)
 
     def outline(self, *stage_list, unify=False):
         """Outline stages as a function
@@ -528,272 +293,338 @@ class Schedule(object):
         """
         if self.is_lowered():
             raise APIError(".outline() must be called before lowering")
+        filename, lineno = get_src_loc()
+        loc = ast.Location(filename, lineno)
         results = []
         for i, stages in enumerate(stage_list):
             if isinstance(stages, list):
-                handles = [stage.stage_handle.result for stage in stages]
+                handles = [stage.stage_handle for stage in stages]
                 names = [stage.name for stage in stages]
             else:
-                handles = [stages.stage_handle.result]
+                handles = [stages.stage_handle]
                 names = [stages.name]
-            with get_context() as ctx, get_location() as loc:
-                op = hcl_d.OutlineOp(handles,
-                                     ip=GlobalInsertionPoint.get())
-                if unify and i > 0:
-                    op.attributes["unify"] = StringAttr.get(results[0].name)
-            if not unify or i == 0:
+
+            outline_op = ast.OutlineOp(handles, loc)
+            self.ast.top_func.body.append(outline_op)
+            if unify and i > 0:
+                outline_op.unify = results[0].name
+            else:
                 results.append(StageFunction(names))
         return results if len(results) > 1 else results[0]
 
 
 class StageFunction(object):
+    """
+    A StageFunction represents a function that is outlined
+    from a stage. It is used as the return value of .outline() primitive.
+    When .outline() unify is enabled, StageFunction provides a target
+    function to be unified with.
+    """
 
-    def __init__(self, name=None):
+    def __init__(self, name):
         if not isinstance(name, list):
             name = [name]
         self.name = "Stage"
         for n in name:
             self.name += "_" + n
-        self.module = None
-
-    def build(self, schedule):
-        set_context()
-        with get_context() as ctx, get_location() as loc:
-            new_module = Module.create(loc)
-            # just a placeholder for inserting the function
-            top = func_d.FuncOp(name="top", type=FunctionType.get(
-                inputs=[], results=[]), ip=InsertionPoint(new_module.body))
-            for op in schedule.device_module.body.operations:
-                if str(op.name) == "\"{}\"".format(self.name):
-                    op.move_before(top)
-                    op.attributes["bit"] = UnitAttr.get()
-                    break
-            else:
-                raise RuntimeError("Stage {} not found".format(self.name))
-            top.operation.erase()
-        self.module = new_module
-        return new_module
 
 
 class Stage(object):
-    """A Stage represents schedule for one operation.
-    """
+    """A Stage represents schedule for one operation."""
 
-    # A global list of all stages
-    _mapping = []  # (Tensor, Stage)
+    """
+    TODO(Niansong): add better comments here
+    because of the syntax of HeteroCL,
+    Stage._mapping is a list of (Tensor, Stage) tuples
+    or (Stage, Stage) tuples to keep track of all stages
+    and their corresponding tensors. 
+    For compute and mutate, we attach (Tensor, Stage) tuples
+    For update and imperative, we attach (Stage, Stage) tuples
+    """
+    _mapping = []
 
     def __init__(self, name=None):
-        if name is None:
-            name = UniqueName.get("stage")
+        name = UniqueName.get(name, "stage")
         self.name = name
+        self.tensor = None
         self.stage_handle = None
-        # wait for setting axes
-        self._axis = []
-        StageName.set(name)
-        BreakFlag.set(False)
-        # auxiliary attributes
-        self.op = None
-        self.ir_node = None
-        # We allow nested stages when imperative and
-        # declarative programming are mixed
-        self._sub_stages = []
+        self.ip = None
+        # Imperative stage attaches axes to Stage object
+        self.axis = list()
+        # Associated AST Operation
+        self._ast_op = None
 
-
-    def update_mapping(self, kind):
-        """Update global stage mapping Stage._mapping
-
-        Stage._mapping is a list of (Tensor, Stage) tuples
-        or (Stage, Stage) tuples to keep track of all stages
-        and their corresponding tensors. 
-        For compute and mutate, we attach (Tensor, Stage) tuples
-        For update and imperative, we attach (Stage, Stage) tuples
-
-        Parameters
-        ----------
-        kind : str
-            "update", "imperative", or "compute"
-        
-        Returns
-        -------
-        None
-        """
-        if kind == "update" or kind == "imperative":
-            pair = (self, self)
-            if pair not in Stage._mapping:
-                Stage._mapping.append(pair)
-        else: # compute and mutate
-            if self.op is None:
-                # pseudo return tensor for stage with no return value
-                from .operation import placeholder
-                op = placeholder((1,), name=self.name)
-                Stage._mapping.append((op, self))
-            elif (self.op, self) not in Stage._mapping:
-                Stage._mapping.append((self.op, self))
-
-    def add_axis(self, axis):
-        self._axis.append(axis)
-
-    @property
-    def axis(self):
-        return self._axis
-
-    def set_output(self, output):
-        self.op = output
-
-    def set_ir_node(self, ir_node):
-        self.ir_node = ir_node
+    @staticmethod
+    def lookup(name):
+        for op, stage in Stage._mapping:
+            if op.name == name:
+                return stage
+        raise APIError("Cannot find stage: " + name)
 
     def reorder(self, *args):
-        """reorder the arguments in the specified order.
-        """
-        if Schedule._CurrentSchedule.is_lowered():
+        """reorder the arguments in the specified order."""
+        schedule = Schedule._CurrentSchedule
+        if schedule.is_lowered():
             raise APIError(".reorder() must be called before lowering")
         args = list(args)
         for i in range(0, len(args)):
             if isinstance(args[i], int):
-                args[i] = self.op.axis[args[i]]
-            if not isinstance(args[i], OpResult):
-                args[i] = args[i].result
-        with get_context(), get_location():
-            hcl_d.ReorderOp(args,
-                            ip=GlobalInsertionPoint.get())
+                args[i] = self.tensor.axis[args[i]]
+        filename, lineno = get_src_loc()
+        loc = ast.Location(filename, lineno)
+        reorder_op = ast.ReorderOp(args, loc)
+        schedule.ast.top_func.body.append(reorder_op)
 
     def split(self, parent, factor=None, nparts=None, mode="transform"):
-        """Split the stage either by factor providing outer scope, or both
-        """
-        if Schedule._CurrentSchedule.is_lowered():
+        """Split the stage either by factor providing outer scope, or both"""
+        schedule = Schedule._CurrentSchedule
+        if schedule.is_lowered():
             raise APIError(".split() must be called before lowering")
         if nparts != None or mode != "transform":
-            raise RuntimeError("Not supported")
+            raise HCLNotImplementedError(
+                "nparts={}, mode={} not supported".format(nparts, mode)
+            )
         if isinstance(parent, int):
-            parent = self.op.axis[parent]
-        idx = self.op.axis.index(parent)
-        if isinstance(parent, hcl_d.CreateLoopHandleOp):
-            var = parent.result
-        else:
-            var = parent
-        with get_context() as ctx, get_location():
-            i32 = IntegerType.get_unsigned(32)
-            factor = IntegerAttr.get(i32, factor)
-            split_op = hcl_d.SplitOp(
-                var, factor, ip=GlobalInsertionPoint.get())
-        # self.op.axis[idx] = split_op.results[0]
-        # self.op.axis.insert(idx+1, split_op.results[1])
+            parent = self.tensor.axis[parent]
+        filename, lineno = get_src_loc()
+        loc = ast.Location(filename, lineno)
+        split_op = ast.SplitOp(self.stage_handle, parent, factor, loc)
+        schedule.ast.top_func.body.append(split_op)
         return split_op.results[0], split_op.results[1]
 
     def tile(self, x_parent, y_parent, x_factor, y_factor):
-        """ Perform tiling on two dimensions
-        """
-        if Schedule._CurrentSchedule.is_lowered():
+        """Perform tiling on two dimensions"""
+        schedule = Schedule._CurrentSchedule
+        if schedule.is_lowered():
             raise APIError(".tile() must be called before lowering")
-        idx = self.op.axis.index(x_parent)
-        with get_context() as ctx, get_location():
-            i32 = IntegerType.get_unsigned(32)
-            x_factor = IntegerAttr.get(i32, x_factor)
-            y_factor = IntegerAttr.get(i32, y_factor)
-            if isinstance(x_parent, hcl_d.CreateLoopHandleOp):
-                x_parent = x_parent.result
-            if isinstance(y_parent, hcl_d.CreateLoopHandleOp):
-                y_parent = y_parent.result
-            tile_op = hcl_d.TileOp(
-                x_parent, y_parent, x_factor, y_factor, ip=GlobalInsertionPoint.get())
-        return tile_op.results[0], tile_op.results[1], tile_op.results[2], tile_op.results[3]
+        filename, lineno = get_src_loc()
+        loc = ast.Location(filename, lineno)
+        tile_op = ast.TileOp(
+            self.stage_handle, x_parent, y_parent, x_factor, y_factor, loc
+        )
+        schedule.ast.top_func.body.append(tile_op)
+        return (
+            tile_op.results[0],
+            tile_op.results[1],
+            tile_op.results[2],
+            tile_op.results[3],
+        )
 
     def pipeline(self, var, initiation_interval=1):
-        """Pipeline the iteration.
-        """
-        if Schedule._CurrentSchedule.is_lowered():
+        """Pipeline the iteration."""
+        schedule = Schedule._CurrentSchedule
+        if schedule.is_lowered():
             raise APIError(".pipeline() must be called before lowering")
         if isinstance(var, int):
-            var = self.op.axis[var]
-        if isinstance(var, hcl_d.CreateLoopHandleOp):
-            var = var.result
-        with get_context(), get_location():
-            i32 = IntegerType.get_unsigned(32)
-            ii = IntegerAttr.get(i32, initiation_interval)
-            hcl_d.PipelineOp(var, ii=ii, ip=GlobalInsertionPoint.get())
+            var = self.tensor.axis[var]
+        filename, lineno = get_src_loc()
+        loc = ast.Location(filename, lineno)
+        pipeline_op = ast.PipelineOp(var, initiation_interval, loc)
+        schedule.ast.top_func.body.append(pipeline_op)
 
     def unroll(self, var, factor=0):
-        """Unroll the iteration.
-        """
-        if Schedule._CurrentSchedule.is_lowered():
+        """Unroll the iteration."""
+        schedule = Schedule._CurrentSchedule
+        if schedule.is_lowered():
             raise APIError(".unroll() must be called before lowering")
         if isinstance(var, int):
-            var = self.op.axis[var]
-        if isinstance(var, hcl_d.CreateLoopHandleOp):
-            var = var.result
-        with get_context(), get_location():
-            i32 = IntegerType.get_unsigned(32)
-            factor = IntegerAttr.get(i32, factor)
-            hcl_d.UnrollOp(var, factor=factor, ip=GlobalInsertionPoint.get())
+            var = self.tensor.axis[var]
+        filename, lineno = get_src_loc()
+        loc = ast.Location(filename, lineno)
+        unroll_op = ast.UnrollOp(var, factor, loc)
+        schedule.ast.top_func.body.append(unroll_op)
 
     def parallel(self, var):
-        """Parallelize the iteration.
-        """
-        if Schedule._CurrentSchedule.is_lowered():
+        """Parallelize the iteration."""
+        schedule = Schedule._CurrentSchedule
+        if schedule.is_lowered():
             raise APIError(".parallel() must be called before lowering")
         if isinstance(var, int):
-            var = self.op.axis[var]
-        with get_context(), get_location():
-            hcl_d.ParallelOp(var.result, ip=GlobalInsertionPoint.get())
+            var = self.tensor.axis[var]
+        filename, lineno = get_src_loc()
+        loc = ast.Location(filename, lineno)
+        parallel_op = ast.ParallelOp(var, loc)
+        schedule.ast.top_func.body.append(parallel_op)
 
     def fuse(self, *args):
-        """Fuse multiple consecutive iteration variables into a single iteration variable.
-        """
-        if Schedule._CurrentSchedule.is_lowered():
+        """Fuse multiple consecutive iteration variables into a single iteration variable."""
+        schedule = Schedule._CurrentSchedule
+        if schedule.is_lowered():
             raise APIError(".fuse() must be called before lowering")
         assert len(args) >= 1, "Length of the arguments must be >=1 for fuse."
         args = list(args)
         for i in range(0, len(args)):
             if isinstance(args[i], int):
-                args[i] = self.op.axis[args[i]]
-            if not isinstance(args[i], OpResult):
-                args[i] = args[i].result
-        with get_context() as ctx, get_location():
-            fused = hcl_d.FuseOp(args,
-                                 ip=GlobalInsertionPoint.get())
-        return fused
+                args[i] = self.tensor.axis[args[i]]
+        filename, lineno = get_src_loc()
+        loc = ast.Location(filename, lineno)
+        fuse_op = ast.FuseOp(args, loc)
+        schedule.ast.top_func.body.append(fuse_op)
+        return fuse_op
 
-    def compute_at(self, parent, scope):
-        """Attach the stage at parent's scope
-        """
-        if Schedule._CurrentSchedule.is_lowered():
+    def compute_at(self, parent, axis):
+        """Attach the stage at parent's scope"""
+        schedule = Schedule._CurrentSchedule
+        if schedule.is_lowered():
             raise APIError(".compute_at() must be called before lowering")
-        if isinstance(scope, int):
-            scope = parent.op.axis[scope]
-        with get_context() as ctx, get_location():
-            compute_at = hcl_d.ComputeAtOp(
-                self.stage_handle.result, parent.stage_handle.result, scope.result, ip=GlobalInsertionPoint.get())
+        if isinstance(axis, int):
+            axis = parent.tensor.axis[axis]
+        filename, lineno = get_src_loc()
+        loc = ast.Location(filename, lineno)
+        compute_at_op = ast.ComputeAtOp(
+            self.stage_handle, parent.stage_handle, axis, loc
+        )
+        schedule.ast.top_func.body.append(compute_at_op)
 
     def outline(self, axis=None, unify=None):
-        """Outline a stage as a function
-        """
-        if Schedule._CurrentSchedule.is_lowered():
+        """Outline a stage as a function"""
+        schedule = Schedule._CurrentSchedule
+        if schedule.is_lowered():
             raise APIError(".outline() must be called before lowering")
-        with get_context() as ctx, get_location() as loc:
-            op = hcl_d.OutlineOp([self.stage_handle.result],
-                                 ip=GlobalInsertionPoint.get())
-            if axis is not None:
-                if isinstance(axis, str):
-                    op.attributes["axis"] = StringAttr.get(axis)
-                else:
-                    op.attributes["axis"] = axis.loop_name
-            if unify is not None:
-                op.attributes["unify"] = StringAttr.get(unify.name)
+        filename, lineno = get_src_loc()
+        loc = ast.Location(filename, lineno)
+        outline_op = ast.OutlineOp([self.stage_handle], loc)
+        schedule.ast.top_func.body.append(outline_op)
+        if axis is not None:
+            if isinstance(axis, str):
+                outline_op.axis = axis
+            else:
+                outline_op.axis = axis.loop_name
         if unify is not None:
+            outline_op.unify = unify.name
             return unify
         else:
             return StageFunction(self.name)
 
     def systolic(self):
-        """Wrap the current stage as a systolic array
-        """
-        with get_context() as ctx:
-            self.ir_node.attributes["systolic"] = UnitAttr.get()
+        """Wrap the current stage as a systolic array"""
+        filename, lineno = get_src_loc()
+        loc = ast.Location(filename, lineno)
+        systolic_op = ast.SystolicOp(self.tensor, loc)
+        schedule = Schedule._CurrentSchedule
+        schedule.ast.top_func.body.append(systolic_op)
 
     def __enter__(self):
-        HCLDeprecationWarning(
-            "hcl.Stage() is deprecated, please remove it.").warn()
+        HCLDeprecationWarning("hcl.Stage() is deprecated, please remove it.").warn()
 
     def __exit__(self, ptype, value, trace):
         pass
+
+
+class _CreateStagesFromAST(object):
+    """Create HeteroCL stages
+    This pass does three things:
+    1. Create stage and loop handles and set tensor.axis for all stage's tensors
+    2. Attach tensors to Python functions as attributes
+    3. Create a mapping from tensor to stage in Schedule
+    """
+
+    def __init__(self, _ast):
+        self._ast = _ast
+        # clear the stage mapping
+        Stage._mapping.clear()
+
+    def apply(self):
+        """Pass entry point"""
+        top_func = self._ast.top_func
+        self.visit(top_func)
+
+    def visit(self, op):
+        self.create_stage(op)
+        if hasattr(op, "body") and op.body is not None:
+            for op in op.body:
+                # recursively visit the body
+                self.visit(op)
+
+    def create_stage(self, op):
+        if isinstance(op, ast.ComputeOp):
+            self.create_compute_stage(op)
+        elif isinstance(op, ast.ForOp):
+            self.create_imperative_stage(op)
+
+    def create_compute_stage(self, op: ast.ComputeOp):
+        # Create stage and attach attributes
+        stage = Stage(op.name)
+        stage._ast_op = op
+        tensor = op.tensor if op.kind == "compute" else op.aux_tensor
+        stage.tensor = tensor
+        top_func = self._ast.top_func.python_callable
+        if op.kind == "compute":
+            Stage._mapping.append((tensor, stage))
+            if top_func is not None:
+                top_func.__setattr__(op.name, op.tensor)
+        elif op.kind == "update":
+            stage.__setattr__(op.tensor.name, tensor)
+            Stage._mapping.append((stage, stage))
+            if top_func is not None:
+                top_func.__setattr__(op.name, stage)
+        else:  # op.kind == "mutate"
+            Stage._mapping.append((stage, stage))
+            if top_func is not None:
+                top_func.__setattr__(op.name, stage)
+
+        # create handles
+        stage_hdl = ast.OpHandle(op.name, op.loc)
+        stage.stage_handle = stage_hdl
+        for iter_var in op.iter_vars + op.reduce_vars:
+            loop_hdl = ast.LoopHandle(stage_hdl, iter_var.name, op.loc)
+            tensor.axis.append(loop_hdl)
+
+    def create_imperative_stage(self, op: ast.ForOp):
+        if op.tag is None:
+            return
+        # create stage and attach attributes
+        stage = Stage(op.tag)
+        stage._ast_op = op
+        Stage._mapping.append((stage, stage))
+        top_func = self._ast.top_func.python_callable
+        if top_func is not None:
+            top_func.__setattr__(op.tag, stage)
+
+        # create handles
+        nested_for_loops = [op]
+
+        def get_nested_for_loops(op):
+            for body_op in op.body:
+                if isinstance(body_op, ast.ForOp):
+                    nested_for_loops.append(body_op)
+                    get_nested_for_loops(body_op)
+
+        get_nested_for_loops(op)
+        stage_hdl = ast.OpHandle(op.tag, op.loc)
+        stage.stage_handle = stage_hdl
+        for loop in nested_for_loops:
+            loop_hdl = ast.LoopHandle(stage_hdl, loop.name, op.loc)
+            stage.axis.append(loop_hdl)
+            setattr(stage, loop.name, loop_hdl)
+
+
+class _CreateDFGFromAST(object):
+    def __init__(self, _ast):
+        self._ast = _ast
+        self.dfg = DataflowGraph(name=_ast.top_func.name, inputs=_ast.top_func.args)
+
+    def apply(self):
+        """Pass entry point"""
+        top_func = self._ast.top_func
+        self.visit(top_func, self.create_edge)
+
+    def visit(self, op, callback, *args, **kwargs):
+        callback(op, *args, **kwargs)
+        if hasattr(op, "body") and op.body is not None:
+            for op in op.body:
+                self.visit(op, callback, *args, **kwargs)
+
+    def create_edge(self, op):
+        if isinstance(op, ast.ComputeOp):
+            if op.kind == "compute":
+                for t in op.input_tensors:
+                    self.dfg.add_edge(t, op.tensor)
+                    # print("add edge", t, op.tensor)
+            else:  # update, mutate
+                for t in op.input_tensors:
+                    self.dfg.add_edge(t, op.aux_tensor, stateful=True)
+                    # print("add edge", t, op.aux_tensor)
+        elif isinstance(op, ast.ForOp):
+            # raise HCLNotImplementedError("ForOp is not supported in DFG")
+            pass

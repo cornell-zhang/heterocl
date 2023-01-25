@@ -40,12 +40,24 @@ hcl.init()
 
 def maximum(A, B, C, D):
 
+    # Due to MLIR limitation, hcl.return_ must be the 
+    # last statement in the module (i.e. region terminator)
+    # TODO(Niansong): add checker pass for this case
+    # @hcl.def_([A.shape, B.shape, ()])
+    # def find_max(A, B, x):
+    #     with hcl.if_(A[x] > B[x]):
+    #         hcl.return_(A[x])
+    #     with hcl.else_():
+    #         hcl.return_(B[x])
+
     @hcl.def_([A.shape, B.shape, ()])
     def find_max(A, B, x):
+        ret = hcl.scalar(0, "ret")
         with hcl.if_(A[x] > B[x]):
-            hcl.return_(A[x])
+            ret.v = A[x]
         with hcl.else_():
-            hcl.return_(B[x])
+            ret.v = B[x]
+        hcl.return_(ret.v)
 
     max_1 = hcl.compute(A.shape, lambda x: find_max(A, B, x), "max_1")
     max_2 = hcl.compute(A.shape, lambda x: find_max(C, D, x), "max_2")
@@ -61,6 +73,7 @@ C = hcl.placeholder((10,), "C")
 D = hcl.placeholder((10,), "D")
 
 s = hcl.create_schedule([A, B, C, D], maximum)
+print(s.ast)
 print(hcl.lower(s))
 
 ##############################################################################
@@ -153,8 +166,6 @@ C = hcl.placeholder((10,), dtype=hcl.UInt(4))
 D = hcl.placeholder((10,), dtype=hcl.UInt(4))
 
 s = hcl.create_scheme([A, B, C, D], maximum)
-# Downsize the input arguments and also the return value
-s.downsize([maximum.find_max.A, maximum.find_max.B, maximum.find_max], hcl.UInt(4))
 # We also need to downsize the intermediate results
 s.downsize([maximum.max_1, maximum.max_2], hcl.UInt(4))
 s = hcl.create_schedule_from_scheme(s)
