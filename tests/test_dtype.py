@@ -644,7 +644,6 @@ def test_int_to_fixed_cast():
                     "cast",
                     dtype=out_dtype,
                 )
-                hcl.print(casted)
                 return casted
 
             A = hcl.placeholder((10,), "A", dtype=in_dtype)
