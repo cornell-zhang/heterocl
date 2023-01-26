@@ -525,7 +525,7 @@ def shift_rule():
 
 
 def and_or_rule():
-    ops = (ast.And, ast.Or)
+    ops = (ast.And, ast.Or, ast.XOr, ast.Invert)
     int_rules = {
         (Int, Int): lambda t1, t2: Int(max(t1.bits, t2.bits)),
         (Int, UInt): lambda t1, t2: Int(max(t1.bits, t2.bits)),
