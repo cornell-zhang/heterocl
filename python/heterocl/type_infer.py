@@ -80,6 +80,11 @@ class TypeInference(object):
             raise APIError(f"Typing rules not defined for operation type: {type(expr)}")
         type_rule = self._rule_dict[type(expr)]
         res_type = type_rule(lhs_type, rhs_type)
+        # MLIR limitation: modulo only supports integer <= 128 bits
+        if isinstance(expr, ast.Mod) and isinstance(res_type, (Int, UInt)):
+            if res_type.bits > 128:
+                DTypeWarning("Modulo only supports integer <= 128 bits").warn()
+                res_type = Int(128) if isinstance(res_type, Int) else UInt(128)
         return res_type
 
     def infer_select(self, expr):
