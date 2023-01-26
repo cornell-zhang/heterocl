@@ -41,7 +41,7 @@ def get_pad_tuple(padding):
 
 
 def if_mac(y, x, in_h, in_w, pad_top, pad_left, pad_down, pad_right):
-    return hcl.all(
+    return hcl.and_(
         x >= pad_left, x < in_w - pad_right, y >= pad_top, y < in_h - pad_down
     )
 
@@ -658,7 +658,7 @@ def dense(data, weight, bias=None, use_relu=False, dtype=None, name="binary_dens
         matmul = hcl.compute(
             (batch, out_dim),
             lambda i, j: hcl.sum(
-                hcl.cast(dtype, hcl.all(data[i, k] == weight[j, k])),
+                hcl.cast(dtype, hcl.and_(data[i, k] == weight[j, k])),
                 axis=k,
                 dtype=dtype,
             )
@@ -672,7 +672,7 @@ def dense(data, weight, bias=None, use_relu=False, dtype=None, name="binary_dens
             (batch, out_dim),
             lambda i, j: (
                 hcl.sum(
-                    hcl.cast(bias.dtype, hcl.all(data[i, k] == weight[j, k])),
+                    hcl.cast(bias.dtype, hcl.and_(data[i, k] == weight[j, k])),
                     axis=k,
                     dtype=bias.dtype,
                     name=name + "_sum",

@@ -10,7 +10,7 @@ def test_select():
     def kernel(A):
         B = hcl.compute(
             A.shape,
-            lambda i, j: hcl.select(hcl.all(i < j, i == j), A[i, j], A[i, j] + 1),
+            lambda i, j: hcl.select(hcl.and_(i < j, i == j), A[i, j], A[i, j] + 1),
             "B",
         )
         return B

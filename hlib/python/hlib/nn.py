@@ -68,7 +68,7 @@ def pad(data, pad_before, pad_after=None, pad_value=0.0, name="pad"):
                 not_zero.append(indices[i] >= pad_before[i])
                 not_zero.append(indices[i] < data.shape[i] + pad_before[i])
         if not_zero:
-            not_zero = hcl.all(*not_zero)
+            not_zero = hcl.and_(*not_zero)
             return hcl.select(not_zero, data[tuple(index_tuple)], hcl.cast(data.dtype, pad_value))
         return data[tuple(index_tuple)]
 

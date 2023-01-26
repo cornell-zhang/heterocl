@@ -8,7 +8,7 @@ def test_dsl():
     def kernel(A):
         with hcl.for_(0, 32, 1, tag="A") as i:
             with hcl.for_(0, 32, 1) as j:
-                with hcl.if_(hcl.all(i > j, j >= i + 1)):  # affine.if
+                with hcl.if_(hcl.and_(i > j, j >= i + 1)):  # affine.if
                     A[i, j] += 1
                 with hcl.elif_(A[i, j] == 0):  # scf.if
                     A[i, j] = A[i, j] - 2
