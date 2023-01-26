@@ -13,7 +13,7 @@ from .types import *
 
 
 def add_sub_rule():
-    ops = (ast.Add, ast.Sub, ast.SelectOp)
+    ops = (ast.Add, ast.Sub)
     int_rules = {
         (Int, Int): lambda t1, t2: Int(max(t1.bits, t2.bits) + 1),
         (Int, UInt): lambda t1, t2: Int(max(t1.bits, t2.bits + 1) + 1),
@@ -441,6 +441,72 @@ def cmp_rule():
     )
 
 
+def select_rule():
+    ops = (ast.SelectOp, ast.Max, ast.Min)
+    int_rules = {
+        (Int, Int): lambda t1, t2: Int(max(t1.bits, t2.bits)),
+        (Int, UInt): lambda t1, t2: Int(max(t1.bits, t2.bits + 1)),
+        (Int, Index): lambda t1, t2: Int(max(t1.bits, t2.bits + 1)),
+        (Int, Fixed): lambda t1, t2: Fixed(
+            max(t1.bits, t2.bits - t2.fracs) + t2.fracs, t2.fracs
+        ),
+        (Int, UFixed): lambda t1, t2: Fixed(
+            max(t1.bits, t2.bits - t2.fracs + 1) + t2.fracs, t2.fracs
+        ),
+        (Int, Float): lambda t1, t2: t2,
+    }
+    uint_rules = {
+        (UInt, UInt): lambda t1, t2: UInt(max(t1.bits, t2.bits)),
+        (UInt, Index): lambda t1, t2: UInt(max(t1.bits, t2.bits)),
+        (UInt, Fixed): lambda t1, t2: Fixed(
+            max(t1.bits + 1, t2.bits - t2.fracs) + t2.fracs, t2.fracs
+        ),
+        (UInt, UFixed): lambda t1, t2: UFixed(
+            max(t1.bits, t2.bits - t2.fracs) + t2.fracs, t2.fracs
+        ),
+        (UInt, Float): lambda t1, t2: t2,
+    }
+    index_rules = {
+        (Index, Index): lambda t1, t2: Index(),
+        (Index, Fixed): lambda t1, t2: Fixed(
+            max(t1.bits + 1, t2.bits - t2.fracs) + t2.fracs, t2.fracs
+        ),
+        (Index, UFixed): lambda t1, t2: UFixed(
+            max(t1.bits, t2.bits - t2.fracs) + t2.fracs, t2.fracs
+        ),
+        (Index, Float): lambda t1, t2: t2,
+    }
+    fixed_rules = {
+        (Fixed, Fixed): lambda t1, t2: 
+            Fixed(
+                max(t1.bits - t1.fracs, t2.bits - t2.fracs) + max(t1.fracs, t2.fracs),
+                max(t1.fracs, t2.fracs)),
+        (Fixed, UFixed): lambda t1, t2: 
+            Fixed(
+                max(t1.bits - t1.fracs, t2.bits - t2.fracs + 1)
+                + max(t1.fracs, t2.fracs),
+                max(t1.fracs, t2.fracs),
+            ),
+        (Fixed, Float): lambda t1, t2: t2,
+    }
+    ufixed_rules = {
+        (UFixed, UFixed): lambda t1, t2: 
+            UFixed(
+                max(t1.bits - t1.fracs, t2.bits - t2.fracs) + max(t1.fracs, t2.fracs),
+                max(t1.fracs, t2.fracs),
+            ),
+        (UFixed, Float): lambda t1, t2: t2,
+    }
+    float_rules = {
+        (Float, Float): lambda t1, t2: Float(max(t1.bits, t2.bits)),
+    }
+    return TypeRule(
+        ops,
+        [int_rules, uint_rules, index_rules, fixed_rules, ufixed_rules, float_rules],
+        commutative=True
+    )
+
+
 def shift_rule():
     ops = (ast.LeftShiftOp, ast.RightShiftOp)
     int_rules = {
@@ -514,4 +580,5 @@ def get_type_rules():
     rules.append(div_rule())
     rules.append(pow_rule())
     rules.append(shift_rule())
+    rules.append(select_rule())
     return rules

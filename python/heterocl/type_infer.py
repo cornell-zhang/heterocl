@@ -38,7 +38,7 @@ class TypeInference(object):
             return Index()
         elif isinstance(expr, ast.CastOp):
             return expr.dtype
-        elif isinstance(expr, ast.SumOp):
+        elif isinstance(expr, ast.ReduceOp):
             # TODO: infer the type of the reduction
             return expr.dtype
         elif isinstance(expr, ast.BitCastOp):

@@ -139,47 +139,62 @@ def select(cond, true_val, false_val):
     return ast.SelectOp(cond, true_val, false_val, loc)
 
 
-def sum(expr, axis=None, dtype=None, name=None):
+def sum(expr, axis, dtype=None, name=None):
     name = UniqueName.get(name, "op")
-    if axis is None:
-        raise HCLNotImplementedError("sum with axis=None is not supported")
     if isinstance(axis, tuple):
         axis = list(axis)
     elif isinstance(axis, ast.ReduceVar):
         axis = [axis]
     elif not isinstance(axis, list):
         raise APIError("axis must be a list of reduction axis")
+    # TODO: deduce dtype from expr
     dtype = config.init_dtype if dtype == None else dtype
     if isinstance(dtype, str):
         dtype = dtype_to_hcl(dtype)
     filename, lineno = get_src_loc()
     loc = ast.Location(filename, lineno)
-    return ast.SumOp(name, expr, axis, dtype, loc)
+    return ast.ReduceOp(name, expr, "sum", axis, dtype, 0, loc)
 
 
-def max(data, axis=None, dtype=None, name=""):
-    raise HCLNotImplementedError("max is not implemented yet")
+def max(expr, axis=None, dtype=None, name=""):
+    name = UniqueName.get(name, "op")
+    if isinstance(axis, tuple):
+        axis = list(axis)
+    elif isinstance(axis, ast.ReduceVar):
+        axis = [axis]
+    elif not isinstance(axis, list):
+        raise APIError("axis must be a list of reduction axis")
+    # TODO: deduce dtype from expr
     dtype = config.init_dtype if dtype == None else dtype
-    return hcl_mlir.MaxOp(data, axis, get_dtype_str(dtype))
+    if isinstance(dtype, str):
+        dtype = dtype_to_hcl(dtype)
+    filename, lineno = get_src_loc()
+    loc = ast.Location(filename, lineno)
+    # init should be the minimum value of the dtype 
+    init = get_min_value(dtype)
+    return ast.ReduceOp(name, expr, "max", axis, dtype, init, loc)
 
-
-def min(data, axis=None, dtype=None, name=""):
-    raise HCLNotImplementedError("min is not implemented yet")
+def min(expr, axis=None, dtype=None, name=""):
+    name = UniqueName.get(name, "op")
+    if isinstance(axis, tuple):
+        axis = list(axis)
+    elif isinstance(axis, ast.ReduceVar):
+        axis = [axis]
+    elif not isinstance(axis, list):
+        raise APIError("axis must be a list of reduction axis")
+    # TODO: deduce dtype from expr
     dtype = config.init_dtype if dtype == None else dtype
-    return hcl_mlir.MinOp(data, axis, get_dtype_str(dtype))
+    if isinstance(dtype, str):
+        dtype = dtype_to_hcl(dtype)
+    filename, lineno = get_src_loc()
+    loc = ast.Location(filename, lineno)
+    # init should be the maximum value of the dtype
+    init = get_max_value(dtype)
+    return ast.ReduceOp(name, expr, "min", axis, dtype, init, loc)
 
 
-def reduce(data, init_val, reduce_op, axis=None, dtype=None, name=""):
-    raise HCLNotImplementedError("reduce is not implemented yet")
-    return hcl_mlir.ReduceOp(
-        data,
-        axis,
-        get_dtype_str(dtype),
-        prefix=name,
-        init_val=init_val,
-        reduce_op={"si": reduce_op},
-    )
-
+def reducer(init, freduce, dtype=None, name=None):
+    raise HCLNotImplementedError("reducer is not implemented yet")
 
 def pack(tensor, axis=0, factor=None, name=None, dtype=None):
     """Pack a tensor with smaller bitwidth to a tensor with larger bitwidth."""

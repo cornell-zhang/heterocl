@@ -476,6 +476,24 @@ class Div(BinaryOp):
     def __init__(self, lhs, rhs, loc):
         super().__init__("/", lhs, rhs, loc)
 
+class Min(BinaryOp):
+    """Min operation."""
+
+    def __init__(self, lhs, rhs, loc):
+        super().__init__("min", lhs, rhs, loc)
+
+    def __repr__(self):
+        return f"min({self.lhs}, {self.rhs})"
+
+class Max(BinaryOp):
+    """Max operation."""
+
+    def __init__(self, lhs, rhs, loc):
+        super().__init__("max", lhs, rhs, loc)
+
+    def __repr__(self):
+        return f"max({self.lhs}, {self.rhs})"
+
 
 class FloorDiv(BinaryOp):
     """Floor division operation."""
@@ -1295,7 +1313,6 @@ class StructGetOp(Expr):
 class ReduceOp(Expr):
     def __init__(self, name, expr, reduce_op, axis, dtype, init, loc):
         super().__init__("reduce", loc)
-        # TODO(Niansong): use type inference to check data loss
         self.name = name
         self.expr = expr
         self.scalar = AllocOp(name, (1,), dtype, loc)
@@ -1309,22 +1326,6 @@ class ReduceOp(Expr):
         return "{}({}, {}, {}, {})".format(
             self.reduce_op, self.init, self.axis, self.dtype, self.name
         )
-
-
-class SumOp(ReduceOp):
-    def __init__(self, name, expr, axis, dtype, loc):
-        super().__init__(name, expr, "sum", axis, dtype, 0, loc)
-
-
-class MinOp(ReduceOp):
-    def __init__(self, name, expr, axis, dtype, loc):
-        # TODO(Niansong): why init is 0x3F3F3F3F?
-        super().__init__(name, expr, "min", axis, dtype, 0x3F3F3F3F, loc)
-
-
-class MaxOp(ReduceOp):
-    def __init__(self, name, expr, axis, dtype, loc):
-        super().__init__(name, expr, "max", axis, dtype, 0x3F3F3F3F, loc)
 
 
 class PrintOp(Operation):

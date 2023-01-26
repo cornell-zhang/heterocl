@@ -175,3 +175,42 @@ def make_const_tensor(val, dtype):
 
     array = np.array(val, dtype=np_dtype)
     return array
+
+
+def get_min_value(dtype):
+    """
+    Get the minimum value of a data type
+    """
+    if isinstance(dtype, Int):
+        return -(1 << (dtype.bits - 1))
+    elif isinstance(dtype, UInt):
+        return 0
+    elif isinstance(dtype, Float):
+        # arith dialect does not support -inf
+        # return -np.inf
+        return -1e10
+    elif isinstance(dtype, Fixed):
+        return -(1 << (dtype.bits - 1))
+    elif isinstance(dtype, UFixed):
+        return 0
+    else:
+        raise DTypeError("Unrecognized data type: {}".format(dtype))
+
+def get_max_value(dtype):
+    """
+    Get the maximum value of a data type
+    """
+    if isinstance(dtype, Int):
+        return (1 << (dtype.bits - 1)) - 1
+    elif isinstance(dtype, UInt):
+        return (1 << dtype.bits) - 1
+    elif isinstance(dtype, Float):
+        # limitation of arith dialect
+        # return np.inf
+        return 1e10
+    elif isinstance(dtype, Fixed):
+        return (1 << (dtype.bits - 1)) - 1
+    elif isinstance(dtype, UFixed):
+        return (1 << dtype.bits) - 1
+    else:
+        raise DTypeError("Unrecognized data type: {}".format(dtype))

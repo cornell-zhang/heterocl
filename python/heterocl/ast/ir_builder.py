@@ -70,6 +70,28 @@ def get_op_class(op, typ):
             return hcl_d.DivFixedOp
         else:
             raise APIError("Unsupported type for DivOp: {}".format(typ))
+    elif isinstance(op, ast.Max):
+        if isinstance(typ, htypes.Int):
+            return arith_d.MaxSIOp
+        elif isinstance(typ, htypes.UInt):
+            return arith_d.MaxUIOp
+        elif isinstance(typ, htypes.Float):
+            return arith_d.MaxFOp
+        elif isinstance(typ, (htypes.Fixed, htypes.UFixed)):
+            return hcl_d.MaxFixedOp
+        else:
+            raise APIError("Unsupported type for MaxOp: {}".format(typ))
+    elif isinstance(op, ast.Min):
+        if isinstance(typ, htypes.Int):
+            return arith_d.MinSIOp
+        elif isinstance(typ, htypes.UInt):
+            return arith_d.MinUIOp
+        elif isinstance(typ, htypes.Float):
+            return arith_d.MinFOp
+        elif isinstance(typ, (htypes.Fixed, htypes.UFixed)):
+            return hcl_d.MinFixedOp
+        else:
+            raise APIError("Unsupported type for MinOp: {}".format(typ))
     elif isinstance(op, ast.FloorDiv):
         if isinstance(typ, htypes.Int):
             return arith_d.FloorDivSIOp
@@ -1144,15 +1166,18 @@ class IRBuilder(object):
         if op.reduce_op == "sum":
             reduce_op = ast.Add(op.expr, load_scalar, op.loc)
         elif op.reduce_op == "max":
-            pass
+            reduce_op = ast.Max(op.expr, load_scalar, op.loc)
         elif op.reduce_op == "min":
-            pass
+            reduce_op = ast.Min(op.expr, load_scalar, op.loc)
+        elif isinstance(op.reduce_op, ast.BinaryOp):
+            reduce_op = op.reduce_op
         else:
             raise HCLValueError(f"Unsupported reduction op {op.reduce_op}")
 
-        self.build_visitor(reduce_op, body_ip)
+        casted_reduce_op = ast.CastOp(reduce_op, op.dtype, op.loc)
+        self.build_visitor(casted_reduce_op, body_ip)
         # store to the scalar
-        store_res = ast.StoreOp(op.scalar, (zero_idx,), reduce_op, op.loc)
+        store_res = ast.StoreOp(op.scalar, (zero_idx,), casted_reduce_op, op.loc)
         self.build_visitor(store_res, body_ip)
 
         # load from the scalar
