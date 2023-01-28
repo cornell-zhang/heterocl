@@ -611,24 +611,10 @@ class IRBuilder(object):
 
         # Step 2: cast lhs and rhs to the same type
         t = self.tinf_engine.infer(op)
-        lhs = ast.CastOp(op.lhs, t, loc)
-        rhs = ast.CastOp(op.rhs, t, loc)
+        lhs = ast.CastOp(op.lhs, t, op.loc)
+        rhs = ast.CastOp(op.rhs, t, op.loc)
         self.build_visitor(lhs, ip)
         self.build_visitor(rhs, ip)
-
-        # bypass integer left shift by bitwidth
-        # because of the limitation of MLIR's
-        # JIT Compiler
-        if isinstance(op, ast.LeftShiftOp) and isinstance(t, (htypes.Int, htypes.UInt)):
-            # build a constant 0 instead
-            attr_type = IntegerType.get_signless(t.bits)
-            value_attr = IntegerAttr.get(attr_type, 0)
-            const_op = arith_d.ConstantOp(attr_type, value_attr, ip=ip, loc=loc)
-            op.result = const_op.result
-            op.ir_op = const_op
-            if isinstance(t, htypes.UInt):
-                const_op.attributes["unsigned"] = UnitAttr.get()
-            return
 
         # Step 3: build binary op
         OpClass = get_op_class(op, t)
@@ -639,6 +625,33 @@ class IRBuilder(object):
         # Step 4: attach necessary attributes
         if isinstance(t, (htypes.UInt, htypes.UFixed)):
             binary_op.attributes["unsigned"] = UnitAttr.get()
+        
+        # Bypass for left shift an integer by its bitwidth
+        if isinstance(op, ast.LeftShiftOp) and isinstance(t, (htypes.Int, htypes.UInt)):
+            i1 = IntegerType.get_signless(1)
+            i64 = IntegerType.get_signless(64)
+            eq_attr = IntegerAttr.get(i64, 0)
+            shift_type = hcl_dtype_to_mlir(t, signless=True)
+            bitwidth = arith_d.ConstantOp(
+                shift_type, IntegerAttr.get(shift_type, t.bits),
+                ip=ip, loc=loc
+            )
+            cond = arith_d.CmpIOp(
+                i1, eq_attr, binary_op.result, bitwidth.result,
+                ip=ip, loc=loc
+            )
+            zero = arith_d.ConstantOp(
+                shift_type, IntegerAttr.get(shift_type, 0),
+                ip=ip, loc=loc
+            )
+            select = arith_d.SelectOp(
+                cond.result, zero.result, binary_op.result,
+                ip=ip, loc=loc
+            )
+            if isinstance(t, htypes.UInt):
+                select.attributes["unsigned"] = UnitAttr.get()
+            op.result = select.result
+            op.ir_op = select
 
     def build_math_tanh_op(self, op: ast.MathTanhOp, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
