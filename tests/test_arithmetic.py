@@ -26,3 +26,16 @@ def test_gather128():
     f(hcl_res)
     golden = np.array([53, 52, 51, 50], dtype=np.uint32)
     assert np.allclose(hcl_res.asnumpy(), golden)
+
+def test_lshift_simple():
+    hcl.init()
+    def kernel():
+        a1 = hcl.scalar(3, "a1", 'uint6')
+        y1 = hcl.scalar(a1.v << 1, "y1", 'uint6')
+        return y1
+    s = hcl.create_schedule([], kernel)
+    hcl_res = hcl.asarray(np.zeros((1,), dtype=np.uint32), dtype=hcl.UInt(6))
+    f = hcl.build(s)
+    f(hcl_res)
+    golden = np.array([6], dtype=np.uint32)
+    assert np.allclose(hcl_res.asnumpy(), golden)

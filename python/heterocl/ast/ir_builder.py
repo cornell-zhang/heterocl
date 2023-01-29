@@ -630,14 +630,16 @@ class IRBuilder(object):
         if isinstance(op, ast.LeftShiftOp) and isinstance(t, (htypes.Int, htypes.UInt)):
             i1 = IntegerType.get_signless(1)
             i64 = IntegerType.get_signless(64)
-            eq_attr = IntegerAttr.get(i64, 0)
+            sge_attr = IntegerAttr.get(i64, 5) # signed greater or equal
+            uge_attr = IntegerAttr.get(i64, 9) # unsigned greater or equal
             shift_type = hcl_dtype_to_mlir(t, signless=True)
             bitwidth = arith_d.ConstantOp(
                 shift_type, IntegerAttr.get(shift_type, t.bits),
                 ip=ip, loc=loc
             )
+            op_attr = sge_attr if isinstance(t, htypes.Int) else uge_attr
             cond = arith_d.CmpIOp(
-                i1, eq_attr, binary_op.result, bitwidth.result,
+                i1, op_attr, rhs.result, bitwidth.result,
                 ip=ip, loc=loc
             )
             zero = arith_d.ConstantOp(
