@@ -375,7 +375,7 @@ def packed_conv2d_nchw(
                             1 - ((temp[nn, rc, yy * stride_h + ry,
                                     xx * stride_w + rx]
                                 ^ Filter[ff, rc, ry, rx]
-                            )[rb] << 1)
+                            )[rb] * 2)
                         ),
                     ),
                     hcl.cast(out_dtype, 0),
