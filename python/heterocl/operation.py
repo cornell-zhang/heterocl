@@ -193,7 +193,111 @@ def min(expr, axis=None, dtype=None, name=""):
     return ast.ReduceOp(name, expr, "min", axis, dtype, init, loc)
 
 
-def reducer(init, freduce, dtype=None, name=None):
+def reducer(init, freduce, dtype="int32", name=None):
+    """Create a reducer for a reduction operation.
+    This API creates a reducer according to the initial value `init` and the
+    reduction function `freduce`. The initial value can be either an
+    expression or a tensor. With the reducer, users can create a reduction
+    operation, where the users can further specify the input to be reduced
+    `expr`, its axis `axis`, and the condition `where`. The general rule of
+    the reduction operation is shown below. Note that for the reduction
+    function, **the first argument is the input while the second argument
+    is the accumulator**. Moreover, if the accumulator is an expression,
+    the reduction function **should return an expression**. On the other hand,
+    if the accumulator is a list or a tensor, the reduction function **should
+    not return anything**.
+    .. code-block:: python
+        # this can be a tensor
+        output = init
+        # the specified reduction axis
+        for i in reduction_domain:
+            if (where):
+                output = freduce(input[..., i, ...], output)
+    Users can further specify the data type for the reduction operation. For
+    a multi-dimensional reduction operation, users can have multiple reduce
+    axes. In this case, we can write them together in a list.
+    Parameters
+    ----------
+    init : Expr or Tensor
+        The initial value of the accumulator
+    freduce : callable
+        The reduction function that takes in two arguments. The first argument
+        is the new input value and the second argument is the accumulator
+    dtype : Type, optional
+        The data type of the accumulator
+    name : str, optional
+        The name of the generated reducer
+    Returns
+    -------
+    callable
+    See Also
+    --------
+    sum, max
+    Examples
+    --------
+    .. code-block:: python
+        # example 1.1 - basic reduction : summation
+        my_sum = hcl.reducer(0, lambda x, y: x+y)
+        A = hcl.placeholder((10,))
+        r = hcl.reduce_axis(0, 10)
+        B = hcl.compute((1,), lambda x: my_sum(A[r], axis=r))
+        # equivalent code
+        B[0] = 0
+        for r in (0, 10):
+            B[0] = A[r] + B[0]
+        # example 1.2 - with condition
+        B = hcl.compute((1,), lambda x: my_sum(A[r], axis=r, where=A[r]>5))
+        # equivalent code
+        B[0] = 0
+        for r in (0, 10):
+            if A[r] > 5:
+                B[0] = A[r] + B[0]
+        # example 1.3 - with data type specification
+        B = hcl.compute((1,), lambda x: my_sum(A[r], axis=r, dtype=hcl.UInt(4)))
+        # the output will be downsize to UInt(4)
+        # example 2 = a more complicated reduction
+        # x is the input, y is the accumulator
+        def my_reduction(x, y):
+            with hcl.if_(x > 5):
+                hcl.return_(y + x)
+            with hcl.else_():
+                hcl.return_(y - x)
+        my_sum = hcl.reducer(0, my_reduction)
+        A = hcl.placeholder((10,))
+        r = hcl.reduce_axis(0, 10)
+        B = hcl.compute((1,), lambda x: my_sum(A[r], axis=r))
+        # equivalent code
+        B[0] = 0
+        for r in range(0, 10):
+            if A[r] > 5:
+                B[0] = B[0] + A[r]
+            else:
+                B[0] = B[0] - A[r]
+        # example 3 - multiple reduce axes
+        A = hcl.placeholder((10, 10))
+        r1 = hcl.reduce_axis(0, 10)
+        r2 = hcl.reduce_axis(0, 10)
+        B = hcl.compute((1,), lambda x: my_sum(A[r1, r2], axis=[r1, r2]))
+        # equivalent code
+        B[0] = 0
+        for r1 in (0, 10):
+            for r2 in (0, 10):
+                B[0] = A[r1, r2] + B[0]
+        # example 4 - write a sorting algorithm with reduction
+        init = hcl.compute((10,), lambda x: 11)
+        def freduce(x, Y):
+            with hcl.for_(0, 10) as i:
+                with hcl.if_(x < Y[i]):
+                    with hcl.for_(9, i, -1) as j:
+                        Y[j] = Y[j-1]
+                    Y[i] = x
+                    hcl.break_()
+        my_sort = hcl.reducer(init, freduce)
+        A = hcl.placeholder((10, 10))
+        r = hcl.reduce_axis(0, 10)
+        # note that we need to use the underscore the mark the reduction axis
+        B = hcl.compute(A.shape, lambda _x, y: my_sort(A[r, y], axis=r))
+    """
     raise HCLNotImplementedError("reducer is not implemented yet")
 
 def pack(tensor, axis=0, factor=None, name=None, dtype=None):
