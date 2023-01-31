@@ -298,7 +298,9 @@ def reducer(init, freduce, dtype="int32", name=None):
         # note that we need to use the underscore the mark the reduction axis
         B = hcl.compute(A.shape, lambda _x, y: my_sort(A[r, y], axis=r))
     """
-    raise HCLNotImplementedError("reducer is not implemented yet")
+    def make_reduce(expr, axis, where=True, name=name, dtype=dtype):
+        pass
+    return make_reduce
 
 def pack(tensor, axis=0, factor=None, name=None, dtype=None):
     """Pack a tensor with smaller bitwidth to a tensor with larger bitwidth."""
