@@ -233,17 +233,17 @@ def conv2d_nchw(
 
 def popcnt(x):
     # https://tlx.github.io/popcount_8hpp_source.html
-    if x.dtype.width == 8:
+    if x.dtype.bits == 8:
         x -= (x >> 1) & 0x55
         x = (x & 0x33) + ((x >> 2) & 0x33)
         x = (x + (x >> 4)) & 0x0F
         return x
-    # elif x.dtype.width == 16:
+    # elif x.dtype.bits == 16:
     #     x -= (x >> 1) & 0x5555
     #     x = (x & 0x3333) + ((x >> 2) & 0x3333)
     #     x = (x + (x >> 4)) & 0x0F0F
     #     return (x * 0x0101) >> 8
-    elif x.dtype.width == 32:
+    elif x.dtype.bits == 32:
         # x -= (x >> 1) & 0x55555555
         # x = (x & 0x33333333) + ((x >> 2) & 0x33333333)
         # x = (x + (x >> 4)) & 0x0F0F0F0F
