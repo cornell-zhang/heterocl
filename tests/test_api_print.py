@@ -91,3 +91,11 @@ def test_print_index():
 
     s = hcl.create_schedule([], kernel)
     f = hcl.build(s)
+
+
+def test_print_extra_output():
+    output = get_stdout("print_test_extra_char").split("\n")[2]
+    # remove all unwanted characters
+    for c in unwanted_char:
+        output = output.replace(c, "")
+    assert len(output) == 46
