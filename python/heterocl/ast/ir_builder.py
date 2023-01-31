@@ -1269,6 +1269,9 @@ class IRBuilder(object):
         if op.fmt == "":
             op.fmt = default_fmt
 
+        # add \00 llvm terminating character
+        op.fmt += "\00"
+
         # build print op
         operands = [v.result for v in op.args]
         print_op = hcl_d.PrintOp(operands, ip=ip, loc=loc)
