@@ -1139,3 +1139,38 @@ def test_tensor_slice_dtype():
     golden = np.zeros((2, 3, 4), dtype=np.int32)
     golden[0][0][0] = 32
     assert np.array_equal(golden, np_res)
+
+
+# https://github.com/cornell-zhang/hcl-dialect-prototype/issues/162
+def test_mutate_segfault():
+    hcl.init()
+    def kernel():
+        n = 8192
+        n64 = n // 64
+        data0 = hcl.compute((n,), lambda i: 0, name="data", dtype='uint32')
+        data1 = hcl.compute((n,), lambda i: 0, name="data", dtype='uint32')
+        data2 = hcl.compute((n,), lambda i: 0, name="data", dtype='uint32')
+        data3 = hcl.compute((n,), lambda i: 0, name="data", dtype='uint32')
+
+        cnt = hcl.scalar(0, 'cnt', dtype='uint32')
+        with hcl.while_(cnt.v < 2):
+            cnt.v = cnt.v + 1
+
+            ot, ob = data0, data1
+            it, ib = data2, data3
+
+            def doit(i):
+                i64 = i * 64
+                def even_odd(dst, j, offs):
+                    dst[i64+2*j  ] = ot[i64+offs+j]
+                    dst[i64+2*j+1] = ob[i64+offs+j]
+                hcl.mutate((32,), lambda j: even_odd(it, j,  0), "a")
+                hcl.mutate((32,), lambda j: even_odd(ib, j, 32), "b")
+            hcl.mutate((n64,), doit, "c")
+
+        r = hcl.compute((1,), lambda i: 0, dtype=hcl.UInt(32))
+        return r
+    s = hcl.create_schedule([], kernel)
+    f = hcl.build(s)
+    hcl_res = hcl.asarray(np.zeros((1,), dtype=np.uint32), dtype=hcl.UInt(32))
+    f(hcl_res)
