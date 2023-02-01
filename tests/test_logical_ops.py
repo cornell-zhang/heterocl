@@ -20,7 +20,6 @@ def test_while_with_and():
         return res
 
     s = hcl.create_schedule([], kernel)
-    print(hcl.lower(s))
     f = hcl.build(s)
     hcl_res = hcl.asarray(np.zeros((1,), dtype=np.int32), dtype=hcl.UInt(8))
     f(hcl_res)
