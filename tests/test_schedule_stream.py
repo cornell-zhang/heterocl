@@ -31,7 +31,6 @@ def test_move_outputs():
     assert "update2" in mod.host_src
 
 
-@pytest.mark.skip(reason="IndexError: access out of bound")
 def test_in_place_update():
     hcl.init()
     A = hcl.placeholder((10, 32), "A")
@@ -47,14 +46,13 @@ def test_in_place_update():
         project="stream_tests/test_in_place_update.prj",
     )
     s = hcl.create_schedule([A], kernel)
-    print(s.device_module)
     s.to(A, target.xcel)
     s.to(kernel.update1.A, target.host)
 
     mod = hcl.build(s, target)
-    assert "top" in mod.host_src
-    assert "Stage_update1" in mod.src
-    assert "Stage_update2" in mod.src
+    assert "top" in mod.host_src  # check top function call is there in host code
+    assert "update1" in mod.src  # check update1 is there in device code
+    assert "update2" in mod.host_src  # check update2 function is there in host code
 
 
 def test_multiple_subgraph():
