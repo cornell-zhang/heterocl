@@ -544,16 +544,12 @@ def max_pool2d_nchw(
     out_width = (width - pooling_w + pad_left + pad_right) // stride_w + 1
     dheight = hcl.reduce_axis(0, pooling_h, "rh")
     dwidth = hcl.reduce_axis(0, pooling_w, "rw")
-    from hcl_mlir.dialects import arith
+    reducer = hcl.reducer(0, lambda x, y : x | y, dtype=data.dtype, name=name+"_max")
 
     return hcl.compute(
         (batch, channel, out_height, out_width),
-        lambda i, c, h, w: hcl.reduce(
+        lambda i, c, h, w: reducer(
             data[i, c, h * stride_h + dheight, w * stride_w + dwidth],
-            init_val=0,
-            reduce_op=arith.OrIOp,
-            name=name + "_max",
-            dtype=data.dtype,
             axis=[dheight, dwidth],
         ),
         dtype=data.dtype,
@@ -589,16 +585,12 @@ def packed_max_pool2d_nhwc(
     out_width = (width - pooling_w + pad_left + pad_right) // stride_w + 1
     dheight = hcl.reduce_axis(0, pooling_h, "rh")
     dwidth = hcl.reduce_axis(0, pooling_w, "rw")
-    from hcl_mlir.dialects import arith
+    reducer = hcl.reducer(0, lambda x, y : x | y, dtype=hcl.UInt(bitwidth), name=name+"_max")
 
     maxpool = hcl.compute(
         (batch, out_height, out_width, channel),
-        lambda i, h, w, c: hcl.reduce(
+        lambda i, h, w, c: reducer(
             data[i, h * stride_h + dheight, w * stride_w + dwidth, c],
-            init_val=0,
-            reduce_op=arith.OrIOp,
-            name=name + "_max",
-            dtype=hcl.UInt(bitwidth),
             axis=[dheight, dwidth],
         ),
         name=name,
