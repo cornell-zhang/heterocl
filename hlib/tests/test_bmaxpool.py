@@ -2,18 +2,13 @@ import heterocl as hcl
 import hlib.bnn as bnn
 import numpy as np
 
+
 def test_binary_maxpool_nchw():
     in_shape = (1, 3, 16, 16)
     out_shape = (1, 3, 8, 8)
-    
 
     def test_program(A):
-        res = bnn.max_pool2d_nchw(
-            A, 
-            pooling=[2, 2],
-            stride=[2, 2],
-            padding=[0, 0]
-        )
+        res = bnn.max_pool2d_nchw(A, pooling=[2, 2], stride=[2, 2], padding=[0, 0])
         return res
 
     A = hcl.placeholder(in_shape, "A", dtype=hcl.UInt(1))
@@ -37,19 +32,23 @@ def test_binary_maxpool_nchw():
                     )
     assert np.allclose(np_res, golden)
 
+
 def test_packed_binary_maxpool_nhwc():
-    in_shape = (1, 16, 16, 3)
-    out_shape = (1, 8, 8, 3)
-    
+    in_shape = (1, 16, 16, 8)
+    out_shape = (1, 8, 8, 8)
+    bitwidth = 8
 
     def test_program(A):
-        res = bnn.packed_max_pool2d_nhwc(
-            A, 
-            pooling=[2, 2],
-            stride=[2, 2],
-            padding=[0, 0]
+        packed_A = hcl.pack(
+            A, axis=3, factor=bitwidth, name="packed_A", dtype=hcl.UInt(bitwidth)
         )
-        return res
+        res = bnn.packed_max_pool2d_nhwc(
+            packed_A, pooling=[2, 2], stride=[2, 2], padding=[0, 0]
+        )
+        res_unpacked = hcl.unpack(
+            res, axis=3, factor=bitwidth, name="res_unpacked", dtype=hcl.UInt(1)
+        )
+        return res_unpacked
 
     A = hcl.placeholder(in_shape, "A", dtype=hcl.UInt(1))
     s = hcl.create_schedule([A], test_program)

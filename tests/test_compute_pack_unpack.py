@@ -15,9 +15,6 @@ def test_unpack():
         A = hcl.placeholder((10,), "A", dtype=hcl.UInt(i))
 
         s = hcl.create_schedule([A], unpack)
-        ir = hcl.lower(s)
-        # with open("/home/nz264/shared/mlir/debug/intermediate/unpack_wrong.mlir", "w+") as f:
-        #     f.write(str(ir))
         f = hcl.build(s)
 
         _A = hcl.asarray(np.random.randint(1000, size=(10,)), dtype=hcl.UInt(i))
