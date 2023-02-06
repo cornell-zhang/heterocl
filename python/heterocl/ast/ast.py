@@ -21,11 +21,17 @@ def immediate_to_constant(value, loc, dtype=None):
         return value  # pass through
     if dtype is not None:
         return ConstantOp(value, dtype, loc)
-    if isinstance(value, int):
+    if isinstance(value, bool):
+        if value:
+            return ConstantOp(1, Int(1), loc)
+        else:
+            return ConstantOp(0, Int(1), loc)
+    elif isinstance(value, int):
         if value < 0xFFFFFFFF:
             return ConstantOp(value, Int(32), loc)
         else:
-            return ConstantOp(value, Int(64), loc)
+            bits = value.bit_length()
+            return ConstantOp(value, Int(bits), loc)
     else:
         return ConstantOp(value, Float(64), loc)
 
@@ -446,7 +452,7 @@ class CastOp(Expr):
         self.dtype = dtype
 
     def __repr__(self):
-        return f"({self.name} {self.expr} : {self.dtype})"
+        return f"({self.dtype}) {self.expr}"
 
 
 class Add(BinaryOp):
@@ -746,7 +752,7 @@ class LoadOp(Expr):
     def __init__(self, tensor, index, loc):
         super().__init__("getitem", loc)
         self.tensor = tensor
-        self.index = index
+        self.index = [immediate_to_constant(i, loc, Index()) for i in index]
         self.dtype = tensor.dtype
         # load is not reusable
         # e.g.
@@ -759,7 +765,7 @@ class LoadOp(Expr):
         self.reusable = False
 
     def __repr__(self):
-        return f"{self.tensor.name}{self.index}"
+        return f"{self.tensor.name}[" + ", ".join([str(i) for i in self.index]) + "]"
 
 
 class StoreOp(Operation):
@@ -768,14 +774,14 @@ class StoreOp(Operation):
     def __init__(self, tensor, index, value, loc):
         super().__init__("setitem", loc)
         self.tensor = tensor
-        self.index = index
-        self.value = value
+        self.index = [immediate_to_constant(i, loc, Index()) for i in index]
+        self.value = immediate_to_constant(value, loc, tensor.dtype)
         self.level = len(scope)
 
     def __repr__(self):
         code_str = ""
         code_str = print_indent(code_str, self.level)
-        code_str += f"{self.tensor.name}{self.index} = {self.value}"
+        code_str += f"{self.tensor.name}[" + ", ".join([str(i) for i in self.index]) + f"] = {self.value}"
         return code_str
 
 
@@ -1070,7 +1076,7 @@ class ComputeOp(Operation):
 class IfOp(Operation):
     def __init__(self, cond, loc):
         super().__init__("if", loc)
-        self.cond = cond
+        self.cond = immediate_to_constant(cond, loc)
         self.body = list()
         self.else_body = list()
         self.level = len(scope)
@@ -1316,6 +1322,7 @@ class ReduceOp(Expr):
         self.name = name
         self.expr = expr
         self.scalar = AllocOp(name, (1,), dtype, loc)
+        self.body = list()
         self.reduce_op = reduce_op
         self.axis = axis
         self.dtype = dtype
@@ -1323,9 +1330,15 @@ class ReduceOp(Expr):
         self.level = len(scope)
 
     def __repr__(self):
-        return "{}({}, {}, {}, {})".format(
-            self.reduce_op, self.init, self.axis, self.dtype, self.name
-        )
+        code_str = ""
+        code_str += "reduce"
+        code_str += " (" + ", ".join([i.name for i in self.axis]) + ")"
+        code_str += " {\n"
+        for op in self.body:
+            code_str += f"{op}\n"
+        code_str = print_indent(code_str, self.level)
+        code_str += "}\n"
+        return code_str
 
 
 class PrintOp(Operation):

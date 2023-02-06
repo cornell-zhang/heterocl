@@ -20,6 +20,9 @@ class NestElseIf(Pass):
         super().__init__("nest_else_if")
 
     def visit(self, op):
+        if isinstance(op, ast.StoreOp):
+            if op.value is not None:
+                self.visit(op.value)
         if hasattr(op, "body") and op.body is not None:
             for body_op in op.body:
                 self.visit(body_op)

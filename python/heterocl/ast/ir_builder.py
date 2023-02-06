@@ -1173,27 +1173,9 @@ class IRBuilder(object):
             loops.append(loop)
             body_ip = InsertionPoint(loop.body.operations[0])
 
-        # load from the input tensor
-        self.build_visitor(op.expr, body_ip)
-        # load from scalar
-        load_scalar = ast.LoadOp(op.scalar, (zero_idx,), op.loc)
-        # build the reduction op
-        if op.reduce_op == "sum":
-            reduce_op = ast.Add(op.expr, load_scalar, op.loc)
-        elif op.reduce_op == "max":
-            reduce_op = ast.Max(op.expr, load_scalar, op.loc)
-        elif op.reduce_op == "min":
-            reduce_op = ast.Min(op.expr, load_scalar, op.loc)
-        elif isinstance(op.reduce_op, ast.BinaryOp):
-            reduce_op = op.reduce_op
-        else:
-            raise HCLValueError(f"Unsupported reduction op {op.reduce_op}")
-
-        casted_reduce_op = ast.CastOp(reduce_op, op.dtype, op.loc)
-        self.build_visitor(casted_reduce_op, body_ip)
-        # store to the scalar
-        store_res = ast.StoreOp(op.scalar, (zero_idx,), casted_reduce_op, op.loc)
-        self.build_visitor(store_res, body_ip)
+        # build body op
+        for body_op in op.body:
+            self.build_visitor(body_op, body_ip)
 
         # load from the scalar
         load_op = ast.LoadOp(op.scalar, (zero_idx,), op.loc)

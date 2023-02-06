@@ -80,7 +80,7 @@ def scalar(init, name=None, dtype=None):
 
 def reduce_axis(lower, upper, name=None):
     """Create a reduction axis for reduction operations."""
-    name = UniqueName.get(name, "reduction_axis")
+    name = UniqueName.get(name, "r")  # r stands for reduction
     filename, lineno = get_src_loc()
     loc = ast.Location(filename, lineno)
     return ast.ReduceVar(name, parent_loop=None, loc=loc, bound=(lower, upper))
@@ -137,60 +137,6 @@ def select(cond, true_val, false_val):
     false_val = ast.immediate_to_constant(false_val, loc)
     cond = ast.immediate_to_constant(cond, loc)
     return ast.SelectOp(cond, true_val, false_val, loc)
-
-
-def sum(expr, axis, dtype=None, name=None):
-    name = UniqueName.get(name, "op")
-    if isinstance(axis, tuple):
-        axis = list(axis)
-    elif isinstance(axis, ast.ReduceVar):
-        axis = [axis]
-    elif not isinstance(axis, list):
-        raise APIError("axis must be a list of reduction axis")
-    # TODO: deduce dtype from expr
-    dtype = config.init_dtype if dtype == None else dtype
-    if isinstance(dtype, str):
-        dtype = dtype_to_hcl(dtype)
-    filename, lineno = get_src_loc()
-    loc = ast.Location(filename, lineno)
-    return ast.ReduceOp(name, expr, "sum", axis, dtype, 0, loc)
-
-
-def max(expr, axis=None, dtype=None, name=""):
-    name = UniqueName.get(name, "op")
-    if isinstance(axis, tuple):
-        axis = list(axis)
-    elif isinstance(axis, ast.ReduceVar):
-        axis = [axis]
-    elif not isinstance(axis, list):
-        raise APIError("axis must be a list of reduction axis")
-    # TODO: deduce dtype from expr
-    dtype = config.init_dtype if dtype == None else dtype
-    if isinstance(dtype, str):
-        dtype = dtype_to_hcl(dtype)
-    filename, lineno = get_src_loc()
-    loc = ast.Location(filename, lineno)
-    # init should be the minimum value of the dtype 
-    init = get_min_value(dtype)
-    return ast.ReduceOp(name, expr, "max", axis, dtype, init, loc)
-
-def min(expr, axis=None, dtype=None, name=""):
-    name = UniqueName.get(name, "op")
-    if isinstance(axis, tuple):
-        axis = list(axis)
-    elif isinstance(axis, ast.ReduceVar):
-        axis = [axis]
-    elif not isinstance(axis, list):
-        raise APIError("axis must be a list of reduction axis")
-    # TODO: deduce dtype from expr
-    dtype = config.init_dtype if dtype == None else dtype
-    if isinstance(dtype, str):
-        dtype = dtype_to_hcl(dtype)
-    filename, lineno = get_src_loc()
-    loc = ast.Location(filename, lineno)
-    # init should be the maximum value of the dtype
-    init = get_max_value(dtype)
-    return ast.ReduceOp(name, expr, "min", axis, dtype, init, loc)
 
 
 def reducer(init, freduce, dtype="int32", name=None):
@@ -298,9 +244,66 @@ def reducer(init, freduce, dtype="int32", name=None):
         # note that we need to use the underscore the mark the reduction axis
         B = hcl.compute(A.shape, lambda _x, y: my_sort(A[r, y], axis=r))
     """
+
     def make_reduce(expr, axis, where=True, name=name, dtype=dtype):
-        pass
+        name = UniqueName.get(name, "op")
+        if isinstance(axis, tuple):
+            axis = list(axis)
+        elif isinstance(axis, ast.ReduceVar):
+            axis = [axis]
+        elif not isinstance(axis, list):
+            raise APIError("axis must be a list of reduction axis")
+
+        # Set up data type
+        # TODO: deduce dtype from expr
+        dtype = config.init_dtype if dtype == None else dtype
+        if isinstance(dtype, str):
+            dtype = dtype_to_hcl(dtype)
+        # Set up file location
+        filename, lineno = get_src_loc()
+        loc = ast.Location(filename, lineno)
+
+        nonlocal init
+        if init is None:
+            if freduce == ast.Min:
+                init = get_max_value(dtype)
+            elif freduce == ast.Max:
+                init = get_min_value(dtype)
+            else:
+                raise APIError(
+                    "init must be specified if freduce is not a reduction operator"
+                )
+
+        reduce_op = ast.ReduceOp(name, expr, freduce, axis, dtype, init, loc)
+        ast.scope.push(reduce_op.body)
+        if_op = ast.IfOp(where, loc)
+        reduce_op.body.append(if_op)
+        # trace the reduction freduce
+        ast.scope.push(if_op.body)
+
+        if freduce == ast.Min:
+            res = ast.Min(expr, reduce_op.scalar[0], loc)
+        elif freduce == ast.Max:
+            res = ast.Max(expr, reduce_op.scalar[0], loc)
+        elif callable(freduce):
+            res = freduce(expr, reduce_op.scalar[0])
+        else:
+            raise APIError("freduce must be a callable or a reduction operator")
+
+        casted = ast.CastOp(res, dtype, loc)
+        store_op = ast.StoreOp(reduce_op.scalar, (0,), casted, loc)
+        if_op.body.append(store_op)
+        ast.scope.pop()  # if_op.body
+        ast.scope.pop()  # reduce_op.body
+        return reduce_op
+
     return make_reduce
+
+
+sum = reducer(0, lambda x, y: x + y, name="sum")
+max = reducer(None, ast.Max, name="max")
+min = reducer(None, ast.Min, name="min")
+
 
 def pack(tensor, axis=0, factor=None, name=None, dtype=None):
     """Pack a tensor with smaller bitwidth to a tensor with larger bitwidth."""

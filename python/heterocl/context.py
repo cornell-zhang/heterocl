@@ -17,7 +17,7 @@ class UniqueName(object):
         "tensor": set(),
         "stage": set(),
         "schedule": set(),
-        "reduction_axis": set(),
+        "r": set(),
         "instance": set(),
         "op": set(),
     }
