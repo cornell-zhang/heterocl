@@ -625,30 +625,26 @@ class IRBuilder(object):
         # Step 4: attach necessary attributes
         if isinstance(t, (htypes.UInt, htypes.UFixed)):
             binary_op.attributes["unsigned"] = UnitAttr.get()
-        
+
         # Bypass for left shift an integer by its bitwidth
         if isinstance(op, ast.LeftShiftOp) and isinstance(t, (htypes.Int, htypes.UInt)):
             i1 = IntegerType.get_signless(1)
             i64 = IntegerType.get_signless(64)
-            sge_attr = IntegerAttr.get(i64, 5) # signed greater or equal
-            uge_attr = IntegerAttr.get(i64, 9) # unsigned greater or equal
+            sge_attr = IntegerAttr.get(i64, 5)  # signed greater or equal
+            uge_attr = IntegerAttr.get(i64, 9)  # unsigned greater or equal
             shift_type = hcl_dtype_to_mlir(t, signless=True)
             bitwidth = arith_d.ConstantOp(
-                shift_type, IntegerAttr.get(shift_type, t.bits),
-                ip=ip, loc=loc
+                shift_type, IntegerAttr.get(shift_type, t.bits), ip=ip, loc=loc
             )
             op_attr = sge_attr if isinstance(t, htypes.Int) else uge_attr
             cond = arith_d.CmpIOp(
-                i1, op_attr, rhs.result, bitwidth.result,
-                ip=ip, loc=loc
+                i1, op_attr, rhs.result, bitwidth.result, ip=ip, loc=loc
             )
             zero = arith_d.ConstantOp(
-                shift_type, IntegerAttr.get(shift_type, 0),
-                ip=ip, loc=loc
+                shift_type, IntegerAttr.get(shift_type, 0), ip=ip, loc=loc
             )
             select = arith_d.SelectOp(
-                cond.result, zero.result, binary_op.result,
-                ip=ip, loc=loc
+                cond.result, zero.result, binary_op.result, ip=ip, loc=loc
             )
             if isinstance(t, htypes.UInt):
                 select.attributes["unsigned"] = UnitAttr.get()
@@ -902,8 +898,17 @@ class IRBuilder(object):
             elif op.dtype.bits == 1:
                 value_attr = BoolAttr.get(op.value)
             else:
-                attr_type = IntegerType.get_signless(op.dtype.bits)
-                value_attr = IntegerAttr.get(attr_type, op.value)
+                if op.dtype.bits < 64:
+                    attr_type = IntegerType.get_signless(op.dtype.bits)
+                    value_attr = IntegerAttr.get(attr_type, op.value)
+                elif op.dtype.bits == 64:
+                    value_attr = IntegerAttr.parse(str(op.value))
+                else:
+                    raise MLIRLimitationError(
+                        f"Could not create constant op for value {op.value}, "+
+                        "MLIR IntegerAttr only supports up to 64-bit integer values." +
+                        f"This value requires {op.value.bit_length()} bits."
+                    )
             const_op = arith_d.ConstantOp(dtype, value_attr, ip=ip, loc=loc)
         elif isinstance(op.dtype, htypes.Float):
             if op.dtype.bits == 16:
