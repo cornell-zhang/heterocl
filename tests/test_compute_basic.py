@@ -1,6 +1,44 @@
 import heterocl as hcl
-import numpy
+import numpy as np
 import pytest
+
+
+def test_rhs_binaryop():
+    hcl.init()
+
+    def kernel():
+        v = hcl.scalar(5, "v")
+        res = hcl.compute((11,), lambda i: 0, dtype=hcl.Int(32))
+        res[0] = 1 + v.v
+        res[1] = 1 - v.v
+        res[2] = 1 * v.v
+        res[3] = 52 / v.v
+        res[4] = 6 // v.v
+        res[5] = 6 % v.v
+        res[6] = 1 << v.v
+        res[7] = 64 >> v.v
+        res[8] = 1 & v.v
+        res[9] = 1 | v.v
+        res[10] = 1 ^ v.v
+        return res
+
+    s = hcl.create_schedule([], kernel)
+    f = hcl.build(s)
+    hcl_res = hcl.asarray(np.zeros((11,), dtype=np.int32))
+    f(hcl_res)
+    np_res = np.zeros((11,), dtype=np.int32)
+    np_res[0] = 1 + 5
+    np_res[1] = 1 - 5
+    np_res[2] = 1 * 5
+    np_res[3] = 52 / 5
+    np_res[4] = 6 // 5
+    np_res[5] = 6 % 5
+    np_res[6] = 1 << 5
+    np_res[7] = 64 >> 5
+    np_res[8] = 1 & 5
+    np_res[9] = 1 | 5
+    np_res[10] = 1 ^ 5
+    assert np.array_equal(hcl_res.asnumpy(), np_res)
 
 
 def _test_kernel(kernel):
@@ -8,8 +46,8 @@ def _test_kernel(kernel):
     s = hcl.create_schedule([A], kernel)
     f = hcl.build(s)
 
-    np_A = numpy.random.randint(10, size=(10,))
-    np_B = numpy.zeros(10)
+    np_A = np.random.randint(10, size=(10,))
+    np_B = np.zeros(10)
 
     # TODO(Niansong): warn user of mismatched np dtype and hcldtype
     #  hcl.asarray(np_A) would give us incorrect results
@@ -119,8 +157,8 @@ def _test_fcompute_multiple_return():
     s = hcl.create_schedule(A, kernel)
     f = hcl.build(s)
 
-    np_A = numpy.random.randint(10, size=(10,))
-    np_B = numpy.zeros(10)
+    np_A = np.random.randint(10, size=(10,))
+    np_B = np.zeros(10)
 
     hcl_A = hcl.asarray(np_A)
     hcl_B = hcl.asarray(np_B, dtype=hcl.Int(32))
@@ -155,8 +193,8 @@ def _test_fcompute_multiple_return_multi_dim():
     s = hcl.create_schedule(A, kernel)
     f = hcl.build(s)
 
-    np_A = numpy.random.randint(10, size=(10, 10, 10))
-    np_B = numpy.zeros((10, 10, 10))
+    np_A = np.random.randint(10, size=(10, 10, 10))
+    np_B = np.zeros((10, 10, 10))
 
     hcl_A = hcl.asarray(np_A)
     hcl_B = hcl.asarray(np_B, dtype=hcl.Int(32))
@@ -188,8 +226,8 @@ def test_update():
     s = hcl.create_schedule([A, B], kernel)
     f = hcl.build(s)
 
-    np_A = numpy.random.randint(10, size=(10,))
-    np_B = numpy.zeros(10)
+    np_A = np.random.randint(10, size=(10,))
+    np_B = np.zeros(10)
 
     hcl_A = hcl.asarray(np_A)
     hcl_B = hcl.asarray(np_B, dtype=hcl.Int(32))
@@ -205,7 +243,7 @@ def test_update():
 def test_copy():
     hcl.init()
 
-    np_A = numpy.random.randint(10, size=(10, 10, 10))
+    np_A = np.random.randint(10, size=(10, 10, 10))
     py_A = np_A.tolist()
 
     def kernel():
@@ -217,12 +255,12 @@ def test_copy():
     s = hcl.create_schedule([], kernel)
     f = hcl.build(s)
 
-    np_O = numpy.zeros(np_A.shape)
+    np_O = np.zeros(np_A.shape)
     hcl_O = hcl.asarray(np_O, dtype=hcl.Int(32))
 
     f(hcl_O)
 
-    assert numpy.array_equal(hcl_O.asnumpy(), np_A * 2)
+    assert np.array_equal(hcl_O.asnumpy(), np_A * 2)
 
 
 def test_mutate_basic():
@@ -237,8 +275,8 @@ def test_mutate_basic():
     s = hcl.create_schedule([A, B], kernel)
     f = hcl.build(s)
 
-    np_A = numpy.random.randint(10, size=(10,))
-    np_B = numpy.zeros(10)
+    np_A = np.random.randint(10, size=(10,))
+    np_B = np.zeros(10)
 
     hcl_A = hcl.asarray(np_A)
     hcl_B = hcl.asarray(np_B, dtype=hcl.Int(32))
@@ -265,8 +303,8 @@ def test_mutate_complex():
     s = hcl.create_schedule([A, B], kernel)
     f = hcl.build(s)
 
-    np_A = numpy.random.randint(10, size=(10, 10))
-    np_B = numpy.zeros((10,))
+    np_A = np.random.randint(10, size=(10, 10))
+    np_B = np.zeros((10,))
 
     gold_B = []
     for i in range(0, 10):
@@ -287,7 +325,7 @@ def test_const_tensor_int():
     def test_kernel(dtype, size):
         hcl.init(dtype)
 
-        np_A = numpy.random.randint(10, size=size)
+        np_A = np.random.randint(10, size=size)
         py_A = np_A.tolist()
 
         def kernel():
@@ -299,15 +337,15 @@ def test_const_tensor_int():
         s = hcl.create_schedule([], kernel)
         f = hcl.build(s)
 
-        np_O = numpy.zeros(np_A.shape)
+        np_O = np.zeros(np_A.shape)
         hcl_O = hcl.asarray(np_O, dtype=dtype)
 
         f(hcl_O)
 
-        assert numpy.array_equal(hcl_O.asnumpy(), np_A * 2)
+        assert np.array_equal(hcl_O.asnumpy(), np_A * 2)
 
     for i in range(0, 5):
-        bit = numpy.random.randint(6, 60)
+        bit = np.random.randint(6, 60)
         test_kernel(hcl.Int(bit), (8, 8))
         test_kernel(hcl.UInt(bit), (8, 8))
         test_kernel(hcl.Int(bit), (20, 20, 3))
@@ -318,7 +356,7 @@ def test_const_tensor_float():
     def test_kernel(dtype, size):
         hcl.init(dtype)
 
-        np_A = numpy.random.rand(*size)
+        np_A = np.random.rand(*size)
         py_A = np_A.tolist()
 
         def kernel():
@@ -332,13 +370,13 @@ def test_const_tensor_float():
         s = hcl.create_schedule([], kernel)
         f = hcl.build(s)
 
-        np_O = numpy.zeros(np_A.shape)
+        np_O = np.zeros(np_A.shape)
         hcl_O = hcl.asarray(np_O, dtype=hcl.Float())
 
         f(hcl_O)
 
         np_A = hcl.cast_np(np_A, dtype)
-        assert numpy.allclose(hcl_O.asnumpy(), np_A * 2, 1, 1e-5)
+        assert np.allclose(hcl_O.asnumpy(), np_A * 2, 1, 1e-5)
 
     test_kernel(hcl.Float(), (8, 8))
     test_kernel(hcl.Float(), (20, 20, 3))
@@ -348,7 +386,7 @@ def test_const_tensor_fixed():
     def test_kernel(dtype, size):
         hcl.init(dtype)
 
-        np_A = numpy.random.rand(*size)
+        np_A = np.random.rand(*size)
         py_A = np_A.tolist()
 
         def kernel():
@@ -362,16 +400,16 @@ def test_const_tensor_fixed():
         s = hcl.create_schedule([], kernel)
         f = hcl.build(s)
 
-        np_O = numpy.zeros(np_A.shape)
+        np_O = np.zeros(np_A.shape)
         hcl_O = hcl.asarray(np_O, dtype=hcl.Float())
 
         f(hcl_O)
 
         np_A = hcl.cast_np(np_A, dtype)
-        assert numpy.allclose(hcl_O.asnumpy(), np_A * 2, 1, 1e-5)
+        assert np.allclose(hcl_O.asnumpy(), np_A * 2, 1, 1e-5)
 
     for i in range(0, 5):
-        bit = numpy.random.randint(10, 60)
+        bit = np.random.randint(10, 60)
         test_kernel(hcl.Fixed(bit, 4), (8, 8))
         test_kernel(hcl.UFixed(bit, 4), (8, 8))
         test_kernel(hcl.Fixed(bit, 4), (20, 20, 3))
