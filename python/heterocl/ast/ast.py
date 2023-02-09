@@ -232,24 +232,42 @@ class Expr(object):
 
     def __mod__(self, other):
         return Mod(self, other, self.loc)
+    
+    def __rmod__(self, other):
+        return Mod(other, self, self.loc)
 
     def __neg__(self):
         return Neg(self, self.loc)
 
     def __lshift__(self, other):
         return LeftShiftOp(self, other, self.loc)
+    
+    def __rlshift__(self, other):
+        return LeftShiftOp(other, self, self.loc)
 
     def __rshift__(self, other):
         return RightShiftOp(self, other, self.loc)
+    
+    def __rrshift__(self, other):
+        return RightShiftOp(other, self, self.loc)
 
     def __and__(self, other):
         return And(self, other, self.loc)
 
+    def __rand__(self, other):
+        return And(other, self, self.loc)
+
     def __or__(self, other):
         return Or(self, other, self.loc)
 
+    def __ror__(self, other):
+        return Or(other, self, self.loc)
+
     def __xor__(self, other):
         return XOr(self, other, self.loc)
+    
+    def __rxor__(self, other):
+        return XOr(other, self, self.loc)
 
     def __invert__(self):
         return Invert(self, self.loc)
