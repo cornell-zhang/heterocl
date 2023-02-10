@@ -32,7 +32,7 @@ def test_simplifier():
     # when we slice it with [0:4], we will get
     # 0b1101, the first four bits, which is 11 in decimal.
     def kernel(A):
-        a = hcl.scalar(1)
+        a = hcl.scalar(2)
         lower_idx = 0
         
         # upper index is 1 << 2, which is 4
