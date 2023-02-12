@@ -23,7 +23,6 @@ def test_simplify_slice():
         s = hcl.create_schedule(A, kernel)
         ir = hcl.lower(s)
 
-@pytest.mark.skip(reason="expected to fail")
 def test_simplifier():
     # in this example, we use a scalar's value
     # to calculate the lower and upper index
@@ -50,6 +49,20 @@ def test_simplifier():
     f(np_A, np_B)
     assert np_B.asnumpy().tolist() == [0b1101, 0b1110]
 
+def test_right_shift_op():
+    def kernel(A):
+        a = hcl.scalar(12)
+        lower_idx = 0
+        upper_idx = a.v >> 1
+        B = hcl.compute(A.shape, lambda x: A[x][lower_idx:upper_idx])
+        return B
+    A = hcl.placeholder((2,), "A")
+    s = hcl.create_schedule([A], kernel)
+    f = hcl.build(s)
+    np_A = hcl.asarray([0b101101, 0b101110])
+    np_B = hcl.asarray([0, 0])
+    f(np_A, np_B)
+    assert np_B.asnumpy().tolist() == [0b101101, 0b101110]
 
 # pytest does not execute this part
 # you can run this file directly to test
