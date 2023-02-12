@@ -62,8 +62,11 @@ def simplify(expr):
     and compute the result if possible
     Only supports affine expressions on integers and floats
     """
+
     if isinstance(expr, (int, float)):
         return expr
+    if isinstance(expr, sp.numbers.Integer):
+        return int(expr)
     if isinstance(expr, ConstantOp):
         return expr.value
     if isinstance(expr, IterVar):
@@ -86,6 +89,19 @@ def simplify(expr):
             return expr
         index = expr.index
         return sp.simplify(simplify(tensor.fcompute(*index)))
+    
+    # Start
+    elif isinstance(expr, LeftShiftOp):
+        lhs = simplify(simplify(expr.lhs))
+        rhs = simplify(simplify(expr.rhs))
+        return sp.simplify(lhs << rhs)
+    elif isinstance(expr, RightShiftOp):
+        lhs = simplify(simplify(expr.lhs))
+        rhs = simplify(simplify(expr.rhs))
+        return sp.simplify(lhs >> rhs)
+        
+    # End
+
     else:
         raise HCLError("Unsupported expression type: {}".format(type(expr)))
 
