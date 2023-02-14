@@ -1141,7 +1141,7 @@ def test_tensor_slice_dtype():
     assert np.array_equal(golden, np_res)
 
 
-# https://github.com/cornell-zhang/hcl-dialect-prototype/issues/162
+# https://github.com/cornell-zhang/hcl-dialect/issues/162
 def test_mutate_segfault():
     hcl.init()
     def kernel():

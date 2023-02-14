@@ -7,7 +7,7 @@ HeteroCL: A Multi-Paradigm Programming Infrastructure for Software-Defined Recon
 [Website](http://heterocl.csl.cornell.edu/web/index.html) | [Installation](http://heterocl.csl.cornell.edu/doc/installation.html) | [Tutorials](http://heterocl.csl.cornell.edu/doc/tutorials/index.html) | [Samples](http://heterocl.csl.cornell.edu/doc/samples/index.html) | [Documentation](http://heterocl.csl.cornell.edu/doc/index.html)
 
 ## HCL-MLIR
-For installing and using the HeteroCL MLIR dialect, please refer to the guide in the [HCL-MLIR](https://github.com/cornell-zhang/hcl-dialect-prototype) repository and build the dialect with Python binding. Following shows the complete script to connect the frontend with the MLIR flow.
+For installing and using the HeteroCL MLIR dialect, please refer to the guide in the [HCL-MLIR](https://github.com/cornell-zhang/hcl-dialect) repository and build the dialect with Python binding. Following shows the complete script to connect the frontend with the MLIR flow.
 
 ```bash
 git clone --recursive https://github.com/cornell-zhang/heterocl.git heterocl-mlir
@@ -19,7 +19,7 @@ export HCL_HOME=$(pwd)
 export PYTHONPATH=$HCL_HOME/python:$HCL_HOME/hlib/python:${PYTHONPATH}
 
 # build LLVM 15.0.0
-cd hcl-dialect-prototype
+cd hcl-dialect
 git clone https://github.com/llvm/llvm-project.git
 cd llvm-project
 git checkout tags/llvmorg-15.0.0
