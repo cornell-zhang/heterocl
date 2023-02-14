@@ -18,11 +18,11 @@ git checkout hcl-mlir
 export HCL_HOME=$(pwd)
 export PYTHONPATH=$HCL_HOME/python:$HCL_HOME/hlib/python:${PYTHONPATH}
 
-# build LLVM 15.0.0-rc1
+# build LLVM 15.0.0
 cd hcl-dialect-prototype
 git clone https://github.com/llvm/llvm-project.git
 cd llvm-project
-git checkout tags/llvmorg-15.0.0-rc1
+git checkout tags/llvmorg-15.0.0
 python3 -m pip install --upgrade pip
 python3 -m pip install -r mlir/python/requirements.txt
 mkdir -p build && cd build
@@ -46,7 +46,7 @@ cmake -G "Unix Makefiles" .. \
    -DLLVM_EXTERNAL_LIT=$LLVM_BUILD_DIR/bin/llvm-lit \
    -DPYTHON_BINDING=ON \
    -DOPENSCOP=OFF \
-   -DPython3_EXECUTABLE=~/.venv/hcl-dev/bin/python3
+   -DPython3_EXECUTABLE=`which python3`
 make -j8
 
 # install dependencies
@@ -67,7 +67,9 @@ python3 tests/mlir/hcl-mlir/test_gemm.py
 
 With the pursuit of improving compute performance under strict power constraints, there is an increasing need for deploying applications to heterogeneous hardware architectures with accelerators, such as GPUs and FPGAs. However, although these heterogeneous computing platforms are becoming widely available, they are very difficult to program especially with FPGAs. As a result, the use of such platforms has been limited to a small subset of programmers with specialized hardware knowledge.
 
-To tackle this challenge, we introduce HeteroCL, a programming infrastructure comprised of a Python-based domain-specific language (DSL) and a compilation flow. The HeteroCL DSL provides a clean programming abstraction that decouples algorithm specification from three important types of hardware customization in compute, data types, and memory architectures. HeteroCL can further capture the interdependence among these different customization techniques, allowing programmers to explore various performance/area/accuracy trade-offs in a systematic and productive manner. In addition, our framework currently provides two advanced domain-specific optimizations with stencil analysis and systolic array generation, which produce highly efficient microarchitectures for accelerating popular workloads from image processing and deep learning domains.
+To tackle this challenge, we introduce HeteroCL, a programming infrastructure comprised of a Python-based domain-specific language (DSL) and a compilation flow. 
+The HeteroCL DSL provides a clean programming abstraction that decouples algorithm specification from hardware customizations including data and processing customizations. HeteroCL can further capture the interdependence among these different customization techniques, allowing programmers to explore various performance/area/accuracy trade-offs in a systematic and productive manner. 
+<!-- In addition, our framework currently provides two advanced domain-specific optimizations with stencil analysis and systolic array generation, which produce highly efficient microarchitectures for accelerating popular workloads from image processing and deep learning domains. -->
 
 ## Language Overview
 
@@ -75,15 +77,17 @@ To tackle this challenge, we introduce HeteroCL, a programming infrastructure co
 
 ## Current Compilation Flow
 
-![flow](docs/compile_flow.png)
+![flow](docs/compile_flow_mlir.png)
 
-## Evaluation on AWS F1 (Xilinx Virtex UltraScale+<sup>TM</sup> VU9P FPGA)
+<!-- ## Evaluation on AWS F1 (Xilinx Virtex UltraScale+<sup>TM</sup> VU9P FPGA)
 The speedup is over a single-core single-thread CPU execution on AWS F1.
 
 | Benchmark & Data Sizes & Data Type | #LUTs | #FFs | #BRAMs | #DSPs | Freq. (MHz) | CPU Runtime (ms) | FPGA Runtime (ms) | Speedup |
 | :-------- | :----------------: | :----: | :----:| :-----: | :----: | :------------: | :------:| :------: |
 | **[KNN Digit Recognition](samples/digitrec/)**<br/>K=3 #images=1800<br/>`uint49` | 4.1k (0.42%) | 5.5k (0.26%) | 38 (2.0%) | 0 (0.0%) | 250 | 0.73 | 0.07 | 10.4 |
-| **[K-Means](samples/kmeans)**<br/>K=16 #elem=320 x 32<br/>`int32` | 168.2k (16.6%) | 212.1k (10.0%) | 54 (2.8%) | 1.5k (22.5%) | 187 | 65.6 | 0.79 | 83.0 | 
+| **[K-Means](samples/kmeans)**<br/>K=16 #elem=320 x 32<br/>`int32` | 168.2k (16.6%) | 212.1k (10.0%) | 54 (2.8%) | 1.5k (22.5%) | 187 | 65.6 | 0.79 | 83.0 |  -->
+
+
 
 ## Related Publications
 
@@ -92,13 +96,12 @@ The speedup is over a single-core single-thread CPU execution on AWS F1.
 
 ## Related Work
 
-HeteroCL is a Python-based DSL extended from TVM and it extends Halide IR for intermediate representation. HeterCL incoporates the SODA framework, PolySA framework, and Merlin Compiler for FPGA back-end generation.
-
 * **[Stencil with Optimized Dataflow Architecture](https://vast.cs.ucla.edu/~chiyuze/pub/iccad18.pdf)** (SODA)
 * **[Polyhedral-Based Systolic Array Auto-Compilation](http://cadlab.cs.ucla.edu/~jaywang/papers/iccad18-polysa.pdf)** (PolySA)
 * **[Merlin Compiler](https://www.falconcomputing.com/merlin-fpga-compiler/)**
 * **[Halide](https://halide-lang.org)**
 * **[TVM](https://tvm.ai)**
+* **[MLIR](https://arxiv.org/pdf/2002.11054.pdf)**
 
 ## Contributing to HeteroCL
 
