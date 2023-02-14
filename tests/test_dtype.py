@@ -567,10 +567,11 @@ def test_struct_scalar():
     def kernel():
         stype = hcl.Struct({"x": hcl.UInt(8), "y": hcl.UInt(8)})
         xy = hcl.scalar(0x1234, "foo", dtype=stype).v
-
         z1 = hcl.compute((2,), lambda i: 0, dtype=hcl.UInt(32))
         z1[0] = xy.y
         z1[1] = xy.x
+        assert xy.y.dtype == hcl.UInt(8)
+        assert xy.x.dtype == hcl.UInt(8)
         return z1
 
     s = hcl.create_schedule([], kernel)
