@@ -349,7 +349,7 @@ class Stage(object):
         self.tensor = None
         self.stage_handle = None
         self.ip = None
-        # Imperative stage attaches axes to Stage object
+        # Imperative stage and update stage attach axes to Stage object
         self.axis = list()
         # Associated AST Operation
         self._ast_op = None
@@ -569,6 +569,7 @@ class _CreateStagesFromAST(object):
         for iter_var in op.iter_vars + op.reduce_vars:
             loop_hdl = ast.LoopHandle(stage_hdl, iter_var.name, op.loc)
             tensor.axis.append(loop_hdl)
+            stage.axis.append(loop_hdl)
 
     def create_imperative_stage(self, op: ast.ForOp):
         if op.tag is None:
