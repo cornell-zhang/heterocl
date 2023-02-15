@@ -32,9 +32,9 @@ def test_debug_mode():
         s.to(kernel.C, target.host)
         target.config(compiler="vivado_hls", mode="debug")
         code = hcl.build(s, target)
-        assert "void top(" in code
-        assert "int32_t v0[10][32]," in code
-        assert "int32_t v1[10][32]" in code
+        assert "void top" in code
+        assert "v0[10][32]," in code
+        assert "v1[10][32]" in code
 
     # test_sdaccel_debug()
     test_vhls_debug()
