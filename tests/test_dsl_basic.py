@@ -161,32 +161,28 @@ def test_neg():
 
 
 def test_if_scope():
-    hcl.init()
-    rshape = (1,)
-
+    rshape = (2,)
     def kernel():
-        false = hcl.scalar(0, "false", dtype="uint32")
-        true = hcl.scalar(1, "true", dtype="uint32")
-        res = hcl.compute(rshape, lambda x: 0, "res")
-        with hcl.if_(true.v == 1):  # op a
-            with hcl.if_(false.v == 1):  # op b
-                res[0] = -1
-        # op b should be popped from Schedule._IfElseStack here
-        # in op a's __exit__ method
-        # because it is not closed by elif or else
-        with hcl.else_():  # op c
-            res[0] = 3
-        return res
+        r = hcl.compute(rshape, lambda _:0, dtype=hcl.Int(32))
+        a = hcl.scalar(2, "a", dtype='uint32')
+        b = hcl.scalar(1, "b", dtype='uint32')
+        r[1] = 4
 
+        with hcl.if_(a.v == 0):
+            r[0] = 1
+        with hcl.elif_(a.v == 1):
+            r[0] = 2
+            with hcl.if_(b.v == 1):
+                r[0] = 3
+        with hcl.else_():
+            r[0] = 4
+        return r
     s = hcl.create_schedule([], kernel)
-    # if hcl.else has the right scope
-    # res should not be updated
-    # otherwise, res should be updated to 3
-    golden = np.array([0])
+    hcl_res = hcl.asarray(np.zeros(rshape, dtype=np.uint32), dtype=hcl.UInt(32))
     f = hcl.build(s)
-    ret = hcl.asarray(np.zeros(rshape))
-    f(ret)
-    np.allclose(ret.asnumpy(), golden)
+    f(hcl_res)
+    np_res = hcl_res.asnumpy()
+    assert np_res[0] == np_res[1]
 
 
 def test_cond_all():
