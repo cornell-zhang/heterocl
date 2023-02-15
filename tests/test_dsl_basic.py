@@ -185,6 +185,28 @@ def test_if_scope():
     assert np_res[0] == np_res[1]
 
 
+def test_if_scope_empty_body():
+    hcl.init()
+    rshape = (1,)
+    def kernel():
+        cond0 = hcl.scalar(1, "cond0", dtype='uint32')
+        cond1 = hcl.scalar(0, "cond1", dtype='uint32')
+        res = hcl.scalar(0, "res", dtype='uint32')
+        with hcl.if_(cond0.v == 0):
+            with hcl.if_(cond1.v == 0):
+                pass
+        with hcl.else_():   # if else gets scoped with if(cond1.v == 0), res is 0
+            res.v = 1
+        return res
+
+    s = hcl.create_schedule([], kernel)
+    hcl_res = hcl.asarray(np.zeros((1,), dtype=np.uint32), dtype=hcl.UInt(32))
+    f = hcl.build(s)
+    f(hcl_res)
+    np_res = hcl_res.asnumpy()
+    assert np_res[0] == 1
+
+
 def test_cond_all():
     def kernel(A):
         with hcl.if_(A[0] > 5):
