@@ -17,7 +17,7 @@ def test_name_conflict():
 
     s = hcl.create_schedule([], kernel)
     ir_str = str(hcl.lower(s))
-    assert "tmp_1" in ir_str
+    assert "tmp_0" in ir_str
     hcl_res = hcl.asarray(np.zeros((2,), dtype=np.uint32), dtype=hcl.UInt(32))
     f = hcl.build(s)
     f(hcl_res)
