@@ -69,9 +69,9 @@ class HCLModule(object):
                             if not MemRefType.isinstance(arg.type):
                                 continue
                             memref_type = MemRefType(arg.type)
-                            assert str(memref_type.element_type) == str(hcl_dtype_to_mlir(
-                                argv[i].dtype, signless=True
-                            )), "Input types: {} {}".format(
+                            assert str(memref_type.element_type) == str(
+                                hcl_dtype_to_mlir(argv[i].dtype, signless=True)
+                            ), "Input types: {} {}".format(
                                 memref_type.element_type,
                                 hcl_dtype_to_mlir(argv[i].dtype, signless=True),
                             )
@@ -92,9 +92,11 @@ class HCLModule(object):
                             if not MemRefType.isinstance(res_type):
                                 continue
                             memref_type = MemRefType(res_type)
-                            assert str(memref_type.element_type) == str(hcl_dtype_to_mlir(
-                                argv[len(op.arguments) + i].dtype, signless=True
-                            )), "Output types: {} {}".format(
+                            assert str(memref_type.element_type) == str(
+                                hcl_dtype_to_mlir(
+                                    argv[len(op.arguments) + i].dtype, signless=True
+                                )
+                            ), "Output types: {} {}".format(
                                 memref_type.element_type,
                                 hcl_dtype_to_mlir(
                                     argv[len(op.arguments) + i].dtype, signless=True

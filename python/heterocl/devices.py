@@ -8,6 +8,7 @@
 # pylint: disable=too-few-public-methods, too-many-return-statements
 from .tools import Tool
 from .debug import DSLError, APIError, HCLError, DeviceError
+from .context import UniqueName
 
 model_table = {
     "fpga": {
@@ -291,7 +292,8 @@ class Platform(object):
         if self.host.backend == "":
             self.host.backend = "xocl"
 
-        self.project = project
+        # Unique project name
+        self.project = UniqueName.get(name=project, case="project")
         self.top = top
 
     def __str__(self):

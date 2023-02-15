@@ -63,9 +63,7 @@ class Array(object):
                 np_array = np.fix(np_array) % sb
                 np_array = np_array.astype(np.uint64)
             else:
-                raise DTypeError(
-                    "Type error: unrecognized type: " + str(self.dtype)
-                )
+                raise DTypeError("Type error: unrecognized type: " + str(self.dtype))
         else:
             raise RuntimeError("Should provide type info")
         self.np_array = np_array

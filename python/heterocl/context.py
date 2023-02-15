@@ -20,6 +20,7 @@ class UniqueName(object):
         "r": set(),
         "instance": set(),
         "op": set(),
+        "project": set(),
     }
 
     def __init__(self):

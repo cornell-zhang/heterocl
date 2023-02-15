@@ -232,7 +232,7 @@ class Expr(object):
 
     def __mod__(self, other):
         return Mod(self, other, self.loc)
-    
+
     def __rmod__(self, other):
         return Mod(other, self, self.loc)
 
@@ -241,13 +241,13 @@ class Expr(object):
 
     def __lshift__(self, other):
         return LeftShiftOp(self, other, self.loc)
-    
+
     def __rlshift__(self, other):
         return LeftShiftOp(other, self, self.loc)
 
     def __rshift__(self, other):
         return RightShiftOp(self, other, self.loc)
-    
+
     def __rrshift__(self, other):
         return RightShiftOp(other, self, self.loc)
 
@@ -265,7 +265,7 @@ class Expr(object):
 
     def __xor__(self, other):
         return XOr(self, other, self.loc)
-    
+
     def __rxor__(self, other):
         return XOr(other, self, self.loc)
 
@@ -500,6 +500,7 @@ class Div(BinaryOp):
     def __init__(self, lhs, rhs, loc):
         super().__init__("/", lhs, rhs, loc)
 
+
 class Min(BinaryOp):
     """Min operation."""
 
@@ -508,6 +509,7 @@ class Min(BinaryOp):
 
     def __repr__(self):
         return f"min({self.lhs}, {self.rhs})"
+
 
 class Max(BinaryOp):
     """Max operation."""
@@ -799,7 +801,11 @@ class StoreOp(Operation):
     def __repr__(self):
         code_str = ""
         code_str = print_indent(code_str, self.level)
-        code_str += f"{self.tensor.name}[" + ", ".join([str(i) for i in self.index]) + f"] = {self.value}"
+        code_str += (
+            f"{self.tensor.name}["
+            + ", ".join([str(i) for i in self.index])
+            + f"] = {self.value}"
+        )
         return code_str
 
 

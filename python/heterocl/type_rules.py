@@ -477,24 +477,21 @@ def select_rule():
         (Index, Float): lambda t1, t2: t2,
     }
     fixed_rules = {
-        (Fixed, Fixed): lambda t1, t2: 
-            Fixed(
-                max(t1.bits - t1.fracs, t2.bits - t2.fracs) + max(t1.fracs, t2.fracs),
-                max(t1.fracs, t2.fracs)),
-        (Fixed, UFixed): lambda t1, t2: 
-            Fixed(
-                max(t1.bits - t1.fracs, t2.bits - t2.fracs + 1)
-                + max(t1.fracs, t2.fracs),
-                max(t1.fracs, t2.fracs),
-            ),
+        (Fixed, Fixed): lambda t1, t2: Fixed(
+            max(t1.bits - t1.fracs, t2.bits - t2.fracs) + max(t1.fracs, t2.fracs),
+            max(t1.fracs, t2.fracs),
+        ),
+        (Fixed, UFixed): lambda t1, t2: Fixed(
+            max(t1.bits - t1.fracs, t2.bits - t2.fracs + 1) + max(t1.fracs, t2.fracs),
+            max(t1.fracs, t2.fracs),
+        ),
         (Fixed, Float): lambda t1, t2: t2,
     }
     ufixed_rules = {
-        (UFixed, UFixed): lambda t1, t2: 
-            UFixed(
-                max(t1.bits - t1.fracs, t2.bits - t2.fracs) + max(t1.fracs, t2.fracs),
-                max(t1.fracs, t2.fracs),
-            ),
+        (UFixed, UFixed): lambda t1, t2: UFixed(
+            max(t1.bits - t1.fracs, t2.bits - t2.fracs) + max(t1.fracs, t2.fracs),
+            max(t1.fracs, t2.fracs),
+        ),
         (UFixed, Float): lambda t1, t2: t2,
     }
     float_rules = {
@@ -503,7 +500,7 @@ def select_rule():
     return TypeRule(
         ops,
         [int_rules, uint_rules, index_rules, fixed_rules, ufixed_rules, float_rules],
-        commutative=True
+        commutative=True,
     )
 
 

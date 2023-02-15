@@ -905,9 +905,9 @@ class IRBuilder(object):
                     value_attr = IntegerAttr.parse(str(op.value))
                 else:
                     raise MLIRLimitationError(
-                        f"Could not create constant op for value {op.value}, "+
-                        "MLIR IntegerAttr only supports up to 64-bit integer values." +
-                        f"This value requires {op.value.bit_length()} bits."
+                        f"Could not create constant op for value {op.value}, "
+                        + "MLIR IntegerAttr only supports up to 64-bit integer values."
+                        + f"This value requires {op.value.bit_length()} bits."
                     )
             const_op = arith_d.ConstantOp(dtype, value_attr, ip=ip, loc=loc)
         elif isinstance(op.dtype, htypes.Float):

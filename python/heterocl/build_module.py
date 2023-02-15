@@ -253,6 +253,8 @@ def build_fpga_kernel(schedule, target=None, stmt=None):
         with open("{}/host.cpp".format(target.project), "w") as outfile:
             outfile.write("")
 
+        return hls_code
+
     else:
         # release mode: host-xcel partition is generated
         # and written to kernel.cpp and host.cpp
@@ -343,18 +345,14 @@ def build_llvm(schedule, top_func_name="top"):
         # print(module)
         hcl_d.legalize_cast(module)
         hcl_d.remove_stride_map(module)
-        pipeline = (
-            f"lower-affine,"
-            f"func.func"
-            f"(buffer-loop-hoisting)"
-        )
+        pipeline = f"lower-affine," f"func.func" f"(buffer-loop-hoisting)"
         try:
             with get_context():
                 mlir_pass_manager.parse(pipeline).run(module)
         except Exception as e:
             PassWarning(str(e)).warn()
             print(module)
-        
+
         hcl_d.lower_hcl_to_llvm(module, ctx)
 
         # Add shared library

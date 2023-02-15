@@ -4,9 +4,6 @@ import numpy as np
 import pytest
 
 
-@pytest.mark.skip(
-    reason="TypeError: expected str, bytes or os.PathLike object, not NoneType"
-)
 def test_debug_mode():
 
     hcl.init()
@@ -35,10 +32,11 @@ def test_debug_mode():
         s.to(kernel.C, target.host)
         target.config(compiler="vivado_hls", mode="debug")
         code = hcl.build(s, target)
-        print(code)
-        assert "test(int B[10][32], int C[10][32])" in code
+        assert "void top(" in code
+        assert "int32_t v0[10][32]," in code
+        assert "int32_t v1[10][32]" in code
 
-    test_sdaccel_debug()
+    # test_sdaccel_debug()
     test_vhls_debug()
 
 

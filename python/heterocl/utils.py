@@ -196,6 +196,7 @@ def get_min_value(dtype):
     else:
         raise DTypeError("Unrecognized data type: {}".format(dtype))
 
+
 def get_max_value(dtype):
     """
     Get the maximum value of a data type
