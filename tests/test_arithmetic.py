@@ -39,3 +39,13 @@ def test_lshift_simple():
     f(hcl_res)
     golden = np.array([6], dtype=np.uint32)
     assert np.allclose(hcl_res.asnumpy(), golden)
+
+
+def test_negate_dtype():
+    hcl.init()
+    def kernel():
+        a = hcl.scalar(1, "a", dtype='int32')
+        t = -a.v
+        assert t.dtype == hcl.Int(32)
+    s = hcl.create_schedule([], kernel)
+    f = hcl.build(s)
