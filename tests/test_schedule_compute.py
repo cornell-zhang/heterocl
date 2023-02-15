@@ -539,7 +539,7 @@ def test_compute_at_with_reuse_2D_complex():
     hcl.init()
 
     def _kernel():
-        A = hcl.compute((10, 10), lambda y0, x0: x0 + y0, "A")
+        A = hcl.compute((10, 10), lambda y, x: x + y, "A")
         B = hcl.compute(
             (8, 8), lambda y, x: A[y, x] + A[y + 1, x + 1] + A[y + 2, x + 2], "B"
         )
@@ -554,9 +554,9 @@ def test_compute_at_with_reuse_2D_complex():
     loops = hcl_mlir.get_affine_loop_nests(s.top_func)[0]
     assert "y" in str(loops[0]["name"])
     assert "0 to 8" in str(loops[0]["body"])
-    assert "x.outer" in str(loops[1]["name"])
+    assert "x_0.outer" in str(loops[1]["name"])
     assert "0 to 2" in str(loops[1]["body"])
-    assert "x.inner" in str(loops[2]["name"])
+    assert "x_0.inner" in str(loops[2]["name"])
     assert "0 to 4" in str(loops[2]["body"])
     f = hcl.build(s)
     a_np = np.fromfunction(lambda i, j: i + j, A.shape, dtype="int")

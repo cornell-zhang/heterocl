@@ -10,17 +10,19 @@ from hcl_mlir.exceptions import *
 
 
 class UniqueName(object):
-
-    sets = {
-        "scalar": set(),
-        "loop": set(),
-        "tensor": set(),
-        "stage": set(),
-        "schedule": set(),
-        "r": set(),
-        "instance": set(),
-        "op": set(),
-        "project": set(),
+    # each dict is symbol name -> set of unique names
+    # e.g. x -> {x, x_0, x_1, x_2}
+    dicts = {
+        "scalar": dict(),
+        "loop": dict(),
+        "tensor": dict(),
+        "stage": dict(),
+        "schedule": dict(),
+        "axis": dict(),
+        "r": dict(), # reduction axis
+        "instance": dict(),
+        "op": dict(),
+        "project": dict(),
     }
 
     def __init__(self):
@@ -28,33 +30,35 @@ class UniqueName(object):
 
     @classmethod
     def reset(cls):
-        for _, v in cls.sets.items():
+        for _, v in cls.dicts.items():
             v.clear()
 
     @classmethod
     def get(cls, name, case):
-        if case not in cls.sets.keys():
+        if case not in cls.dicts.keys():
             raise APIError(f"Unrecognized case in UniqueName.get(): {case}")
 
         if name is None or name == "":
+            # name is not given
             # generate a name if name is not given
-            case_set = cls.sets[case]
+            case_set = cls.dicts[case]
             set_size = len(case_set)
             name = case + "_" + str(set_size)
-            cls.sets[case].add(name)
+            cls.dicts[case][name] = set() # add a new set
             return name
 
-        if name in cls.sets[case]:
+        if name in cls.dicts[case]:
             # name is not unique
             # generate a unique name
-            case_set = cls.sets[case]
-            set_size = len(case_set)
-            name = name + "_" + str(set_size)
-            cls.sets[case].add(name)
-            return name
+            case_dict = cls.dicts[case]
+            set_size = len(case_dict[name])
+            uname = name + "_" + str(set_size)
+            cls.dicts[case][name].add(uname)
+            return uname
         else:
             # name is unique
-            cls.sets[case].add(name)
+            # add the dictionary name -> {} to dicts
+            cls.dicts[case][name] = set()
             return name
 
 

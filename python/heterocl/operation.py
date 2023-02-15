@@ -411,6 +411,8 @@ def compute_body(name, shape, fcompute, dtype, loc, tensor):
         raise APIError(
             f"fcompute's number of axis does not match output tensor shape: {axis_names} vs {shape}"
         )
+    # unique axis names
+    axis_names = [UniqueName.get(name, "axis") for name in axis_names]
     iter_vars = [ast.IterVar(name, None, loc) for name in axis_names]
     # attach iter_vars to the compute op
     # iter_var's parent_loop will be set in ir.ir_builder.build_compute
