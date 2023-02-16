@@ -12,6 +12,12 @@ class BuildPyCommand(build_py):
         subprocess.Popen(cmd, shell=True).wait()
 
 
+def parse_requirements(filename):
+    """Load requirements from a pip requirements file."""
+    lineiter = (line.strip() for line in open(filename))
+    return [line for line in lineiter if line and not line.startswith("#")]
+
+
 def setup():
     with open("README.md", encoding="utf-8") as fp:
         long_description = fp.read()
@@ -27,18 +33,7 @@ def setup():
         cmdclass={
             "build_py": BuildPyCommand,
         },
-        install_requires=[
-            "numpy",
-            "xmltodict",
-            "tabulate",
-            "pytest",
-            "networkx",
-            "matplotlib",
-            "pandas",
-            "imageio",
-            "psutil",
-            "sympy",
-        ],
+        install_requires=parse_requirements(),
         packages=setuptools.find_packages(),
         url="https://github.com/cornell-zhang/heterocl",
         python_requires=">=3.6",

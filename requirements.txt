@@ -1,0 +1,10 @@
+numpy
+xmltodict
+tabulate
+pytest
+networkx
+matplotlib
+pandas
+imageio
+psutil
+sympy
