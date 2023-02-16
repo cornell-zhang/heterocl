@@ -1,5 +1,5 @@
 import heterocl as hcl
-import hlib.bnn as bnn
+import heterocl.op.bnn as bnn
 import numpy as np
 
 

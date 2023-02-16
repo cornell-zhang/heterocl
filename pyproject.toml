@@ -8,5 +8,4 @@ testpaths = [
 norecursedirs = [
     "tests/hcl-mlir",
     "tests/polybench",
-    "hlib/tests/obsolete"
 ]
