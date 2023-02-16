@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name="heterocl",
-    version="1.0.0",
+    version="0.5",
     install_requires=[
         "numpy",
         "xmltodict",
