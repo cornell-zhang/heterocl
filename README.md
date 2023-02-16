@@ -26,9 +26,10 @@ The HeteroCL DSL provides a clean programming abstraction that decouples algorit
 For installing and using the HeteroCL MLIR dialect, please refer to the guide in the [HCL-MLIR](https://github.com/cornell-zhang/hcl-dialect) repository and build the dialect with Python binding. The following shows the complete script to build and connect the frontend with the MLIR flow.
 
 ```bash
-git clone --recursive https://github.com/cornell-zhang/heterocl.git heterocl-mlir
+git clone https://github.com/cornell-zhang/heterocl.git heterocl-mlir
 cd heterocl-mlir
 git checkout hcl-mlir
+git submodule update --init --recursive
 pip install -e ".[dev]"
 # Export the generated HCL-MLIR Python library
 export PYTHONPATH=$(pwd)/hcl-dialect/build/tools/hcl/python_packages/hcl_core:${PYTHONPATH}
