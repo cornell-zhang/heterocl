@@ -1,12 +1,10 @@
 #!/bin/bash
 
-cd ../hcl-dialect
+cd ../hcl-dialect/externals
 
 # Build LLVM 15.0.0
-if [ ! -d "llvm-project" ]; then
-    git clone https://github.com/llvm/llvm-project.git
+if [ ! -d "llvm-project/build" ]; then
     cd llvm-project
-    git checkout tags/llvmorg-15.0.0
     python3 -m pip install -r mlir/python/requirements.txt
     mkdir -p build && cd build
     cmake -G "Unix Makefiles" ../llvm \
@@ -26,6 +24,7 @@ else
 fi
 
 # Build HeteroCL dialect
+cd ..
 mkdir -p build && cd build
 cmake -G "Unix Makefiles" .. \
    -DMLIR_DIR=$LLVM_BUILD_DIR/lib/cmake/mlir \
@@ -35,4 +34,6 @@ cmake -G "Unix Makefiles" .. \
    -DPython3_EXECUTABLE=`which python3`
 make -j8
 
-export PYTHONPATH=$(pwd)/tools/hcl/python_packages/hcl_core:${PYTHONPATH}
+# Install hcl_mlir python package
+cd tools/hcl/python_packages/hcl_core
+pip install -e ."[dev]"
