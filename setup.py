@@ -33,7 +33,7 @@ def setup():
         cmdclass={
             "build_py": BuildPyCommand,
         },
-        install_requires=parse_requirements(),
+        install_requires=parse_requirements("requirements.txt"),
         packages=setuptools.find_packages(),
         url="https://github.com/cornell-zhang/heterocl",
         python_requires=">=3.6",

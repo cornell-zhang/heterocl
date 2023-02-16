@@ -31,8 +31,6 @@ cd heterocl-mlir
 git checkout hcl-mlir
 git submodule update --init --recursive
 pip install -e ".[dev]"
-# Export the generated HCL-MLIR Python library
-export PYTHONPATH=$(pwd)/hcl-dialect/build/tools/hcl/python_packages/hcl_core:${PYTHONPATH}
 ```
 
 To verify HeteroCL is installed correctly, we can run the following test.

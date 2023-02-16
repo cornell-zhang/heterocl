@@ -4,6 +4,7 @@ cd ../hcl-dialect/externals
 
 # Build LLVM 15.0.0
 if [ ! -d "llvm-project/build" ]; then
+    echo "Building LLVM 15.0.0"
     cd llvm-project
     python3 -m pip install -r mlir/python/requirements.txt
     mkdir -p build && cd build
@@ -25,6 +26,7 @@ fi
 
 # Build HeteroCL dialect
 cd ..
+echo "Building HeteroCL dialect"
 mkdir -p build && cd build
 cmake -G "Unix Makefiles" .. \
    -DMLIR_DIR=$LLVM_BUILD_DIR/lib/cmake/mlir \
@@ -35,5 +37,6 @@ cmake -G "Unix Makefiles" .. \
 make -j8
 
 # Install hcl_mlir python package
+echo "Installing hcl_mlir python package"
 cd tools/hcl/python_packages/hcl_core
 pip install -e ."[dev]"
