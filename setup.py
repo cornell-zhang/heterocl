@@ -1,4 +1,15 @@
+import subprocess
 import setuptools
+from setuptools.command.build_py import build_py
+
+
+class BuildPyCommand(build_py):
+    """Custom build command."""
+
+    def run(self):
+        build_py.run(self)
+        cmd = "cd scripts && ./build_llvm.sh"
+        subprocess.Popen(cmd, shell=True).wait()
 
 
 def setup():
@@ -13,6 +24,9 @@ def setup():
         long_description=long_description,
         long_description_content_type="text/markdown",
         setup_requires=[],
+        cmdclass={
+            "build_py": BuildPyCommand,
+        },
         install_requires=[
             "numpy",
             "xmltodict",
