@@ -1,6 +1,7 @@
 #!/bin/bash
 
-cd hcl-dialect
+cd ../hcl-dialect
+
 # Build LLVM 15.0.0
 if [ ! -d "llvm-project" ]; then
     git clone https://github.com/llvm/llvm-project.git

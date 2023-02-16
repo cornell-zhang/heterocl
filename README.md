@@ -29,64 +29,16 @@ For installing and using the HeteroCL MLIR dialect, please refer to the guide in
 git clone --recursive https://github.com/cornell-zhang/heterocl.git heterocl-mlir
 cd heterocl-mlir
 git checkout hcl-mlir
-
-# export the library
-export HCL_HOME=$(pwd)
-export PYTHONPATH=$HCL_HOME/python:$HCL_HOME/hlib/python:${PYTHONPATH}
-
-# build LLVM 15.0.0
-cd hcl-dialect
-git clone https://github.com/llvm/llvm-project.git
-cd llvm-project
-git checkout tags/llvmorg-15.0.0
-python3 -m pip install --upgrade pip
-python3 -m pip install -r mlir/python/requirements.txt
-mkdir -p build && cd build
-cmake -G "Unix Makefiles" ../llvm \
-   -DLLVM_ENABLE_PROJECTS=mlir \
-   -DLLVM_BUILD_EXAMPLES=ON \
-   -DLLVM_TARGETS_TO_BUILD="host" \
-   -DCMAKE_BUILD_TYPE=Release \
-   -DLLVM_ENABLE_ASSERTIONS=ON \
-   -DLLVM_INSTALL_UTILS=ON \
-   -DMLIR_ENABLE_BINDINGS_PYTHON=ON \
-   -DPython3_EXECUTABLE=`which python3`
-make -j8
-export LLVM_BUILD_DIR=$(pwd)
-
-# build HeteroCL dialect
-cd ../..
-mkdir -p build && cd build
-cmake -G "Unix Makefiles" .. \
-   -DMLIR_DIR=$LLVM_BUILD_DIR/lib/cmake/mlir \
-   -DLLVM_EXTERNAL_LIT=$LLVM_BUILD_DIR/bin/llvm-lit \
-   -DPYTHON_BINDING=ON \
-   -DOPENSCOP=OFF \
-   -DPython3_EXECUTABLE=`which python3`
-make -j8
-
-# install dependencies
-python3 -m pip install -r python/requirements.txt
-
+pip install -e ".[dev]"
 # Export the generated HCL-MLIR Python library
-export PYTHONPATH=$(pwd)/tools/hcl/python_packages/hcl_core:${PYTHONPATH}
-
-# run MLIR tests
-cmake --build . --target check-hcl
-
-# run frontend tests in the HeteroCL repository
-cd ../..
-python3 tests/mlir/hcl-mlir/test_gemm.py
+export PYTHONPATH=$(pwd)/hcl-dialect/build/tools/hcl/python_packages/hcl_core:${PYTHONPATH}
 ```
 
-<!-- ## Evaluation on AWS F1 (Xilinx Virtex UltraScale+<sup>TM</sup> VU9P FPGA)
-The speedup is over a single-core single-thread CPU execution on AWS F1.
+To verify HeteroCL is installed correctly, we can run the following test.
 
-| Benchmark & Data Sizes & Data Type | #LUTs | #FFs | #BRAMs | #DSPs | Freq. (MHz) | CPU Runtime (ms) | FPGA Runtime (ms) | Speedup |
-| :-------- | :----------------: | :----: | :----:| :-----: | :----: | :------------: | :------:| :------: |
-| **[KNN Digit Recognition](samples/digitrec/)**<br/>K=3 #images=1800<br/>`uint49` | 4.1k (0.42%) | 5.5k (0.26%) | 38 (2.0%) | 0 (0.0%) | 250 | 0.73 | 0.07 | 10.4 |
-| **[K-Means](samples/kmeans)**<br/>K=16 #elem=320 x 32<br/>`int32` | 168.2k (16.6%) | 212.1k (10.0%) | 54 (2.8%) | 1.5k (22.5%) | 187 | 65.6 | 0.79 | 83.0 |  -->
-
+```bash
+python3 tests/hcl-mlir/test_gemm.py
+```
 
 
 ## Related Publications
