@@ -5,17 +5,19 @@ import heterocl as hcl
 import numpy as np
 import time
 
+
 def gemm_vhls(m=1024, n=1024, k=1024, dtype=hcl.Int()):
     matrix_1 = hcl.placeholder((m, k), dtype=dtype)
     matrix_2 = hcl.placeholder((k, n), dtype=dtype)
 
     def kernel(matrix_1, matrix_2):
-        r = hcl.reduce_axis(0, k, 'k')
-        return hcl.compute((m, n),
-                lambda x, y: hcl.sum(matrix_1[x, r] * matrix_2[r, y],
-                                     axis=r, dtype=dtype),
-                dtype=dtype,
-                name="out_matrix")
+        r = hcl.reduce_axis(0, k, "k")
+        return hcl.compute(
+            (m, n),
+            lambda x, y: hcl.sum(matrix_1[x, r] * matrix_2[r, y], axis=r, dtype=dtype),
+            dtype=dtype,
+            name="out_matrix",
+        )
 
     s = hcl.create_schedule([matrix_1, matrix_2], kernel)
     out_matrix = kernel.out_matrix
@@ -31,6 +33,7 @@ def gemm_vhls(m=1024, n=1024, k=1024, dtype=hcl.Int()):
 
     f = hcl.build(s, target=target)
     return f
+
 
 def time_gemm(dtype, m=1024, n=1024, k=1024):
     hcl.init(dtype)
@@ -48,10 +51,10 @@ def time_gemm(dtype, m=1024, n=1024, k=1024):
     print("dtype is: ", dtype)
     print("simulation time: {} sec".format((end - begin)))
 
+
 # test very large gemm simulation
 time_gemm(hcl.Int(32), 1024, 1024, 1024)
 
 dtypes = [hcl.Int(32), hcl.Float(), hcl.Fixed(32, 16)]
 for dtype in dtypes:
     time_gemm(hcl.Int(32), 10, 10, 10)
-

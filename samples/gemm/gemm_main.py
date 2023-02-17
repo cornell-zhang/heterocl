@@ -11,17 +11,19 @@ import heterocl as hcl
 import numpy as np
 import time
 
+
 def gemm(m=1024, n=1024, k=1024, dtype=hcl.Int(), target=None):
     matrix_1 = hcl.placeholder((m, k), dtype=dtype)
     matrix_2 = hcl.placeholder((k, n), dtype=dtype)
 
     def kernel(matrix_1, matrix_2):
-        r = hcl.reduce_axis(0, k, 'k')
-        return hcl.compute((m, n),
-                lambda x, y: hcl.sum(matrix_1[x, r] * matrix_2[r, y],
-                                     axis=r, dtype=dtype),
-                dtype=dtype,
-                name="out_matrix")
+        r = hcl.reduce_axis(0, k, "k")
+        return hcl.compute(
+            (m, n),
+            lambda x, y: hcl.sum(matrix_1[x, r] * matrix_2[r, y], axis=r, dtype=dtype),
+            dtype=dtype,
+            name="out_matrix",
+        )
 
     s = hcl.create_schedule([matrix_1, matrix_2], kernel)
     out_matrix = kernel.out_matrix
@@ -32,6 +34,7 @@ def gemm(m=1024, n=1024, k=1024, dtype=hcl.Int(), target=None):
 
     f = hcl.build(s, target=target)
     return f
+
 
 def time_gemm(dtype, m=1024, n=1024, k=1024, target=None):
     hcl.init(dtype)
@@ -51,6 +54,7 @@ def time_gemm(dtype, m=1024, n=1024, k=1024, target=None):
     print("dtype is: ", dtype)
     print("average of 10 runs takes: {} sec".format((end - begin) / 10))
     np.testing.assert_allclose(hcl_m3.asnumpy(), np_3, rtol=1e-03)
+
 
 ###############################################################################
 # Test the algorithm with different data types

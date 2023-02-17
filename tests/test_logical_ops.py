@@ -31,14 +31,15 @@ def test_while_with_and():
 
 def test_if_LogicalOr():
     hcl.init()
+
     def kernel():
         a = hcl.scalar(0, "a", dtype=hcl.UInt(8))
         b = hcl.scalar(0, "b", dtype=hcl.UInt(8))
         res0 = hcl.scalar(0, "res0", dtype=hcl.UInt(32))
         res1 = hcl.scalar(0, "res1", dtype=hcl.UInt(32))
-        with hcl.if_(hcl.or_(a.v == 0, b.v == 0)): # true
+        with hcl.if_(hcl.or_(a.v == 0, b.v == 0)):  # true
             res0.v = 1
-        with hcl.if_(hcl.or_(a.v == 0, b.v == 0) != 0): # true
+        with hcl.if_(hcl.or_(a.v == 0, b.v == 0) != 0):  # true
             res1.v = 2
         return res0, res1
 

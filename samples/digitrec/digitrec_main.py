@@ -8,7 +8,7 @@ HeteroCL Tutorial : K-Nearest-Neighbor Digit Recognition
 
 **Author**: Yi-Hsiang Lai (seanlatias@github)
 
-HeteroCL is a domain-specific language (DSL) based on TVM that supports
+HeteroCL is a domain-specific language (DSL) based on MLIR that supports
 heterogeneous backend devices. Moreover, HeteroCL also supports imperative
 programming and bit-accurate data types. This tutorials demonstrates how to
 implement KNN-based digit recognition in HeteroCL.
@@ -89,6 +89,7 @@ hcl.init(dtype_image)
 # Following we show the code first. For each code block, you can find a
 # corresponding explanation at the end of the top function.
 
+
 def top(target=None):
 
     # Algorithm definition (§1)
@@ -115,24 +116,20 @@ def top(target=None):
 
         # Main algorithm (§3)
         # Fist step: XOR (§3.1)
-        diff = hcl.compute(train_images.shape,
-                           lambda x, y: train_images[x][y] ^ test_image,
-                           "diff")
+        diff = hcl.compute(
+            train_images.shape, lambda x, y: train_images[x][y] ^ test_image, "diff"
+        )
 
         # Second step: popcount (§3.2)
-        dist = hcl.compute(diff.shape,
-                           lambda x, y: popcount(diff[x][y]),
-                           "dist")
-
+        dist = hcl.compute(diff.shape, lambda x, y: popcount(diff[x][y]), "dist")
 
         # Third step: initialize the candidates (§3.3)
         knn_mat = hcl.compute((10, 3), lambda x, y: 50, "knn_mat")
 
-
         # Fourth step: update the candidates (§3.4)
-        hcl.mutate(dist.shape,
-                        lambda x, y: update_knn(dist, knn_mat, x, y),
-                        "knn_update")
+        hcl.mutate(
+            dist.shape, lambda x, y: update_knn(dist, knn_mat, x, y), "knn_update"
+        )
 
         # Final step: return the candidates (§3.5)
         return knn_mat
@@ -176,6 +173,7 @@ def top(target=None):
 
     # At the end, we build the whole offloaded function.
     return hcl.build(s, target=target)
+
 
 ##############################################################################
 # 1. Algorithm Definition
@@ -356,14 +354,15 @@ offload = top()
 # according to their ranking for the second place and third place. Finally, we
 # take the digit with the highest point as our prediction label.
 def knn_vote(knn_mat):
-    knn_mat.sort(axis = 1)
+    knn_mat.sort(axis=1)
     knn_score = np.zeros(10)
 
     for i in range(0, 3):
-        min_id = np.argmin(knn_mat, axis = 0)[i]
+        min_id = np.argmin(knn_mat, axis=0)[i]
         knn_score[min_id] += 1
 
     return np.argmax(knn_score)
+
 
 ###############################################################################
 # Get the Results
@@ -398,11 +397,11 @@ if __name__ == "__main__":
         if knn_vote(knn_mat) == test_labels[i]:
             correct += 1
 
-    print("Average kernel time (s): {:.2f}".format(total_time/180))
-    print("Accuracy (%): {:.2f}".format(100*correct/180))
+    print("Average kernel time (s): {:.2f}".format(total_time / 180))
+    print("Accuracy (%): {:.2f}".format(100 * correct / 180))
 
     # For testing
-    assert (correct >= 150.0)
+    assert correct >= 150.0
 
     # Generate HLS kernel code and OpenCL host code
     hcl.init(dtype_image)

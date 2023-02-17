@@ -22,10 +22,9 @@ hcl.init()
 dtype = hcl.UFixed(3)
 mtype = hcl.Int(16)
 
+
 def top(target=None):
-
     def smith_waterman(seqA, seqB, consA, consB):
-
         def similarity_score(a, b):
             return hcl.select(a == b, 1, penalty)
 
@@ -49,10 +48,11 @@ def top(target=None):
             trace_back = hcl.compute((4,), lambda x: 0, "trace_back")
 
             with hcl.if_(hcl.and_(i != 0, j != 0)):
-                trace_back[0] = matrix[i-1, j-1] + \
-                                similarity_score(seqA[i-1], seqB[j-1])
-                trace_back[1] = matrix[i-1, j] + penalty
-                trace_back[2] = matrix[i, j-1] + penalty
+                trace_back[0] = matrix[i - 1, j - 1] + similarity_score(
+                    seqA[i - 1], seqB[j - 1]
+                )
+                trace_back[1] = matrix[i - 1, j] + penalty
+                trace_back[2] = matrix[i, j - 1] + penalty
                 trace_back[3] = 0
                 matrix[i, j], action[i, j] = find_max(trace_back, 4)
                 with hcl.if_(matrix[i, j] > matrix_max.v):
@@ -60,7 +60,7 @@ def top(target=None):
                     i_max.v = i
                     j_max.v = j
 
-        P = hcl.mutate((lenA+1, lenB+1), lambda i, j: populate_matrix(i, j))
+        P = hcl.mutate((lenA + 1, lenB + 1), lambda i, j: populate_matrix(i, j))
 
         def align(curr_i, curr_j, next_i, next_j):
             outA = hcl.scalar(0, "a")
@@ -103,23 +103,30 @@ def top(target=None):
             next_i.v, next_j.v = get_next(action, curr_i.v, curr_j.v)
             tick = hcl.scalar(0, "tick")
 
-            with hcl.while_(hcl.or_(curr_i.v != next_i.v,
-                                    curr_j.v != next_j.v)):
-                consA[tick.v], consB[tick.v] = \
-                    align(curr_i, curr_j, next_i, next_j)
+            with hcl.while_(hcl.or_(curr_i.v != next_i.v, curr_j.v != next_j.v)):
+                consA[tick.v], consB[tick.v] = align(curr_i, curr_j, next_i, next_j)
                 curr_i.v, curr_j.v = next_i.v, next_j.v
                 next_i.v, next_j.v = get_next(action, curr_i.v, curr_j.v)
                 tick.v += 1
 
     def batch_sw(seqAs, seqBs, outAs, outBs):
-        hcl.mutate((num,),
-                lambda t: smith_waterman(seqAs[t], seqBs[t], outAs[t], outBs[t]),
-                "B")
+        hcl.mutate(
+            (num,),
+            lambda t: smith_waterman(seqAs[t], seqBs[t], outAs[t], outBs[t]),
+            "B",
+        )
 
     seqAs = hcl.placeholder((num, lenA), "seqAs", dtype)
-    seqBs = hcl.placeholder((num, lenB,), "seqBs", dtype)
-    outAs = hcl.placeholder((num, lenA+lenB), "outAs", dtype)
-    outBs = hcl.placeholder((num, lenA+lenB), "outBs", dtype)
+    seqBs = hcl.placeholder(
+        (
+            num,
+            lenB,
+        ),
+        "seqBs",
+        dtype,
+    )
+    outAs = hcl.placeholder((num, lenA + lenB), "outAs", dtype)
+    outBs = hcl.placeholder((num, lenA + lenB), "outBs", dtype)
 
     scheme = hcl.create_scheme([seqAs, seqBs, outAs, outBs], batch_sw)
     scheme.downsize([batch_sw.B.matrix, batch_sw.B.action], mtype)
@@ -128,6 +135,7 @@ def top(target=None):
     s[batch_sw.B].pipeline(o)
     s[batch_sw.B].parallel(p)
     return hcl.build(s, target=target)
+
 
 ###############################################################################
 # Test the algorithm with random numbers

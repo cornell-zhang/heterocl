@@ -6,6 +6,7 @@ import heterocl as hcl
 
 hcl.init(hcl.Float())
 
+
 def PreCompute_BitReverse_Pattern(L):
     """
     Parameters
@@ -19,16 +20,17 @@ def PreCompute_BitReverse_Pattern(L):
         Permutation pattern.
     """
     bit_width = int(np.log2(L))
-    IndexTable = np.zeros((L), dtype='int')
+    IndexTable = np.zeros((L), dtype="int")
     for i in range(L):
-        b = '{:0{width}b}'.format(i, width=bit_width)
+        b = "{:0{width}b}".format(i, width=bit_width)
         IndexTable[i] = int(b[::-1], 2)
     return IndexTable
 
+
 L = 1024
 
-def top(target=None):
 
+def top(target=None):
     def fft(X_real, X_imag, IndexTable, F_real, F_imag):
         L = X_real.shape[0]
         if np.log2(L) % 1 > 0:
@@ -36,8 +38,8 @@ def top(target=None):
         num_stages = int(np.log2(L))
 
         # bit reverse permutation
-        hcl.update(F_real, lambda i: X_real[IndexTable[i]], name='F_real_update')
-        hcl.update(F_imag, lambda i: X_imag[IndexTable[i]], name='F_imag_update')
+        hcl.update(F_real, lambda i: X_real[IndexTable[i]], name="F_real_update")
+        hcl.update(F_imag, lambda i: X_imag[IndexTable[i]], name="F_imag_update")
 
         with hcl.Stage("Out"):
             one = hcl.scalar(1, dtype="int32")
@@ -67,6 +69,7 @@ def top(target=None):
 
     s = hcl.create_schedule([X_real, X_imag, IndexTable, F_real, F_imag], fft)
     return hcl.build(s, target=target)
+
 
 f = top()
 

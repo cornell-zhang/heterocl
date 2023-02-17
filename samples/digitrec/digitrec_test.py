@@ -19,10 +19,10 @@ hcl.init(dtype_image)
 
 num = int(sys.argv[1])
 
-def top(target=None):
 
+def top(target=None):
     def knn(test_image, train_images):
-        def popcount(x,y,num):
+        def popcount(x, y, num):
             out = hcl.scalar(0, "out")
             with hcl.for_(0, train_images.dtype.bits) as i:
                 out.v += num[x][y][i]
@@ -36,40 +36,36 @@ def top(target=None):
             with hcl.if_(dist[i][j] < knn_mat[i][max_id.v]):
                 knn_mat[i][max_id.v] = dist[i][j]
 
-        diff = hcl.compute(train_images.shape,
-                           lambda x, y: train_images[x][y] ^ test_image[0],
-                           "diff")
+        diff = hcl.compute(
+            train_images.shape, lambda x, y: train_images[x][y] ^ test_image[0], "diff"
+        )
 
-        dist = hcl.compute(diff.shape,
-                           lambda x, y: popcount(x,y,diff),
-                           "dist")
-
+        dist = hcl.compute(diff.shape, lambda x, y: popcount(x, y, diff), "dist")
 
         knn_mat = hcl.compute((10, 3), lambda x, y: 50, "knn_mat")
-        hcl.mutate(dist.shape,
-                        lambda x, y: update_knn(dist, knn_mat, x, y),
-                        "knn_update")
+        hcl.mutate(
+            dist.shape, lambda x, y: update_knn(dist, knn_mat, x, y), "knn_update"
+        )
 
         return knn_mat
 
-    
     # run #num kernels on input, and reduce finally
     def many_kernels(input_image, *train_images_arr):
         results = list()
         for i in range(num):
             res_mat = knn(input_image, train_images_arr[i])
             results.append(res_mat)
-        
+
         # average the 10x3 matrices
         def avg(x, y):
             final = hcl.scalar(0, "value")
             for i in range(num):
                 final.v += train_images_arr[i][x, y]
             return final.v
-        return hcl.compute((10,3), lambda x, y: avg(x,y), name="final")
 
+        return hcl.compute((10, 3), lambda x, y: avg(x, y), name="final")
 
-    test_image = hcl.placeholder((1,), "test_image")    
+    test_image = hcl.placeholder((1,), "test_image")
     arr = list()
     for i in range(num):
         train_images = hcl.placeholder(data_size, "train_images" + str(i))
@@ -88,18 +84,19 @@ def top(target=None):
 
     start = time.time()
     f = hcl.build(s, target=target)
-    total_time = (time.time() - start)
+    total_time = time.time() - start
     return f, total_time
 
 
 offload, build_time = top("vhls")
 
+
 def knn_vote(knn_mat):
-    knn_mat.sort(axis = 1)
+    knn_mat.sort(axis=1)
     knn_score = np.zeros(10)
 
     for i in range(0, 3):
-        min_id = np.argmin(knn_mat, axis = 0)[i]
+        min_id = np.argmin(knn_mat, axis=0)[i]
         knn_score[min_id] += 1
 
     return np.argmax(knn_score)
@@ -120,7 +117,7 @@ if __name__ == "__main__":
     # start = time.time()
     # offload(test_images[0], *hcl_train_images_list, hcl_knn_mat)
     # total_time = total_time + (time.time() - start)
-    total_time = 0.
+    total_time = 0.0
 
     # Convert back to a numpy array
     knn_mat = hcl_knn_mat.asnumpy()

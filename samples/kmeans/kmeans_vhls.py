@@ -10,11 +10,11 @@ K = 16
 N = 320
 dim = 32
 
-f1 = top('vhls_csim')
+f1 = top("vhls_csim")
 f2 = top()
 points_np = np.random.randint(100, size=(N, dim))
 labels_np = np.zeros(N)
-means_np = points_np[random.sample(range(N), K),:]
+means_np = points_np[random.sample(range(N), K), :]
 
 hcl_points1 = hcl.asarray(points_np)
 hcl_means1 = hcl.asarray(means_np)

@@ -41,29 +41,42 @@ Gy = hcl.placeholder((3, 3), "Gy")
 A = hcl.placeholder((height, width, 3))
 
 ##############################################################################
-# Main Algorithm 
+# Main Algorithm
 # ==============
-# We perform a valid convolution with Sobel kernels. To perform convolution, 
+# We perform a valid convolution with Sobel kernels. To perform convolution,
 # we define the reduction axis on both convolution tensors to be a 3x3 region.
 # Then, we use the `.compute()` primitive that allows us to compute a new
 # tensor based on the function we give it.
 
+
 def sobel(A, Gx, Gy):
-    B = hcl.compute((height, width), lambda x, y: A[x][y][0] + A[x][y][1] + A[x][y][2], "B")
+    B = hcl.compute(
+        (height, width), lambda x, y: A[x][y][0] + A[x][y][1] + A[x][y][2], "B"
+    )
 
     r = hcl.reduce_axis(0, 3)
     c = hcl.reduce_axis(0, 3)
-    D = hcl.compute((height-2, width-2), 
-        lambda x, y: hcl.sum(B[x+r, y+c]*Gx[r, c], axis=[r, c], name = "sum1"), "D")
+    D = hcl.compute(
+        (height - 2, width - 2),
+        lambda x, y: hcl.sum(B[x + r, y + c] * Gx[r, c], axis=[r, c], name="sum1"),
+        "D",
+    )
 
     t = hcl.reduce_axis(0, 3)
     g = hcl.reduce_axis(0, 3)
-    E = hcl.compute((height-2, width-2), 
-        lambda x, y: hcl.sum(B[x+t, y+g]*Gy[t, g], axis=[t, g], name = "sum2"), "E")
+    E = hcl.compute(
+        (height - 2, width - 2),
+        lambda x, y: hcl.sum(B[x + t, y + g] * Gy[t, g], axis=[t, g], name="sum2"),
+        "E",
+    )
 
     # constant factor to normalize the output
-    return hcl.compute((height-2,width-2), 
-        lambda x, y:hcl.sqrt(D[x][y]*D[x][y]+E[x][y]*E[x][y])*0.05891867, "Fimg")
+    return hcl.compute(
+        (height - 2, width - 2),
+        lambda x, y: hcl.sqrt(D[x][y] * D[x][y] + E[x][y] * E[x][y]) * 0.05891867,
+        "Fimg",
+    )
+
 
 # create a schedule
 s = hcl.create_schedule([A, Gx, Gy], sobel)
@@ -81,7 +94,7 @@ s = hcl.create_schedule([A, Gx, Gy], sobel)
 # loop transformation.
 
 LBX = s.reuse_at(sobel.B, s[sobel.D], sobel.D.axis[0], "LBX")
-LBY = s.reuse_at(sobel.B, s[sobel.E], sobel.E.axis[0], "LBY") 
+LBY = s.reuse_at(sobel.B, s[sobel.E], sobel.E.axis[0], "LBY")
 WBX = s.reuse_at(LBX, s[sobel.D], sobel.D.axis[1], "WBX")
 WBY = s.reuse_at(LBY, s[sobel.E], sobel.E.axis[1], "WBY")
 s.partition(LBX, dim=1)
@@ -105,7 +118,7 @@ s[sobel.Fimg].pipeline(sobel.Fimg.axis[1])
 # When building the schedule to run the simulation, we use the `hcl.build()` to
 # configure the simulation. With only argument being the schedule `s`, we let
 # it run a CPU simulation. However, by defining the `target` variable, we can
-# tell the HLS tool which hardware it is synthesizing for. This target 
+# tell the HLS tool which hardware it is synthesizing for. This target
 # configuration is required for one to use the HLS reporting feature.
 
 npGx = np.array([[1, 0, -1], [2, 0, -2], [1, 0, -1]])
@@ -113,19 +126,19 @@ npGy = np.array([[1, 2, 1], [0, 0, 0], [-1, -2, -1]])
 hcl_Gx = hcl.asarray(npGx)
 hcl_Gy = hcl.asarray(npGy)
 
-npF = np.zeros((height-2, width-2))
+npF = np.zeros((height - 2, width - 2))
 hcl_F = hcl.asarray(npF)
 npA = np.array(img)
 hcl_A = hcl.asarray(npA)
 
 if os.system("which vivado_hls >> /dev/null") != 0:
-    # CPU simulation                  
-    f = hcl.build(s)                  
-    f(hcl_A, hcl_Gx, hcl_Gy, hcl_F)   
+    # CPU simulation
+    f = hcl.build(s)
+    f(hcl_A, hcl_Gx, hcl_Gy, hcl_F)
 else:
-    # HLS config 
-    target = hcl.Platform.xilinx_zc706 
-    s.to([A,Gx,Gy], target.xcel) 
+    # HLS config
+    target = hcl.Platform.xilinx_zc706
+    s.to([A, Gx, Gy], target.xcel)
     s.to(sobel.Fimg, target.host)
     target.config(compiler="vivado_hls", mode="csyn")
     f = hcl.build(s, target)
@@ -134,15 +147,15 @@ else:
 ###############################################################################
 # Verification
 # ============
-# We can verify the result with the ground truth by simply converting the 
+# We can verify the result with the ground truth by simply converting the
 # output tensor to a numpy array.
 
 npF = hcl_F.asnumpy()
-newimg = np.zeros((height-2, width-2, 3))
-for x in range(0, height-2):
-    for y in range(0, width-2):
-        for z in range(0,3):
-            newimg[x,y,z] = npF[x,y]
+newimg = np.zeros((height - 2, width - 2, 3))
+for x in range(0, height - 2):
+    for y in range(0, width - 2):
+        for z in range(0, 3):
+            newimg[x, y, z] = npF[x, y]
 newimg = newimg.astype(np.uint8)
 # imageio.imsave("pic_sobel.jpg",newimg)
 
@@ -162,7 +175,7 @@ if os.system("which vivado_hls >> /dev/null") != 0:
     report.init_table(summary)
     report.collect_data(summary)
 else:
-    report = f.report()    
+    report = f.report()
 
 # The following shows an example output from the Sobel example laid out in this
 # tutorial.
@@ -207,7 +220,7 @@ With Optimization:
 +-------------------+-----------------------------------+
 """
 
-# For a more detailed analysis of the program, we can employ a "display" API 
+# For a more detailed analysis of the program, we can employ a "display" API
 # to get information about latency information of the program. To do so,
 # simply call ".display()" method on the report. The example output for this
 # Sobel example is shown below.
@@ -254,7 +267,7 @@ With Optimization:
 # queries, the arguments must be in a form of a list. It can also take in the
 # information regarding the loop-nest depths (loop level) in the program.
 
-report.display(loops=['B', 'E'], cols=['Latency', 'Pipeline II'])
+report.display(loops=["B", "E"], cols=["Latency", "Pipeline II"])
 
 """
 TODO: To be updated after FIFO parsing support

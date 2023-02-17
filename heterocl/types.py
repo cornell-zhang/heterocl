@@ -118,8 +118,6 @@ class Struct(Type):
 def dtype_to_str(dtype):
     """Convert a data type to string format.
 
-    This method is mainly for TVM APIs.
-
     Parameters
     ----------
     dtype : Type or str

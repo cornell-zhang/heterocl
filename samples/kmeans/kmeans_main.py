@@ -13,6 +13,7 @@ import numpy as np
 import heterocl as hcl
 import time
 import random
+
 ##############################################################################
 # Define the number of the clustering means as K, the number of points as N,
 # the number of dimensions as dim, and the number of iterations as niter
@@ -40,7 +41,7 @@ def top(target=None):
                 with hcl.for_(0, K) as k:
                     dist = hcl.scalar(0)
                     with hcl.for_(0, dim) as d:
-                        dist_ = hcl.scalar(points[n, d]-means[k, d], "temp")
+                        dist_ = hcl.scalar(points[n, d] - means[k, d], "temp")
                         dist.v += dist_.v * dist_.v
                     with hcl.if_(dist.v < min_dist.v):
                         min_dist.v = dist.v
@@ -49,13 +50,14 @@ def top(target=None):
             # update mean
             num_k = hcl.compute((K,), lambda x: 0, "num_k")
             sum_k = hcl.compute((K, dim), lambda x, y: 0, "sum_k")
+
             def calc_sum(n):
                 num_k[labels[n]] += 1
                 with hcl.for_(0, dim) as d:
                     sum_k[labels[n], d] += points[n, d]
+
             hcl.mutate((N,), lambda n: calc_sum(n), "calc_sum")
-            hcl.update(means,
-                    lambda k, d: sum_k[k, d]//num_k[k], "update_mean")
+            hcl.update(means, lambda k, d: sum_k[k, d] // num_k[k], "update_mean")
 
         hcl.mutate((niter,), lambda _: loop_kernel(labels), "main_loop")
 
@@ -85,6 +87,7 @@ def top(target=None):
     print(hcl.lower(s))
     return hcl.build(s, target=target)
 
+
 if __name__ == "__main__":
 
     points_np = np.random.randint(100, size=(N, dim))
@@ -111,10 +114,17 @@ if __name__ == "__main__":
         print(hcl_means)
 
         from kmeans_golden import kmeans_golden
-        kmeans_golden(niter, K, N, dim, np.concatenate((points_np,
-            np.expand_dims(labels_np, axis=1)), axis=1), means_np)
+
+        kmeans_golden(
+            niter,
+            K,
+            N,
+            dim,
+            np.concatenate((points_np, np.expand_dims(labels_np, axis=1)), axis=1),
+            means_np,
+        )
         assert np.allclose(hcl_means.asnumpy(), means_np)
-    
+
     # generate HLS code and OpenCL host code
     else:
         target = hcl.Platform.aws_f1

@@ -7,7 +7,7 @@ import numpy as np
 
 
 def test_packed_bconv_nchw():
-    packing_factor=32
+    packing_factor = 32
     out_channel = 2
     strides = (1, 1)
     padding = (1, 1)
@@ -15,8 +15,8 @@ def test_packed_bconv_nchw():
     bitwidth = 1
     in_dtype = hcl.Float()
     out_dtype = hcl.Float()
-    in_shape = (1, 1, 3, 3) # n, c, h, w
-    weight_shape = (2, 1, 3, 3) # o, i, h, w
+    in_shape = (1, 1, 3, 3)  # n, c, h, w
+    weight_shape = (2, 1, 3, 3)  # o, i, h, w
 
     def conv(data, weight):
         data = hcl.compute(
@@ -76,7 +76,7 @@ def test_packed_bconv_nchw():
     a_np = np.where(a_np > 0, 1, -1)
     b_np = np.where(b_np > 0, 1, -1)
     # pad a_np
-    a_np = np.pad(a_np, ((0, 0), (0, 0), (1, 1), (1, 1)), 'constant')
+    a_np = np.pad(a_np, ((0, 0), (0, 0), (1, 1), (1, 1)), "constant")
     # calculate convolution
     baseline_output = np.zeros((n, o, h, w))
     for i in range(n):
@@ -86,14 +86,15 @@ def test_packed_bconv_nchw():
                     for m in range(c):
                         for p in range(kh):
                             for q in range(kw):
-                                baseline_output[i][j][k][l] += a_np[i][m][k + p][l + q] * b_np[j][m][p][q]
-
+                                baseline_output[i][j][k][l] += (
+                                    a_np[i][m][k + p][l + q] * b_np[j][m][p][q]
+                                )
 
     assert np.allclose(hcl_c.asnumpy(), baseline_output)
 
 
 def test_packed_bconv_nchw_with_popcount():
-    packing_factor=32
+    packing_factor = 32
     out_channel = 2
     strides = (1, 1)
     padding = (1, 1)
@@ -101,8 +102,8 @@ def test_packed_bconv_nchw_with_popcount():
     bitwidth = min(in_channel, packing_factor)
     in_dtype = hcl.Float()
     out_dtype = hcl.Float()
-    in_shape = (1, 64, 3, 3) # n, c, h, w
-    weight_shape = (64, 64, 3, 3) # o, i, h, w
+    in_shape = (1, 64, 3, 3)  # n, c, h, w
+    weight_shape = (64, 64, 3, 3)  # o, i, h, w
     out_shape = (1, 64, 3, 3)
 
     def conv(data, weight):
@@ -163,7 +164,7 @@ def test_packed_bconv_nchw_with_popcount():
     a_np = np.where(a_np > 0, 1, -1)
     b_np = np.where(b_np > 0, 1, -1)
     # pad a_np
-    a_np = np.pad(a_np, ((0, 0), (0, 0), (1, 1), (1, 1)), 'constant')
+    a_np = np.pad(a_np, ((0, 0), (0, 0), (1, 1), (1, 1)), "constant")
     # calculate convolution
     baseline_output = np.zeros((n, o, h, w))
     for i in range(n):
@@ -173,7 +174,8 @@ def test_packed_bconv_nchw_with_popcount():
                     for m in range(c):
                         for p in range(kh):
                             for q in range(kw):
-                                baseline_output[i][j][k][l] += a_np[i][m][k + p][l + q] * b_np[j][m][p][q]
-
+                                baseline_output[i][j][k][l] += (
+                                    a_np[i][m][k + p][l + q] * b_np[j][m][p][q]
+                                )
 
     assert np.allclose(hcl_c.asnumpy(), baseline_output)

@@ -165,10 +165,11 @@ def test_neg():
 
 def test_if_scope():
     rshape = (2,)
+
     def kernel():
-        r = hcl.compute(rshape, lambda _:0, dtype=hcl.Int(32))
-        a = hcl.scalar(2, "a", dtype='uint32')
-        b = hcl.scalar(1, "b", dtype='uint32')
+        r = hcl.compute(rshape, lambda _: 0, dtype=hcl.Int(32))
+        a = hcl.scalar(2, "a", dtype="uint32")
+        b = hcl.scalar(1, "b", dtype="uint32")
         r[1] = 4
 
         with hcl.if_(a.v == 0):
@@ -180,6 +181,7 @@ def test_if_scope():
         with hcl.else_():
             r[0] = 4
         return r
+
     s = hcl.create_schedule([], kernel)
     hcl_res = hcl.asarray(np.zeros(rshape, dtype=np.uint32), dtype=hcl.UInt(32))
     f = hcl.build(s)
@@ -191,14 +193,15 @@ def test_if_scope():
 def test_if_scope_empty_body():
     hcl.init()
     rshape = (1,)
+
     def kernel():
-        cond0 = hcl.scalar(1, "cond0", dtype='uint32')
-        cond1 = hcl.scalar(0, "cond1", dtype='uint32')
-        res = hcl.scalar(0, "res", dtype='uint32')
+        cond0 = hcl.scalar(1, "cond0", dtype="uint32")
+        cond1 = hcl.scalar(0, "cond1", dtype="uint32")
+        res = hcl.scalar(0, "res", dtype="uint32")
         with hcl.if_(cond0.v == 0):
             with hcl.if_(cond1.v == 0):
                 pass
-        with hcl.else_():   # if else gets scoped with if(cond1.v == 0), res is 0
+        with hcl.else_():  # if else gets scoped with if(cond1.v == 0), res is 0
             res.v = 1
         return res
 
@@ -1165,15 +1168,16 @@ def test_tensor_slice_dtype():
 # https://github.com/cornell-zhang/hcl-dialect/issues/162
 def test_mutate_segfault():
     hcl.init()
+
     def kernel():
         n = 8192
         n64 = n // 64
-        data0 = hcl.compute((n,), lambda i: 0, name="data", dtype='uint32')
-        data1 = hcl.compute((n,), lambda i: 0, name="data", dtype='uint32')
-        data2 = hcl.compute((n,), lambda i: 0, name="data", dtype='uint32')
-        data3 = hcl.compute((n,), lambda i: 0, name="data", dtype='uint32')
+        data0 = hcl.compute((n,), lambda i: 0, name="data", dtype="uint32")
+        data1 = hcl.compute((n,), lambda i: 0, name="data", dtype="uint32")
+        data2 = hcl.compute((n,), lambda i: 0, name="data", dtype="uint32")
+        data3 = hcl.compute((n,), lambda i: 0, name="data", dtype="uint32")
 
-        cnt = hcl.scalar(0, 'cnt', dtype='uint32')
+        cnt = hcl.scalar(0, "cnt", dtype="uint32")
         with hcl.while_(cnt.v < 2):
             cnt.v = cnt.v + 1
 
@@ -1182,15 +1186,19 @@ def test_mutate_segfault():
 
             def doit(i):
                 i64 = i * 64
+
                 def even_odd(dst, j, offs):
-                    dst[i64+2*j  ] = ot[i64+offs+j]
-                    dst[i64+2*j+1] = ob[i64+offs+j]
-                hcl.mutate((32,), lambda j: even_odd(it, j,  0), "a")
+                    dst[i64 + 2 * j] = ot[i64 + offs + j]
+                    dst[i64 + 2 * j + 1] = ob[i64 + offs + j]
+
+                hcl.mutate((32,), lambda j: even_odd(it, j, 0), "a")
                 hcl.mutate((32,), lambda j: even_odd(ib, j, 32), "b")
+
             hcl.mutate((n64,), doit, "c")
 
         r = hcl.compute((1,), lambda i: 0, dtype=hcl.UInt(32))
         return r
+
     s = hcl.create_schedule([], kernel)
     f = hcl.build(s)
     hcl_res = hcl.asarray(np.zeros((1,), dtype=np.uint32), dtype=hcl.UInt(32))

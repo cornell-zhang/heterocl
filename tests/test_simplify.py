@@ -26,6 +26,7 @@ def test_simplify_slice():
         s = hcl.create_schedule(A, kernel)
         ir = hcl.lower(s)
 
+
 @pytest.mark.skip(reason="expected to fail")
 def test_simplifier():
     # in this example, we use a scalar's value
@@ -37,14 +38,16 @@ def test_simplifier():
     def kernel(A):
         a = hcl.scalar(2)
         lower_idx = 0
-        
+
         # upper index is 1 << 2, which is 4
-        upper_idx = 1 << a.v # this doesn't work now because simplifier doesn't support shift
+        upper_idx = (
+            1 << a.v
+        )  # this doesn't work now because simplifier doesn't support shift
         # if we change upper_idx to 4, this test will pass, but it's not what we want
-        
+
         B = hcl.compute(A.shape, lambda x: A[x][lower_idx:upper_idx])
         return B
-    
+
     A = hcl.placeholder((2,), "A")
     s = hcl.create_schedule([A], kernel)
     f = hcl.build(s)
