@@ -1,4 +1,7 @@
 #!/bin/bash
+# Copyright HeteroCL authors. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 # Reference: https://github.com/awslabs/slapo/blob/main/scripts/lint/git-black.sh
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
