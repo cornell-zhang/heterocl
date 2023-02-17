@@ -1,12 +1,9 @@
 # Copyright HeteroCL authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
-
-from . import ast
-from ..context import *
-from ..utils import hcl_dtype_to_mlir, get_extra_type_hints
-from .. import types as htypes
-from ..type_infer import TypeInference
-from . import build_cleaner
+# pylint: disable=no-name-in-module, too-many-return-statements, too-many-branches, unused-argument
+""" IRBuilder Assumptions
+    - All Python immediate should be converted to ConstantOp
+"""
 
 # Import MLIR dialects
 # Naming rule: import dialect as dialect_d
@@ -19,148 +16,163 @@ from hcl_mlir.dialects import (
     arith as arith_d,
     math as math_d,
 )
-from hcl_mlir.exceptions import *
+from hcl_mlir.ir import (
+    Module,
+    InsertionPoint,
+    Location,
+    MemRefType,
+    FunctionType,
+    TypeAttr,
+    StringAttr,
+    UnitAttr,
+    FlatSymbolRefAttr,
+    AffineConstantExpr,
+    AffineMap,
+    AffineMapAttr,
+    IntegerType,
+    IntegerAttr,
+    BoolAttr,
+    IndexType,
+    FloatAttr,
+    F16Type,
+    F32Type,
+    F64Type,
+    AffineExpr,
+    DenseElementsAttr,
+)
+from hcl_mlir.exceptions import (
+    DTypeError,
+    APIError,
+    HCLNotImplementedError,
+    MLIRLimitationError,
+    HCLValueError,
+)
 
-
-""" IRBuilder Assumptions
-- All Python immediate should be converted to ConstantOp
-"""
+from . import ast
+from ..context import get_context, get_location
+from ..utils import hcl_dtype_to_mlir, get_extra_type_hints
+from .. import types as htypes
+from ..type_infer import TypeInference
+from . import build_cleaner
 
 
 def get_op_class(op, typ):
-    """Get the class of the given op"""
+    """Get the class of the given op
+    TODO: Consider using dictionary to store the mapping
+    """
     if isinstance(op, ast.Add):
         if isinstance(typ, (htypes.Int, htypes.UInt)):
             return arith_d.AddIOp
-        elif isinstance(typ, htypes.Float):
+        if isinstance(typ, htypes.Float):
             return arith_d.AddFOp
-        elif isinstance(typ, (htypes.Fixed, htypes.UFixed)):
+        if isinstance(typ, (htypes.Fixed, htypes.UFixed)):
             return hcl_d.AddFixedOp
-        else:
-            raise APIError("Unsupported type for AddOp: {}".format(typ))
-    elif isinstance(op, ast.Sub):
+        raise APIError(f"Unsupported type for AddOp: {typ}")
+    if isinstance(op, ast.Sub):
         if isinstance(typ, (htypes.Int, htypes.UInt)):
             return arith_d.SubIOp
-        elif isinstance(typ, htypes.Float):
+        if isinstance(typ, htypes.Float):
             return arith_d.SubFOp
-        elif isinstance(typ, (htypes.Fixed, htypes.UFixed)):
+        if isinstance(typ, (htypes.Fixed, htypes.UFixed)):
             return hcl_d.SubFixedOp
-        else:
-            raise APIError("Unsupported type for SubOp: {}".format(typ))
-    elif isinstance(op, ast.Mul):
+        raise APIError(f"Unsupported type for SubOp: {typ}")
+    if isinstance(op, ast.Mul):
         if isinstance(typ, (htypes.Int, htypes.UInt)):
             return arith_d.MulIOp
-        elif isinstance(typ, htypes.Float):
+        if isinstance(typ, htypes.Float):
             return arith_d.MulFOp
-        elif isinstance(typ, (htypes.Fixed, htypes.UFixed)):
+        if isinstance(typ, (htypes.Fixed, htypes.UFixed)):
             return hcl_d.MulFixedOp
-        else:
-            raise APIError("Unsupported type for MulOp: {}".format(typ))
-    elif isinstance(op, ast.Div):
+        raise APIError(f"Unsupported type for MulOp: {typ}")
+    if isinstance(op, ast.Div):
         if isinstance(typ, htypes.Int):
             return arith_d.DivSIOp
-        elif isinstance(typ, htypes.UInt):
+        if isinstance(typ, htypes.UInt):
             return arith_d.DivUIOp
-        elif isinstance(typ, htypes.Float):
+        if isinstance(typ, htypes.Float):
             return arith_d.DivFOp
-        elif isinstance(typ, (htypes.Fixed, htypes.UFixed)):
+        if isinstance(typ, (htypes.Fixed, htypes.UFixed)):
             return hcl_d.DivFixedOp
-        else:
-            raise APIError("Unsupported type for DivOp: {}".format(typ))
-    elif isinstance(op, ast.Max):
+        raise APIError(f"Unsupported type for DivOp: {typ}")
+    if isinstance(op, ast.Max):
         if isinstance(typ, htypes.Int):
             return arith_d.MaxSIOp
-        elif isinstance(typ, htypes.UInt):
+        if isinstance(typ, htypes.UInt):
             return arith_d.MaxUIOp
-        elif isinstance(typ, htypes.Float):
+        if isinstance(typ, htypes.Float):
             return arith_d.MaxFOp
-        elif isinstance(typ, (htypes.Fixed, htypes.UFixed)):
+        if isinstance(typ, (htypes.Fixed, htypes.UFixed)):
             return hcl_d.MaxFixedOp
-        else:
-            raise APIError("Unsupported type for MaxOp: {}".format(typ))
-    elif isinstance(op, ast.Min):
+        raise APIError(f"Unsupported type for MaxOp: {typ}")
+    if isinstance(op, ast.Min):
         if isinstance(typ, htypes.Int):
             return arith_d.MinSIOp
-        elif isinstance(typ, htypes.UInt):
+        if isinstance(typ, htypes.UInt):
             return arith_d.MinUIOp
-        elif isinstance(typ, htypes.Float):
+        if isinstance(typ, htypes.Float):
             return arith_d.MinFOp
-        elif isinstance(typ, (htypes.Fixed, htypes.UFixed)):
+        if isinstance(typ, (htypes.Fixed, htypes.UFixed)):
             return hcl_d.MinFixedOp
-        else:
-            raise APIError("Unsupported type for MinOp: {}".format(typ))
-    elif isinstance(op, ast.FloorDiv):
+        raise APIError(f"Unsupported type for MinOp: {typ}")
+    if isinstance(op, ast.FloorDiv):
         if isinstance(typ, htypes.Int):
             return arith_d.FloorDivSIOp
-        else:
-            raise APIError("Unsupported type for FloorDivOp: {}".format(typ))
-    elif isinstance(op, ast.Mod):
+        raise APIError(f"Unsupported type for FloorDivOp: {typ}")
+    if isinstance(op, ast.Mod):
         if isinstance(typ, htypes.Int):
             return arith_d.RemSIOp
-        elif isinstance(typ, htypes.UInt):
+        if isinstance(typ, htypes.UInt):
             return arith_d.RemUIOp
-        elif isinstance(typ, htypes.Float):
+        if isinstance(typ, htypes.Float):
             return arith_d.RemFOp
-        else:
-            raise APIError("Unsupported type for ModOp: {}".format(typ))
-    elif isinstance(op, ast.And):
+        raise APIError(f"Unsupported type for ModOp: {typ}")
+    if isinstance(op, ast.And):
         if isinstance(typ, (htypes.Int, htypes.UInt)):
             return arith_d.AndIOp
-        else:
-            raise APIError("Unsupported type for AndOp: {}".format(typ))
-    elif isinstance(op, ast.Or):
+        raise APIError(f"Unsupported type for AndOp: {typ}")
+    if isinstance(op, ast.Or):
         if isinstance(typ, (htypes.Int, htypes.UInt)):
             return arith_d.OrIOp
-        else:
-            raise APIError("Unsupported type for OrOp: {}".format(typ))
-    elif isinstance(op, ast.XOr):
+        raise APIError(f"Unsupported type for OrOp: {typ}")
+    if isinstance(op, ast.XOr):
         if isinstance(typ, (htypes.Int, htypes.UInt)):
             return arith_d.XOrIOp
-        else:
-            raise APIError("Unsupported type for XOrOp: {}".format(typ))
-    elif isinstance(op, ast.Mod):
+        raise APIError(f"Unsupported type for XOrOp: {typ}")
+    if isinstance(op, ast.Mod):
         if isinstance(typ, htypes.Int):
             return arith_d.RemSIOp
-        elif isinstance(typ, htypes.UInt):
+        if isinstance(typ, htypes.UInt):
             return arith_d.RemUIOp
-        elif isinstance(typ, htypes.Float):
+        if isinstance(typ, htypes.Float):
             return arith_d.RemFOp
-        else:
-            raise APIError("Unsupported type for ModOp: {}".format(typ))
-    elif isinstance(op, ast.LogicalAnd):
+        raise APIError(f"Unsupported type for ModOp: {typ}")
+    if isinstance(op, ast.LogicalAnd):
         if isinstance(typ, (htypes.Int, htypes.UInt)) and typ.bits == 1:
             return arith_d.AndIOp
-        else:
-            raise APIError("Unsupported type for LogicalAndOp: {}".format(typ))
-    elif isinstance(op, ast.LogicalOr):
+        raise APIError(f"Unsupported type for LogicalAndOp: {typ}")
+    if isinstance(op, ast.LogicalOr):
         if isinstance(typ, (htypes.Int, htypes.UInt)) and typ.bits == 1:
             return arith_d.OrIOp
-        else:
-            raise APIError("Unsupported type for LogicalOrOp: {}".format(typ))
-    elif isinstance(op, ast.LogicalXOr):
+        raise APIError(f"Unsupported type for LogicalOrOp: {typ}")
+    if isinstance(op, ast.LogicalXOr):
         if isinstance(typ, (htypes.Int, htypes.UInt)) and typ.bits == 1:
             return arith_d.XOrIOp
-        else:
-            raise APIError("Unsupported type for LogicalXOrOp: {}".format(typ))
-    elif isinstance(op, ast.MathPowOp):
+        raise APIError(f"Unsupported type for LogicalXOrOp: {typ}")
+    if isinstance(op, ast.MathPowOp):
         if isinstance(typ, htypes.Float):
             return math_d.PowFOp
-        else:
-            raise APIError("Unsupported type for MathPowOp: {}".format(typ))
-    elif isinstance(op, ast.LeftShiftOp):
+        raise APIError(f"Unsupported type for MathPowOp: {typ}")
+    if isinstance(op, ast.LeftShiftOp):
         if isinstance(typ, (htypes.Int, htypes.UInt)):
             return arith_d.ShLIOp
-        else:
-            raise APIError("Unsupported type for LeftShiftOp: {}".format(typ))
-    elif isinstance(op, ast.RightShiftOp):
+        raise APIError(f"Unsupported type for LeftShiftOp: {typ}")
+    if isinstance(op, ast.RightShiftOp):
         if isinstance(typ, htypes.Int):
             return arith_d.ShRSIOp
-        elif isinstance(typ, htypes.UInt):
+        if isinstance(typ, htypes.UInt):
             return arith_d.ShRUIOp
-        else:
-            raise APIError("Unsupported type for RightShiftOp: {}".format(typ))
-    else:
-        raise APIError("Unsupported op in get_op_class: {}".format(op))
+        raise APIError(f"Unsupported type for RightShiftOp: {typ}")
+    raise APIError(f"Unsupported op in get_op_class: {op}")
 
 
 def is_all_field_int(dtype):
@@ -189,7 +201,7 @@ def get_struct_bitwidth(dtype):
     return bitwidth
 
 
-class IRBuilder(object):
+class IRBuilder:
     """IRBuilder class to build MLIR
     operations from intermediate layer
     """
@@ -201,7 +213,7 @@ class IRBuilder(object):
         self.iv = []  # a list to keep track of affine expression's induction variables
         self.tinf_engine = TypeInference()
         self.cleaner = build_cleaner.ASTCleaner()
-        self.tensor_dict = dict()  # tensor name -> memref.allocOp
+        self.tensor_dict = {}  # tensor name -> memref.allocOp
         self.BIT_OPS = False
 
     def build(self):
@@ -364,6 +376,7 @@ class IRBuilder(object):
                 dtype = hcl_dtype_to_mlir(dtype, signless=True)
                 output_types.append(dtype)
         func_type = FunctionType.get(input_types, output_types)
+        # pylint: disable=unexpected-keyword-arg
         func_op = func_d.FuncOp(name=op.name, type=func_type, ip=ip, loc=loc)
         op.ir_op = func_op
 
@@ -406,7 +419,7 @@ class IRBuilder(object):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         func = FlatSymbolRefAttr.get(op.name)
         # build arguments
-        args = list()
+        args = []
         for arg in op.args:
             self.build_visitor(arg, ip)
             args.append(arg.result)
@@ -433,7 +446,7 @@ class IRBuilder(object):
     def build_iter_var(self, iv, ip):
         """Build IterVar"""
         if iv.parent_loop is None:
-            raise APIError("IterVar {} parent loop has not been set".format(iv))
+            raise APIError(f"IterVar {iv} parent loop has not been set")
         iv.result = iv.parent_loop.induction_variable
 
     def build_for_loop(
@@ -447,22 +460,18 @@ class IRBuilder(object):
         ----------
         lb : int or Expr
             Lower bound of the loop.
-
         ub : int or Expr
             Upper bound of the loop.
-
         step : int
             Step of the loop.
-
         name : str
             Name of the loop.
-
+        stage : str
+            Name of the stage.
         reduction : bool
             Whether the loop is a reduction loop.
-
         ip : InsertPoint
             Insert point of the loop.
-
         loc : MLIR Location
             Source file location.
         """
@@ -489,7 +498,7 @@ class IRBuilder(object):
                 lbMapAttr,
                 ubMapAttr,
                 name=(
-                    StringAttr.get("") if name in ["", None] else StringAttr.get(name)
+                    StringAttr.get("") if name in {"", None} else StringAttr.get(name)
                 ),
                 stage=("" if stage == "" else StringAttr.get(stage)),
                 reduction=(UnitAttr.get() if reduction else None),
@@ -515,7 +524,7 @@ class IRBuilder(object):
                 ub.result,
                 step.result,
                 name=(
-                    StringAttr.get("") if name in ["", None] else StringAttr.get(name)
+                    StringAttr.get("") if name in {"", None} else StringAttr.get(name)
                 ),
                 stage=("" if stage == "" else StringAttr.get(stage)),
                 reduction=(UnitAttr.get() if reduction else None),
@@ -536,7 +545,7 @@ class IRBuilder(object):
                 op.result = alloc_op.result
                 op.ir_op = alloc_op
 
-            loops = list()
+            loops = []
             for i, (ub, loop_name) in enumerate(zip(op.shape, iv_names)):
                 loop = self.build_for_loop(
                     0,
@@ -596,7 +605,7 @@ class IRBuilder(object):
         op.ir_op = alloc_op
         # assume no name conflict
         if op.name in self.tensor_dict:
-            raise APIError("Tensor name conflict: {}".format(op.name))
+            raise APIError(f"Tensor name conflict: {op.name}")
         self.tensor_dict[op.name] = alloc_op
 
     def build_binary_op(self, op, ip):
@@ -814,7 +823,7 @@ class IRBuilder(object):
             try:
                 affine_expr = self.build_affine_expr(index)
                 index_exprs.append(affine_expr)
-            except:
+            except Exception:
                 flag = False
                 break
         if flag:
@@ -857,7 +866,7 @@ class IRBuilder(object):
             try:
                 affine_expr = self.build_affine_expr(index)
                 index_exprs.append(affine_expr)
-            except:
+            except Exception:
                 flag = False
                 break
         if flag:
@@ -1164,7 +1173,7 @@ class IRBuilder(object):
         body_ip = ip
 
         # build loop nest
-        loops = list()
+        loops = []
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         for axis in op.axis:
             lb, ub = axis.bound

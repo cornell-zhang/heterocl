@@ -1,5 +1,6 @@
 # Copyright HeteroCL authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
+# pylint: disable=unused-argument
 
 from . import ast
 from hcl_mlir.exceptions import *
