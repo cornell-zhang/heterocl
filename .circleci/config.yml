@@ -41,6 +41,10 @@ jobs:
           name: Install HeteroCL Dependencies
           command: |
             python3 -m pip install -r requirements.txt
+      - run:
+          name: Formatting Check
+          command: |
+            bash ./.circleci/task_lint.sh
       - run: 
           name: HeteroCL Tests
           command: |
