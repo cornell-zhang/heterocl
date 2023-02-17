@@ -1,12 +1,11 @@
 # Copyright HeteroCL authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
-
 """Exception handler in HeteroCL
 
 This module defines various HeteroCL exceptions. Developers are free to
 add new types of exception.
 """
-# pylint: disable=superfluous-parens
+
 import sys
 import traceback
 

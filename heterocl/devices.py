@@ -1,23 +1,27 @@
 # Copyright HeteroCL authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
-
 """Define HeteroCL device types"""
-# pylint: disable=too-few-public-methods, too-many-return-statements
+# pylint: disable=unused-argument
+
+from __future__ import annotations
+
 from .tools import Tool
-from .debug import DSLError, APIError, HCLError, DeviceError
+from .debug import DeviceError
 from .context import UniqueName
 
-model_table = {
-    "fpga": {
+
+@dataclass
+class ModelTable:
+    FPGA: Dict[str, List[str]] = {
         "xilinx": ["xc7z045", "xcvu19p", "xcu280-fsvh2892-2L-e"],
         "intel": ["stratix10_gx", "stratix10_dx", "stratix10_mx", "arria10"],
-    },
-    "cpu": {
+    }
+    CPU: Dict[str, List[str]] = {
         "arm": ["a7", "a9", "a53"],
         "riscv": ["riscv"],
         "intel": ["e5", "i7", "intel-xeon-silver-4214"],
-    },
-}
+    }
+
 
 dev_mem_map = {"DRAM": 0, "HBM": 1, "PLRAM": 2, "BRAM": 3, "LUTRAM": 4, "URAM": 5}
 
@@ -30,7 +34,7 @@ def is_mem_onchip(mem_type):
     return private, dev_mem_map[mem_type]
 
 
-class Memory(object):
+class Memory:
     """The base class for memory modules"""
 
     def __init__(self, types, capacity=0, num_channels=0, channel_id=0):
@@ -48,9 +52,7 @@ class Memory(object):
             raise DeviceError("channel_id must be integer")
         if key > self.num_channels:
             raise DeviceError(
-                "channel_id must be within \
-                    the channel range %d",
-                self.num_channels,
+                "channel_id must be within the channel range {self.num_channels}"
             )
         self.channel_id = key
         return self
@@ -62,21 +64,21 @@ class Memory(object):
 # Shared memory between host and accelerators
 class DRAM(Memory):
     def __init__(self, capacity=16 * 1024 * 1024, num_channels=4):
-        super(DRAM, self).__init__("DRAM")
+        super().__init__("DRAM")
         self.capacity = capacity
         self.num_channels = num_channels
 
 
 class HBM(Memory):
     def __init__(self, capacity=256 * 1024, num_channels=32):
-        super(HBM, self).__init__("HBM")
+        super().__init__("HBM")
         self.capacity = capacity
         self.num_channels = num_channels
 
 
 class PLRAM(Memory):
     def __init__(self, capacity=32, num_channels=6):
-        super(PLRAM, self).__init__("PLRAM")
+        super().__init__("PLRAM")
         self.capacity = capacity
         self.num_channels = num_channels
 
@@ -84,23 +86,23 @@ class PLRAM(Memory):
 # Private memory to FPGA device
 class BRAM(Memory):
     def __init__(self):
-        super(BRAM, self).__init__("BRAM")
+        super().__init__("BRAM")
         self.port_num = 2
 
 
 class LUTRAM(Memory):
     def __init__(self):
-        super(LUTRAM, self).__init__("LUTRAM")
+        super().__init__("LUTRAM")
         self.port_num = 2
 
 
 class URAM(Memory):
     def __init__(self):
-        super(URAM, self).__init__("URAM")
+        super().__init__("URAM")
         self.port_num = 2
 
 
-class Device(object):
+class Device:
     """The base class for all device types
 
     The default data placement is on CPU.
@@ -120,7 +122,7 @@ class Device(object):
 
         self.dev_id = 0
         self.backend = ""
-        self.config = dict()
+        self.config = {}
 
         for key, value in kwargs.items():
             self.config[key] = value
@@ -130,7 +132,7 @@ class Device(object):
 
     def __getattr__(self, key):
         """device hierarchy"""
-        if key in self.config.keys():
+        if key in self.config:
             return self.config[key]
         memory = self.storage[key]
         return DevMemoryPair(self, memory)
@@ -150,7 +152,7 @@ class Device(object):
         self.dev_id = dev_id
 
 
-class DevMemoryPair(object):
+class DevMemoryPair:
     def __init__(self, device, memory):
         self.xcel = device
         self.memory = memory
@@ -168,9 +170,7 @@ class DevMemoryPair(object):
             raise DeviceError("channel_id must be integer")
         if key > self.memory.num_channels:
             raise DeviceError(
-                "channel_id must be within \
-                    the channel range %d",
-                self.memory.num_channels,
+                f"channel_id must be within the channel range {self.memory.num_channels}"
             )
         self.memory.channel_id = key
         return self
@@ -183,13 +183,13 @@ class CPU(Device):
     """cpu device with different models"""
 
     def __init__(self, vendor, model, **kwargs):
-        if vendor not in model_table["cpu"]:
+        if vendor not in ModelTable.CPU:
             raise DeviceError(vendor + " not supported yet")
         if model is not None:
-            assert model in model_table["cpu"][vendor], model + " not supported yet"
+            assert model in ModelTable.CPU[vendor], model + " not supported yet"
         else:
-            model = model_table["cpu"][vendor][0]
-        super(CPU, self).__init__("CPU", vendor, model, **kwargs)
+            model = ModelTable.CPU[vendor][0]
+        super().__init__("CPU", vendor, model, **kwargs)
 
     def __repr__(self):
         return f"CPU({self.vendor}, {self.model}, {self.backend}, {self.dev_id})"
@@ -199,15 +199,13 @@ class FPGA(Device):
     """fpga device with different models"""
 
     def __init__(self, vendor, model, **kwargs):
-        if vendor not in model_table["fpga"]:
+        if vendor not in ModelTable.FPGA:
             raise DeviceError(vendor + " not supported yet")
         if model is not None:
-            assert model in model_table["fpga"][vendor], "{} not supported yet".format(
-                model
-            )
+            assert model in ModelTable.FPGA[vendor], f"{model} not supported yet"
         else:
-            model = model_table["fpga"][vendor][0]
-        super(FPGA, self).__init__("FPGA", vendor, model, **kwargs)
+            model = ModelTable.FPGA[vendor][0]
+        super().__init__("FPGA", vendor, model, **kwargs)
 
     def __repr__(self):
         return f"FPGA({self.vendor}, {self.model}, {self.backend}, {self.dev_id})"
@@ -219,13 +217,13 @@ class PIM(Device):
     def __init__(self, vendor, model, **kwargs):
         if model not in ["ppac"]:
             raise DeviceError(model + " not supported yet")
-        super(PIM, self).__init__("PIM", vendor, model, **kwargs)
+        super().__init__("PIM", vendor, model, **kwargs)
 
     def __repr__(self):
         return f"PIM({self.model})"
 
 
-class Platform(object):
+class Platform:
     def __init__(self, name, devs, host, xcel, tool):
         self.name = name
         self.devs = devs
@@ -257,9 +255,8 @@ class Platform(object):
         project : str
             Name of the project folder
 
-        Returns
-        -------
-        Device
+        top : str
+            Name of the top function
 
         Examples
         -------
@@ -311,8 +308,8 @@ class Platform(object):
         devs = [host] + xcel
         # set up the default xcel device
         if isinstance(xcel, list):
-            for i in range(len(xcel)):
-                xcel[i].set_dev_id(i + 1)
+            for i, itm in enumerate(xcel):
+                itm.set_dev_id(i + 1)
             xcel = xcel[0]
 
         tool = None
@@ -320,7 +317,7 @@ class Platform(object):
 
 
 # Class to create custom platform
-class dev(object):
+class dev:
     def __init__(self, types, vendor, model):
         self.types = types
 
@@ -352,51 +349,9 @@ def device_to_str(dtype):
     if isinstance(dtype, Device):
         if isinstance(dtype, CPU):
             return "cpu_" + str(dtype.model)
-        elif isinstance(dtype, FPGA):
+        if isinstance(dtype, FPGA):
             return "fpga_" + str(dtype.model)
-    else:
-        if not isinstance(dtype, str):
-            raise DeviceError("Unsupported device type format")
-        return dtype
-
-
-def device_to_hcl(dtype):
-    """Convert a device type to Heterocl type.
-
-    Parameters
-    ----------
-    dtype : Device or str
-        The device type to be converted
-
-    Returns
-    -------
-    Device
-    """
-    if isinstance(dtype, Device):
-        return dtype
-    elif isinstance(dtype, str):
-        device, model = dtype.split("_")
-        if device == "cpu":
-            return CPU(model)
-        elif device == "fpga":
-            return FPGA(model)
-        else:
-            raise DeviceError("Unrecognized device type")
-    else:
-        raise DeviceError("Unrecognized device type format")
-
-
-def get_model(dtype):
-    """Get the model of a given device type.
-
-    Parameters
-    ----------
-    dtype : Device or str
-        The given device type
-
-    Returns
-    -------
-    str
-    """
-    dtype = dtype_to_hcl(dtype)
-    return dtype.types, dtype.model
+        raise DeviceError("Unrecognized device type")
+    if not isinstance(dtype, str):
+        raise DeviceError("Unsupported device type format")
+    return dtype

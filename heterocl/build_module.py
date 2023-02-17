@@ -1,5 +1,6 @@
 # Copyright HeteroCL authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
+# pylint: disable=no-name-in-module, unused-argument
 
 import io
 import os
@@ -8,9 +9,13 @@ import copy
 import hcl_mlir
 from hcl_mlir.dialects import hcl as hcl_d
 from hcl_mlir.dialects import func as func_d
-from hcl_mlir.execution_engine import *
-from hcl_mlir.exceptions import *
-from hcl_mlir.ir import *
+from hcl_mlir.execution_engine import ExecutionEngine
+from hcl_mlir.exceptions import APIError, APIWarning, PassWarning
+from hcl_mlir.ir import (
+    Module,
+    StringAttr,
+    UnitAttr,
+)
 from hcl_mlir.passmanager import PassManager as mlir_pass_manager
 
 from .devices import Platform
@@ -29,7 +34,7 @@ from .ast import ast
 
 def _mlir_lower_pipeline(module):
     hcl_d.loop_transformation(module)
-    pipeline = f"func.func" f"(affine-loop-normalize, cse, affine-simplify-structures)"
+    pipeline = "func.func(affine-loop-normalize, cse, affine-simplify-structures)"
     try:
         with get_context():
             mlir_pass_manager.parse(pipeline).run(module)
@@ -72,10 +77,8 @@ def lower(
 
 def build(schedule, target=None, stmt=None, top=None):
     """Build the executable according to the schedule and target."""
+    # pylint: disable=too-many-try-statements
     try:
-        # if isinstance(target, Platform) and str(target.tool.mode) != "debug":
-        #     for _, stage in Stage._mapping:
-        #         stage.outline()
         if not schedule.is_lowered():
             lower(schedule)
         if top is not None:
@@ -87,16 +90,16 @@ def build(schedule, target=None, stmt=None, top=None):
                 if target is not None:
                     target.top = func.name
                     original_name = target.project
-                    target.project = "{}/{}.prj".format(original_name, func.name)
+                    target.project = f"{original_name}/{func.name}.prj"
                     modules.append(build_fpga_kernel(func_mod, target, stmt))
                     target.project = original_name
                 else:
-                    modules.append(build_llvm(func_mod, target, stmt))
+                    raise RuntimeError("Untested code path.")
+                    # modules.append(build_llvm(func_mod, target, stmt))
             return HCLSuperModule(modules)
         if target is not None:
             return build_fpga_kernel(schedule, target, stmt)
-        else:
-            return build_llvm(schedule)
+        return build_llvm(schedule)
     except Exception as e:
         raise e
 
@@ -113,21 +116,21 @@ def separate_host_xcel(schedule, device_agnostic_ast):
     dfg.graph_partition()
 
     # outline the device function
-    dev_func_body = list()
+    dev_func_body = []
     top_func = device_agnostic_ast.top_func
     for body_op in top_func.body:
         if isinstance(body_op, ast.ComputeOp):
             op_name = body_op.name
             if op_name not in dfg.device_map:
-                raise APIError("Cannot find the device map for op {}".format(op_name))
-            if dfg.device_map[op_name] in ["FPGA", "device"]:
+                raise APIError(f"Cannot find the device map for op {op_name}")
+            if dfg.device_map[op_name] in {"FPGA", "device"}:
                 dev_func_body.append(body_op)
         elif body_op.is_customize_op:
             dev_func_body.append(body_op)
 
     # create device function
-    args = list()
-    return_tensors = list()
+    args = []
+    return_tensors = []
     for node in dfg.subgraph["inputs"]:
         if node.base is not None:
             args.append(node.base.tensor)
@@ -143,9 +146,9 @@ def separate_host_xcel(schedule, device_agnostic_ast):
     device_func.return_tensors = return_tensors
 
     # create host function
-    host_func_body = list()
+    host_func_body = []
     call_inserted = False
-    new_rets = list()
+    new_rets = []
     for body_op in top_func.body:
         if body_op in dev_func_body:
             if not call_inserted:
@@ -207,7 +210,7 @@ void top("""
                 + tensor.name
             )
         for index in tensor.shape:
-            arg += "[{}]".format(index)
+            arg += f"[{index}]"
         args.append(arg)
     header += ", ".join(args)
     header += ");\n\n#endif // KERNEL_H"
@@ -225,15 +228,16 @@ def build_fpga_kernel(schedule, target=None, stmt=None):
         buf.seek(0)
         hls_code = buf.read()
         return hls_code
-    elif target == "ihls":
+    if target == "ihls":
         buf = io.StringIO()
         hcl_d.emit_ihls(module, buf)
         buf.seek(0)
         hls_code = buf.read()
         return hls_code
-    elif not isinstance(target, Platform):
+    if not isinstance(target, Platform):
         raise RuntimeError("Not supported target")
 
+    # pylint: disable=no-else-return
     if str(target.tool.mode) == "debug":
         # debug mode: full code without host-xcel partition
         # is generated and written to kernel.cpp
@@ -243,11 +247,11 @@ def build_fpga_kernel(schedule, target=None, stmt=None):
         buf = io.StringIO()
         hcl_d.emit_vhls(module, buf)
         buf.seek(0)
-        hls_code = buf.read()
-        with open("{}/kernel.cpp".format(target.project), "w") as outfile:
+        hls_code = buf.read(encoding="utf-8")
+        with open(f"{target.project}/kernel.cpp", "w", encoding="utf-8") as outfile:
             outfile.write(hls_code)
         host_code = None
-        with open("{}/host.cpp".format(target.project), "w") as outfile:
+        with open(f"{target.project}/host.cpp", "w", encoding="utf-8") as outfile:
             outfile.write("")
 
         return hls_code
@@ -284,7 +288,7 @@ def build_fpga_kernel(schedule, target=None, stmt=None):
         hcl_d.emit_vhls(schedule.xcel_module, buf)
         buf.seek(0)
         hls_code = buf.read()
-        with open("{}/kernel.cpp".format(target.project), "w") as outfile:
+        with open("{target.project}/kernel.cpp", "w", encoding="utf-8") as outfile:
             outfile.write(hls_code)
 
         # generate host code
@@ -292,12 +296,12 @@ def build_fpga_kernel(schedule, target=None, stmt=None):
         hcl_d.emit_vhls(schedule.host_module, host_buf)
         host_buf.seek(0)
         host_code = host_buf.read()
-        with open("{}/host.cpp".format(target.project), "w") as outfile:
+        with open(f"{target.project}/host.cpp", "w", encoding="utf-8") as outfile:
             outfile.write(host_code)
 
         # generate header
         header = generate_kernel_header(schedule)
-        with open("{}/kernel.h".format(target.project), "w") as outfile:
+        with open(f"{target.project}/kernel.h", "w", encoding="utf-8") as outfile:
             outfile.write(header)
 
     hcl_module = HCLModule(target.top, hls_code, target, host_src=host_code)
@@ -342,11 +346,11 @@ def build_llvm(schedule, top_func_name="top"):
         # print(module)
         hcl_d.legalize_cast(module)
         hcl_d.remove_stride_map(module)
-        pipeline = f"lower-affine," f"func.func" f"(buffer-loop-hoisting)"
+        pipeline = "lower-affine,func.func(buffer-loop-hoisting)"
         try:
             with get_context():
                 mlir_pass_manager.parse(pipeline).run(module)
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             PassWarning(str(e)).warn()
             print(module)
 

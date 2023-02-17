@@ -1,7 +1,6 @@
 # Copyright HeteroCL authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
-
-from hcl_mlir.exceptions import *
+# pylint: disable=unused-argument
 
 from .context import UniqueName
 from .schedule import Schedule
@@ -10,7 +9,7 @@ from .ast import ast
 from .types import UInt
 
 
-class WithScope(object):
+class WithScope:
     """Auxiliary scope with"""
 
     def __init__(self, enter_value, exit_cb):
@@ -28,6 +27,7 @@ def and_(*args):
     """Compute the logic AND between expressions."""
     filename, loc = get_src_loc()
     loc = ast.Location(filename, loc)
+    # pylint: disable=redefined-variable-type
     expr = ast.ConstantOp(1, UInt(1), loc)
     for arg in args:
         arg = ast.CastOp(arg, UInt(1), loc)
@@ -39,6 +39,7 @@ def or_(*args):
     """Compute the logic OR between expressions."""
     filename, loc = get_src_loc()
     loc = ast.Location(filename, loc)
+    # pylint: disable=redefined-variable-type
     expr = ast.ConstantOp(0, UInt(1), loc)
     for arg in args:
         arg = ast.CastOp(arg, UInt(1), loc)
@@ -158,7 +159,7 @@ def def_(shapes=None, dtypes=None, ret_dtype=None, name=None, arg_names=None):
                 ret = fmodule(*inputs)
                 ast.scope.pop()
                 if ret is None:
-                    outputs = list()
+                    outputs = []
                     if len(func_op.body) > 0 and isinstance(
                         func_op.body[-1], ast.ReturnOp
                     ):
@@ -206,62 +207,3 @@ def break_():
     raise RuntimeError(
         "Currently we cannot support hcl.break_ due to MLIR's limitation. Please rewrite your prorgam."
     )
-    # hcl_mlir.enable_build_inplace()
-    # BreakFlag.set(True)
-    # if len(Schedule._IfElseStack) == 0:
-    #     raise RuntimeError("There is no if_ before hcl.break_")
-    # last_if_op = Schedule._IfElseStack.pop()
-    # last_if_op.regions[1].blocks.append(*[])
-    # if isinstance(last_if_op, affine.AffineIfOp):
-    #     affine.AffineYieldOp([], ip=InsertionPoint(last_if_op.else_block))
-    # else:
-    #     scf.YieldOp([], ip=hcl_mlir.InsertionPoint(last_if_op.else_block))
-    # hcl_mlir.GlobalInsertionPoint.save(last_if_op.else_block.operations[0])
-
-
-# def break_():
-#     BreakFlag.set(True)
-#     hcl_mlir.enable_build_inplace()
-#     bool = MemRefType.get((1,), IntegerType.get_signless(1))
-#     # outside stage
-#     global_ip = InsertionPoint(Schedule._CurrentSchedule.device_top.entry_block.operations[0])
-#     flag = memref.AllocOp(bool, [], [], None, ip=global_ip) # inside top func
-#     zero_idx = arith.ConstantOp(
-#         IndexType.get(),
-#         IntegerAttr.get(IndexType.get(), 0),
-#         ip=global_ip,
-#     )
-#     true_value = arith.ConstantOp(
-#         IntegerType.get_signless(1), IntegerAttr.get(IntegerType.get_signless(1), 1), ip=global_ip
-#     )
-#     store = affine.AffineStoreOp(
-#         true_value.result,
-#         flag.result,
-#         [zero_idx.result],
-#         ip=global_ip,
-#     )
-#     # inside the stage
-#     false_value = arith.ConstantOp(
-#         IntegerType.get_signless(1), IntegerAttr.get(IntegerType.get_signless(1), 0), ip=GlobalInsertionPoint.get()
-#     )
-#     store = affine.AffineStoreOp(
-#         false_value.result,
-#         flag.result,
-#         [zero_idx.result],
-#         ip=GlobalInsertionPoint.get(),
-#     )
-#     # at the beginning of the stage
-#     stage_ip = InsertionPoint(Schedule._CurrentLoops[-1].body.operations[0])
-#     load = affine.AffineLoadOp(
-#         flag.result, [zero_idx.result], ip=stage_ip
-#     ) # op0
-#     if_op = scf.IfOp(load.result, ip=stage_ip, hasElse=False) # op1
-#     yield_op = scf.YieldOp([], ip=InsertionPoint(if_op.then_block))
-#     for i, op in enumerate(Schedule._CurrentLoops[-1].body.operations):
-#         if i < 2 or isinstance(op, (affine.AffineYieldOp, scf.YieldOp)):
-#             continue
-#         op.move_before(yield_op)
-#     if len(Schedule._IfElseStack) > 0:
-#         GlobalInsertionPoint.ip_stack.insert(-1, InsertionPoint(yield_op))
-#     # GlobalInsertionPoint.save(yield_op)
-#     print(Schedule._CurrentSchedule.device_module)

@@ -1,13 +1,16 @@
 # Copyright HeteroCL authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
+# pylint: disable=no-name-in-module
+
+import copy
 
 import hcl_mlir
 from hcl_mlir.dialects import func as func_d
 from hcl_mlir import GlobalInsertionPoint
-from hcl_mlir.ir import *
-from .context import *
+from hcl_mlir.ir import Module, FunctionType
+from .context import UniqueName, set_context, get_context, get_location
 from .utils import hcl_dtype_to_mlir
-from .schedule import Schedule, _build_schedule
+from .schedule import Schedule
 
 
 def instantiate(func, name=None, count=1):
@@ -35,11 +38,10 @@ def instantiate(func, name=None, count=1):
 
     if count == 1:
         return Instance(func, name)
-    else:
-        return [Instance(func, name) for name in names]
+    return [Instance(func, name) for name in names]
 
 
-class Instance(object):
+class Instance:
     def __init__(self, func, name):
         self.func = func
         self.name = name
@@ -49,7 +51,7 @@ class Instance(object):
         input_types = [arg.result.type for arg in args]
 
         # get instance interface return type
-        saved_ip_stack = [ip for ip in GlobalInsertionPoint.ip_stack]
+        saved_ip_stack = copy.deepcopy(GlobalInsertionPoint.ip_stack)
         set_context()
         with get_context(), get_location():
             module = Module.create()
@@ -70,7 +72,8 @@ class Instance(object):
         )
 
         # Build a FuncOp with no function body as declaration
-        func_op = func_d.FuncOp(
+        # pylint: disable=unexpected-keyword-arg, no-value-for-parameter
+        func_d.FuncOp(
             name=self.name,
             type=FunctionType.get(inputs=input_types, results=result_types),
             visibility="private",

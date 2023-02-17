@@ -1,13 +1,6 @@
 # Copyright HeteroCL authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
-
-IR = "mlir"
-print("Using {} as IR".format(IR))
-
-import hcl_mlir
-from hcl_mlir.ir import *
-
-print("Done HCL-MLIR initialization")
+# pylint: disable=redefined-builtin
 
 from .schedule import *
 from .scheme import *

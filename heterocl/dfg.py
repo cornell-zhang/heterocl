@@ -1,8 +1,9 @@
 # Copyright HeteroCL authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
+# pylint: disable=dangerous-default-value
 
 
-class DFGNode(object):
+class DFGNode:
     def __init__(self, tensor):
         self.name = tensor.name
         self.tensor = tensor
@@ -29,16 +30,13 @@ class DFGNode(object):
         self.states.append(state)
 
     def has_children(self):
-        if len(self.children) == 0:
-            return False
-        else:
-            return True
+        return len(self.children) != 0
 
     def set_device(self, device):
         self.device = device
 
 
-class DataflowGraph(object):
+class DataflowGraph:
     def __init__(self, name="", inputs=[]):
         self.name = name
         self.roots = []
@@ -116,32 +114,33 @@ class DataflowGraph(object):
 
         self.visit(append_edge)
 
-        graph_name = "dfg_{}".format(self.name)
+        graph_name = f"dfg_{self.name}"
         nx_G = nx.from_edgelist(edges, create_using=nx.DiGraph)
-        write_dot(nx_G, "{}.dot".format(graph_name))
+        write_dot(nx_G, f"{graph_name}.dot")
         pos = graphviz_layout(nx_G, prog="dot")
         color_map = []
         for node in nx_G:
-            if self.node_map[node].device == None:
+            if self.node_map[node].device is None:
                 color_map.append("blue")
-            elif self.node_map[node].device in ["host", "CPU"]:
+            elif self.node_map[node].device in {"host", "CPU"}:
                 color_map.append("green")
-            elif self.node_map[node].device in ["device", "FPGA"]:
+            elif self.node_map[node].device in {"device", "FPGA"}:
                 color_map.append("red")
             else:
                 print(node, self.node_map[node].device)
                 raise RuntimeError("Incorrect devices")
         nx.draw_networkx(nx_G, pos, node_color=color_map)
         # nx.draw_networkx(nx_G, node_color=color_map)
-        for color, device in [("blue", "None"), ("green", "CPU"), ("red", "FPGA")]:
+        for color, device in (("blue", "None"), ("green", "CPU"), ("red", "FPGA")):
             plt.scatter([], [], c=color, label=device)
         plt.legend(loc=1)
-        plt.savefig("{}.png".format(graph_name), format="png", dpi=200)
+        plt.savefig(f"{graph_name}.png", format="png", dpi=200)
 
     def propagate_annotation(self, tensor, attr):
         name = tensor.name
         node = self.node_map[name]
 
+        # pylint: disable=unused-argument
         def set_annotation(src, dst):
             dst.set_device(attr)
 
@@ -162,7 +161,7 @@ class DataflowGraph(object):
             nonlocal flag, has_xcel
             self.device_map[src.name] = src.device
             self.device_map[dst.name] = dst.device
-            if src.device == None or dst.device == None:
+            if src.device is None or dst.device is None:
                 flag = False
             if src.device not in ["CPU", None] or dst.device not in ["CPU", None]:
                 has_xcel = True
@@ -184,17 +183,17 @@ class DataflowGraph(object):
     def graph_partition(self, show_partition=False):
         # first check if the requested data placement is valid
         for node in self.roots:
-            if node.device == None:
+            if node.device is None:
                 node.device = "CPU"
         if not self.create_device_map():
             self.visualize()
             raise RuntimeError("There exists DFG nodes not labeled target devices")
 
         def extract_subgraph(src, dst):
-            if src.device in ["host", "CPU"] and dst.device in ["device", "FPGA"]:
+            if src.device in {"host", "CPU"} and dst.device in {"device", "FPGA"}:
                 if src not in self.subgraph["inputs"]:
                     self.subgraph["inputs"].append(src)
-            elif src.device in ["device", "FPGA"] and dst.device in ["host", "CPU"]:
+            elif src.device in {"device", "FPGA"} and dst.device in {"host", "CPU"}:
                 if src not in self.subgraph["outputs"]:
                     self.subgraph["outputs"].append(src)
             else:
@@ -202,7 +201,7 @@ class DataflowGraph(object):
 
         self.visit(extract_subgraph)
         for output in self.leaves:
-            if output.device in ["device", "FPGA"]:
+            if output.device in {"device", "FPGA"}:
                 self.subgraph["outputs"].append(output)
         if show_partition:
             self.visualize()

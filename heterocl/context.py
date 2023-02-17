@@ -1,25 +1,26 @@
 # Copyright HeteroCL authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
+# pylint: disable=no-name-in-module
 
 from hcl_mlir.dialects import hcl as hcl_d
-from hcl_mlir.ir import *
-from hcl_mlir.exceptions import *
+from hcl_mlir.ir import Context, Location
+from hcl_mlir.exceptions import APIError
 
 
-class UniqueName(object):
+class UniqueName:
     # each dict is symbol name -> set of unique names
     # e.g. x -> {x, x_0, x_1, x_2}
     dicts = {
-        "scalar": dict(),
-        "loop": dict(),
-        "tensor": dict(),
-        "stage": dict(),
-        "schedule": dict(),
-        "axis": dict(),
-        "r": dict(),  # reduction axis
-        "instance": dict(),
-        "op": dict(),
-        "project": dict(),
+        "scalar": {},
+        "loop": {},
+        "tensor": {},
+        "stage": {},
+        "schedule": {},
+        "axis": {},
+        "r": {},  # reduction axis
+        "instance": {},
+        "op": {},
+        "project": {},
     }
 
     def __init__(self):
@@ -32,7 +33,7 @@ class UniqueName(object):
 
     @classmethod
     def get(cls, name, case):
-        if case not in cls.dicts.keys():
+        if case not in cls.dicts:
             raise APIError(f"Unrecognized case in UniqueName.get(): {case}")
 
         if name is None or name == "":
@@ -44,6 +45,7 @@ class UniqueName(object):
             cls.dicts[case][name] = set()  # add a new set
             return name
 
+        # pylint: disable=no-else-return
         if name in cls.dicts[case]:
             # name is not unique
             # generate a unique name
@@ -59,7 +61,7 @@ class UniqueName(object):
             return name
 
 
-class GlobalContext(object):
+class GlobalContext:
     in_context = False
 
     def __init__(self):
