@@ -1,3 +1,8 @@
+/*
+ * Copyright HeteroCL authors. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 /*!
  *  Copyright (c) 2017 by Contributors
  * \file tvm/src/codegen/hlsc/codegen_hlsc.cc

@@ -1,3 +1,6 @@
+# Copyright HeteroCL authors. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 import sys, os
 sys.path.append(os.path.realpath(os.path.dirname(__file__)))
 

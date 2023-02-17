@@ -1,3 +1,6 @@
+# Copyright HeteroCL authors. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 """
 This is the Gaussian discriminant analysis written in Heterocl .
 

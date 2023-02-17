@@ -1,3 +1,8 @@
+/*
+ * Copyright HeteroCL authors. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 /*!
  *  Copyright (c) 2018 by Contributors
  *  Build HLS C modules from source.

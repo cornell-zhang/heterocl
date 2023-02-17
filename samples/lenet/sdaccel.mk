@@ -1,3 +1,6 @@
+# Copyright HeteroCL authors. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 ifndef XILINX_SDX
 $(error Environment variable XILINX_SDX is required and should point to SDAccel install area)
 endif

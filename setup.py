@@ -1,3 +1,6 @@
+# Copyright HeteroCL authors. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 import subprocess
 import setuptools
 from setuptools.command.build_py import build_py

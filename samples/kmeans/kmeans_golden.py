@@ -1,3 +1,6 @@
+# Copyright HeteroCL authors. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 import numpy as np
 
 def kmeans_golden(Loop, K, N, D, X0, centers0):

@@ -1,3 +1,6 @@
+# Copyright HeteroCL authors. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 # Definition of include file locations
 xrt_path = $(XILINX_XRT)
 ifneq ($(HOST_ARCH), x86)

@@ -1,3 +1,6 @@
+# Copyright HeteroCL authors. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 import heterocl as hcl
 from heterocl.platforms import import_json_platform
 import hcl_mlir

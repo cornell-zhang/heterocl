@@ -1,3 +1,6 @@
+# Copyright HeteroCL authors. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 import heterocl as hcl
 st = hcl.Struct({"key": hcl.Int(32), "val": hcl.Int(32)})
 size = 1024

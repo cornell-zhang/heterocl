@@ -1,8 +1,5 @@
-# ===----------------------------------------------------------------------=== #
-#
-# Copyright 2021-2023 The HCL-MLIR Authors.
-#
-# ===----------------------------------------------------------------------=== #
+# Copyright HeteroCL authors. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
 
 import gc
 import inspect
@@ -157,7 +154,7 @@ def make_const_tensor(val, dtype):
     elif isinstance(dtype, Fixed):
         sb = 1 << dtype.bits
         sb_limit = 1 << (dtype.bits - 1)
-        val = val * (2 ** dtype.fracs)
+        val = val * (2**dtype.fracs)
         val = np.fix(val) % sb
 
         def cast_func(x):
@@ -167,7 +164,7 @@ def make_const_tensor(val, dtype):
         np_dtype = np.int64
     elif isinstance(dtype, UFixed):
         sb = 1 << dtype.bits
-        val = val * (2 ** dtype.fracs)
+        val = val * (2**dtype.fracs)
         val = np.fix(val) % sb
         np_dtype = np.int64
     else:

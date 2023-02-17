@@ -1,3 +1,6 @@
+# Copyright HeteroCL authors. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 """
 This is the black_scholes option pricing model.
 A basic model in finance used to decide the price of option.

@@ -1,8 +1,5 @@
-# ===----------------------------------------------------------------------=== #
-#
-# Copyright 2021-2023 The HCL-MLIR Authors.
-#
-# ===----------------------------------------------------------------------=== #
+# Copyright HeteroCL authors. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
 
 import numpy as np
 from hcl_mlir.ir import *

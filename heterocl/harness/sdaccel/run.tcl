@@ -1,3 +1,6 @@
+# Copyright HeteroCL authors. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 set hls_prj digitrec.prj
 open_project ${hls_prj} -reset
 set_top default_function

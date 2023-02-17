@@ -1,3 +1,6 @@
+# Copyright HeteroCL authors. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 #+-------------------------------------------------------------------------------
 # The following parameters are assigned with default values. These parameters can
 # be overridden through the make command line
