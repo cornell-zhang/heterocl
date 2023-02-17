@@ -232,33 +232,30 @@ def conv2d_nchw(
 
 
 def popcnt(x):
-    # https://tlx.github.io/popcount_8hpp_source.html
-    if x.dtype.bits == 8:
+    """
+    Reference: https://tlx.github.io/popcount_8hpp_source.html
+    Note: Do not use multiplication in popcnt, otherwise it will consume lots
+    of hardware resources.
+    """
+    if x.dtype.bits <= 8:
         x -= (x >> 1) & 0x55
         x = (x & 0x33) + ((x >> 2) & 0x33)
         x = (x + (x >> 4)) & 0x0F
         return x
-    # elif x.dtype.bits == 16:
-    #     x -= (x >> 1) & 0x5555
-    #     x = (x & 0x3333) + ((x >> 2) & 0x3333)
-    #     x = (x + (x >> 4)) & 0x0F0F
-    #     return (x * 0x0101) >> 8
-    elif x.dtype.bits == 32:
-        # x -= (x >> 1) & 0x55555555
-        # x = (x & 0x33333333) + ((x >> 2) & 0x33333333)
-        # x = (x + (x >> 4)) & 0x0F0F0F0F
-        # return (x * 0x01010101) >> 24
+    elif x.dtype.bits <= 16:
+        x -= (x >> 1) & 0x5555
+        x = (x & 0x3333) + ((x >> 2) & 0x3333)
+        x = (x + (x >> 4)) & 0x0F0F
+        x += x >> 8
+        return (x & 0x3F)
+    elif x.dtype.bits <= 32:
         x -= (x >> 1) & 0x55555555
         x = (x & 0x33333333) + ((x >> 2) & 0x33333333)
         x = (x + (x >> 4)) & 0x0F0F0F0F
         x += x >> 8
         x += x >> 16
         return (x & 0x3F)
-    else:
-        # x -= (x >> 1) & 0x5555555555555555
-        # x = (x & 0x3333333333333333) + ((x >> 2) & 0x3333333333333333)
-        # x = (x + (x >> 4)) & 0x0F0F0F0F0F0F0F0F
-        # return ((x * 0x0101010101010101) >> 56) & 0xFF
+    elif x.dtype.bits <= 64:
         x -= (x >> 1) & 0x5555555555555555
         x = (x & 0x3333333333333333) + ((x >> 2) & 0x3333333333333333)
         x = (x + (x >> 4)) & 0x0F0F0F0F0F0F0F0F
@@ -266,6 +263,8 @@ def popcnt(x):
         x += x >> 16
         x += x >> 32
         return (x & 0x7F)
+    else:
+        raise Exception("Unsupported bitwidth")
 
 
 def packed_conv2d_nchw(
