@@ -19,7 +19,7 @@ class UniqueName(object):
         "stage": dict(),
         "schedule": dict(),
         "axis": dict(),
-        "r": dict(), # reduction axis
+        "r": dict(),  # reduction axis
         "instance": dict(),
         "op": dict(),
         "project": dict(),
@@ -44,7 +44,7 @@ class UniqueName(object):
             case_set = cls.dicts[case]
             set_size = len(case_set)
             name = case + "_" + str(set_size)
-            cls.dicts[case][name] = set() # add a new set
+            cls.dicts[case][name] = set()  # add a new set
             return name
 
         if name in cls.dicts[case]:

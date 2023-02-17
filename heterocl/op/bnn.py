@@ -51,8 +51,7 @@ def pad_nchw(data, padding=[1, 1], name="pad", dtype=None):
     if dtype == None:
         dtype = data.dtype
     batch, channel, in_height, in_width = data.shape
-    out_height, out_width = in_height + 2 * \
-        padding[0], in_width + 2 * padding[1]
+    out_height, out_width = in_height + 2 * padding[0], in_width + 2 * padding[1]
     return hcl.compute(
         (batch, channel, out_height, out_width),
         lambda ii, cc, hh, ww: hcl.select(
@@ -79,8 +78,7 @@ def pad_nhwc(data, padding=[1, 1], name="pad", dtype=None):
     if dtype == None:
         dtype = data.dtype
     batch, in_height, in_width, channel = data.shape
-    out_height, out_width = in_height + 2 * \
-        padding[0], in_width + 2 * padding[1]
+    out_height, out_width = in_height + 2 * padding[0], in_width + 2 * padding[1]
     return hcl.compute(
         (batch, out_height, out_width, channel),
         lambda ii, hh, ww, cc: hcl.select(
@@ -133,10 +131,8 @@ def conv2d_nchw(
     # Warning: may have problem with dilated_kernel
     pad_top, pad_left, pad_down, pad_right = get_pad_tuple(padding)
     out_channel = num_filter
-    out_height = (in_height - dilated_kernel_h +
-                  pad_top + pad_down) // stride_h + 1
-    out_width = (in_width - dilated_kernel_w +
-                 pad_left + pad_right) // stride_w + 1
+    out_height = (in_height - dilated_kernel_h + pad_top + pad_down) // stride_h + 1
+    out_width = (in_width - dilated_kernel_w + pad_left + pad_right) // stride_w + 1
     # compute graph
     pad_before = [0, 0, pad_top, pad_left]
     pad_after = [0, 0, pad_down, pad_right]
@@ -247,14 +243,14 @@ def popcnt(x):
         x = (x & 0x3333) + ((x >> 2) & 0x3333)
         x = (x + (x >> 4)) & 0x0F0F
         x += x >> 8
-        return (x & 0x3F)
+        return x & 0x3F
     elif x.dtype.bits <= 32:
         x -= (x >> 1) & 0x55555555
         x = (x & 0x33333333) + ((x >> 2) & 0x33333333)
         x = (x + (x >> 4)) & 0x0F0F0F0F
         x += x >> 8
         x += x >> 16
-        return (x & 0x3F)
+        return x & 0x3F
     elif x.dtype.bits <= 64:
         x -= (x >> 1) & 0x5555555555555555
         x = (x & 0x3333333333333333) + ((x >> 2) & 0x3333333333333333)
@@ -262,7 +258,7 @@ def popcnt(x):
         x += x >> 8
         x += x >> 16
         x += x >> 32
-        return (x & 0x7F)
+        return x & 0x7F
     else:
         raise Exception("Unsupported bitwidth")
 
@@ -301,14 +297,11 @@ def packed_conv2d_nchw(
     dilated_kernel_w = (kernel_w - 1) * dilation_w + 1
     pad_top, pad_left, pad_down, pad_right = get_pad_tuple(padding)
     out_channel = num_filter
-    out_height = (in_height - dilated_kernel_h +
-                  pad_top + pad_down) // stride_h + 1
-    out_width = (in_width - dilated_kernel_w +
-                 pad_left + pad_right) // stride_w + 1
+    out_height = (in_height - dilated_kernel_h + pad_top + pad_down) // stride_h + 1
+    out_width = (in_width - dilated_kernel_w + pad_left + pad_right) // stride_w + 1
     # compute graph
     if list(padding) != [0, 0]:
-        temp = pad_nchw(Input, padding, name=name +
-                        "_pad", dtype=hcl.UInt(bitwidth))
+        temp = pad_nchw(Input, padding, name=name + "_pad", dtype=hcl.UInt(bitwidth))
     else:
         temp = Input
     pad_in_height = in_height + pad_top + pad_down
@@ -337,11 +330,14 @@ def packed_conv2d_nchw(
                     hcl.cast(
                         out_dtype,
                         (
-                            bitwidth - (popcnt(
-                                temp[nn, rc, yy * stride_h + ry,
-                                    xx * stride_w + rx]
-                                ^ Filter[ff, rc, ry, rx]
-                            ) << 1)
+                            bitwidth
+                            - (
+                                popcnt(
+                                    temp[nn, rc, yy * stride_h + ry, xx * stride_w + rx]
+                                    ^ Filter[ff, rc, ry, rx]
+                                )
+                                << 1
+                            )
                         ),
                     ),
                     hcl.cast(out_dtype, 0),
@@ -371,10 +367,14 @@ def packed_conv2d_nchw(
                     hcl.cast(
                         out_dtype,
                         (
-                            1 - ((temp[nn, rc, yy * stride_h + ry,
-                                    xx * stride_w + rx]
-                                ^ Filter[ff, rc, ry, rx]
-                            )[rb] * 2)
+                            1
+                            - (
+                                (
+                                    temp[nn, rc, yy * stride_h + ry, xx * stride_w + rx]
+                                    ^ Filter[ff, rc, ry, rx]
+                                )[rb]
+                                * 2
+                            )
                         ),
                     ),
                     hcl.cast(out_dtype, 0),
@@ -423,14 +423,11 @@ def packed_conv2d_nhwc(
     dilated_kernel_w = (kernel_w - 1) * dilation_w + 1
     pad_top, pad_left, pad_down, pad_right = get_pad_tuple(padding)
     out_channel = num_filter
-    out_height = (in_height - dilated_kernel_h +
-                  pad_top + pad_down) // stride_h + 1
-    out_width = (in_width - dilated_kernel_w +
-                 pad_left + pad_right) // stride_w + 1
+    out_height = (in_height - dilated_kernel_h + pad_top + pad_down) // stride_h + 1
+    out_width = (in_width - dilated_kernel_w + pad_left + pad_right) // stride_w + 1
     # compute graph
     if padding != [0, 0]:
-        temp = pad_nhwc(Input, padding, name=name +
-                        "_pad", dtype=hcl.UInt(bitwidth))
+        temp = pad_nhwc(Input, padding, name=name + "_pad", dtype=hcl.UInt(bitwidth))
     else:
         temp = Input
     pad_in_height = in_height + pad_top + pad_down
@@ -457,11 +454,14 @@ def packed_conv2d_nhwc(
                 hcl.cast(
                     out_dtype,
                     (
-                        bitwidth - (popcnt(
-                            temp[nn, yy * stride_h + ry,
-                                 xx * stride_w + rx, rc]
-                            ^ Filter[ff, ry, rx, rc]
-                        ) << 1)
+                        bitwidth
+                        - (
+                            popcnt(
+                                temp[nn, yy * stride_h + ry, xx * stride_w + rx, rc]
+                                ^ Filter[ff, ry, rx, rc]
+                            )
+                            << 1
+                        )
                     ),
                 ),
                 hcl.cast(out_dtype, 0),
@@ -499,8 +499,7 @@ def packed_batch_norm_threshold_nhwc(
         out = hcl.scalar(0, name=name + "_pack", dtype=hcl.UInt(bitwidth))
         with hcl.for_(0, bitwidth) as k:
             out[0][k] = hcl.select(
-                data[i, h, w, c * bitwidth +
-                     k] > threshold[h, w, c * bitwidth + k],
+                data[i, h, w, c * bitwidth + k] > threshold[h, w, c * bitwidth + k],
                 hcl.cast(qtype_bit, 1),
                 hcl.cast(qtype_bit, 0),
             )
@@ -543,7 +542,7 @@ def max_pool2d_nchw(
     out_width = (width - pooling_w + pad_left + pad_right) // stride_w + 1
     dheight = hcl.reduce_axis(0, pooling_h, "rh")
     dwidth = hcl.reduce_axis(0, pooling_w, "rw")
-    reducer = hcl.reducer(0, lambda x, y : x | y, dtype=data.dtype, name=name+"_max")
+    reducer = hcl.reducer(0, lambda x, y: x | y, dtype=data.dtype, name=name + "_max")
 
     return hcl.compute(
         (batch, channel, out_height, out_width),
@@ -554,6 +553,7 @@ def max_pool2d_nchw(
         dtype=data.dtype,
         name=name,
     )
+
 
 def packed_max_pool2d_nhwc(
     data,
@@ -584,7 +584,9 @@ def packed_max_pool2d_nhwc(
     out_width = (width - pooling_w + pad_left + pad_right) // stride_w + 1
     dheight = hcl.reduce_axis(0, pooling_h, "rh")
     dwidth = hcl.reduce_axis(0, pooling_w, "rw")
-    reducer = hcl.reducer(0, lambda x, y : x | y, dtype=hcl.UInt(bitwidth), name=name+"_max")
+    reducer = hcl.reducer(
+        0, lambda x, y: x | y, dtype=hcl.UInt(bitwidth), name=name + "_max"
+    )
 
     maxpool = hcl.compute(
         (batch, out_height, out_width, channel),
@@ -627,8 +629,7 @@ def packed_flatten_nhwc(data, name="packed_flatten"):
     return hcl.compute(
         out_shape,
         lambda i, j: data[
-            i, j / (in_width * channel) % in_height, j /
-            channel % in_width, j % channel
+            i, j / (in_width * channel) % in_height, j / channel % in_width, j % channel
         ],
         name=name,
         dtype=data.dtype,
@@ -636,8 +637,7 @@ def packed_flatten_nhwc(data, name="packed_flatten"):
 
 
 def dense(data, weight, bias=None, use_relu=False, dtype=None, name="binary_dense"):
-    assert len(data.shape) == 2 and len(
-        weight.shape) == 2, "only support 2-dim dense"
+    assert len(data.shape) == 2 and len(weight.shape) == 2, "only support 2-dim dense"
     if bias is not None:
         assert len(bias.shape) == 1
     batch, in_dim = data.shape
@@ -680,8 +680,7 @@ def dense(data, weight, bias=None, use_relu=False, dtype=None, name="binary_dens
         matmul = hcl.compute(
             (batch, out_dim),
             lambda i, j: hcl.select(
-                matmul[i, j] > 0, hcl.cast(
-                    qtype_bit, 1), hcl.cast(qtype_bit, 0)
+                matmul[i, j] > 0, hcl.cast(qtype_bit, 1), hcl.cast(qtype_bit, 0)
             ),
             name=name,
             dtype=qtype_bit,
@@ -692,8 +691,7 @@ def dense(data, weight, bias=None, use_relu=False, dtype=None, name="binary_dens
 def packed_dense(
     data, weight, bias=None, use_relu=False, name="packed_binary_dense", dtype=None
 ):
-    assert len(data.shape) == 2 and len(
-        weight.shape) == 2, "only support 2-dim dense"
+    assert len(data.shape) == 2 and len(weight.shape) == 2, "only support 2-dim dense"
     if bias is not None:
         assert len(bias.shape) == 1
     bitwidth = int(hcl.dtype_to_str(data.dtype).split("int")[-1])
@@ -721,8 +719,7 @@ def packed_dense(
         matmul = hcl.compute(
             (batch, out_dim),
             lambda i, j: hcl.cast(
-                bias.dtype, (in_dim * bitwidth -
-                             (matmul[i, j] << 1)) * var_w + bias[j]
+                bias.dtype, (in_dim * bitwidth - (matmul[i, j] << 1)) * var_w + bias[j]
             ),
             name=name,
             dtype=bias.dtype if dtype == None else dtype,
@@ -736,8 +733,7 @@ def packed_dense(
                     hcl.UInt(1),
                     hcl.select(
                         (
-                            (in_dim * bitwidth -
-                             (matmul[i, j * bitwidth + k] << 1))
+                            (in_dim * bitwidth - (matmul[i, j * bitwidth + k] << 1))
                             * var_w
                             + bias[j * bitwidth + k]
                         )
