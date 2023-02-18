@@ -99,7 +99,19 @@ def simplify(expr):
         lhs = simplify(simplify(expr.lhs))
         rhs = simplify(simplify(expr.rhs))
         return sp.simplify(lhs >> rhs)
-        
+    elif isinstance(expr, And):
+        lhs = simplify(simplify(expr.lhs))
+        rhs = simplify(simplify(expr.rhs))
+        return sp.simplify(lhs & rhs)
+    elif isinstance(expr, Or):
+        lhs = simplify(simplify(expr.lhs))
+        rhs = simplify(simplify(expr.rhs))
+        return sp.simplify(lhs | rhs)
+    elif isinstance(expr, XOr):
+        lhs = simplify(simplify(expr.lhs))
+        rhs = simplify(simplify(expr.rhs))
+        return sp.simplify(lhs ^ rhs)
+
     # End
 
     else:
