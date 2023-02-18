@@ -1,15 +1,17 @@
 # Copyright HeteroCL authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
+# pylint: disable=no-name-in-module
 
 import gc
 import inspect
 import sys
-import numpy as np
 import os
+import numpy as np
+
 import hcl_mlir
 from hcl_mlir.dialects import hcl as hcl_d
-from hcl_mlir.ir import *
-from hcl_mlir.exceptions import *
+from hcl_mlir.ir import IntegerType, F16Type, F32Type, F64Type
+from hcl_mlir.exceptions import DTypeError
 
 from .config import init_dtype
 from .types import Fixed, Float, Int, Type, UFixed, UInt, Struct, Index, dtype_to_str
@@ -25,60 +27,58 @@ def get_func_obj(func_name):
 def hcl_dtype_to_mlir(dtype, signless=False):
     if hcl_mlir.is_hcl_mlir_type(dtype):
         return dtype
-    elif isinstance(dtype, Index):
+    if isinstance(dtype, Index):
         return hcl_mlir.IndexType.get()
-    elif isinstance(dtype, Int):
+    if isinstance(dtype, Int):
         return IntegerType.get_signless(dtype.bits)
-    elif isinstance(dtype, UInt):
+    if isinstance(dtype, UInt):
         if signless:
             return IntegerType.get_signless(dtype.bits)
-        else:
-            return IntegerType.get_unsigned(dtype.bits)
-    elif isinstance(dtype, Fixed):
+        return IntegerType.get_unsigned(dtype.bits)
+    if isinstance(dtype, Fixed):
         return hcl_d.FixedType.get(dtype.bits, dtype.fracs)
-    elif isinstance(dtype, UFixed):
+    if isinstance(dtype, UFixed):
         return hcl_d.UFixedType.get(dtype.bits, dtype.fracs)
-    elif isinstance(dtype, Float):
+    if isinstance(dtype, Float):
         if dtype.bits == 16:
             return F16Type.get()
-        elif dtype.bits == 32:
+        if dtype.bits == 32:
             return F32Type.get()
-        elif dtype.bits == 64:
+        if dtype.bits == 64:
             return F64Type.get()
-    elif isinstance(dtype, Struct):
+    if isinstance(dtype, Struct):
         types = [hcl_dtype_to_mlir(t, signless) for t in dtype.dtype_dict.values()]
         return hcl_d.StructType.get(types)
-    else:
-        raise DTypeError(
-            f"unknown type in hcl_dtype_to_mlir: {dtype} of type {type(dtype)}"
-        )
+    raise DTypeError(
+        f"unknown type in hcl_dtype_to_mlir: {dtype} of type {type(dtype)}"
+    )
 
 
+# pylint: disable=inconsistent-return-statements
 def get_mlir_dtype_str(dtype):
     if hcl_mlir.is_integer_type(dtype):
         if hcl_mlir.is_signed_type(dtype):
             return "int" + str(dtype.width)
-        else:
-            return "uint" + str(dtype.width)
-    elif hcl_mlir.is_floating_point_type(dtype):
-        if isinstance(dtype, hcl_mlir.ir.F16Type):
+        return "uint" + str(dtype.width)
+    if hcl_mlir.is_floating_point_type(dtype):
+        if isinstance(dtype, F16Type):
             return "float16"
-        elif isinstance(dtype, hcl_mlir.ir.F32Type):
+        if isinstance(dtype, F32Type):
             return "float32"
-        elif isinstance(dtype, hcl_mlir.ir.F64Type):
+        if isinstance(dtype, F64Type):
             return "float64"
-        elif isinstance(dtype, hcl_mlir.ir.F80Type):
-            return "float80"
-        elif isinstance(dtype, hcl_mlir.ir.F128Type):
-            return "float128"
-        else:
-            raise TypeError(f"unknown type: {dtype}")
-    elif hcl_mlir.is_fixed_type(dtype):
+        # if isinstance(dtype, F80Type):
+        #     return "float80"
+        # if isinstance(dtype, F128Type):
+        #     return "float128"
+        raise TypeError(f"unknown type: {dtype}")
+    if hcl_mlir.is_fixed_type(dtype):
         if isinstance(dtype, hcl_d.FixedType):
             return "fixed" + str(dtype.width) + "_" + str(dtype.frac)
-        else:
+        if isinstance(dtype, hcl_d.UFixedType):
             return "ufixed" + str(dtype.width) + "_" + str(dtype.frac)
-    elif hcl_mlir.is_index_type(dtype):
+        raise TypeError(f"unknown type: {dtype}")
+    if hcl_mlir.is_index_type(dtype):
         return "int32"
 
 
@@ -99,16 +99,13 @@ def get_extra_type_hints(dtype):
     """
     if not isinstance(dtype, Type):
         raise TypeError(
-            "get_extra_type_hints input dtype must be a HeteroCL type, got {}".format(
-                type(dtype)
-            )
+            f"get_extra_type_hints input dtype must be a HeteroCL type, got {type(dtype)}"
         )
     if isinstance(dtype, Int):
         return "s"
-    elif isinstance(dtype, UInt):
+    if isinstance(dtype, UInt):
         return "u"
-    else:
-        return "_"
+    return "_"
 
 
 def remove_moved_attr(module):
@@ -120,7 +117,7 @@ def remove_moved_attr(module):
 
     def _visit_op(op):
         if "moved" in op.attributes:
-            op.attributes.__delitem__("moved")
+            del op.attributes["moved"]
         if hasattr(op, "body"):
             _visit_region(op.body)
 
@@ -140,7 +137,7 @@ def make_const_tensor(val, dtype):
             np_dtype = np.int64
         else:
             raise DTypeError(
-                "Integer width ({}) too large, not supported by numpy".format(dtype)
+                f"Integer width ({dtype}) too large, not supported by numpy"
             )
     elif isinstance(dtype, Float):
         if dtype.bits == 16:
@@ -168,7 +165,7 @@ def make_const_tensor(val, dtype):
         val = np.fix(val) % sb
         np_dtype = np.int64
     else:
-        raise DTypeError("Unrecognized data type: {}".format(dtype))
+        raise DTypeError(f"Unrecognized data type: {dtype}")
 
     array = np.array(val, dtype=np_dtype)
     return array
@@ -180,18 +177,17 @@ def get_min_value(dtype):
     """
     if isinstance(dtype, Int):
         return -(1 << (dtype.bits - 1))
-    elif isinstance(dtype, UInt):
+    if isinstance(dtype, UInt):
         return 0
-    elif isinstance(dtype, Float):
+    if isinstance(dtype, Float):
         # arith dialect does not support -inf
         # return -np.inf
         return -1e10
-    elif isinstance(dtype, Fixed):
+    if isinstance(dtype, Fixed):
         return -(1 << (dtype.bits - 1))
-    elif isinstance(dtype, UFixed):
+    if isinstance(dtype, UFixed):
         return 0
-    else:
-        raise DTypeError("Unrecognized data type: {}".format(dtype))
+    raise DTypeError(f"Unrecognized data type: {dtype}")
 
 
 def get_max_value(dtype):
@@ -200,15 +196,14 @@ def get_max_value(dtype):
     """
     if isinstance(dtype, Int):
         return (1 << (dtype.bits - 1)) - 1
-    elif isinstance(dtype, UInt):
+    if isinstance(dtype, UInt):
         return (1 << dtype.bits) - 1
-    elif isinstance(dtype, Float):
+    if isinstance(dtype, Float):
         # limitation of arith dialect
         # return np.inf
         return 1e10
-    elif isinstance(dtype, Fixed):
+    if isinstance(dtype, Fixed):
         return (1 << (dtype.bits - 1)) - 1
-    elif isinstance(dtype, UFixed):
+    if isinstance(dtype, UFixed):
         return (1 << dtype.bits) - 1
-    else:
-        raise DTypeError("Unrecognized data type: {}".format(dtype))
+    raise DTypeError(f"Unrecognized data type: {dtype}")

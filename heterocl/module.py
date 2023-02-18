@@ -1,13 +1,14 @@
 # Copyright HeteroCL authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
+# pylint: disable=no-name-in-module
 
 import copy
 from multiprocessing import Process
 import numpy as np
 
 from hcl_mlir.dialects import func as func_d
-from hcl_mlir.ir import *
-from hcl_mlir.exceptions import *
+from hcl_mlir.ir import MemRefType
+from hcl_mlir.exceptions import APIError, APIWarning, HCLNotImplementedError
 
 from .context import get_context, get_location
 from .devices import Platform
@@ -17,7 +18,7 @@ from .utils import hcl_dtype_to_mlir
 from .operation import asarray
 
 
-class HCLModule(object):
+class HCLModule:
     def __init__(self, name, src, target, host_src=None, context=None, return_num=0):
         self.name = name
         self.src = src  # device src
@@ -32,15 +33,15 @@ class HCLModule(object):
         report.display()
 
     def __call__(self, *argv):
-        if "target" not in self.__dict__.keys():
+        if "target" not in self.__dict__:
             raise APIError("No attached target!")
-        if "name" not in self.__dict__.keys():
+        if "name" not in self.__dict__:
             raise APIError("No module name specified!")
         target = self.target
-        if isinstance(target, Platform) and target.tool.name in [
+        if isinstance(target, Platform) and target.tool.name in {
             "vivado_hls",
             "vitis_hls",
-        ]:
+        }:
             self.run_hls(shell=True)
         elif target == "llvm":
             # convert python immediate to heterocl tensor
@@ -50,16 +51,14 @@ class HCLModule(object):
                     np_array = np.array([arg], dtype=type(arg))
                     argv[i] = asarray(np_array)
             original_results = []
-            with get_context() as ctx, get_location():
+            with get_context(), get_location():
                 for op in self.host_src.body.operations:
                     if isinstance(op, func_d.FuncOp) and op.sym_name.value == "top":
                         # check if enough args are provided
                         correct_arg_num = len(op.arguments) + len(op.type.results)
                         if len(argv) != correct_arg_num:
                             raise APIError(
-                                "Incorrect number of arguments provided. Expected {}, got {}.".format(
-                                    correct_arg_num, len(argv)
-                                )
+                                f"Incorrect number of arguments provided. Expected {correct_arg_num}, got {len(argv)}."
                             )
                         # test inputs
                         for i, arg in enumerate(op.arguments):
@@ -68,15 +67,10 @@ class HCLModule(object):
                             memref_type = MemRefType(arg.type)
                             assert str(memref_type.element_type) == str(
                                 hcl_dtype_to_mlir(argv[i].dtype, signless=True)
-                            ), "Input types: {} {}".format(
-                                memref_type.element_type,
-                                hcl_dtype_to_mlir(argv[i].dtype, signless=True),
-                            )
+                            ), f"Input types: {memref_type.element_type} {hcl_dtype_to_mlir(argv[i].dtype, signless=True)}"
                             if tuple(memref_type.shape) != argv[i].np_array.shape:
                                 APIWarning(
-                                    "Shape mismatch between input {} and kernel argument {}!".format(
-                                        tuple(memref_type.shape), argv[i].np_array.shape
-                                    )
+                                    f"Shape mismatch between input {tuple(memref_type.shape)} and kernel argument {argv[i].np_array.shape}!"
                                 ).warn()
                                 pad_shape = []
                                 for dst, src in zip(
@@ -93,21 +87,13 @@ class HCLModule(object):
                                 hcl_dtype_to_mlir(
                                     argv[len(op.arguments) + i].dtype, signless=True
                                 )
-                            ), "Output types: {} {}".format(
-                                memref_type.element_type,
-                                hcl_dtype_to_mlir(
-                                    argv[len(op.arguments) + i].dtype, signless=True
-                                ),
-                            )
+                            ), f"Output types: {memref_type.element_type} {hcl_dtype_to_mlir(argv[len(op.arguments) + i].dtype, signless=True)}"
                             if (
                                 tuple(memref_type.shape)
                                 != argv[len(op.arguments) + i].np_array.shape
                             ):
                                 APIWarning(
-                                    "Shape mismatch between output {} and kernel result {}!".format(
-                                        tuple(memref_type.shape),
-                                        argv[len(op.arguments) + i].np_array.shape,
-                                    )
+                                    f"Shape mismatch between output {tuple(memref_type.shape)} and kernel result {argv[len(op.arguments) + i].np_array.shape}!"
                                 ).warn()
                                 pad_shape = []
                                 for dst, src in zip(
@@ -131,30 +117,26 @@ class HCLModule(object):
                     slicing.append(slice(0, s))
                 res.np_array = res.np_array[tuple(slicing)]
         else:
-            raise HCLNotImplementedError("Backend {} is not implemented".format(target))
+            raise HCLNotImplementedError(f"Backend {target} is not implemented")
 
     def report(self):
         """Get tool report"""
-        if "target" not in self.__dict__.keys():
+        if "target" not in self.__dict__:
             raise APIError("No attached target!")
-        if "name" not in self.__dict__.keys():
+        if "name" not in self.__dict__:
             raise APIError("No module name specified!")
         target = self.target
         if target.tool.name == "vivado_hls":
             if "csyn" not in target.tool.mode and target.tool.mode != "debug":
                 raise APIError(
-                    "Not supported mode {}. Use csyn mode to retrieve the report instead.".format(
-                        target.tool.mode
-                    )
+                    "Not supported mode {target.tool.mode}. Use csyn mode to retrieve the report instead."
                 )
         else:
-            raise HCLNotImplementedError(
-                "target tool {} not supported".format(target.tool.name)
-            )
+            raise HCLNotImplementedError("target tool {target.tool.name} not supported")
         return report_stats(target, target.project)
 
 
-class HCLSuperModule(object):
+class HCLSuperModule:
     def __init__(self, modules):
         self.modules = modules
 

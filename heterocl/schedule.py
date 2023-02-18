@@ -1,10 +1,10 @@
 # Copyright HeteroCL authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
+# pylint: disable=unused-argument
 
 import functools
 
-from hcl_mlir.ir import *
-from hcl_mlir.exceptions import *
+from hcl_mlir.exceptions import HCLValueError, APIError, DTypeError, HCLNotImplementedError, HCLDeprecationWarning
 
 from .devices import Device, DevMemoryPair
 from .dfg import DataflowGraph
@@ -25,7 +25,7 @@ def _build_ast(inputs, func=None, name=""):
     top_func.level = 0
     if func is None:
         # All operations have been inserted in the scope already!
-        outputs = list()
+        outputs = []
         for op in ast.scope.pop():
             top_func.body.append(op)
         if len(top_func.body) == 0:
@@ -38,7 +38,7 @@ def _build_ast(inputs, func=None, name=""):
         ret = func(*inputs)
         top_func.python_callable = func
         if ret is None:
-            outputs = list()
+            outputs = []
         elif isinstance(ret, tuple):
             outputs = list(ret)
         else:
@@ -89,18 +89,18 @@ def create_schedule(inputs, func=None, name=""):
     return customize(inputs, func, name)
 
 
-class Partition(object):
+class Partition:
     Complete = 0
     Block = 1
     Cyclic = 2
 
 
-class Schedule(object):
+class Schedule:
     """Create a compute schedule"""
 
     _TopFunction = None
     _CurrentSchedule = None
-    _FuncDefs = dict()
+    _FuncDefs = {}
 
     def __init__(self, name, inputs, func=None):
         self.name = name
@@ -128,6 +128,7 @@ class Schedule(object):
 
     @property
     def device_module(self):
+        # pylint: disable=pointless-exception-statement
         DeprecationWarning("device_module is deprecated, use module instead")
         return self._module
 
@@ -137,6 +138,7 @@ class Schedule(object):
 
     @property
     def device_top(self):
+        # pylint: disable=pointless-exception-statement
         DeprecationWarning("device_top is deprecated, use top_func instead")
         return self._top_func
 
@@ -235,11 +237,11 @@ class Schedule(object):
             raise APIError(".reuse_at() must be called before lowering")
         if not isinstance(axis, ast.LoopHandle):
             raise DTypeError(
-                "reuse_at() got invalid axis of type {}".format(type(axis))
+                f"reuse_at() got invalid axis of type {type(axis)}"
             )
         if not isinstance(target, (ast.AllocOp, ast.ReuseAtOp)):
             raise DTypeError(
-                "reuse_at() got invalid target of type {}".format(type(target))
+                f"reuse_at() got invalid target of type {type(target)}"
             )
 
         filename, lineno = get_src_loc()
@@ -310,7 +312,7 @@ class Schedule(object):
         return results if len(results) > 1 else results[0]
 
 
-class StageFunction(object):
+class StageFunction:
     """
     A StageFunction represents a function that is outlined
     from a stage. It is used as the return value of .outline() primitive.
@@ -326,10 +328,9 @@ class StageFunction(object):
             self.name += "_" + n
 
 
-class Stage(object):
-    """A Stage represents schedule for one operation."""
+class Stage:
+    """A Stage represents schedule for one operation.
 
-    """
     TODO(Niansong): add better comments here
     because of the syntax of HeteroCL,
     Stage._mapping is a list of (Tensor, Stage) tuples
@@ -347,7 +348,7 @@ class Stage(object):
         self.stage_handle = None
         self.ip = None
         # Imperative stage and update stage attach axes to Stage object
-        self.axis = list()
+        self.axis = []
         # Associated AST Operation
         self._ast_op = None
 
@@ -364,7 +365,8 @@ class Stage(object):
         if schedule.is_lowered():
             raise APIError(".reorder() must be called before lowering")
         args = list(args)
-        for i in range(0, len(args)):
+        # pylint: disable=consider-using-enumerate
+        for i in range(len(args)):
             if isinstance(args[i], int):
                 args[i] = self.tensor.axis[args[i]]
         filename, lineno = get_src_loc()
@@ -377,9 +379,9 @@ class Stage(object):
         schedule = Schedule._CurrentSchedule
         if schedule.is_lowered():
             raise APIError(".split() must be called before lowering")
-        if nparts != None or mode != "transform":
+        if nparts is not None or mode != "transform":
             raise HCLNotImplementedError(
-                "nparts={}, mode={} not supported".format(nparts, mode)
+                f"nparts={nparts}, mode={mode} not supported"
             )
         if isinstance(parent, int):
             parent = self.tensor.axis[parent]
@@ -450,7 +452,8 @@ class Stage(object):
             raise APIError(".fuse() must be called before lowering")
         assert len(args) >= 1, "Length of the arguments must be >=1 for fuse."
         args = list(args)
-        for i in range(0, len(args)):
+        # pylint: disable=consider-using-enumerate
+        for i in range(len(args)):
             if isinstance(args[i], int):
                 args[i] = self.tensor.axis[args[i]]
         filename, lineno = get_src_loc()
@@ -490,8 +493,7 @@ class Stage(object):
         if unify is not None:
             outline_op.unify = unify.name
             return unify
-        else:
-            return StageFunction(self.name)
+        return StageFunction(self.name)
 
     def systolic(self):
         """Wrap the current stage as a systolic array"""
@@ -508,7 +510,7 @@ class Stage(object):
         pass
 
 
-class _CreateStagesFromAST(object):
+class _CreateStagesFromAST:
     """Create HeteroCL stages
     This pass does three things:
     1. Create stage and loop handles and set tensor.axis for all stage's tensors
@@ -529,6 +531,7 @@ class _CreateStagesFromAST(object):
     def visit(self, op):
         self.create_stage(op)
         if hasattr(op, "body") and op.body is not None:
+            # pylint: disable=redefined-argument-from-local
             for op in op.body:
                 # recursively visit the body
                 self.visit(op)
@@ -549,16 +552,16 @@ class _CreateStagesFromAST(object):
         if op.kind == "compute":
             Stage._mapping.append((tensor, stage))
             if top_func is not None:
-                top_func.__setattr__(op.name, op.tensor)
+                setattr(top_func, op.name, op.tensor)
         elif op.kind == "update":
-            stage.__setattr__(op.tensor.name, tensor)
+            setattr(stage, op.tensor.name, tensor)
             Stage._mapping.append((stage, stage))
             if top_func is not None:
-                top_func.__setattr__(op.name, stage)
+                setattr(top_func, op.name, stage)
         else:  # op.kind == "mutate"
             Stage._mapping.append((stage, stage))
             if top_func is not None:
-                top_func.__setattr__(op.name, stage)
+                setattr(top_func, op.name, stage)
 
         # create handles
         stage_hdl = ast.OpHandle(op.name, op.loc)
@@ -577,7 +580,7 @@ class _CreateStagesFromAST(object):
         Stage._mapping.append((stage, stage))
         top_func = self._ast.top_func.python_callable
         if top_func is not None:
-            top_func.__setattr__(op.tag, stage)
+            setattr(top_func, op.tag, stage)
 
         # create handles
         nested_for_loops = [op]
@@ -597,7 +600,7 @@ class _CreateStagesFromAST(object):
             setattr(stage, loop.name, loop_hdl)
 
 
-class _CreateDFGFromAST(object):
+class _CreateDFGFromAST:
     def __init__(self, _ast):
         self._ast = _ast
         self.dfg = DataflowGraph(name=_ast.top_func.name, inputs=_ast.top_func.args)
@@ -610,6 +613,7 @@ class _CreateDFGFromAST(object):
     def visit(self, op, callback, *args, **kwargs):
         callback(op, *args, **kwargs)
         if hasattr(op, "body") and op.body is not None:
+            # pylint: disable=redefined-argument-from-local
             for op in op.body:
                 self.visit(op, callback, *args, **kwargs)
 

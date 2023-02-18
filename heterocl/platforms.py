@@ -1,23 +1,23 @@
 # Copyright HeteroCL authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-import os, subprocess, json, time, sys, json
-from .devices import Platform, CPU, FPGA, PIM
-from .devices import *
-from .tools import *
+import os
+import json
+from .devices import Platform, CPU, FPGA
+from .devices import HBM, PLRAM, BRAM, URAM, LUTRAM
+from .tools import Tool
 
 
 def import_json_platform(json_file):
     assert os.path.exists(json_file), f"{json_file} does not exist"
-    graph = dict()
-    compute_devices = list()
+    compute_devices = []
 
     # Traverse JSON tree in recursive DFS
     def traverse_json_tree(node):
         assert "type" in node, "invalid device (JSON) object missing 'type'"
         for key, v in node.items():
 
-            if isinstance(v, str) or isinstance(v, int) or isinstance(v, float):
+            if isinstance(v, (float, int, str)):
                 # Attributes in a device node
                 if key == "type":
                     # Compute device that can take compute offloading
@@ -44,14 +44,16 @@ def import_json_platform(json_file):
                 if "interconnects" in v and "components" in v:
                     traverse_json_tree(v)
 
-    with open(json_file, "r+") as f:
+    with open(json_file, "r+", encoding="utf-8") as f:
         json_spec = json.load(f)
         traverse_json_tree(json_spec)
 
     # Construct a platform object from JSON
     # TODO: support for multiple xcel and host devices
 
-    is_host_device = lambda node: True if "CPU" in node["type"] else False
+    def is_host_device(node):
+        return "CPU" in node["type"]
+
     host_device_json = [_ for _ in compute_devices if is_host_device(_)][0]
     host_device_object = CPU("intel", host_device_json["part"])
 
@@ -89,7 +91,7 @@ class AWS_F1(Platform):
         on_chip_mem = {"URAM": URAM, "BRAM": BRAM, "LUTRAM": LUTRAM}
         for memory, memory_class in on_chip_mem.items():
             xcel.storage[memory] = memory_class()
-        super(AWS_F1, self).__init__(name, devs, host, xcel, tool)
+        super().__init__(name, devs, host, xcel, tool)
 
 
 class XILINX_ZC706(Platform):
@@ -102,7 +104,7 @@ class XILINX_ZC706(Platform):
         on_chip_mem = {"URAM": URAM, "BRAM": BRAM, "LUTRAM": LUTRAM}
         for memory, memory_class in on_chip_mem.items():
             xcel.storage[memory] = memory_class()
-        super(XILINX_ZC706, self).__init__(name, devs, host, xcel, tool)
+        super().__init__(name, devs, host, xcel, tool)
 
 
 class INTEL_VLAB(Platform):
@@ -112,7 +114,7 @@ class INTEL_VLAB(Platform):
         host = devs[0].set_backend("aocl")
         xcel = devs[1].set_backend("aocl")
         tool = Tool.aocl
-        super(INTEL_VLAB, self).__init__(name, devs, host, xcel, tool)
+        super().__init__(name, devs, host, xcel, tool)
 
 
 Platform.aws_f1 = AWS_F1()

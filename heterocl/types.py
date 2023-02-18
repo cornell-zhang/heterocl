@@ -1,16 +1,17 @@
 # Copyright HeteroCL authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 """Define HeteroCL data types"""
-# pylint: disable=too-few-public-methods, too-many-return-statements
+# pylint: disable=no-name-in-module
+
 import numbers
 import types as python_types
 from collections import OrderedDict
 from hcl_mlir.ir import Type as mlir_type
 from hcl_mlir import mlir_type_to_str
-from hcl_mlir.exceptions import *
+from hcl_mlir.exceptions import DTypeError, APIError
 
 
-class Type(object):
+class Type:
     """The base class for all data types
 
     The default bitwidth is 32 and no fractional bit.
@@ -36,7 +37,7 @@ class Type(object):
         self.fracs = fracs
 
     def __eq__(self, other):
-        if other == None:
+        if other is None:
             return False
         other = dtype_to_hcl(other)
         return other.bits == self.bits and other.fracs == self.fracs
@@ -60,7 +61,7 @@ class Index(UInt):
     """Index type"""
 
     def __init__(self):
-        super(Index, self).__init__(32)
+        super().__init__(32)
 
     def __repr__(self):
         return "Index"
@@ -108,8 +109,8 @@ class Struct(Type):
     def __getattr__(self, key):
         try:
             return self.dtype_dict[key]
-        except KeyError:
-            raise DTypeError(key + " is not in struct")
+        except KeyError as exc:
+            raise DTypeError(key + " is not in struct") from exc
 
     def __getitem__(self, key):
         return self.__getattr__(key)
@@ -134,26 +135,26 @@ def dtype_to_str(dtype):
         if isinstance(dtype, Int):
             return "int" + str(dtype.bits)
         # struct is treated as uint
-        elif isinstance(dtype, (UInt, Struct)):
+        if isinstance(dtype, (UInt, Struct)):
             return "uint" + str(dtype.bits)
-        elif isinstance(dtype, Fixed):
+        if isinstance(dtype, Fixed):
             bits = dtype.bits
             fracs = dtype.fracs
             if fracs == 0:
                 return "int" + str(bits)
             return "fixed" + str(bits) + "_" + str(fracs)
-        elif isinstance(dtype, UFixed):
+        if isinstance(dtype, UFixed):
             bits = dtype.bits
             fracs = dtype.fracs
             if fracs == 0:
                 return "uint" + str(bits)
             return "ufixed" + str(bits) + "_" + str(fracs)
-        else:  # Float
+        if isinstance(dtype, Float):
             return "float" + str(dtype.bits)
-    else:
-        if not isinstance(dtype, str):
-            raise DTypeError("Unsupported data type format: {}".format(dtype))
-        return dtype
+        raise DTypeError(f"Unsupported data type: {dtype}")
+    if not isinstance(dtype, str):
+        raise DTypeError(f"Unsupported data type format: {dtype}")
+    return dtype
 
 
 def dtype_to_hcl(dtype):
@@ -173,23 +174,20 @@ def dtype_to_hcl(dtype):
         dtype = mlir_type_to_str(dtype)
     if isinstance(dtype, Type):
         return dtype
-    elif isinstance(dtype, str):
+    if isinstance(dtype, str):
         if dtype[0:3] == "int":
             return Int(int(dtype[3:]))
-        elif dtype[0:4] == "uint":
+        if dtype[0:4] == "uint":
             return UInt(int(dtype[4:]))
-        elif dtype[0:5] == "float":
+        if dtype[0:5] == "float":
             return Float()
-        elif dtype[0:5] == "fixed":
+        if dtype[0:5] == "fixed":
             strs = dtype[5:].split("_")
             return Fixed(int(strs[0]), int(strs[1]))
-        elif dtype[0:6] == "ufixed":
+        if dtype[0:6] == "ufixed":
             strs = dtype[6:].split("_")
             return UFixed(int(strs[0]), int(strs[1]))
-        else:
-            raise DTypeError("Unrecognized data type: {}".format(dtype))
-    else:
-        raise DTypeError("Unrecognized data type format: {}".format(dtype))
+    raise DTypeError(f"Unrecognized data type format: {dtype}")
 
 
 def get_bitwidth(dtype):
@@ -248,7 +246,7 @@ def sort_type_classes(types):
             raise DTypeError(
                 f"sort_type_classes input should be a list of types, got a list of {t} : {type(t)}"
             )
-        elif not issubclass(t, Type):
+        if not issubclass(t, Type):
             raise DTypeError(
                 f"sort_type_classes input should be a list of Type subclass, got {t}"
             )
@@ -257,7 +255,7 @@ def sort_type_classes(types):
     return sorted(types, key=lambda t: type_classes.index(t.__name__))
 
 
-class TypeRule(object):
+class TypeRule:
     """Type inference rule for a set of operations."""
 
     def __init__(self, OpClass, inf_rules, commutative=False):
@@ -294,7 +292,7 @@ class TypeRule(object):
         # A collection of applicable operations
         self.OpClass = OpClass
         # Inference rules
-        self.inf_rules = dict()
+        self.inf_rules = {}
         # a dictionary of the form:
         # { input types (tuple) : inference function (lambda func) }
         # merge the collection of inference rules into a single dictionary

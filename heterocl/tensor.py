@@ -2,13 +2,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import numpy as np
-from hcl_mlir.ir import *
-from hcl_mlir.exceptions import *
+from hcl_mlir.exceptions import DTypeError
 
 from .types import dtype_to_str, Int, UInt, Float, Fixed, UFixed
 
 
-class Array(object):
+class Array():
     """A wrapper class for numpy array
     Differences between array and tensor:
     tensor is only a placeholder while array holds actual values
@@ -18,7 +17,7 @@ class Array(object):
         self.dtype = dtype  # should specify the type of `dtype`
         if isinstance(np_array, list):
             np_array = np.array(np_array)
-        if dtype != None:
+        if dtype is not None:
             # Data type check
             if isinstance(dtype, Float):
                 hcl_dtype_str = dtype_to_str(dtype)
@@ -34,8 +33,8 @@ class Array(object):
                 def cast_func(x):
                     return x if x < sb_limit else x - sb
 
-                np_array = np.vectorize(cast_func)(np_array)
-                np_array = np_array.astype(np.uint64)
+                vec_np_array = np.vectorize(cast_func)(np_array)
+                np_array = vec_np_array.astype(np.uint64)
             elif isinstance(dtype, UInt):
                 # Handle overflow
                 sb = 1 << self.dtype.bits
@@ -51,8 +50,8 @@ class Array(object):
                 def cast_func(x):
                     return x if x < sb_limit else x - sb
 
-                np_array = np.vectorize(cast_func)(np_array)
-                np_array = np_array.astype(np.uint64)
+                vec_np_array = np.vectorize(cast_func)(np_array)
+                np_array = vec_np_array.astype(np.uint64)
             elif isinstance(dtype, UFixed):
                 # Handle overflow
                 sb = 1 << self.dtype.bits
@@ -73,14 +72,13 @@ class Array(object):
                 res_array = self.np_array
             res_array = res_array.astype(np.float64) / float(2 ** (self.dtype.fracs))
             return res_array
-        elif isinstance(self.dtype, Int):
+        if isinstance(self.dtype, Int):
             res_array = self.np_array.astype(np.int64)
             return res_array
-        elif isinstance(self.dtype, Float):
+        if isinstance(self.dtype, Float):
             res_array = self.np_array.astype(float)
             return res_array
-        else:
-            return self.np_array
+        return self.np_array
 
     def unwrap(self):
         return self.np_array

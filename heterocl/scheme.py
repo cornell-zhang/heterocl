@@ -1,9 +1,10 @@
 # Copyright HeteroCL authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+from hcl_mlir.exceptions import APIError, HCLValueError
+
 from . import types
 from .schedule import _reset_builder, _build_schedule, _build_ast, Stage
-from hcl_mlir.exceptions import *
 from .ast import ast
 
 
@@ -24,7 +25,7 @@ def create_schedule_from_scheme(scheme, name=""):
     return _build_schedule(scheme._ast, scheme.inputs, scheme.func, name=name)
 
 
-class Scheme(object):
+class Scheme():
     """A quantization scheme."""
 
     def __init__(self, inputs, func):

@@ -1,12 +1,11 @@
 # Copyright HeteroCL authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
+""" Type inference rules """
 
 from .ast import ast
-from .types import *
+from .types import Index, Float, Int, UInt, Fixed, UFixed, TypeRule
 
 # TODO: Reduction op rules
-
-""" Type inference rules """
 
 
 def add_sub_rule():
@@ -564,7 +563,7 @@ def pow_rule():
 # TODO: attach typing rules to ast.Operation classes
 # Make this a hook? more extensible
 def get_type_rules():
-    rules = list()
+    rules = []
     rules.append(add_sub_rule())
     rules.append(mul_rule())
     rules.append(mod_rule())

@@ -1,19 +1,19 @@
 # Copyright HeteroCL authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
+# pylint: disable=consider-using-with
 
 import os
 import re
 import subprocess
-from sys import platform
-import time
-from hcl_mlir import ir
-from hcl_mlir import runtime as rt
-import numpy as np
 import ctypes
+import time
+import numpy as np
+
+from hcl_mlir import runtime as rt
 from .report import parse_xml
 
 
-def run_process(cmd, pattern=None, env=None):
+def run_process(cmd, pattern=None):
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
     out, err = p.communicate()
     if err:
@@ -31,7 +31,7 @@ def copy_build_files(target, script=None):
     project = target.project
     platform = str(target.tool.name)
     mode = str(target.tool.mode)
-    if platform in ["vivado_hls", "vitis_hls"]:
+    if platform in {"vivado_hls", "vitis_hls"}:
         os.system("cp " + path + "vivado/* " + project)
         if platform == "vitis_hls":
             os.system("cp " + path + "vitis/run.tcl " + project)
@@ -45,10 +45,13 @@ def copy_build_files(target, script=None):
                 removed_mode.remove(s_mode)
 
             new_tcl = ""
-            with open(os.path.join(project, "run.tcl"), "r") as tcl_file:
+            with open(
+                os.path.join(project, "run.tcl"), "r", encoding="utf-8"
+            ) as tcl_file:
                 for line in tcl_file:
                     if "set_top" in line:
                         line = "set_top " + target.top + "\n"
+                    # pylint: disable=too-many-boolean-expressions
                     if (
                         ("csim_design" in line and "csim" in removed_mode)
                         or ("csynth_design" in line and "csyn" in removed_mode)
@@ -62,43 +65,38 @@ def copy_build_files(target, script=None):
             print("Warning: custom Tcl file is used, and target mode becomes invalid.")
             new_tcl = script
 
-        with open(os.path.join(project, "run.tcl"), "w") as tcl_file:
+        with open(os.path.join(project, "run.tcl"), "w", encoding="utf-8") as tcl_file:
             tcl_file.write(new_tcl)
         return "success"
-    else:
-        raise RuntimeError("Not implemented")
+    raise RuntimeError("Not implemented")
 
 
 def execute_fpga_backend(target, shell=True):
     project = target.project
     platform = str(target.tool.name)
     mode = str(target.tool.mode)
-    if platform in ["vivado_hls", "vitis_hls"]:
+    if platform in {"vivado_hls", "vitis_hls"}:
         assert (
-            os.system("which {} >> /dev/null".format(platform)) == 0
-        ), "cannot find {} on system path".format(platform)
-        ver = run_process("g++ --version", "\d\.\d\.\d")[0].split(".")
+            os.system(f"which {platform} >> /dev/null") == 0
+        ), f"cannot find {platform} on system path"
+        ver = run_process("g++ --version", r"\d\.\d\.\d")[0].split(".")
         assert (
             int(ver[0]) * 10 + int(ver[1]) >= 48
-        ), "g++ version too old {}.{}.{}".format(ver[0], ver[1], ver[2])
+        ), f"g++ version too old {ver[0]}.{ver[1]}.{ver[2]}"
 
-        cmd = "cd {}; make ".format(project)
+        cmd = f"cd {project}; make "
         if mode == "csim":
             cmd += "csim"
             out = run_process(cmd + " 2>&1")
             runtime = [k for k in out.split("\n") if "seconds" in k][0]
             print(
-                "[{}] Simulation runtime {}".format(
-                    time.strftime("%H:%M:%S", time.gmtime()), runtime
-                )
+                f"[{time.strftime('%H:%M:%S', time.gmtime())}] Simulation runtime {runtime}"
             )
 
         elif "csyn" in mode or mode == "custom" or mode == "debug":
             cmd += platform
             print(
-                "[{}] Begin synthesizing project ...".format(
-                    time.strftime("%H:%M:%S", time.gmtime())
-                )
+                f"[{time.strftime('%H:%M:%S', time.gmtime())}] Begin synthesizing project ..."
             )
             if shell:
                 subprocess.Popen(cmd, shell=True).wait()
@@ -108,7 +106,7 @@ def execute_fpga_backend(target, shell=True):
                 out = parse_xml(project, "Vivado HLS", top=target.top, print_flag=True)
 
         else:
-            raise RuntimeError("{} does not support {} mode".format(platform, mode))
+            raise RuntimeError(f"{platform} does not support {mode} mode")
     else:
         raise RuntimeError("Not implemented")
 
@@ -127,12 +125,12 @@ def execute_llvm_backend(execution_engine, name, return_num, *argv):
     # Extract output arrays
     return_args = argv_np[-return_num:]
     # Convert output variables from numpy arrays to memref pointers
-    return_pointers = list()
+    return_pointers = []
     for arg in return_args:
         memref = rt.get_ranked_memref_descriptor(arg)
         return_pointers.append(ctypes.pointer(ctypes.pointer(memref)))
     # Convert input variables from numpy arrays to memref pointers
-    arg_pointers = list()
+    arg_pointers = []
     for arg in argv_np[0:-return_num]:
         memref = rt.get_ranked_memref_descriptor(arg)
         arg_pointers.append(ctypes.pointer(ctypes.pointer(memref)))

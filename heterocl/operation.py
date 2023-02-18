@@ -1,14 +1,12 @@
 # Copyright HeteroCL authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+import re
 import inspect
-from collections import OrderedDict
 
 import hcl_mlir
 import numpy as np
-import re
-from hcl_mlir.ir import *
-from hcl_mlir.exceptions import *
+from hcl_mlir.exceptions import APIError
 
 from . import config
 from .types import Int, Type, UInt, Struct, dtype_to_hcl
@@ -16,7 +14,13 @@ from .context import UniqueName
 from .dsl import for_
 from .schedule import Schedule, Stage
 from .tensor import Array
-from .utils import *
+from .utils import (
+    get_src_loc,
+    make_const_tensor,
+    get_max_value,
+    get_min_value,
+    get_dtype_str,
+)
 from .ast import ast
 
 
@@ -31,17 +35,17 @@ def placeholder(shape, name=None, dtype=None):
     name = UniqueName.get(name, "tensor")
 
     if (
-        not dtype == None
+        not dtype is None
         and not isinstance(dtype, (Type, str))
         and not hcl_mlir.is_hcl_mlir_type(dtype)
         and not isinstance(name, str)
     ):
-        raise APIError("Input type error, got dtype={}, name={}".format(dtype, name))
+        raise APIError(f"Input type error, got dtype={dtype}, name={name}")
     if isinstance(dtype, str):
         dtype = dtype_to_hcl(dtype)
     if shape == ():
         shape = (1,)
-    dtype = config.init_dtype if dtype == None else dtype
+    dtype = config.init_dtype if dtype is None else dtype
     filename, lineno = get_src_loc(frame=1)
     alloc = ast.AllocOp(name, shape, dtype, ast.Location(filename, lineno))
     return alloc
@@ -50,28 +54,28 @@ def placeholder(shape, name=None, dtype=None):
 def asarray(np_array, dtype=None):
     if isinstance(dtype, str):
         dtype = dtype_to_hcl(dtype)
-    dtype = config.init_dtype if dtype == None else dtype
+    dtype = config.init_dtype if dtype is None else dtype
     return Array(np_array, dtype)
 
 
-def scalar(init, name=None, dtype=None):
+def scalar(init_val, name=None, dtype=None):
     filename, lineno = get_src_loc()
     loc = ast.Location(filename, lineno)
     name = UniqueName.get(name, "scalar")
     if isinstance(dtype, str):
         dtype = dtype_to_hcl(dtype)
-    dtype = config.init_dtype if dtype == None else dtype  # dtype is HeteroCL type
-    if isinstance(dtype, Struct) and isinstance(init, int):
-        vals = list()
+    dtype = config.init_dtype if dtype is None else dtype  # dtype is HeteroCL type
+    if isinstance(dtype, Struct) and isinstance(init_val, int):
+        vals = []
         for ftype in dtype.dtype_dict.values():
             mask = (1 << (ftype.bits + 1)) - 1
-            val = init & mask
-            init = init >> ftype.bits
+            val = init_val & mask
+            init_val = init_val >> ftype.bits
             vals.append(ast.ConstantOp(val, ftype, loc))
-        init = tuple(vals)
+        init_val = tuple(vals)
 
     # Generate a ComputeOp
-    op = compute_body(name, (1,), lambda x: init, dtype, loc, None)
+    op = compute_body(name, (1,), lambda x: init_val, dtype, loc, None)
     return op.tensor
 
 
@@ -99,7 +103,7 @@ def cast(dtype, expr):
 def const_tensor(values, name=None, dtype=None):
     """Create a constant tensor"""
     name = UniqueName.get(name, "tensor")
-    dtype = config.init_dtype if dtype == None else dtype
+    dtype = config.init_dtype if dtype is None else dtype
     filename, lineno = get_src_loc()
     loc = ast.Location(filename, lineno)
     # convert values to numpy array and handle overflow
@@ -123,7 +127,7 @@ def const_tensor(values, name=None, dtype=None):
 def copy(values, name=None, dtype=None):
     """A syntactic sugar for copying an existing tensor."""
     name = UniqueName.get(name, "tensor")
-    dtype = config.init_dtype if dtype == None else dtype
+    dtype = config.init_dtype if dtype is None else dtype
     return const_tensor(values, name, dtype)
 
 
@@ -136,9 +140,9 @@ def select(cond, true_val, false_val):
     return ast.SelectOp(cond, true_val, false_val, loc)
 
 
-def reducer(init, freduce, dtype="int32", name=None):
+def reducer(init_val, freduce, dtype="int32", name=None):
     """Create a reducer for a reduction operation.
-    This API creates a reducer according to the initial value `init` and the
+    This API creates a reducer according to the initial value `init_val` and the
     reduction function `freduce`. The initial value can be either an
     expression or a tensor. With the reducer, users can create a reduction
     operation, where the users can further specify the input to be reduced
@@ -151,7 +155,7 @@ def reducer(init, freduce, dtype="int32", name=None):
     not return anything**.
     .. code-block:: python
         # this can be a tensor
-        output = init
+        output = init_val
         # the specified reduction axis
         for i in reduction_domain:
             if (where):
@@ -161,7 +165,7 @@ def reducer(init, freduce, dtype="int32", name=None):
     axes. In this case, we can write them together in a list.
     Parameters
     ----------
-    init : Expr or Tensor
+    init_val : Expr or Tensor
         The initial value of the accumulator
     freduce : callable
         The reduction function that takes in two arguments. The first argument
@@ -227,7 +231,7 @@ def reducer(init, freduce, dtype="int32", name=None):
             for r2 in (0, 10):
                 B[0] = A[r1, r2] + B[0]
         # example 4 - write a sorting algorithm with reduction
-        init = hcl.compute((10,), lambda x: 11)
+        init_val = hcl.compute((10,), lambda x: 11)
         def freduce(x, Y):
             with hcl.for_(0, 10) as i:
                 with hcl.if_(x < Y[i]):
@@ -235,7 +239,7 @@ def reducer(init, freduce, dtype="int32", name=None):
                         Y[j] = Y[j-1]
                     Y[i] = x
                     hcl.break_()
-        my_sort = hcl.reducer(init, freduce)
+        my_sort = hcl.reducer(init_val, freduce)
         A = hcl.placeholder((10, 10))
         r = hcl.reduce_axis(0, 10)
         # note that we need to use the underscore the mark the reduction axis
@@ -253,25 +257,25 @@ def reducer(init, freduce, dtype="int32", name=None):
 
         # Set up data type
         # TODO: deduce dtype from expr
-        dtype = config.init_dtype if dtype == None else dtype
+        dtype = config.init_dtype if dtype is None else dtype
         if isinstance(dtype, str):
             dtype = dtype_to_hcl(dtype)
         # Set up file location
         filename, lineno = get_src_loc()
         loc = ast.Location(filename, lineno)
 
-        nonlocal init
-        if init is None:
+        nonlocal init_val
+        if init_val is None:
             if freduce == ast.Min:
-                init = get_max_value(dtype)
+                init_val = get_max_value(dtype)
             elif freduce == ast.Max:
-                init = get_min_value(dtype)
+                init_val = get_min_value(dtype)
             else:
                 raise APIError(
-                    "init must be specified if freduce is not a reduction operator"
+                    "init_val must be specified if freduce is not a reduction operator"
                 )
 
-        reduce_op = ast.ReduceOp(name, expr, freduce, axis, dtype, init, loc)
+        reduce_op = ast.ReduceOp(name, expr, freduce, axis, dtype, init_val, loc)
         ast.scope.push(reduce_op.body)
         if_op = ast.IfOp(where, loc)
         reduce_op.body.append(if_op)
@@ -297,6 +301,7 @@ def reducer(init, freduce, dtype="int32", name=None):
     return make_reduce
 
 
+# pylint: disable=redefined-builtin
 sum = reducer(0, lambda x, y: x + y, name="sum")
 max = reducer(None, ast.Max, name="max")
 min = reducer(None, ast.Min, name="min")
@@ -327,7 +332,6 @@ def pack(tensor, axis=0, factor=None, name=None, dtype=None):
                 (index * factor + i) if j == axis else index
                 for j, index in enumerate(indices)
             ]
-            val = tensor[tuple(new_indices)]
             result[0][bitwidth * i : bitwidth * (i + 1)] = tensor[tuple(new_indices)]
         return result[0]
 
@@ -377,7 +381,9 @@ def compute_body(name, shape, fcompute, dtype, loc, tensor):
         The compute function
     dtype: hcl.dtype
         The data type of the compute op
-    tensor: ast.AllocOp, None, or "no_alloc"
+    loc: Location
+        The location of the compute op
+    tensor: Union[ast.AllocOp, None, or "no_alloc"]
         The tensor to store the result of the compute op
         - ast.AllocOp: hcl.update
         - None: hcl.compute, ComputeOp will allocate new tensor
@@ -418,6 +424,7 @@ def compute_body(name, shape, fcompute, dtype, loc, tensor):
     ast.scope.push(compute_op.body)
     if tensor is None:
         # hcl.compute
+        # pylint: disable=redefined-variable-type
         res_expr = fcompute(*iter_vars)
         res_expr = ast.immediate_to_constant(res_expr, loc)
         if isinstance(res_expr, tuple) and isinstance(dtype, Struct):
@@ -458,14 +465,14 @@ def compute_body(name, shape, fcompute, dtype, loc, tensor):
     return compute_op
 
 
-def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
+def compute(shape, fcompute, name=None, dtype=None):
     if not isinstance(shape, tuple):
         raise APIError("The shape of compute API must be a tuple")
-    shape = tuple([int(s) if isinstance(s, float) else s for s in shape])
+    shape = tuple(int(s) if isinstance(s, float) else s for s in shape)
     name = UniqueName.get(name, "tensor")
-    if not dtype == None and not isinstance(dtype, (Type, str)):
+    if not dtype is None and not isinstance(dtype, (Type, str)):
         raise APIError("Type error")
-    dtype = config.init_dtype if dtype == None else dtype
+    dtype = config.init_dtype if dtype is None else dtype
     if isinstance(dtype, str):
         dtype = dtype_to_hcl(dtype)
 
@@ -497,7 +504,6 @@ def mutate(domain, fcompute, name=None):
     filename, lineno = get_src_loc()
     loc = ast.Location(filename, lineno)
     compute_body(name, domain, fcompute, None, loc, "no_alloc")
-    return
 
 
 def bitcast(tensor, dst_dtype, name=None):
@@ -518,14 +524,19 @@ def bitcast(tensor, dst_dtype, name=None):
     loc = ast.Location(filename, lineno)
     # set up name, shape, and fcompute
     dst_dtype_str = get_dtype_str(dst_dtype)
+    # pylint: disable=no-else-return
     if isinstance(tensor, ast.AllocOp):
         name = tensor.name + "_" + dst_dtype_str if name is None else name
         shape = tensor.shape
-        fcompute = lambda *args: ast.BitCastOp(tensor[args], dst_dtype, loc)
-        return compute(shape, fcompute, name=name, dtype=dst_dtype)
+        return compute(
+            shape,
+            lambda *args: ast.BitCastOp(tensor[args], dst_dtype, loc),
+            name=name,
+            dtype=dst_dtype,
+        )
     else:
-        bitcast = ast.BitCastOp(tensor, dst_dtype, loc)
-        return bitcast
+        bitcast_op = ast.BitCastOp(tensor, dst_dtype, loc)
+        return bitcast_op
 
 
 def cast_np(np_array, dtype):
@@ -567,16 +578,15 @@ def match(scope, pattern):
         # Check if pattern is a valid regular expression
         try:
             re.compile(pattern)
-        except re.error:
+        except Exception as exc:
             raise APIError(
                 "The pattern of match API must be a valid regular expression."
-            )
+            ) from exc
 
     def _ismatch(pattern, stage):
         if isinstance(pattern, str):
             return re.match(pattern, stage.name)
-        else:
-            return pattern(stage)
+        return pattern(stage)
 
     # Check if scope is the top function
     if inspect.isfunction(scope):

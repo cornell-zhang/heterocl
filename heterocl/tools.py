@@ -2,10 +2,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Define HeteroCL default tool settings"""
-# pylint: disable=too-few-public-methods, too-many-return-statements
 
 
-class Tool(object):
+from attr import dataclass
+
+
+class Tool:
     """The base class for all device tooling
     mode (sim/impl) is decided by tool configuration
     e.g. run sw emulation by passing gcc / vivado_hls arg
@@ -27,6 +29,7 @@ class Tool(object):
     def __getattr__(self, entry):
         return self.mapping[entry]
 
+    # pylint: disable=dangerous-default-value
     def __call__(self, mode, setting={}):
         self.mode = mode
         self.options = setting
@@ -52,11 +55,11 @@ class HLS(Tool):
             options = {"Frequency": "100", "Version": "2019.2"}
         else:  # vitis_hls
             options = {"Frequency": "300", "Version": "2020.2"}
-        super(HLS, self).__init__(name, mode, options)
+        super().__init__(name, mode, options)
         self.suported_modes = ["debug", "custom", "csim", "csyn", "cosim", "impl"]
 
     def set_mode(self, mode):
-        if mode not in ["custom", "debug"]:
+        if mode not in {"custom", "debug"}:
             input_modes = mode.split("|")
             modes = ["csim", "csyn", "cosim", "impl"]
             new_modes = []
@@ -66,19 +69,18 @@ class HLS(Tool):
                 # csim (opt) -\    /- cosim
                 #              |--|
                 #    csyn    -/    \- impl
-                if in_mode in ["cosim", "impl"]:
+                if in_mode in {"cosim", "impl"}:
                     new_modes.append("csyn")
                     print(
-                        "Warning: {} needs to be done before {}, ".format(
-                            "csyn", in_mode
-                        )
-                        + "so {} is added to target mode.".format("csyn")
+                        f"Warning: csyn needs to be done before {in_mode}, so csyn is added to target mode."
                     )
                 new_modes.append(in_mode)
             mode = list(set(new_modes))
-            mode.sort(key=lambda x: modes.index(x))
-            mode = "|".join(mode)
-        self.mode = mode
+            mode.sort()
+            new_mode = "|".join(mode)
+        else:
+            new_mode = mode
+        self.mode = new_mode
 
 
 class Vitis(Tool):
@@ -86,7 +88,7 @@ class Vitis(Tool):
         name = "vitis"
         mode = "sw_sim"
         options = {"Frequency": "300", "Version": "2019.2"}
-        super(Vitis, self).__init__(name, mode, options)
+        super().__init__(name, mode, options)
 
         self.tool_mode = None
         self.xpfm = None
@@ -103,18 +105,19 @@ class AOCL(Tool):
         name = "aocl"
         mode = "sw_sim"
         options = {"Frequency": "500", "Version": "19.2"}
-        super(AOCL, self).__init__(name, mode, options)
+        super().__init__(name, mode, options)
 
 
-option_table = {
-    "llvm": ("sw_sim", {"version": "6.0.0"}),
-    "sdaccel": ("sw_sim", {"version": "2017.1", "clock": "1"}),
-    "sdsoc": ("sw_sim", {"version": "2017.1", "clock": "1"}),
-    "vitis": ("sw_sim", {"version": "2019.2", "clock": "1"}),
-    "vivado_hls": ("sw_sim", {"version": "2017.1"}),
-    "rocket": ("debug", {"RISCV": ""}),
+@dataclass
+class OptionTable:
+    llvm = ("sw_sim", {"version": "6.0.0"})
+    sdaccel = ("sw_sim", {"version": "2017.1", "clock": "1"})
+    sdsoc = ("sw_sim", {"version": "2017.1", "clock": "1"})
+    vitis = ("sw_sim", {"version": "2019.2", "clock": "1"})
+    vivado_hls = ("sw_sim", {"version": "2017.1"})
+    rocket = ("debug", {"RISCV": ""})
     # refer to xilinx2016_1/ug904-vivado-implementation.pdf
-    "vivado": (
+    vivado = (
         "pnr",
         {
             "version": "2017.1",
@@ -146,8 +149,8 @@ option_table = {
             "retime": ["on", "off"],
             "rewire": ["on", "off"],
         },
-    ),
-    "quartus": (
+    )
+    quartus = (
         "pnr",
         {
             "version": "17.1",
@@ -164,7 +167,6 @@ option_table = {
             ],
             "fitter_effort": ["Standard Fit", "Auto Fit"],
             "remove_duplicate_registers": ["On", "Off"],
-            "physical_synthesis": ["On", "Off"],
             "adv_netlist_opt_synth_wysiwyg_remap": ["On", "Off"],
             "allow_any_ram_size_for_recognition": ["On", "Off"],
             "allow_any_rom_size_for_recognition": ["On", "Off"],
@@ -178,28 +180,23 @@ option_table = {
             "allow_synch_ctrl_usage": ["On", "Off"],
             "auto_carry_chains": ["On", "Off"],
             "auto_clock_enable_recognition": ["On", "Off"],
-            "auto_dsp_recognition": ["On", "Off"],
             "auto_enable_smart_compile": ["On", "Off"],
             "auto_open_drain_pins": ["On", "Off"],
             "auto_ram_recognition": ["On", "Off"],
             "auto_resource_sharing": ["On", "Off"],
             "auto_rom_recognition": ["On", "Off"],
             "auto_shift_register_recognition": ["Always", "Auto", "Off"],
-            "disable_register_merging_across_hierarchies": ["Auto", "On", "Off"],
             "enable_state_machine_inference": ["On", "Off"],
             "force_synch_clear": ["On", "Off"],
             "ignore_carry_buffers": ["On", "Off"],
             "ignore_cascade_buffers": ["On", "Off"],
             "ignore_max_fanout_assignments": ["On", "Off"],
             "infer_rams_from_raw_logic": ["On", "Off"],
-            "mux_restructure": ["Auto", "On", "Off"],
-            "optimization_technique": ["Area", "Balanced", "Speed"],
             "optimize_power_during_synthesis": [
                 "Extra effort",
                 "Normal compilation",
                 "Off",
             ],
-            "remove_duplicate_registers": ["On", "Off"],
             "shift_register_recognition_aclr_signal": ["On", "Off"],
             "state_machine_processing": [
                 "Auto",
@@ -210,21 +207,13 @@ option_table = {
                 "User-Encoded",
             ],
             "strict_ram_recognition": ["On", "Off"],
-            "synthesis_effort": ["Auto", "Fast"],
             "synthesis_keep_synch_clear_preset_behavior_in_unmapper": ["On", "Off"],
             "synth_resource_aware_inference_for_block_ram": ["On", "Off"],
-            "synth_timing_driven_synthesis": ["On", "Off"],
             "alm_register_packing_effort": ["High", "Low", "Medium"],
             "auto_delay_chains": ["On", "Off"],
             "auto_delay_chains_for_high_fanout_input_pins": ["On", "Off"],
             "eco_optimize_timing": ["On", "Off"],
             "final_placement_optimization": ["Always", "Automatically", "Never"],
-            "fitter_aggressive_routability_optimization": [
-                "Always",
-                "Automatically",
-                "Never",
-            ],
-            "fitter_effort": ["Standard Fit", "Auto Fit"],
             "optimize_for_metastability": ["On", "Off"],
             "optimize_hold_timing": [
                 "All Paths",
@@ -267,9 +256,9 @@ option_table = {
             "tdc_aggressive_hold_closure_effort": ["On", "Off"],
             "allow_register_retiming": ["On", "Off"],
         },
-    ),
-    "aocl": ("sw_sim", {"version": "17.0", "clock": "1.5"}),
-}
+    )
+    aocl = ("sw_sim", {"version": "17.0", "clock": "1.5"})
+
 
 Tool.vivado_hls = HLS("vivado_hls")
 Tool.vitis_hls = HLS("vitis_hls")

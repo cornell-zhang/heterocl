@@ -1,12 +1,14 @@
 # Copyright HeteroCL authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+from hcl_mlir import APIError, DTypeWarning
+
 from .ast import ast
-from .types import *
+from .types import Index, Float, Int, UInt, Struct
 from .type_rules import get_type_rules, TypeRule
 
 
-class TypeInference(object):
+class TypeInference:
     """A type inference engine for HeteroCL programs."""
 
     def __init__(self):
@@ -15,60 +17,60 @@ class TypeInference(object):
 
     def build_rule_dict(self):
         """Build a dictionary of rules, where the key is the operation type"""
-        self._rule_dict = dict()
+        self._rule_dict = {}
         for type_rule in self._rules:
             if not isinstance(type_rule, TypeRule):
                 raise TypeError(f"type_rule must be a TypeRule, not {type(type_rule)}")
             for op_type in type_rule.OpClass:
                 self._rule_dict[op_type] = type_rule
 
+    # pylint: disable=too-many-return-statements
     def infer(self, expr):
         """Infer the type of an expression"""
         if isinstance(expr, ast.LoadOp):
             return self.infer_load(expr)
-        elif isinstance(expr, ast.BinaryOp):
+        if isinstance(expr, ast.BinaryOp):
             return self.infer_binary(expr)
-        elif isinstance(expr, ast.SelectOp):
+        if isinstance(expr, ast.SelectOp):
             return self.infer_select(expr)
-        elif isinstance(expr, ast.ConstantOp):
+        if isinstance(expr, ast.ConstantOp):
             return self.infer_const(expr)
-        elif isinstance(expr, ast.IterVar):
+        if isinstance(expr, ast.IterVar):
             return Index()
-        elif isinstance(expr, ast.CastOp):
+        if isinstance(expr, ast.CastOp):
             return expr.dtype
-        elif isinstance(expr, ast.ReduceOp):
+        if isinstance(expr, ast.ReduceOp):
             # TODO: infer the type of the reduction
             return expr.dtype
-        elif isinstance(expr, ast.BitCastOp):
+        if isinstance(expr, ast.BitCastOp):
             return expr.dtype
-        elif isinstance(expr, ast.GetBitOp):
+        if isinstance(expr, ast.GetBitOp):
             return expr.dtype
-        elif isinstance(expr, ast.GetSliceOp):
+        if isinstance(expr, ast.GetSliceOp):
             return expr.dtype
-        elif isinstance(expr, ast.SetBitOp):
+        if isinstance(expr, ast.SetBitOp):
             return self.infer(expr.expr)
-        elif isinstance(expr, ast.SetSliceOp):
+        if isinstance(expr, ast.SetSliceOp):
             return self.infer(expr.expr)
-        elif isinstance(expr, ast.BitReverseOp):
+        if isinstance(expr, ast.BitReverseOp):
             return self.infer(expr.expr)
-        elif isinstance(expr, ast.StructConstructOp):
+        if isinstance(expr, ast.StructConstructOp):
             return expr.dtype
-        elif isinstance(expr, ast.StructGetOp):
+        if isinstance(expr, ast.StructGetOp):
             assert isinstance(expr.struct.dtype, Struct)
             struct_t = expr.struct.dtype
             key_list = list(struct_t.dtype_dict.keys())
             key = key_list[expr.field]
             return struct_t.dtype_dict[key]
-        elif isinstance(expr, ast.CallOp):
+        if isinstance(expr, ast.CallOp):
             return self.infer(expr.rets[0])
-        elif isinstance(expr, ast.Neg):
+        if isinstance(expr, ast.Neg):
             return self.infer(expr.expr)
-        elif isinstance(expr, ast.MathTanhOp):
+        if isinstance(expr, ast.MathTanhOp):
             return Float(64)
-        else:
-            raise APIError(
-                f"Type inference not defined for expression of type: {type(expr)}"
-            )
+        raise APIError(
+            f"Type inference not defined for expression of type: {type(expr)}"
+        )
 
     def infer_binary(self, expr):
         lhs_type = self.infer(expr.lhs)
@@ -93,10 +95,6 @@ class TypeInference(object):
         type_rule = self._rule_dict[type(expr)]
         res_type = type_rule(true_type, false_type)
         return res_type
-
-    """
-        Operations that do not require type inference
-    """
 
     def infer_load(self, expr):
         return expr.tensor.dtype

@@ -1,7 +1,7 @@
 # Copyright HeteroCL authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
+# pylint: disable=redefined-builtin
 
-from hcl_mlir.ir import *
 from hcl_mlir.exceptions import HCLValueError
 
 from .ast import ast
@@ -22,16 +22,13 @@ def print(vals, format_str=""):
             vals = list(vals)
         # Check if all elements are int/float or expression
         for i, val in enumerate(vals):
-            if isinstance(val, int) or isinstance(val, float):
+            if isinstance(val, (int, float)):
                 continue
-            elif isinstance(val, ast.Expr):
+            if isinstance(val, ast.Expr):
                 continue
-            else:
-                raise HCLValueError(
-                    "Unsupported type of element in tuple: {} of type {}".format(
-                        val, type(val)
-                    )
-                )
+            raise HCLValueError(
+                f"Unsupported type of element in tuple: {val} of type {type(val)}"
+            )
         # when vals is empty
         if len(vals) == 0:
             value = ast.immediate_to_constant(0, loc)

@@ -5,6 +5,9 @@
 
 from __future__ import annotations
 
+from typing import Dict, List
+from attr import dataclass
+
 from .tools import Tool
 from .debug import DeviceError
 from .context import UniqueName
@@ -23,6 +26,7 @@ class ModelTable:
     }
 
 
+model_table = ModelTable()
 dev_mem_map = {"DRAM": 0, "HBM": 1, "PLRAM": 2, "BRAM": 3, "LUTRAM": 4, "URAM": 5}
 
 
@@ -183,12 +187,12 @@ class CPU(Device):
     """cpu device with different models"""
 
     def __init__(self, vendor, model, **kwargs):
-        if vendor not in ModelTable.CPU:
+        if vendor not in model_table.CPU:
             raise DeviceError(vendor + " not supported yet")
         if model is not None:
-            assert model in ModelTable.CPU[vendor], model + " not supported yet"
+            assert model in model_table.CPU[vendor], model + " not supported yet"
         else:
-            model = ModelTable.CPU[vendor][0]
+            model = model_table.CPU[vendor][0]
         super().__init__("CPU", vendor, model, **kwargs)
 
     def __repr__(self):
@@ -199,12 +203,12 @@ class FPGA(Device):
     """fpga device with different models"""
 
     def __init__(self, vendor, model, **kwargs):
-        if vendor not in ModelTable.FPGA:
+        if vendor not in model_table.FPGA:
             raise DeviceError(vendor + " not supported yet")
         if model is not None:
-            assert model in ModelTable.FPGA[vendor], f"{model} not supported yet"
+            assert model in model_table.FPGA[vendor], f"{model} not supported yet"
         else:
-            model = ModelTable.FPGA[vendor][0]
+            model = model_table.FPGA[vendor][0]
         super().__init__("FPGA", vendor, model, **kwargs)
 
     def __repr__(self):
