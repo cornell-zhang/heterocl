@@ -7,7 +7,7 @@ from hcl_mlir.exceptions import DTypeError
 from .types import dtype_to_str, Int, UInt, Float, Fixed, UFixed
 
 
-class Array():
+class Array:
     """A wrapper class for numpy array
     Differences between array and tensor:
     tensor is only a placeholder while array holds actual values
@@ -44,7 +44,7 @@ class Array():
                 # Handle overflow
                 sb = 1 << self.dtype.bits
                 sb_limit = 1 << (self.dtype.bits - 1)
-                np_array = np_array * (2 ** dtype.fracs)
+                np_array = np_array * (2**dtype.fracs)
                 np_array = np.fix(np_array) % sb
 
                 def cast_func(x):
@@ -55,7 +55,7 @@ class Array():
             elif isinstance(dtype, UFixed):
                 # Handle overflow
                 sb = 1 << self.dtype.bits
-                np_array = np_array * (2 ** dtype.fracs)
+                np_array = np_array * (2**dtype.fracs)
                 np_array = np.fix(np_array) % sb
                 np_array = np_array.astype(np.uint64)
             else:

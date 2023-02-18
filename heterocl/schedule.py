@@ -4,7 +4,13 @@
 
 import functools
 
-from hcl_mlir.exceptions import HCLValueError, APIError, DTypeError, HCLNotImplementedError, HCLDeprecationWarning
+from hcl_mlir.exceptions import (
+    HCLValueError,
+    APIError,
+    DTypeError,
+    HCLNotImplementedError,
+    HCLDeprecationWarning,
+)
 
 from .devices import Device, DevMemoryPair
 from .dfg import DataflowGraph
@@ -236,13 +242,9 @@ class Schedule:
         if self.is_lowered():
             raise APIError(".reuse_at() must be called before lowering")
         if not isinstance(axis, ast.LoopHandle):
-            raise DTypeError(
-                f"reuse_at() got invalid axis of type {type(axis)}"
-            )
+            raise DTypeError(f"reuse_at() got invalid axis of type {type(axis)}")
         if not isinstance(target, (ast.AllocOp, ast.ReuseAtOp)):
-            raise DTypeError(
-                f"reuse_at() got invalid target of type {type(target)}"
-            )
+            raise DTypeError(f"reuse_at() got invalid target of type {type(target)}")
 
         filename, lineno = get_src_loc()
         loc = ast.Location(filename, lineno)
@@ -335,10 +337,11 @@ class Stage:
     because of the syntax of HeteroCL,
     Stage._mapping is a list of (Tensor, Stage) tuples
     or (Stage, Stage) tuples to keep track of all stages
-    and their corresponding tensors. 
+    and their corresponding tensors.
     For compute and mutate, we attach (Tensor, Stage) tuples
     For update and imperative, we attach (Stage, Stage) tuples
     """
+
     _mapping = []
 
     def __init__(self, name=None):
@@ -380,9 +383,7 @@ class Stage:
         if schedule.is_lowered():
             raise APIError(".split() must be called before lowering")
         if nparts is not None or mode != "transform":
-            raise HCLNotImplementedError(
-                f"nparts={nparts}, mode={mode} not supported"
-            )
+            raise HCLNotImplementedError(f"nparts={nparts}, mode={mode} not supported")
         if isinstance(parent, int):
             parent = self.tensor.axis[parent]
         filename, lineno = get_src_loc()

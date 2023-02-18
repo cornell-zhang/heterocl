@@ -25,7 +25,7 @@ def create_schedule_from_scheme(scheme, name=""):
     return _build_schedule(scheme._ast, scheme.inputs, scheme.func, name=name)
 
 
-class Scheme():
+class Scheme:
     """A quantization scheme."""
 
     def __init__(self, inputs, func):
