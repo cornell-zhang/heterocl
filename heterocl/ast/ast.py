@@ -1,6 +1,6 @@
 # Copyright HeteroCL authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
-# pylint: disable=no-else-return, no-else-raise, too-many-instance-attributes
+# pylint: disable=no-else-return, no-else-raise, too-many-instance-attributes, cyclic-import
 
 import sympy as sp
 from hcl_mlir.exceptions import (
