@@ -45,9 +45,6 @@ jobs:
           name: Formatting Check
           command: |
             python3 -m pip install black pylint
-            export HCL_HOME=$(pwd)
-            export PYTHONPATH=$HCL_HOME/hcl-dialect/build/tools/hcl/python_packages/hcl_core:${PYTHONPATH}
-            export PYTHONPATH=$HCL_HOME:${PYTHONPATH}
             bash ./.circleci/task_lint.sh
       - run: 
           name: HeteroCL Tests
