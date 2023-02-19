@@ -21,11 +21,12 @@ hcl_A = hcl.asarray(np_A)
 
 f(hcl_A)
 
-s = ""
+s = "[["
 for i in range(0, 5):
     for j in range(0, 10):
         s += str(np_A[i][j])
         s += " "
     if i < 4:
         s += "\n"
+s += "]]"
 print(s)

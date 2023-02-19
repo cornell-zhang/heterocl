@@ -4,6 +4,7 @@
 import pathlib
 import subprocess
 import heterocl as hcl
+import re
 
 unwanted_char = [",", "[", "]", " ", "\n", "\t"]
 
@@ -41,10 +42,11 @@ def test_print_expr():
 
 def test_print_tensor_1D():
 
-    outputs = get_stdout("print_tensor_1D").split("\n")
+    outputs = get_stdout("print_tensor_1D")
+    matches = re.findall('\[(.*?)\]', outputs)
 
-    hcl_print_output = outputs[1]
-    np_print_output = outputs[4]
+    hcl_print_output = matches[-2]
+    np_print_output = matches[-1]
 
     for c in unwanted_char:
         hcl_print_output = hcl_print_output.replace(c, "")
@@ -55,10 +57,11 @@ def test_print_tensor_1D():
 
 def test_print_tensor_2D():
 
-    outputs = get_stdout("print_tensor_2D").split("\n")
+    outputs = get_stdout("print_tensor_2D")
+    matches = re.findall(r'\[\[(.*?)\]\]', outputs, flags=re.DOTALL)
 
-    hcl_print_output = "".join(outputs[1:11])
-    np_print_output = "".join(outputs[13:23])
+    hcl_print_output = "".join(matches[0].split("\n"))
+    np_print_output = "".join(matches[1].split("\n"))
 
     for c in unwanted_char:
         hcl_print_output = hcl_print_output.replace(c, "")
@@ -69,10 +72,11 @@ def test_print_tensor_2D():
 
 def test_print_tensor_2D_rect():
 
-    outputs = get_stdout("print_tensor_2D_rect").split("\n")
+    outputs = get_stdout("print_tensor_2D_rect")
+    matches = re.findall(r'\[\[(.*?)\]\]', outputs, flags=re.DOTALL)
 
-    hcl_print_output = "".join(outputs[1:6])
-    np_print_output = "".join(outputs[8:13])
+    hcl_print_output = "".join(matches[0].split("\n"))
+    np_print_output = "".join(matches[1].split("\n"))
 
     for c in unwanted_char:
         hcl_print_output = hcl_print_output.replace(c, "")
@@ -82,9 +86,8 @@ def test_print_tensor_2D_rect():
 
 
 def test_print_tensor_ele():
-    outputs = get_stdout("print_tensor_ele").split("\n")
-    target_str = outputs[2]
-    assert target_str == "here 53"
+    outputs = get_stdout("print_tensor_ele")
+    assert "here 53" in outputs
 
 
 def test_print_index():
@@ -97,7 +100,7 @@ def test_print_index():
 
 
 def test_print_extra_output():
-    output = get_stdout("print_test_extra_char").split("\n")[2]
+    output = get_stdout("print_test_extra_char")
     # remove all unwanted characters
     for c in unwanted_char:
         output = output.replace(c, "")

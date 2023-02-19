@@ -21,9 +21,9 @@ hcl_A = hcl.asarray(np_A)
 
 f(hcl_A)
 
-s = ""
+s = "["
 for i in range(0, 10):
     s += str(np_A[i])
-    s += " "
-s += ""
+    s += ", "
+s += "]"
 print(s)
