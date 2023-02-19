@@ -21,12 +21,12 @@ import heterocl as hcl
 # some examples below. If no argument is provided, the default bitwidth for
 # each type is 32.
 
-hcl.Int(15) # 15-bit signed integer
-hcl.UInt(24) # 24-bit unsigned integer
-hcl.Fixed(13, 5) # 13-bit signed fixed point with 5 fractional bits
-hcl.UFixed(44, 30) # 44-bit unsigned fixed point with 30 fractional bits
-hcl.Float(32) # single-precision floating point
-hcl.Float(64) # double-precision floating point
+hcl.Int(15)  # 15-bit signed integer
+hcl.UInt(24)  # 24-bit unsigned integer
+hcl.Fixed(13, 5)  # 13-bit signed fixed point with 5 fractional bits
+hcl.UFixed(44, 30)  # 44-bit unsigned fixed point with 30 fractional bits
+hcl.Float(32)  # single-precision floating point
+hcl.Float(64)  # double-precision floating point
 
 ##############################################################################
 # These data types can be used in ``hcl.init`` to set the default data type
@@ -43,8 +43,10 @@ hcl.init(hcl.Float())
 
 A = hcl.placeholder((10,))
 
+
 def quantization(A):
     return hcl.compute(A.shape, lambda x: hcl.tanh(A[x]), "B")
+
 
 ##############################################################################
 # First, let's build the application without applying any quantization scheme.
@@ -54,7 +56,7 @@ f = hcl.build(s)
 
 import numpy as np
 
-hcl_A = hcl.asarray(np.random.rand(10)*2-1)
+hcl_A = hcl.asarray(np.random.rand(10) * 2 - 1)
 hcl_B = hcl.asarray(np.zeros(10))
 
 f(hcl_A, hcl_B)
@@ -62,9 +64,9 @@ f(hcl_A, hcl_B)
 np_A = hcl_A.asnumpy()
 np_B = hcl_B.asnumpy()
 
-print('Before tanh')
+print("Before tanh")
 print(np_A)
-print('After tanh')
+print("After tanh")
 print(np_B)
 
 ##############################################################################
@@ -94,18 +96,18 @@ sm.quantize(sm_B, hcl.Fixed(10, 8))
 sl = hcl.create_schedule_from_scheme(sm)
 f = hcl.build(sl)
 
-hcl_BQ = hcl.asarray(np.zeros(10), dtype = hcl.Fixed(10, 8))
+hcl_BQ = hcl.asarray(np.zeros(10), dtype=hcl.Fixed(10, 8))
 
 f(hcl_A, hcl_BQ)
 
 np_BQ = hcl_BQ.asnumpy()
 
-print('Without quantization')
+print("Without quantization")
 print(np_B)
-print('Quantized to Fixed(10, 8)')
+print("Quantized to Fixed(10, 8)")
 print(np_BQ)
 
 ##############################################################################
 # We can double-check this.
 
-assert np.array_equal(np_BQ, np.trunc(np_B*256)/256)
+assert np.array_equal(np_BQ, np.trunc(np_B * 256) / 256)

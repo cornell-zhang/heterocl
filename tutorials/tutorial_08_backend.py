@@ -19,8 +19,12 @@ import numpy as np
 
 hcl.init()
 A = hcl.placeholder((10, 10), "A")
+
+
 def kernel(A):
-    return hcl.compute((8, 8), lambda y, x: A[y][x] + A[y+2][x+2], "B")
+    return hcl.compute((8, 8), lambda y, x: A[y][x] + A[y + 2][x + 2], "B")
+
+
 s = hcl.create_scheme(A, kernel)
 s.downsize(kernel.B, hcl.UInt(4))
 s = hcl.create_schedule_from_scheme(s)
@@ -33,7 +37,7 @@ s[kernel.B].pipeline(kernel.B.axis[1])
 # specific, set the ``target`` to be ``llvm``. Note the some customization
 # primitives are ignored by the CPU back end. For instance, ``partition`` and
 # ``pipeline`` have no effect. Instead, we can use ``parallel``.
-f = hcl.build(s) # equivalent to hcl.build(s, target="llvm")
+f = hcl.build(s)  # equivalent to hcl.build(s, target="llvm")
 
 ##############################################################################
 # We can execute the returned function as we demonstrated in other tutorials.
@@ -69,12 +73,13 @@ print(f)
 #    We only need the header files to be in the path.
 import subprocess
 import sys
+
 proc = subprocess.Popen(
-        "g++ -E -Wp,-v -xc++ /dev/null",
-        shell=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        )
+    "g++ -E -Wp,-v -xc++ /dev/null",
+    shell=True,
+    stdout=subprocess.PIPE,
+    stderr=subprocess.PIPE,
+)
 stdout, stderr = proc.communicate()
 if "Vivado_HLS" in str(stderr):
     f = hcl.build(s, target="vhls_csim")

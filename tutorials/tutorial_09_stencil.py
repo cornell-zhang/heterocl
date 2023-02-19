@@ -19,15 +19,19 @@ import heterocl as hcl
 # Stencil kernels compute output based on a sliding window over the input. The
 # following shows an example. It computes the average over a 5-point window.
 
+
 def jacobi(input_image, output_image):
     def jacobi_kernel(y, x):
-        return (input_image[y+1, x-1] +
-                input_image[y  , x  ] +
-                input_image[y+1, x  ] +
-                input_image[y+1, x+1] +
-                input_image[y+2, x  ]) / 5
+        return (
+            input_image[y + 1, x - 1]
+            + input_image[y, x]
+            + input_image[y + 1, x]
+            + input_image[y + 1, x + 1]
+            + input_image[y + 2, x]
+        ) / 5
 
     return hcl.update(output_image, jacobi_kernel, name=output_image.name)
+
 
 ##############################################################################
 # Use the Stencil Backend

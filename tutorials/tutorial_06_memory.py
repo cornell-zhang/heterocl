@@ -11,6 +11,7 @@ In this tutorial, we demonstrate how memory customization works in HeteroCL.
 """
 import heterocl as hcl
 import numpy as np
+
 ##############################################################################
 # Memory Customization in HeteroCL
 # --------------------------------
@@ -26,8 +27,10 @@ hcl.init()
 
 A = hcl.placeholder((10, 10), "A")
 
+
 def kernel(A):
-    return hcl.compute(A.shape, lambda x, y: A[x][y]+1, "B")
+    return hcl.compute(A.shape, lambda x, y: A[x][y] + 1, "B")
+
 
 s = hcl.create_schedule(A, kernel)
 s.partition(A)
@@ -76,11 +79,14 @@ hcl.init()
 A = hcl.placeholder((6, 6), "A")
 F = hcl.placeholder((3, 3), "F")
 
+
 def kernel(A, F):
     r = hcl.reduce_axis(0, 3)
     c = hcl.reduce_axis(0, 3)
-    return hcl.compute((4, 4),
-            lambda y, x: hcl.sum(A[y+r, x+c]*F[r, c], axis=[r, c]), "B")
+    return hcl.compute(
+        (4, 4), lambda y, x: hcl.sum(A[y + r, x + c] * F[r, c], axis=[r, c]), "B"
+    )
+
 
 s = hcl.create_schedule([A, F], kernel)
 print(hcl.lower(s))
@@ -95,11 +101,11 @@ hcl_F = hcl.asarray(np.random.randint(0, 10, F.shape))
 hcl_B = hcl.asarray(np.zeros((4, 4)))
 f = hcl.build(s)
 f(hcl_A, hcl_F, hcl_B)
-print('Input:')
+print("Input:")
 print(hcl_A)
-print('Filter:')
+print("Filter:")
 print(hcl_F)
-print('Output:')
+print("Output:")
 print(hcl_B)
 
 ##############################################################################
@@ -146,9 +152,9 @@ print(hcl.lower(s_x))
 hcl_Bx = hcl.asarray(np.zeros((4, 4)))
 f = hcl.build(s_x)
 f(hcl_A, hcl_F, hcl_Bx)
-print('Output without WB:')
+print("Output without WB:")
 print(hcl_B)
-print('Output with WB:')
+print("Output with WB:")
 print(hcl_Bx)
 
 ##############################################################################
@@ -175,9 +181,9 @@ print(hcl.lower(s_y))
 hcl_By = hcl.asarray(np.zeros((4, 4)))
 f = hcl.build(s_y)
 f(hcl_A, hcl_F, hcl_By)
-print('Output without LB:')
+print("Output without LB:")
 print(hcl_B)
-print('Output with LB:')
+print("Output with LB:")
 print(hcl_By)
 
 ##############################################################################
@@ -217,9 +223,9 @@ print(hcl.lower(s_xy))
 hcl_Bxy = hcl.asarray(np.zeros((4, 4)))
 f = hcl.build(s_xy)
 f(hcl_A, hcl_F, hcl_Bxy)
-print('Output without reuse buffers:')
+print("Output without reuse buffers:")
 print(hcl_B)
-print('Output with reuse buffers:')
+print("Output with reuse buffers:")
 print(hcl_Bxy)
 
 ##############################################################################
@@ -294,8 +300,12 @@ f = hcl.build(s_final, target="vhls")
 hcl.init()
 A = hcl.placeholder((10, 10), "A")
 
+
 def kernel_blur(A):
-    return hcl.compute((8, 8), lambda y, x: A[y, x] + A[y+1, x+1] + A[y+2, x+2], "B")
+    return hcl.compute(
+        (8, 8), lambda y, x: A[y, x] + A[y + 1, x + 1] + A[y + 2, x + 2], "B"
+    )
+
 
 s_blur = hcl.create_schedule(A, kernel_blur)
 B = kernel_blur.B

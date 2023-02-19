@@ -31,17 +31,19 @@ A = hcl.placeholder((10,), "A")
 # of a stage, which is optional. Note that **a HeteroCL application must have
 # at least one stage**.
 
+
 def insertion_sort(A):
     # for i in range(1, A.shape[0])
     # We can name the axis
     with hcl.for_(1, A.shape[0], tag="i") as i:
         key = hcl.scalar(A[i], "key")
-        j = hcl.scalar(i-1, "j")
+        j = hcl.scalar(i - 1, "j")
         # while(j >= 0 && key < A[j])
         with hcl.while_(hcl.and_(j.v >= 0, key.v < A[j.v])):
-            A[j.v+1] = A[j.v]
+            A[j.v + 1] = A[j.v]
             j.v -= 1
-        A[j.v+1] = key.v
+        A[j.v + 1] = key.v
+
 
 ##############################################################################
 # Imperative DSL
@@ -81,19 +83,19 @@ import numpy as np
 
 hcl_A = hcl.asarray(np.random.randint(50, size=(10,)))
 
-print('Before sorting:')
+print("Before sorting:")
 print(hcl_A)
 
 f(hcl_A)
 
-print('After sorting:')
+print("After sorting:")
 np_A = hcl_A.asnumpy()
 print(np_A)
 
 ##############################################################################
 # Let's run some tests for verification.
 for i in range(1, 10):
-    assert np_A[i] >= np_A[i-1]
+    assert np_A[i] >= np_A[i - 1]
 
 ##############################################################################
 # Bit Operations
@@ -103,6 +105,8 @@ for i in range(1, 10):
 # Following we show some basic examples.
 hcl.init()
 A = hcl.placeholder((10,), "A")
+
+
 def kernel(A):
     # get the LSB of A
     B = hcl.compute(A.shape, lambda x: A[x][0], "B")
@@ -110,9 +114,10 @@ def kernel(A):
     C = hcl.compute(A.shape, lambda x: A[x][0:4], "C")
     return B, C
 
+
 ##############################################################################
 # Note that for the slicing operations, we follow the convention of Python,
-# which is **lower bound inclusive and upper bound exclusive**. 
+# which is **lower bound inclusive and upper bound exclusive**.
 # Now we can test the results.
 s = hcl.create_schedule(A, kernel)
 f = hcl.build(s)
@@ -145,12 +150,15 @@ hcl.init()
 A = hcl.placeholder((10,), "A")
 B = hcl.placeholder((10,), "B")
 C = hcl.placeholder((10,), "C")
+
+
 def kernel(A, B, C):
     with hcl.for_(0, 10, tag="S") as i:
         # set the LSB of B to be the same as A
         B[i][0] = A[i][0]
         # set the lower 4-bit of C
         C[i][0:4] = A[i]
+
 
 s = hcl.create_schedule([A, B, C], kernel)
 f = hcl.build(s)
@@ -183,4 +191,3 @@ assert np.array_equal(np_B2 % 2, np_A % 2)
 assert np.array_equal(np_B2 // 2, np_B // 2)
 assert np.array_equal(np_C2 % 16, np_A)
 assert np.array_equal(np_C2 // 16, np_C // 16)
-

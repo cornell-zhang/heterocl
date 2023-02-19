@@ -32,10 +32,12 @@ hcl.init()
 
 A = hcl.placeholder((10, 100), "A")
 
+
 def two_stage(A):
     B = hcl.compute(A.shape, lambda x, y: A[x, y] + 1, "B")
     C = hcl.compute(A.shape, lambda x, y: B[x, y] + 1, "C")
     return C
+
 
 s = hcl.create_schedule([A], two_stage)
 s_B = two_stage.B
@@ -194,9 +196,11 @@ hcl.init()
 
 A = hcl.placeholder((10,))
 
+
 def custom_imperative(A):
     with hcl.for_(0, 10, tag="S", name="i") as i:
         A[i] = i - 10
+
 
 s = hcl.create_schedule([A], custom_imperative)
 s_S = custom_imperative.S
@@ -207,4 +211,4 @@ print(hcl.lower(s))
 ##############################################################################
 # We can also access the imperative axes with their showing up order.
 
-assert(s_S.i == s_S.axis[0])
+assert s_S.i == s_S.axis[0]

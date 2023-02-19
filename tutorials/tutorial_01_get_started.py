@@ -49,6 +49,7 @@ hcl.init()
 #    For more information on the APIs, please see
 #    :ref:`sphx_glr_tutorials_tutorial_03_api.py`
 
+
 def simple_compute(a, A):
 
     B = hcl.compute(A.shape, lambda x, y: A[x, y] + a.v, "B")
@@ -61,6 +62,7 @@ def simple_compute(a, A):
     """
 
     return B
+
 
 ##############################################################################
 # Inputs/Outputs Definition
@@ -125,7 +127,7 @@ f = hcl.build(s)
 import numpy as np
 
 hcl_a = 10
-np_A = np.random.randint(100, size = A.shape)
+np_A = np.random.randint(100, size=A.shape)
 hcl_A = hcl.asarray(np_A)
 hcl_B = hcl.asarray(np.zeros(A.shape))
 
@@ -153,4 +155,3 @@ print(np_B)
 # Let's run a test
 
 assert np.array_equal(np_B, np_A + 10)
-

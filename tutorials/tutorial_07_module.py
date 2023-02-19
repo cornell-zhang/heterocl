@@ -41,9 +41,10 @@ import numpy as np
 
 hcl.init()
 
+
 def maximum(A, B, C, D):
 
-    # Due to MLIR limitation, hcl.return_ must be the 
+    # Due to MLIR limitation, hcl.return_ must be the
     # last statement in the module (i.e. region terminator)
     # TODO(Niansong): add checker pass for this case
     # @hcl.def_([A.shape, B.shape, ()])
@@ -65,6 +66,7 @@ def maximum(A, B, C, D):
     max_1 = hcl.compute(A.shape, lambda x: find_max(A, B, x), "max_1")
     max_2 = hcl.compute(A.shape, lambda x: find_max(C, D, x), "max_2")
     return hcl.compute(A.shape, lambda x: find_max(max_1, max_2, x), "max_o")
+
 
 ##############################################################################
 # We can first inspect the generated IR. You can see that for each computation,
@@ -123,6 +125,7 @@ assert np.array_equal(hcl_O.asnumpy(), m)
 
 hcl.init()
 
+
 def maximum2(A, B, C, D):
 
     # B will be the tensor that holds the maximum values
@@ -135,6 +138,7 @@ def maximum2(A, B, C, D):
     find_max(A, B)
     find_max(C, D)
     find_max(B, D)
+
 
 s = hcl.create_schedule([A, B, C, D], maximum2)
 f = hcl.build(s)
@@ -193,7 +197,7 @@ print(hcl_O)
 # check this.
 
 # Test the correctness
-m1 = np.maximum(a%16, b%16)
-m2 = np.maximum(c%16, d%16)
-m = np.maximum(m1%16, m2%16)
+m1 = np.maximum(a % 16, b % 16)
+m2 = np.maximum(c % 16, d % 16)
+m = np.maximum(m1 % 16, m2 % 16)
 assert np.array_equal(hcl_O.asnumpy(), m)

@@ -32,8 +32,10 @@ hcl.init()
 A = hcl.placeholder((10,), "A")
 B = hcl.placeholder((10,), "B")
 
+
 def compute_example(A, B):
-    return hcl.compute(A.shape, lambda x: A[x]+B[x], "C")
+    return hcl.compute(A.shape, lambda x: A[x] + B[x], "C")
+
 
 s = hcl.create_schedule([A, B], compute_example)
 print(hcl.lower(s))
@@ -59,8 +61,10 @@ A = hcl.placeholder((10,), "A")
 B = hcl.placeholder((10,), "B")
 C = hcl.placeholder((10,), "C")
 
+
 def update_example(A, B, C):
-    hcl.update(C, lambda x: A[x]+B[x], "U")
+    hcl.update(C, lambda x: A[x] + B[x], "U")
+
 
 s = hcl.create_schedule([A, B, C], update_example)
 print(hcl.lower(s))
@@ -84,10 +88,13 @@ A = hcl.placeholder((10,), "A")
 B = hcl.placeholder((10,), "B")
 C = hcl.placeholder((10,), "C")
 
+
 def mut_example(A, B, C):
     def loop_body(x):
         C[x] = A[x] + B[x]
+
     hcl.mutate((10,), lambda x: loop_body(x), "M")
+
 
 s = hcl.create_schedule([A, B, C], mut_example)
 print(hcl.lower(s))
@@ -110,6 +117,7 @@ hcl.init()
 A = hcl.placeholder((10,), "A")
 M = hcl.placeholder((2,), "M")
 
+
 def find_max_two(A, M):
     def loop_body(x):
         with hcl.if_(A[x] > M[0]):
@@ -118,7 +126,9 @@ def find_max_two(A, M):
                 M[1] = A[x]
             with hcl.else_():
                 M[0] = A[x]
+
     hcl.mutate(A.shape, lambda x: loop_body(x))
+
 
 s = hcl.create_schedule([A, M], find_max_two)
 f = hcl.build(s)
