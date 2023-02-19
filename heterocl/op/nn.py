@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # pylint: disable=dangerous-default-value
 
-from ..operation import compute, select, cast, reduce_axis
+from ..operation import compute, select, cast, reduce_axis, sum as sum_
 from ..dsl import and_
 from ..intrin import sqrt
 
@@ -168,7 +168,7 @@ def conv2d_nchw(
     if groups > 1:
         return compute(
             (batch, out_channel, out_height, out_width),
-            lambda nn, ff, yy, xx: sum(
+            lambda nn, ff, yy, xx: sum_(
                 temp[
                     nn,
                     ff % groups,
@@ -184,7 +184,7 @@ def conv2d_nchw(
         )
     return compute(
         (batch, out_channel, out_height, out_width),
-        lambda nn, ff, yy, xx: sum(
+        lambda nn, ff, yy, xx: sum_(
             temp[
                 nn, rc, yy * stride_h + ry * dilation_h, xx * stride_w + rx * dilation_w
             ]
@@ -237,7 +237,7 @@ def conv2d_nhwc(
     rx = reduce_axis(0, kernel_w, name="rx")
     return compute(
         (batch, out_height, out_width, out_channel),
-        lambda nn, yy, xx, ff: sum(
+        lambda nn, yy, xx, ff: sum_(
             temp[
                 nn, yy * stride_h + ry * dilation_h, xx * stride_w + rx * dilation_w, rc
             ]
@@ -271,7 +271,7 @@ def avg_pool2d_nchw(data, pooling, stride, padding, name="avg_pool2d", dtype=Non
     return compute(
         (batch, channel, out_height, out_width),
         lambda i, c, h, w: (
-            sum(
+            sum_(
                 data[i, c, h * stride_h + dheight, w * stride_w + dwidth],
                 axis=[dheight, dwidth],
                 dtype=dtype,
@@ -304,7 +304,7 @@ def avg_pool2d_nhwc(
     dwidth = reduce_axis(0, pooling_w)
     return compute(
         (batch, out_height, out_width, channel),
-        lambda i, h, w, c: sum(
+        lambda i, h, w, c: sum_(
             data[i, h * stride_h + dheight, w * stride_w + dwidth, c],
             axis=[dheight, dwidth],
             dtype=dtype,
@@ -362,7 +362,7 @@ def dense(data, weight, bias=None, out_dtype=None, name="dense"):
     k = reduce_axis(0, in_dim)
     matmul = compute(
         (batch, out_dim),
-        lambda i, j: sum(data[i, k] * weight[j, k], axis=k, dtype=out_dtype),
+        lambda i, j: sum_(data[i, k] * weight[j, k], axis=k, dtype=out_dtype),
         name=name + "_matmul",
         dtype=out_dtype,
     )

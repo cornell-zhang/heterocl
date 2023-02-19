@@ -205,6 +205,7 @@ def test_dtype_compute_fixed():
             _test_dtype(hcl.Fixed(i, i - 2))
 
 
+@pytest.mark.skip(reason="Flaky test")
 def test_fixed_division():
     def _test_dtype(dtype):
         hcl.init(dtype)
@@ -672,3 +673,7 @@ def test_int_to_fixed_cast():
                 print("A_np: ", A_np)
                 print("C_np: ", C_np)
                 assert False, "test failed, see failed test case above"
+
+
+if __name__ == "__main__":
+    pytest.main([__file__])

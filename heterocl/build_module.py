@@ -247,7 +247,7 @@ def build_fpga_kernel(schedule, target=None, stmt=None):
         buf = io.StringIO()
         hcl_d.emit_vhls(module, buf)
         buf.seek(0)
-        hls_code = buf.read(encoding="utf-8")
+        hls_code = buf.read()
         with open(f"{target.project}/kernel.cpp", "w", encoding="utf-8") as outfile:
             outfile.write(hls_code)
         host_code = None
@@ -288,7 +288,7 @@ def build_fpga_kernel(schedule, target=None, stmt=None):
         hcl_d.emit_vhls(schedule.xcel_module, buf)
         buf.seek(0)
         hls_code = buf.read()
-        with open("{target.project}/kernel.cpp", "w", encoding="utf-8") as outfile:
+        with open(f"{target.project}/kernel.cpp", "w", encoding="utf-8") as outfile:
             outfile.write(hls_code)
 
         # generate host code

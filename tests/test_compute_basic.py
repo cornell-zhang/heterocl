@@ -250,8 +250,8 @@ def test_copy():
     py_A = np_A.tolist()
 
     def kernel():
-        cp1 = hcl.copy(np_A)
-        cp2 = hcl.copy(py_A)
+        cp1 = hcl.operation.copy(np_A)
+        cp2 = hcl.operation.copy(py_A)
         return hcl.compute(np_A.shape, lambda *x: cp1[x] + cp2[x])
 
     O = hcl.placeholder(np_A.shape)

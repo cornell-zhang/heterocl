@@ -139,7 +139,7 @@ def get_rpt(config):
     vhls = config["vhls"]
 
     if vhls and config["has_algorithm"]:
-        rpt = eval(alg["name"] + "()")
+        rpt = eval(config["name"] + "()")
     else:
         path = pathlib.Path(__file__).parent.absolute()
         xml_file = str(path) + config["algorithm"]["report_path"]
