@@ -5,7 +5,7 @@
 import numpy as np
 
 from ..types import Int, UInt, dtype_to_str
-from ..operation import compute, select, cast, reduce_axis, scalar, reducer
+from ..operation import compute, select, cast, reduce_axis, scalar, reducer, sum as sum_
 from ..dsl import and_, for_
 
 qtype_bit = UInt(1)
@@ -146,7 +146,7 @@ def conv2d_nchw(
     if channel > 1:
         out = compute(
             (batch, out_channel, out_height, out_width),
-            lambda nn, ff, yy, xx: sum(
+            lambda nn, ff, yy, xx: sum_(
                 select(
                     if_mac(
                         yy * stride_h + ry * dilation_h,
@@ -187,7 +187,7 @@ def conv2d_nchw(
     else:  # TODO: otherwise, reuse_at may cause bug
         out = compute(
             (batch, out_channel, out_height, out_width),
-            lambda nn, ff, yy, xx: sum(
+            lambda nn, ff, yy, xx: sum_(
                 select(
                     if_mac(
                         yy * stride_h + ry * dilation_h,
@@ -315,7 +315,7 @@ def packed_conv2d_nchw(
     if bitwidth in {8, 16, 32, 64}:
         out = compute(
             (batch, out_channel, out_height, out_width),
-            lambda nn, ff, yy, xx: sum(
+            lambda nn, ff, yy, xx: sum_(
                 select(
                     if_mac(
                         yy * stride_h + ry,
@@ -352,7 +352,7 @@ def packed_conv2d_nchw(
     else:
         out = compute(
             (batch, out_channel, out_height, out_width),
-            lambda nn, ff, yy, xx: sum(
+            lambda nn, ff, yy, xx: sum_(
                 select(
                     if_mac(
                         yy * stride_h + ry,
@@ -439,7 +439,7 @@ def packed_conv2d_nhwc(
     assert dilation_h == 1 and dilation_w == 1
     out = compute(
         (batch, out_height, out_width, out_channel),
-        lambda nn, yy, xx, ff: sum(
+        lambda nn, yy, xx, ff: sum_(
             select(
                 if_mac(
                     yy * stride_h + ry,
@@ -639,7 +639,7 @@ def dense(data, weight, bias=None, use_relu=False, dtype=None, name="binary_dens
     if bias is None:
         matmul = compute(
             (batch, out_dim),
-            lambda i, j: sum(
+            lambda i, j: sum_(
                 cast(dtype, and_(data[i, k] == weight[j, k])),
                 axis=k,
                 dtype=dtype,
@@ -653,7 +653,7 @@ def dense(data, weight, bias=None, use_relu=False, dtype=None, name="binary_dens
         matmul = compute(
             (batch, out_dim),
             lambda i, j: (
-                sum(
+                sum_(
                     cast(bias.dtype, and_(data[i, k] == weight[j, k])),
                     axis=k,
                     dtype=bias.dtype,
@@ -695,7 +695,7 @@ def packed_dense(
     if bias is not None:
         matmul = compute(
             (batch, out_dim),
-            lambda i, j: sum(
+            lambda i, j: sum_(
                 cast(UInt(bitwidth), (data[i, rk] ^ weight[j, rk])[rb]),  # popcount
                 axis=[rk, rb],
                 name=name + "_popcnt",

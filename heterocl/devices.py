@@ -1,7 +1,7 @@
 # Copyright HeteroCL authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 """Define HeteroCL device types"""
-# pylint: disable=unused-argument
+# pylint: disable=unused-argument, consider-using-alias
 
 from __future__ import annotations
 

@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # pylint: disable=unused-argument
 
+from hcl_mlir.exceptions import HCLDeprecationWarning
+
 from .context import UniqueName
 from .schedule import Schedule
 from .utils import get_src_loc

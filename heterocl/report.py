@@ -230,10 +230,11 @@ class Displayer:
         for k in keys:
             frame_lst.append((obj[k], [], k, 0, []))
 
-        # Temporarily make use of data to be a list
-        new_data = []
+        # FIXME: Temporarily make use of data to be a list
+        # pylint: disable=redefined-variable-type
+        self._data = []
         for cat in self._category:
-            new_data.append((cat, 0))
+            self._data.append((cat, 0))
 
         while self.__is_valid(frame_lst):
             frame_lst = [self.__member_init(x) for x in frame_lst]
@@ -251,7 +252,7 @@ class Displayer:
         self._loop_name_aux = [item for elem in filtered_aux for item in elem]
         self._loop_name_aux = list(dict.fromkeys(self._loop_name_aux))
 
-        for cat, r in new_data:
+        for cat, r in self._data:
             data_cat = re.sub(r"(\w)([A-Z])", r"\1 \2", cat)
             if r == 0:
                 self._category_aux.append(data_cat)
@@ -320,7 +321,7 @@ class Displayer:
             3-element tuple list with loop names, its data corresponding to
             [col] latency category, and the loop level.
         """
-        tup_lst = list(zip(self._loop_name_aux, self._data[col], self._loop_name))
+        tup_lst = list(zip(self._loop_name, self._data[col], self._loop_name_aux))
         tup_lst = [(x[0], x[1], x[2].count("+")) for x in tup_lst]
         return list(reversed(sorted(tup_lst, key=lambda x: int(x[1]))))
 
