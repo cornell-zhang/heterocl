@@ -5,6 +5,7 @@
 from hcl_mlir.exceptions import HCLNotImplementedError
 from . import ast
 
+
 class ASTVisitor:
     def __init__(self, name):
         self.name = name
