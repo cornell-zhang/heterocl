@@ -14,7 +14,6 @@ def top_mvt(N=40, dtype=hcl.Float(32), target=None):
     x2 = hcl.placeholder((N,), "x2")
 
     def kernel_mvt(A, y1, y2, x1, x2):
-
         with hcl.Stage("C"):
             with hcl.for_(0, N, name="i") as i:
                 with hcl.for_(0, N, name="j") as j:

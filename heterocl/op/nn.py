@@ -82,7 +82,7 @@ def batch_norm(
     moving_mean,
     moving_var,
     axis=1,
-    epsilon=10 ** -7,
+    epsilon=10**-7,
     name="batch_norm",
     dtype=None,
 ):

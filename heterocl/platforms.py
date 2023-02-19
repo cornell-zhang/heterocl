@@ -16,7 +16,6 @@ def import_json_platform(json_file):
     def traverse_json_tree(node):
         assert "type" in node, "invalid device (JSON) object missing 'type'"
         for key, v in node.items():
-
             if isinstance(v, (float, int, str)):
                 # Attributes in a device node
                 if key == "type":

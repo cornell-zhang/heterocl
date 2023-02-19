@@ -38,7 +38,6 @@ def top_adi(
     dtype=hcl.Int(),
     target=None,
 ):
-
     hcl.init(dtype)
     u = hcl.placeholder((Nx, Ny), "u")
     v = hcl.placeholder((Nx, Ny), "v")
@@ -152,7 +151,6 @@ def main(
     dtype=hcl.Float(32),
     target=None,
 ):
-
     u = np.random.randint(10, size=(Nx, Ny)).astype(np.float32)
     v = np.random.randint(10, size=(Nx, Ny)).astype(np.float32)
     p = np.random.randint(10, size=(Nx, Ny)).astype(np.float32)

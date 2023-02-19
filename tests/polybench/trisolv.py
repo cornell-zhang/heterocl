@@ -7,7 +7,6 @@ import math as mt
 
 
 def top_trisolv(N, dtype=hcl.Int(), target=None):
-
     hcl.init(dtype)
     L = hcl.placeholder((N, N), "L")
     b = hcl.placeholder((N,), "b")
@@ -38,7 +37,6 @@ def top_trisolv(N, dtype=hcl.Int(), target=None):
 
 
 def trisolv_golden(N, L, b, x, DATA_TYPE):
-
     for i in range(N):
         x[i] = b[i]
         for j in range(i):

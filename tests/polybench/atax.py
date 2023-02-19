@@ -6,7 +6,6 @@ import numpy as np
 
 
 def top_atax(M=38, N=42, dtype=hcl.Int(), target=None):
-
     hcl.init(dtype)
     A = hcl.placeholder((M, N), "A")
     x = hcl.placeholder((N,), "x")
@@ -38,7 +37,6 @@ def top_atax(M=38, N=42, dtype=hcl.Int(), target=None):
 
 
 def atax_golden(M, N, A, x, y):
-
     dtype = np.float32
     tmp = np.zeros((M,), dtype=dtype)
 

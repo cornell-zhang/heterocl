@@ -8,7 +8,6 @@ import math as mt
 
 
 def top_lu(N=40, dtype=hcl.Int(), target=None):
-
     hcl.init(dtype)
     A = hcl.placeholder((N, N), "A")
 
@@ -40,7 +39,6 @@ def top_lu(N=40, dtype=hcl.Int(), target=None):
 
 
 def lu_golden(N, A, DATA_TYPE):
-
     dtype = NDATA_TYPE_DICT[DATA_TYPE.lower()]
 
     for i in range(N):

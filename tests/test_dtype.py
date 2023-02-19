@@ -238,7 +238,6 @@ def test_fixed_division():
 
 
 def test_fixed_compute_basic():
-
     dtype = hcl.Fixed(32, 2)
 
     hcl.init(dtype)
@@ -265,7 +264,6 @@ def test_fixed_compute_basic():
 
 def test_dtype_cast():
     def _test_body(dtype1, dtype2, dtype3):
-
         hcl.init()
         A = hcl.placeholder((2,), dtype=dtype1)
         B = hcl.placeholder((2,), dtype=dtype2)
@@ -472,7 +470,6 @@ def test_dtype_struct_complex():
 
 
 def test_dtype_bit_slice():
-
     hcl.init(hcl.Int())
 
     def kernel():
@@ -490,7 +487,6 @@ def test_dtype_bit_slice():
 
 
 def test_dtype_const_long_int():
-
     hcl.init(hcl.Int())
     r = np.random.randint(0, 10, size=(1,))
 

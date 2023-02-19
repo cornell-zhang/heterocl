@@ -6,7 +6,6 @@ import heterocl as hcl
 
 
 def top_gramschmidt(M=30, N=20, dtype=hcl.Int(), target=None):
-
     hcl.init(dtype)
     # Rank N matrix
     A = hcl.placeholder((M, N), "A")
@@ -50,7 +49,6 @@ import math as mt
 
 
 def gramschmidt_golden(M, N, A, Q, R, DATA_TYPE):
-
     dtype = NDATA_TYPE_DICT[DATA_TYPE.lower()]
 
     for k in range(N):

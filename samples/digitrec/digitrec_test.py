@@ -103,7 +103,6 @@ def knn_vote(knn_mat):
 
 
 if __name__ == "__main__":
-
     train_images, _, test_images, test_labels = read_digitrec_data()
     correct = 0.0
 

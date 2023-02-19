@@ -18,7 +18,6 @@ def get_stdout(filename):
 
 
 def test_print_number():
-
     output = get_stdout("print_number")
 
     golden = "5 \n2.500"
@@ -28,7 +27,6 @@ def test_print_number():
 
 
 def test_print_expr():
-
     outputs = get_stdout("print_expr").split("\n")
     outputs = [x for x in outputs if not (x == "" or "mlir" in x.lower())]
     outputs = [x.strip() for x in outputs]
@@ -41,9 +39,8 @@ def test_print_expr():
 
 
 def test_print_tensor_1D():
-
     outputs = get_stdout("print_tensor_1D")
-    matches = re.findall("\[(.*?)\]", outputs)
+    matches = re.findall(r"\[(.*?)\]", outputs)
 
     hcl_print_output = matches[-2]
     np_print_output = matches[-1]
@@ -56,7 +53,6 @@ def test_print_tensor_1D():
 
 
 def test_print_tensor_2D():
-
     outputs = get_stdout("print_tensor_2D")
     matches = re.findall(r"\[\[(.*?)\]\]", outputs, flags=re.DOTALL)
 
@@ -71,7 +67,6 @@ def test_print_tensor_2D():
 
 
 def test_print_tensor_2D_rect():
-
     outputs = get_stdout("print_tensor_2D_rect")
     matches = re.findall(r"\[\[(.*?)\]\]", outputs, flags=re.DOTALL)
 

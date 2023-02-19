@@ -6,7 +6,6 @@ import numpy as np
 
 
 def top_3mm(P=16, Q=20, R=18, S=24, T=22, dtype=hcl.Float(32), target=None):
-
     hcl.init(dtype)
     A = hcl.placeholder((P, Q), "A")
     B = hcl.placeholder((Q, R), "B")

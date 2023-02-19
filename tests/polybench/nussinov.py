@@ -6,7 +6,6 @@ import math as mt
 
 
 def top_nussinov(N, dtype=hcl.Int(), target=None):
-
     hcl.init(dtype)
     seq = hcl.placeholder((N,), "seq")
     table = hcl.placeholder((N, N), "table")
@@ -20,7 +19,6 @@ def top_nussinov(N, dtype=hcl.Int(), target=None):
         # Dynamic programming-based analysis
         with hcl.for_(N - 1, -1, -1, name="i") as i:
             with hcl.for_(i + 1, N, name="j") as j:
-
                 with hcl.if_(j - 1 >= 0):
                     with hcl.if_(table[i][j] < table[i][j - 1]):
                         table[i][j] = table[i][j - 1]
@@ -77,7 +75,6 @@ def max_score(s1, s2):
 
 
 def nussinov_golden(N, seq, table, DATA_TYPE):
-
     dtype = NDATA_TYPE_DICT[DATA_TYPE.lower()]
 
     for i in range(N - 1, -1, -1):

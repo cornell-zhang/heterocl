@@ -11,7 +11,6 @@ correct = 0.0
 
 total_time = 0
 for i in range(0, 180):
-
     hcl_train_images = hcl.asarray(train_images, dtype_image)
     hcl_knn_mat = hcl.asarray(np.zeros((10, 3)), dtype_knnmat)
 

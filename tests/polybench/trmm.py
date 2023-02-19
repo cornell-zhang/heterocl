@@ -7,13 +7,11 @@ import numpy as np
 
 
 def top_trmm(M=20, N=30, alpha=1.5, dtype=hcl.Int(), target=None):
-
     hcl.init(dtype)
     A = hcl.placeholder((M, M), "A")
     B = hcl.placeholder((M, N), "B")
 
     def kernel_trmm(A, B):
-
         with hcl.Stage("loop_1"):
             with hcl.for_(0, M, name="i") as i:
                 with hcl.for_(0, N, name="j") as j:
@@ -31,7 +29,6 @@ def top_trmm(M=20, N=30, alpha=1.5, dtype=hcl.Int(), target=None):
 
 
 def trmm_golden(alpha, M, N, A, B, DATA_TYPE):
-
     dtype = NDATA_TYPE_DICT[DATA_TYPE.lower()]
 
     for i in range(M):

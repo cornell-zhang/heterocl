@@ -6,7 +6,6 @@ import os
 
 
 def top_gemver(N=40, alpha=0.1, beta=0.1, dtype=hcl.Int(), target=None):
-
     hcl.init(dtype)
     A = hcl.placeholder((N, N), "A")
     u1 = hcl.placeholder((N,), "u1")
@@ -19,7 +18,6 @@ def top_gemver(N=40, alpha=0.1, beta=0.1, dtype=hcl.Int(), target=None):
     z = hcl.placeholder((N,), "z")
 
     def kernel_gemver(A, u1, u2, v1, v2, x, y, w, z):
-
         hcl.update(A, lambda i, j: A[i][j] + u1[i] * v1[j] + u2[i] * v2[j], name="A")
 
         with hcl.Stage("loop_1"):
@@ -65,7 +63,6 @@ import numpy as np
 
 
 def gemver_golden(alpha, beta, N, u1, u2, v1, v2, x, y, w, z, A, DATA_TYPE):
-
     dtype = NDATA_TYPE_DICT[DATA_TYPE.lower()]
 
     for i in range(N):

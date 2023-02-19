@@ -92,13 +92,13 @@ cordic_ctab = [
 
 K_const = 0.6072529350088812561694
 
+
 ##############################################################################
 # Main Algorithm
 # ==============
 # We let the data type be the input argument of our top function. This is how
 # we can set different quantization schemes.
 def cordic(X, Y, C, theta, N):
-
     # Prepare all input values and intermediate variables.
     T = hcl.compute((1,), lambda x: 0, "T", X.dtype)
     current = hcl.compute((1,), lambda x: 0, "current", X.dtype)
@@ -132,7 +132,6 @@ from cordic_golden import golden
 ###############################################################################
 # Loop through different bit-widths.
 for b in range(2, 64, 4):
-
     dtype = hcl.Fixed(b, b - 2)
     hcl.init(dtype)
 
@@ -150,7 +149,6 @@ for b in range(2, 64, 4):
 
     # Loop for testing different angles.
     for d in range(1, NUM):
-
         _d = math.radians(d)
         ms = math.sin(_d)
         mc = math.cos(_d)

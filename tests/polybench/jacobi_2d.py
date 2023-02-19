@@ -7,7 +7,6 @@ import os
 
 
 def top_jacobi_2d(N, TSTEPS, dtype=hcl.Int(), target=None):
-
     hcl.init(dtype)
     A = hcl.placeholder((N, N), "A")
     B = hcl.placeholder((N, N), "B")
@@ -51,7 +50,6 @@ from utils.helper import *
 
 
 def jacobi_2d_golden(N, TSTEPS, A, B, DATA_TYPE):
-
     dtype = NDATA_TYPE_DICT[DATA_TYPE.lower()]
 
     for t in range(TSTEPS):

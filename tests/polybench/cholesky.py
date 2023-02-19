@@ -7,7 +7,6 @@ import numpy as np
 
 
 def top_cholesky(N, dtype=hcl.Int(), target=None):
-
     hcl.init(dtype)
     A = hcl.placeholder((N, N), "A")
 
@@ -32,7 +31,6 @@ def top_cholesky(N, dtype=hcl.Int(), target=None):
 
 
 def cholesky_golden(N, A):
-
     for i in range(N):
         for j in range(i):
             for k in range(j):

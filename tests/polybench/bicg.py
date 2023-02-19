@@ -6,7 +6,6 @@ import numpy as np
 
 
 def top_bicg(M, N, dtype=hcl.Int(), target=None):
-
     hcl.init(dtype)
     A = hcl.placeholder((N, M), "A")
     p = hcl.placeholder((M,), "p")
@@ -15,7 +14,6 @@ def top_bicg(M, N, dtype=hcl.Int(), target=None):
     s = hcl.placeholder((M,), "s")
 
     def kernel_bicg(A, p, r, q, s):
-
         i = hcl.reduce_axis(0, N, "i")
         hcl.update(s, lambda n: hcl.sum(r[i] * A[i, n], axis=i, dtype=dtype), name="s")
 
@@ -37,7 +35,6 @@ def top_bicg(M, N, dtype=hcl.Int(), target=None):
 
 
 def bicg_golden(M, N, A, p, r, q, s):
-
     dtype = np.float32
 
     for i in range(M):

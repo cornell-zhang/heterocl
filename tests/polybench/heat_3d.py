@@ -7,7 +7,6 @@ import os
 
 
 def top_heat_3d(N, TSTEPS, dtype=hcl.Int(), target=None):
-
     hcl.init(dtype)
     A = hcl.placeholder((N, N, N), "A")
     B = hcl.placeholder((N, N, N), "B")
@@ -66,7 +65,6 @@ import math as mt
 
 
 def heat_3d_golden(N, TSTEPS, A, B, DATA_TYPE):
-
     dtype = NDATA_TYPE_DICT[DATA_TYPE.lower()]
 
     for t in range(TSTEPS):

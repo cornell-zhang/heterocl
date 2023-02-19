@@ -26,7 +26,6 @@ def top_deriche(
     dtype=hcl.Int(),
     target=None,
 ):
-
     hcl.init(dtype)
     ImageIn = hcl.placeholder((W, H), "ImageIn")
     ImageOut = hcl.placeholder((W, H), "ImageOut")
@@ -165,7 +164,6 @@ def deriche_golden(
     ImageOut,
     DATA_TYPE,
 ):
-
     dtype = NDATA_TYPE_DICT[DATA_TYPE.lower()]
 
     y1 = np.zeros((W, H), dtype=dtype)

@@ -71,7 +71,6 @@ class NestElseIf(Pass):
 
         # convert if-elif-else chains into nested if-else statements
         for chain in chains:
-
             if len(chain) == 1:
                 continue
 

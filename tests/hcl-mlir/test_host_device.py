@@ -6,7 +6,6 @@ import numpy as np
 
 
 def test_host_xcel():
-
     A = hcl.placeholder((10, 32), "A")
 
     def kernel(A):

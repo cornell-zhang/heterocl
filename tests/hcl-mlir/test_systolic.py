@@ -8,7 +8,6 @@ import pytest
 
 
 def test_systolic():
-
     A = hcl.placeholder((32, 32), "A")
 
     def kernel(A):

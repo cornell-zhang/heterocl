@@ -9,6 +9,7 @@ import os
 import pytest
 import hcl_mlir
 
+
 # Test DFG partitioning
 def test_move_outputs():
     hcl.init()
@@ -785,7 +786,6 @@ def test_inter_kernel_channels():
     C = hcl.placeholder((10, 32), "C")
 
     def kernel(A, C):
-
         B = hcl.compute((10, 32), lambda *args: 0, "B")
 
         @hcl.def_([(10, 32), (10, 32)])

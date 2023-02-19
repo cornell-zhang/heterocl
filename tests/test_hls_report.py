@@ -10,9 +10,9 @@ import pathlib
 import imageio
 import pytest
 
+
 # TODO: Import once sobel is verified.
 def sobel():
-
     hcl.init(init_dtype=hcl.Float())
 
     path = pathlib.Path(__file__).parent.absolute()
@@ -155,7 +155,6 @@ def get_rpt(config):
 
 
 def _test_rpt(config):
-
     alg_name = config["algorithm"]["name"]
     rpt = get_rpt(config)
 

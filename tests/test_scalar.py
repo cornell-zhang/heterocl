@@ -4,6 +4,7 @@
 import heterocl as hcl
 import numpy as np
 
+
 # Related to issue #148
 def test_single_load_cond_if():
     hcl.init()

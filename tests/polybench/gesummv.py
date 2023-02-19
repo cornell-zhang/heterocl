@@ -6,7 +6,6 @@ import os
 
 
 def top_gesummv(N=30, alpha=0.1, beta=0.1, dtype=hcl.Int(), target=None):
-
     hcl.init(dtype)
     A = hcl.placeholder((N, N), "A")
     B = hcl.placeholder((N, N), "B")
@@ -14,7 +13,6 @@ def top_gesummv(N=30, alpha=0.1, beta=0.1, dtype=hcl.Int(), target=None):
     y = hcl.placeholder((N,), "y")
 
     def kernel_gesummv(A, B, x, y):
-
         with hcl.Stage("loop_1"):
             with hcl.for_(0, N, name="i") as i:
                 with hcl.for_(0, N, name="j") as j:
@@ -53,7 +51,6 @@ import numpy as np
 
 
 def gesummv_golden(alpha, beta, N, A, B, x, y, DATA_TYPE):
-
     dtype = NDATA_TYPE_DICT[DATA_TYPE.lower()]
 
     tmp = np.zeros((N,), dtype=dtype)

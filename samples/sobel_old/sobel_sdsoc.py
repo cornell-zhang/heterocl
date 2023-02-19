@@ -18,7 +18,6 @@ Gy = hcl.placeholder((3, 3), "Gy", dtype=hcl.Float())
 
 
 def sobel(A, Gx, Gy):
-
     r = hcl.reduce_axis(0, 3)
     c = hcl.reduce_axis(0, 3)
     B = hcl.compute(

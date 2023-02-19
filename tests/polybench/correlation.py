@@ -7,7 +7,6 @@ import math as mt
 
 
 def top_correlation(M, N, epsilon, dtype=hcl.Int(), target=None):
-
     hcl.init(dtype)
     data = hcl.placeholder((N, M), "data")
     mean = hcl.placeholder((M,), "mean")
@@ -15,7 +14,6 @@ def top_correlation(M, N, epsilon, dtype=hcl.Int(), target=None):
     corr = hcl.placeholder((M, M), "corr")
 
     def kernel_correlation(data, mean, stddev, corr):
-
         k = hcl.reduce_axis(0, N, name="k")
         hcl.update(
             mean, lambda x: hcl.sum(data[k, x], axis=k, dtype=dtype) / N, name="mean"
@@ -78,7 +76,6 @@ def top_correlation(M, N, epsilon, dtype=hcl.Int(), target=None):
 
 
 def correlation_golden(M, N, epsilon, mean, stddev, data, corr):
-
     dtype = float
 
     float_n = (dtype)(N)

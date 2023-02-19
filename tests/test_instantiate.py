@@ -4,6 +4,7 @@
 import heterocl as hcl
 import pytest
 
+
 # Instance A: vadd
 def vadd(A, B):
     C = hcl.compute((10,), lambda i: A[i] + B[i], name="C")

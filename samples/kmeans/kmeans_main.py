@@ -24,6 +24,7 @@ niter = 200
 
 hcl.init()
 
+
 ##############################################################################
 # Main Algorithm
 # ==============
@@ -89,7 +90,6 @@ def top(target=None):
 
 
 if __name__ == "__main__":
-
     points_np = np.random.randint(100, size=(N, dim))
     labels_np = np.zeros(N)
     means_np = points_np[random.sample(range(N), K), :]

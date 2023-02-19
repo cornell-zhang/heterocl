@@ -6,7 +6,6 @@ import numpy as np
 
 
 def test_stages():
-
     A = hcl.placeholder((32, 32), "A")
     C = hcl.placeholder((32, 32), "C")
 

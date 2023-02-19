@@ -91,10 +91,8 @@ hcl.init(dtype_image)
 
 
 def top(target=None):
-
     # Algorithm definition (§1)
     def knn(test_image, train_images):
-
         # Imperative programming and bit operations (§2)
         def popcount(num):
             out = hcl.scalar(0, "out")
@@ -345,6 +343,7 @@ def top(target=None):
 # get the offloaded function with the provided data types
 offload = top()
 
+
 ###############################################################################
 # Voting algorithm
 # ----------------
@@ -368,7 +367,6 @@ def knn_vote(knn_mat):
 # Get the Results
 # ---------------
 if __name__ == "__main__":
-
     # Data preparation
     train_images, _, test_images, test_labels = read_digitrec_data()
 
@@ -378,7 +376,6 @@ if __name__ == "__main__":
     # We have 180 test images
     total_time = 0
     for i in range(0, 180):
-
         # Prepare input data to offload function
         # To load the tensors into the offloaded function, we must first cast it to
         # the correct data type.

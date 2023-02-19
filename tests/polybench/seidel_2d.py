@@ -7,7 +7,6 @@ import numpy as np
 
 
 def top_seidel_2d(N, TSTEPS, dtype=hcl.Int(), target=None):
-
     hcl.init(dtype)
     A = hcl.placeholder((N, N), "A")
 
@@ -39,7 +38,6 @@ def top_seidel_2d(N, TSTEPS, dtype=hcl.Int(), target=None):
 
 
 def seidel_2d_golden(N, TSTEPS, A, DATA_TYPE):
-
     dtype = NDATA_TYPE_DICT[DATA_TYPE.lower()]
 
     for t in range(TSTEPS):

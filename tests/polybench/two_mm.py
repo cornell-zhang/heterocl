@@ -8,7 +8,6 @@ import numpy as np
 def top_2mm(
     P=16, Q=22, R=18, S=24, alpha=0.1, beta=0.1, dtype=hcl.Float(32), target=None
 ):
-
     hcl.init(dtype)
     A = hcl.placeholder((P, Q), "A")
     B = hcl.placeholder((Q, R), "B")
@@ -16,7 +15,6 @@ def top_2mm(
     D = hcl.placeholder((P, S), "D")
 
     def kernel_2mm(A, B, C, D):
-
         r = hcl.reduce_axis(0, Q, "r")
         out_AB = hcl.compute(
             (P, R),

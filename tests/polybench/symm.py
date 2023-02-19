@@ -7,14 +7,12 @@ import numpy as np
 
 
 def top_symm(M=20, N=30, alpha=1.5, beta=1.2, dtype=hcl.Int(), target=None):
-
     hcl.init(dtype)
     A = hcl.placeholder((M, M), "A")
     B = hcl.placeholder((M, N), "B")
     C = hcl.placeholder((M, N), "C")
 
     def kernel_symm(A, B, C):
-
         # A gemm type approach wont work as A has -999 in the upper
         # triangular part.
 
@@ -45,7 +43,6 @@ def top_symm(M=20, N=30, alpha=1.5, beta=1.2, dtype=hcl.Int(), target=None):
 
 
 def symm_golden(alpha, beta, M, N, A, B, C, DATA_TYPE):
-
     dtype = NDATA_TYPE_DICT[DATA_TYPE.lower()]
 
     for i in range(M):

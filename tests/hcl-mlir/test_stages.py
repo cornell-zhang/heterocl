@@ -8,7 +8,6 @@ import numpy as np
 
 
 def test_stages():
-
     A = hcl.placeholder((32, 32), "A")
     # C = hcl.placeholder((32, 32), "C")
 
@@ -44,7 +43,6 @@ def test_stages():
 
 
 def test_outline():
-
     A = hcl.placeholder((32, 32), "A")
 
     def kernel(A):
@@ -71,7 +69,6 @@ def test_outline():
 
 
 def test_outline_extension():
-
     A = hcl.placeholder((32, 32), "A")
 
     def kernel(A):
@@ -89,7 +86,6 @@ def test_outline_extension():
 
 
 def test_outline_extension_axis():
-
     A = hcl.placeholder((32, 32), "A")
 
     def kernel(A):
@@ -105,7 +101,6 @@ def test_outline_extension_axis():
 
 
 def test_outline_extension_unify():
-
     A = hcl.placeholder((32, 32), "A")
 
     def kernel(A):
@@ -127,7 +122,6 @@ def test_outline_extension_unify():
 
 
 def test_outline_cpu():
-
     A = hcl.placeholder((32, 32), "A")
 
     def kernel(A):

@@ -357,25 +357,17 @@ def build_llvm(schedule, top_func_name="top"):
         hcl_d.lower_hcl_to_llvm(module, ctx)
 
         # Add shared library
-        # TODO: use llvm-config to get the path
+        if os.system("which llvm-config >> /dev/null") != 0:
+            raise APIError(
+                "llvm-config is not found in PATH, llvm is not installed or not in PATH."
+            )
 
-        if os.getenv("LLVM_BUILD_DIR") is not None:
-            shared_libs = [
-                os.path.join(
-                    os.getenv("LLVM_BUILD_DIR"), "lib", "libmlir_runner_utils.so"
-                ),
-                os.path.join(
-                    os.getenv("LLVM_BUILD_DIR"), "lib", "libmlir_c_runner_utils.so"
-                ),
-            ]
-        else:
-            APIWarning(
-                "LLVM_BUILD_DIR is not set, print memref feature is not available."
-            ).warn()
-            shared_libs = None
-
+        lib_path = os.popen("llvm-config --libdir").read().strip()
+        shared_libs = [
+            os.path.join(lib_path, "libmlir_runner_utils.so"),
+            os.path.join(lib_path, "libmlir_c_runner_utils.so"),
+        ]
         opt_level = 1
-
         if shared_libs is not None:
             execution_engine = ExecutionEngine(
                 module, opt_level=opt_level, shared_libs=shared_libs

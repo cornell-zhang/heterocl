@@ -5,7 +5,6 @@ import heterocl as hcl
 
 
 def test_dsl():
-
     A = hcl.placeholder((32, 32), "A", dtype=hcl.Fixed(12, 6))
 
     def kernel(A):

@@ -7,7 +7,6 @@ import os
 
 
 def top_jacobi_1d(N, TSTEPS, dtype=hcl.Int(), target=None):
-
     hcl.init(dtype)
     A = hcl.placeholder((N,), "A")
     B = hcl.placeholder((N,), "B")
@@ -39,7 +38,6 @@ import numpy as np
 
 
 def jacobi_1d_golden(N, TSTEPS, A, B, DATA_TYPE):
-
     for t in range(TSTEPS):
         for i in range(1, N - 1):
             B[i] = 0.33333 * (A[i - 1] + A[i] + A[i + 1])

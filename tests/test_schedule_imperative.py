@@ -8,7 +8,6 @@ import pytest
 
 
 def test_if():
-
     hcl.init()
 
     def absolute(A, B):
@@ -39,7 +38,6 @@ def test_if():
 
 
 def test_schedule_intra_stage():
-
     hcl.init()
 
     def popcount(A, B):  # each element in A is a 32-bit integer
@@ -93,7 +91,6 @@ def test_schedule_intra_stage():
 
 
 def test_schedule_inter_stage():
-
     hcl.init()
 
     def popcount(A, B):  # each element in A is a 32-bit integer

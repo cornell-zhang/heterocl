@@ -23,6 +23,7 @@ from __future__ import print_function
 import sys, os, glob
 import numpy as np
 
+
 # -----------------------------------------------------------------------------
 def unpackbits(x):
     # Input:  'x' is a hex number represented as a str, up to 'bits' bits

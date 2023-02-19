@@ -6,7 +6,6 @@ import os
 
 
 def top_floyd_warshall(N=60, dtype=hcl.Int(), target=None):
-
     hcl.init(dtype)
     path = hcl.placeholder((N, N), "path")
 
@@ -41,7 +40,6 @@ import math as mt
 
 
 def floyd_warshall_golden(N, path, DATA_TYPE):
-
     dtype = NDATA_TYPE_DICT[DATA_TYPE.lower()]
 
     for k in range(N):

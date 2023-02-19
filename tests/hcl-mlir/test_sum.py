@@ -9,7 +9,6 @@ dtype = hcl.UInt(12)
 
 
 def test_loop():
-
     hcl.init(hcl.UInt(12))
     A = hcl.placeholder((32, 32), "A")
     B = hcl.placeholder((32, 32), "B")

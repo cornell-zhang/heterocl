@@ -7,7 +7,6 @@ import pytest
 
 
 def test_compute_single_stage():
-
     A = hcl.placeholder((10,), "A")
 
     def kernel(A):
@@ -20,7 +19,6 @@ def test_compute_single_stage():
 
 
 def test_update_single_stage():
-
     A = hcl.placeholder((10,), "A")
 
     def kernel(A):
@@ -33,7 +31,6 @@ def test_update_single_stage():
 
 
 def test_compute_two_stages():
-
     A = hcl.placeholder((10,), "A")
 
     def kernel(A):
@@ -47,7 +44,6 @@ def test_compute_two_stages():
 
 
 def test_compute_two_stages_complex():
-
     A = hcl.placeholder((10,), "A")
 
     def kernel(A):
@@ -64,7 +60,6 @@ def test_compute_two_stages_complex():
 
 
 def test_imperative_stage_rhs():
-
     A = hcl.placeholder((10,), "A")
 
     def kernel(A):
@@ -77,7 +72,6 @@ def test_imperative_stage_rhs():
 
 
 def test_imperative_stage_lhs():
-
     A = hcl.placeholder((10,), "A")
     B = hcl.placeholder((10,), "B")
 
@@ -90,7 +84,6 @@ def test_imperative_stage_lhs():
 
 
 def test_imperative_multi_stages():
-
     A = hcl.placeholder((10,), "A")
 
     def kernel(A):

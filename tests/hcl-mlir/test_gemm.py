@@ -10,7 +10,6 @@ hcl.init(hcl.Float())
 
 
 def test_gemm_cpu(target=None):
-
     A = hcl.placeholder((32, 32), "A")
     B = hcl.placeholder((32, 32), "B")
 
@@ -70,7 +69,6 @@ def test_gemm_fpga(m=32, n=32, k=32, dtype=hcl.Int(), target=None):
 
 
 def test_gemm_ihls(M=32, N=32, K=32, dtype=hcl.Int(), target=None):
-
     hcl.init(hcl.Int())
     A = hcl.placeholder((M, K), name="A")
     B = hcl.placeholder((K, N), name="B")
@@ -96,7 +94,6 @@ def test_gemm_ihls(M=32, N=32, K=32, dtype=hcl.Int(), target=None):
 
 
 def test_gemm_outline(M=32, N=32, K=32, dtype=hcl.Int(), target=None):
-
     hcl.init(hcl.Int())
     A = hcl.placeholder((M, K), name="A")
     B = hcl.placeholder((K, N), name="B")
@@ -123,7 +120,6 @@ def test_gemm_outline(M=32, N=32, K=32, dtype=hcl.Int(), target=None):
 
 
 def test_gemm_buffer(M=32, N=32, K=32, dtype=hcl.Int(), target=None):
-
     hcl.init(hcl.Float())
     A = hcl.placeholder((M, K), name="A")
     B = hcl.placeholder((K, N), name="B")

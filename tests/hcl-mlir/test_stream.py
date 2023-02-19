@@ -7,7 +7,6 @@ import numpy as np
 
 
 def test_stream():
-
     A = hcl.placeholder((32, 32), "A")
 
     def kernel_two(A):

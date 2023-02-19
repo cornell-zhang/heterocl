@@ -202,7 +202,6 @@ def test_pack_unpack():
 
 
 def test_pack_dtype_str():
-
     hcl.init(hcl.UInt(32))
 
     def kernel():

@@ -7,7 +7,6 @@ import math as mt
 
 
 def top_covariance(M, N, dtype=hcl.Int(), target=None):
-
     hcl.init(dtype)
     data = hcl.placeholder((N, M), "data")
     mean = hcl.placeholder((M,), "mean")
@@ -53,7 +52,6 @@ def top_covariance(M, N, dtype=hcl.Int(), target=None):
 
 
 def covariance_golden(M, N, mean, data, cov):
-
     dtype = float
 
     float_n = (dtype)(N)

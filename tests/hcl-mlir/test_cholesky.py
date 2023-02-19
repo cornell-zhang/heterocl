@@ -7,7 +7,6 @@ hcl.init(hcl.Float())
 
 
 def top_cholesky(N, dtype=hcl.Int(), target=None):
-
     hcl.init(dtype)
     A = hcl.placeholder((N, N), "A")
 

@@ -6,13 +6,11 @@ import numpy as np
 
 
 def top_doitgen(P=12, Q=8, R=10, S=12, dtype=hcl.Float(32), target=None):
-
     hcl.init(dtype)
     A = hcl.placeholder((R, Q, S), "A")
     x = hcl.placeholder((P, S), "x")
 
     def kernel_doitgen(A, x):
-
         sum_ = hcl.compute((P,), lambda x: 0, name="sum_")
 
         with hcl.for_(0, R, name="r") as r:

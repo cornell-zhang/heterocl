@@ -6,12 +6,12 @@ import heterocl as hcl
 
 
 def top_ludcmp(N=40, dtype=hcl.Int(), target=None):
-
     hcl.init(dtype)
 
     A = hcl.placeholder((N, N), "A")
     b = hcl.placeholder((N,), "b")
     x = hcl.placeholder((N,), "x")
+
     # This one is interesting
     # Reusing the code for LU kernel
     # to solve the system of linear equations
@@ -76,7 +76,6 @@ from utils.helper import *
 
 
 def ludcmp_golden(N, A, b, x, DATA_TYPE):
-
     dtype = NDATA_TYPE_DICT[DATA_TYPE.lower()]
 
     y = np.zeros((N,), dtype=dtype)

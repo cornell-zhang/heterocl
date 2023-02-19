@@ -7,13 +7,11 @@ import os
 
 
 def top_durbin(N=40, dtype=hcl.Int(), target=None):
-
     hcl.init(dtype)
     r = hcl.placeholder((N,), "r")
     y = hcl.placeholder((N,), "y")
 
     def kernel_durbin(r, y):
-
         y[0] = -r[0]
         beta = hcl.scalar(1.0)
         alpha = hcl.scalar(-r[0])
@@ -59,7 +57,6 @@ from utils.helper import *
 
 
 def durbin_golden(N, r, y, DATA_TYPE):
-
     dtype = NDATA_TYPE_DICT[DATA_TYPE.lower()]
 
     z = np.zeros((N,), dtype=dtype)

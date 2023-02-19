@@ -18,6 +18,7 @@ import numpy as np
 # Initially we let every operation to be a floating-point operation
 hcl.init(hcl.Float())
 
+
 ###############################################################################
 # You can define your own layer without using the one provided in hlib
 def softmax(out, x):
@@ -78,6 +79,7 @@ qtype2 = hcl.Fixed(16, 14)
 correct_sum = 0
 batch_size = 1000
 mnist = mx.test_utils.get_mnist()
+
 
 ###############################################################################
 # In this example, we quantize the weights to `qtype1` and the activations to

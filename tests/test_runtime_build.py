@@ -8,7 +8,6 @@ import pytest
 
 
 def test_debug_mode():
-
     hcl.init()
     A = hcl.placeholder((10, 32), "A")
 

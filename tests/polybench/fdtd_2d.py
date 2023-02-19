@@ -7,7 +7,6 @@ import os
 
 
 def top_fdtd_2d(Nx=20, Ny=30, Tmax=20, dtype=hcl.Int(), target=None):
-
     hcl.init(dtype)
 
     ex = hcl.placeholder((Nx, Ny), "ex")
@@ -17,7 +16,6 @@ def top_fdtd_2d(Nx=20, Ny=30, Tmax=20, dtype=hcl.Int(), target=None):
 
     def kernel_fdtd_2d(ex, ey, hz, fict):
         def update(ex, ey, hz, fict, m):
-
             const1 = hcl.scalar(0.5, name="const1", dtype=dtype)
             const2 = hcl.scalar(0.7, name="const2", dtype=dtype)
 
@@ -64,7 +62,6 @@ import math as mt
 
 
 def fdtd_2d_golden(Nx, Ny, Tmax, ex, ey, hz, fict):
-
     dtype = float
 
     for t in range(Tmax):

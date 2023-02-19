@@ -6,7 +6,6 @@ import numpy as np
 
 
 def top_gemm(P, Q, R, alpha, beta, dtype=hcl.Int(), target=None):
-
     hcl.init(dtype)
     A = hcl.placeholder((P, Q), "A")
     B = hcl.placeholder((Q, R), "B")

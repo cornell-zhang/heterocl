@@ -10,7 +10,6 @@ hcl.init(hcl.Int(12))
 
 
 def test_bit():
-
     A = hcl.placeholder((32, 12), "A")
 
     def kernel(A):

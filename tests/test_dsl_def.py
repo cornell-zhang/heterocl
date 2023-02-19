@@ -290,7 +290,6 @@ def test_module_ret_dtype():
 
 
 def _test_module_quantize_ret_dtype():
-
     hcl.init()
 
     def algorithm(A, B):
@@ -331,7 +330,6 @@ def test_module_quantize_ret_dtype():
 
 
 def test_module_args_dtype():
-
     hcl.init()
 
     def algorithm(A, B):
@@ -365,7 +363,6 @@ def test_module_args_dtype():
 
 
 def _test_module_quantize_args():
-
     hcl.init()
 
     def algorithm(A, B):

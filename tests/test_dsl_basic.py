@@ -29,7 +29,6 @@ def _test_logic_op(op):
 
 
 def test_and():
-
     f = _test_logic_op(hcl.and_)
 
     np_A = np.random.randint(10, size=(10,))
@@ -481,7 +480,6 @@ def test_break_multi_level():
 
 
 def test_get_bit_expr():
-
     hcl.init()
 
     def kernel(A):
@@ -504,7 +502,6 @@ def test_get_bit_expr():
 
 
 def test_get_bit_tensor():
-
     hcl.init()
 
     def kernel(A):
@@ -527,7 +524,6 @@ def test_get_bit_tensor():
 
 
 def test_set_bit_expr():
-
     hcl.init()
 
     def kernel(A, B):
@@ -552,7 +548,6 @@ def test_set_bit_expr():
 
 
 def test_set_bit_tensor():
-
     hcl.init()
 
     def kernel(A, B):
@@ -577,7 +572,6 @@ def test_set_bit_tensor():
 
 
 def test_get_slice_expr():
-
     hcl.init()
 
     def kernel(A):
@@ -600,7 +594,6 @@ def test_get_slice_expr():
 
 
 def test_get_slice_tensor():
-
     hcl.init()
 
     def kernel(A):
@@ -623,7 +616,6 @@ def test_get_slice_tensor():
 
 
 def test_get_slice_tensor_reverse():
-
     hcl.init(hcl.UInt(8))
 
     def kernel(A):
@@ -653,7 +645,6 @@ def test_get_slice_tensor_reverse():
 
 
 def test_set_slice_expr():
-
     hcl.init()
 
     def kernel(A, B):
@@ -677,7 +668,6 @@ def test_set_slice_expr():
 
 
 def test_set_slice_tensor():
-
     hcl.init()
 
     def kernel(A, B):
@@ -702,7 +692,6 @@ def test_set_slice_tensor():
 
 
 def test_set_slice_tensor_reverse():
-
     hcl.init(hcl.UInt(8))
 
     def kernel(A, B):
@@ -733,7 +722,6 @@ def test_set_slice_tensor_reverse():
 
 
 def test_slice_op():
-
     hcl.init()
 
     def kernel(A):
@@ -781,7 +769,6 @@ def test_tensor_slice_mutate():
 
 
 def test_get_bit_expr_mutate():
-
     hcl.init()
 
     def kernel(A):
@@ -810,7 +797,6 @@ def test_get_bit_expr_mutate():
 
 
 def test_set_bit_expr_mutate():
-
     hcl.init()
 
     def kernel(A, B):
@@ -837,7 +823,6 @@ def test_set_bit_expr_mutate():
 
 
 def test_set_bit_tensor_mutate():
-
     hcl.init()
 
     def kernel(A, B):
@@ -864,7 +849,6 @@ def test_set_bit_tensor_mutate():
 
 
 def test_get_slice_expr_mutate():
-
     hcl.init()
 
     def kernel(A):
@@ -893,7 +877,6 @@ def test_get_slice_expr_mutate():
 
 
 def test_get_slice_tensor_mutate():
-
     hcl.init()
 
     def kernel(A):
@@ -957,7 +940,6 @@ def test_get_slice_tensor_reverse_mutate():
 
 
 def test_set_slice_expr_mutate():
-
     hcl.init()
 
     def kernel(A, B):
@@ -983,7 +965,6 @@ def test_set_slice_expr_mutate():
 
 
 def test_set_slice_tensor_mutate():
-
     hcl.init()
 
     def kernel(A, B):
@@ -1010,7 +991,6 @@ def test_set_slice_tensor_mutate():
 
 
 def test_set_slice_tensor_reverse_mutate():
-
     hcl.init(hcl.UInt(8))
 
     def kernel(A, B):
@@ -1043,7 +1023,6 @@ def test_set_slice_tensor_reverse_mutate():
 
 
 def test_slice_op_mutate():
-
     hcl.init()
 
     def kernel(A):
