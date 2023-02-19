@@ -357,6 +357,8 @@ def build_llvm(schedule, top_func_name="top"):
         hcl_d.lower_hcl_to_llvm(module, ctx)
 
         # Add shared library
+        # TODO: use llvm-config to get the path
+
         if os.getenv("LLVM_BUILD_DIR") is not None:
             shared_libs = [
                 os.path.join(

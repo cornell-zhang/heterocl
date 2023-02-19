@@ -43,7 +43,7 @@ def test_print_expr():
 def test_print_tensor_1D():
 
     outputs = get_stdout("print_tensor_1D")
-    matches = re.findall('\[(.*?)\]', outputs)
+    matches = re.findall("\[(.*?)\]", outputs)
 
     hcl_print_output = matches[-2]
     np_print_output = matches[-1]
@@ -58,7 +58,7 @@ def test_print_tensor_1D():
 def test_print_tensor_2D():
 
     outputs = get_stdout("print_tensor_2D")
-    matches = re.findall(r'\[\[(.*?)\]\]', outputs, flags=re.DOTALL)
+    matches = re.findall(r"\[\[(.*?)\]\]", outputs, flags=re.DOTALL)
 
     hcl_print_output = "".join(matches[0].split("\n"))
     np_print_output = "".join(matches[1].split("\n"))
@@ -73,7 +73,7 @@ def test_print_tensor_2D():
 def test_print_tensor_2D_rect():
 
     outputs = get_stdout("print_tensor_2D_rect")
-    matches = re.findall(r'\[\[(.*?)\]\]', outputs, flags=re.DOTALL)
+    matches = re.findall(r"\[\[(.*?)\]\]", outputs, flags=re.DOTALL)
 
     hcl_print_output = "".join(matches[0].split("\n"))
     np_print_output = "".join(matches[1].split("\n"))
