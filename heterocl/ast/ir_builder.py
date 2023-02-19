@@ -52,7 +52,6 @@ from . import ast
 from ..context import get_context, get_location
 from ..utils import hcl_dtype_to_mlir, get_extra_type_hints
 from .. import types as htypes
-from ..type_infer import TypeInference
 from . import build_cleaner
 
 
@@ -211,7 +210,7 @@ class IRBuilder:
         self.module = Module.create(get_location())
         self.top_func = None
         self.iv = []  # a list to keep track of affine expression's induction variables
-        self.tinf_engine = TypeInference()
+        self.tinf_engine = ast.TypeInference()
         self.cleaner = build_cleaner.ASTCleaner()
         self.tensor_dict = {}  # tensor name -> memref.allocOp
         self.BIT_OPS = False

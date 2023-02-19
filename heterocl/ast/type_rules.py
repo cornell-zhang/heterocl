@@ -2,14 +2,12 @@
 # SPDX-License-Identifier: Apache-2.0
 """ Type inference rules """
 
-from .ast import ast
-from .types import Index, Float, Int, UInt, Fixed, UFixed, TypeRule
+from ..types import Index, Float, Int, UInt, Fixed, UFixed, TypeRule
 
 # TODO: Reduction op rules
 
 
 def add_sub_rule():
-    ops = (ast.Add, ast.Sub)
     int_rules = {
         (Int, Int): lambda t1, t2: Int(max(t1.bits, t2.bits) + 1),
         (Int, UInt): lambda t1, t2: Int(max(t1.bits, t2.bits + 1) + 1),
@@ -99,13 +97,11 @@ def add_sub_rule():
         (Float, Float): lambda t1, t2: Float(max(t1.bits, t2.bits)),
     }
     return TypeRule(
-        ops,
         [int_rules, uint_rules, index_rules, fixed_rules, ufixed_rules, float_rules],
     )
 
 
 def mul_rule():
-    ops = ast.Mul
     int_rules = {
         (Int, Int): lambda t1, t2: Int(t1.bits + t2.bits),
         (Int, UInt): lambda t1, t2: Int(t1.bits + t2.bits),
@@ -157,14 +153,12 @@ def mul_rule():
         (Float, Float): lambda t1, t2: Float(max(t1.bits, t2.bits))
     }
     return TypeRule(
-        ops,
         [int_rules, uint_rules, index_rules, fixed_rules, ufixed_rules, float_rules],
         commutative=True,
     )
 
 
 def div_rule():
-    ops = (ast.Div, ast.FloorDiv)
     int_rules = {
         (Int, Int): lambda t1, t2: t1,
         (Int, UInt): lambda t1, t2: t1,
@@ -222,13 +216,11 @@ def div_rule():
         (Float, Float): lambda t1, t2: Float(max(t1.bits, t2.bits)),
     }
     return TypeRule(
-        ops,
         [int_rules, uint_rules, index_rules, fixed_rules, ufixed_rules, float_rules],
     )
 
 
 def mod_rule():
-    ops = ast.Mod
     int_rules = {
         (Int, Int): lambda t1, t2: Int(max(t1.bits, t2.bits)),
         (Int, UInt): lambda t1, t2: Int(max(t1.bits, t2.bits + 1)),
@@ -314,13 +306,11 @@ def mod_rule():
         (Float, Float): lambda t1, t2: Float(max(t1.bits, t2.bits)),
     }
     return TypeRule(
-        ops,
         [int_rules, uint_rules, index_rules, fixed_rules, ufixed_rules, float_rules],
     )
 
 
 def cmp_rule():
-    ops = (ast.Cmp,)
     int_rules = {
         (Int, Int): lambda t1, t2: (Int(max(t1.bits, t2.bits)), UInt(1)),
         (Int, UInt): lambda t1, t2: (Int(max(t1.bits, t2.bits + 1)), UInt(1)),
@@ -432,13 +422,11 @@ def cmp_rule():
         (Float, Float): lambda t1, t2: (Float(max(t1.bits, t2.bits)), UInt(1)),
     }
     return TypeRule(
-        ops,
         [int_rules, uint_rules, index_rules, fixed_rules, ufixed_rules, float_rules],
     )
 
 
 def select_rule():
-    ops = (ast.SelectOp, ast.Max, ast.Min)
     int_rules = {
         (Int, Int): lambda t1, t2: Int(max(t1.bits, t2.bits)),
         (Int, UInt): lambda t1, t2: Int(max(t1.bits, t2.bits + 1)),
@@ -494,14 +482,12 @@ def select_rule():
         (Float, Float): lambda t1, t2: Float(max(t1.bits, t2.bits)),
     }
     return TypeRule(
-        ops,
         [int_rules, uint_rules, index_rules, fixed_rules, ufixed_rules, float_rules],
         commutative=True,
     )
 
 
 def shift_rule():
-    ops = (ast.LeftShiftOp, ast.RightShiftOp)
     int_rules = {
         (Int, Int): lambda t1, t2: t1,
         (Int, UInt): lambda t1, t2: t1,
@@ -514,11 +500,10 @@ def shift_rule():
     index_rules = {
         (Index, Index): lambda t1, t2: Index(),
     }
-    return TypeRule(ops, [int_rules, uint_rules, index_rules], commutative=True)
+    return TypeRule([int_rules, uint_rules, index_rules], commutative=True)
 
 
 def and_or_rule():
-    ops = (ast.And, ast.Or, ast.XOr, ast.Invert)
     int_rules = {
         (Int, Int): lambda t1, t2: Int(max(t1.bits, t2.bits)),
         (Int, UInt): lambda t1, t2: Int(max(t1.bits, t2.bits)),
@@ -531,21 +516,19 @@ def and_or_rule():
     index_rules = {
         (Index, Index): lambda t1, t2: Index(),
     }
-    return TypeRule(ops, [int_rules, uint_rules, index_rules], commutative=True)
+    return TypeRule([int_rules, uint_rules, index_rules], commutative=True)
 
 
 def logic_op_rule():
-    ops = (ast.LogicalAnd, ast.LogicalOr, ast.LogicalXOr)
     int_rules = {
         (Int, Int): lambda t1, t2: UInt(1),
         (Int, UInt): lambda t1, t2: UInt(1),
         (UInt, UInt): lambda t1, t2: UInt(1),
     }
-    return TypeRule(ops, [int_rules])
+    return TypeRule([int_rules])
 
 
 def pow_rule():
-    ops = (ast.MathPowOp,)
     int_rules = {
         (Int, Int): lambda t1, t2: Float(64),
         (Int, UInt): lambda t1, t2: Float(64),
@@ -557,21 +540,4 @@ def pow_rule():
         (Float, Int): lambda t1, t2: t1 if isinstance(t1, Float) else t2,
         (Float, UInt): lambda t1, t2: t1 if isinstance(t1, Float) else t2,
     }
-    return TypeRule(ops, [int_rules, float_rules])
-
-
-# TODO: attach typing rules to ast.Operation classes
-# Make this a hook? more extensible
-def get_type_rules():
-    rules = []
-    rules.append(add_sub_rule())
-    rules.append(mul_rule())
-    rules.append(mod_rule())
-    rules.append(and_or_rule())
-    rules.append(logic_op_rule())
-    rules.append(cmp_rule())
-    rules.append(div_rule())
-    rules.append(pow_rule())
-    rules.append(shift_rule())
-    rules.append(select_rule())
-    return rules
+    return TypeRule([int_rules, float_rules])

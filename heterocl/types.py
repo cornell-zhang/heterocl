@@ -256,29 +256,19 @@ def sort_type_classes(types):
 
 
 class TypeRule:
-    """Type inference rule for a set of operations."""
+    """Type inference rule for a set of operations.
+    TODO: Move TypeRule to registry.py
+    """
 
-    def __init__(self, OpClass, inf_rules, commutative=False):
+    def __init__(self, inf_rules, commutative=False):
         """
         Parameters
         ----------
-        OpClass : a class or a collection of classes
-            The operation class or a list of operation classes
-
         inf_rules : a dictionary or a collection of dictionaries
             The inference rules for the operation class
             Each item should be (input types, lambda function)
         """
         # Check argument types
-        if isinstance(OpClass, type):
-            OpClass = [OpClass]
-        elif isinstance(OpClass, tuple):
-            OpClass = list(OpClass)
-        elif not isinstance(OpClass, list):
-            raise TypeError(
-                f"OpClass must be a class or a collection of classes, not {type(OpClass)}"
-            )
-
         if isinstance(inf_rules, dict):
             inf_rules = [inf_rules]
         elif not isinstance(inf_rules, tuple):
@@ -289,8 +279,6 @@ class TypeRule:
             )
 
         self.commutative = commutative
-        # A collection of applicable operations
-        self.OpClass = OpClass
         # Inference rules
         self.inf_rules = {}
         # a dictionary of the form:
@@ -346,7 +334,7 @@ class TypeRule:
         itype_classes = tuple(itype_classes)
         if itype_classes not in self.inf_rules:
             raise APIError(
-                f"Typing rule is not defined for {self.OpClass} with input types {itype_classes}"
+                f"Typing rule is not defined with input types {itype_classes}"
             )
         rule = self.inf_rules[itype_classes]
         res_type = rule(*args)
