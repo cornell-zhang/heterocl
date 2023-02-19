@@ -1,21 +1,16 @@
 # Copyright HeteroCL authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
-# pylint: disable=f-string-without-interpolation
+# pylint: disable=no-else-return, no-else-raise, too-many-instance-attributes
 
 import sympy as sp
 from hcl_mlir.exceptions import (
     HCLError,
-    DTypeError,
     APIError,
     TensorError,
     HCLNotImplementedError,
-    MLIRLimitationError,
     HCLValueError,
-    DTypeWarning,
-    APIWarning,
 )
-from ..context import *
-from ..types import *
+from ..types import Int, UInt, Index, Float, dtype_to_str
 from ..type_infer import TypeInference
 
 
@@ -96,10 +91,10 @@ def simplify(expr):
         index = expr.index
         return sp.simplify(simplify(tensor.fcompute(*index)))
     else:
-        raise HCLError("Unsupported expression type: {}".format(type(expr)))
+        raise HCLError(f"Unsupported expression type: {type(expr)}")
 
 
-class Location(object):
+class Location:
     """Filename and linenumber"""
 
     def __init__(self, filename, lineno):
@@ -110,20 +105,14 @@ class Location(object):
         return f"{self.filename}:{self.lineno}"
 
 
-class Scope(object):
+class Scope:
     """Scope class to manage operation insertion scopes."""
 
     def __init__(self):
         self.stack = []
 
-    def push(self, scope):
-        """Push a new scope to the stack.
-
-        Parameters
-        ----------
-        scope : a Python list
-        """
-        self.stack.append(scope)
+    def push(self, new_scope: list):
+        self.stack.append(new_scope)
 
     def pop(self):
         return self.stack.pop()
@@ -151,7 +140,7 @@ scope = Scope()
 scope.reset()
 
 
-class Operation(object):
+class Operation:
     """Base class for all operations.
 
     Parameters
@@ -177,7 +166,7 @@ class Operation(object):
         return self.name
 
 
-class Expr(object):
+class Expr:
     """Base class for all expressions.
 
     Parameters
@@ -314,7 +303,7 @@ class Expr(object):
                     raise APIError(
                         "Lower bound should be smaller than upper bound. Use `.reverse()` if you want to reverse the bits"
                     )
-                elif lo == hi:
+                if lo == hi:
                     return self
                 else:
                     return GetSliceOp(self, lo, hi - 1, self.loc)
@@ -379,25 +368,27 @@ class Expr(object):
         raise HCLNotImplementedError("equal is not implemented yet")
 
     def astype(self, dtype):
-        return CastOp(self, dtype)
+        return CastOp(self, dtype, self.loc)
 
     def __getattr__(self, key):
         """Access a field of a struct value"""
         # bypass the attribute lookup to avoid infinite recursion
-        if key in self.__dict__.keys():
+        if key in self.__dict__:
             return self.__dict__[key]
         elif isinstance(self, LoadOp):
             # access a field from a struct tensor
-            key_list = [k for k in self.tensor.dtype.dtype_dict.keys()]
+            key_list = list(self.tensor.dtype.dtype_dict.keys())
             if key not in key_list:
-                raise HCLValueError("No such field: " + key)
+                raise HCLValueError(
+                    f"No such field: {key} in struct {self.tensor.dtype}"
+                )
             key_idx = key_list.index(key)
             return StructGetOp(self, key_idx, self.loc)
         else:
             # We don't throw an error here
             # because the user may be trying to test if
             # an attribute exists with hasattr().
-            return
+            return None
 
 
 class UnaryOp(Expr):
@@ -563,6 +554,7 @@ class Cmp(BinaryOp):
 
     def __init__(self, op, lhs, rhs, loc):
         super().__init__(op, lhs, rhs, loc)
+        self.dtype = UInt(1)
 
 
 class And(BinaryOp):
@@ -709,21 +701,6 @@ class LogicalXOr(BinaryOp):
 
     def __init__(self, lhs, rhs, loc):
         super().__init__("^^", lhs, rhs, loc)
-
-
-class PrintOp(Operation):
-    """Print operation."""
-
-    def __init__(self, expr_list, loc, format_str=""):
-        super().__init__("print", loc)
-        self.expr_list = expr_list
-        self.format_str = format_str
-
-    def __repr__(self):
-        code_str = ""
-        code_str += print_indent(code_str, self.level)
-        code_str += f"print({self.name} {self.expr_list}, fmt={self.format_str})"
-        return code_str
 
 
 class PrintMemRefOp(Operation):
@@ -1118,7 +1095,7 @@ class IfOp(Operation):
     def __repr__(self):
         code_str = ""
         code_str = print_indent(code_str, self.level)
-        code_str += "if {} {{\n".format(self.cond)
+        code_str += f"if {self.cond} {{\n"
         for stmt in self.body:
             code_str += f"{stmt}\n"
         code_str = print_indent(code_str, self.level)
@@ -1159,7 +1136,7 @@ class ElseIfOp(Operation):
     def __repr__(self):
         code_str = ""
         code_str = print_indent(code_str, self.level)
-        code_str += "else if ({}) {{\n".format(self.cond)
+        code_str += f"else if ({self.cond}) {{\n"
         for stmt in self.body:
             code_str += f"{stmt}\n"
         code_str = print_indent(code_str, self.level)
@@ -1207,9 +1184,9 @@ class ReturnOp(Operation):
         code_str = ""
         code_str = print_indent(code_str, self.level)
         if isinstance(self.expr, AllocOp):
-            code_str += "return {}".format(self.expr.name)
+            code_str += f"return {self.expr.name}"
         else:
-            code_str += "return {}".format(self.expr)
+            code_str += f"return {self.expr}"
         return code_str
 
 
@@ -1228,9 +1205,7 @@ class ForOp(Operation):
     def __repr__(self):
         code_str = ""
         code_str = print_indent(code_str, self.level)
-        code_str += "for ({} = {}; {} < {}; {} += {}) {{\n".format(
-            self.name, self.low, self.name, self.high, self.name, self.step
-        )
+        code_str += f"for ({self.name} = {self.low}; {self.name} < {self.high}; {self.name} += {self.step}) {{\n"
         for stmt in self.body:
             code_str += f"{stmt}\n"
         code_str = print_indent(code_str, self.level)
@@ -1248,7 +1223,7 @@ class WhileOp(Operation):
     def __repr__(self):
         code_str = ""
         code_str = print_indent(code_str, self.level)
-        code_str += "while ({}) {{\n".format(self.cond)
+        code_str += f"while ({self.cond}) {{\n"
         for stmt in self.body:
             code_str += f"{stmt}\n"
         code_str = print_indent(code_str, self.level)
@@ -1273,22 +1248,14 @@ class FuncOp(Operation):
         code_str = print_indent(code_str, self.level)
         if self.prototype:
             # This is a function declaration
-            code_str += "func {}({})".format(
-                self.name, ", ".join([v.name for v in self.args])
-            )
-            code_str += " -> ({})\n".format(
-                ", ".join([str(v.name) for v in self.return_tensors])
-            )
+            code_str += f"func {self.name}({[v.name for v in self.args]})"
+            code_str += f" -> ({[v.name for v in self.return_tensors]})\n"
             return code_str
-        code_str += "func {}({}) {{\n".format(
-            self.name, ", ".join([v.name for v in self.args])
-        )
+        code_str += f"func {self.name}({[v.name for v in self.args]}) {{\n"
         for stmt in self.body:
             code_str += f"{stmt}\n"
         code_str = print_indent(code_str, self.level + 1)
-        code_str += "return {}\n".format(
-            ", ".join([str(v.name) for v in self.return_tensors])
-        )
+        code_str += f"return {[v.name for v in self.return_tensors]}\n"
         code_str = print_indent(code_str, self.level)
         code_str += "}\n"
         return code_str
@@ -1306,10 +1273,8 @@ class CallOp(Expr):
         code_str = ""
         code_str += print_indent(code_str, self.level)
         if len(self.rets) > 0:
-            code_str += "{} = ".format(", ".join([str(v.name) for v in self.rets]))
-        code_str += "call {}({})".format(
-            self.name, ", ".join([str(v.name) for v in self.args])
-        )
+            code_str += f"{[v.name for v in self.rets]} = "
+        code_str += f"call {self.name}({[v.name for v in self.args]})"
         return code_str
 
 
@@ -1323,7 +1288,7 @@ class SelectOp(Expr):
         self.dtype = self.tinf_engine.infer(self)
 
     def __repr__(self):
-        return "({} ? {} : {})".format(self.cond, self.true_value, self.false_value)
+        return f"({self.cond} ? {self.true_value} : {self.false_value})"
 
 
 class StructConstructOp(Expr):
@@ -1334,7 +1299,7 @@ class StructConstructOp(Expr):
         self.level = len(scope)
 
     def __repr__(self):
-        return "({})".format(", ".join([str(v) for v in self.args]))
+        return f"({[str(v) for v in self.args]})"
 
 
 class StructGetOp(Expr):
@@ -1346,7 +1311,7 @@ class StructGetOp(Expr):
         self.dtype = self.tinf_engine.infer(self)
 
     def __repr__(self):
-        return "{}.{}".format(self.struct, self.field)
+        return f"{self.struct}.{self.field}"
 
 
 class ReduceOp(Expr):
@@ -1384,9 +1349,11 @@ class PrintOp(Operation):
     def __repr__(self):
         code_str = ""
         code_str = print_indent(code_str, self.level)
-        code_str += "print({}, {})".format(
-            ", ".join([str(v) for v in self.args]), self.fmt
-        )
+        code_str += "print("
+        code_str += ", ".join([str(v) for v in self.args])
+        code_str += ", "
+        code_str += repr(self.fmt)
+        code_str += ")"
         return code_str
 
 
@@ -1399,7 +1366,7 @@ class PrintTensorOp(Operation):
     def __repr__(self):
         code_str = ""
         code_str = print_indent(code_str, self.level)
-        code_str += "print_tensor({})".format(self.tensor.name)
+        code_str += f"print_tensor({self.tensor.name})"
         return code_str
 
 
@@ -1448,9 +1415,7 @@ class PartitionOp(Operation):
     def __repr__(self):
         code_str = ""
         code_str = print_indent(code_str, self.level)
-        code_str += "hcl.partition({}, kind={}, dim={}, factor={})".format(
-            self.tensor.name, self.kind, self.dim, self.factor
-        )
+        code_str += f"hcl.partition({self.tensor.name}, kind={self.kind}, dim={self.dim}, factor={self.factor})"
         return code_str
 
 
@@ -1465,9 +1430,7 @@ class ReplaceOp(Operation):
     def __repr__(self):
         code_str = ""
         code_str = print_indent(code_str, self.level)
-        code_str += "hcl.replace({}, {})".format(
-            self.src_tensor.name, self.dst_tensor.name
-        )
+        code_str += f"hcl.replace({self.src_tensor.name}, {self.dst_tensor.name})"
         return code_str
 
 
@@ -1482,7 +1445,7 @@ class ReshapeOp(Operation):
     def __repr__(self):
         code_str = ""
         code_str = print_indent(code_str, self.level)
-        code_str += "hcl.reshape({}, {})".format(self.tensor.name, self.shape)
+        code_str += f"hcl.reshape({self.tensor.name}, {self.shape})"
         return code_str
 
 
@@ -1497,7 +1460,7 @@ class ReformOp(Operation):
     def __repr__(self):
         code_str = ""
         code_str = print_indent(code_str, self.level)
-        code_str += "hcl.reform({}, {})".format(self.target.name, self.layout)
+        code_str += f"hcl.reform({self.target.name}, {self.layout})"
         return code_str
 
 
@@ -1512,7 +1475,7 @@ class ReuseAtOp(Operation):
     def __repr__(self):
         code_str = ""
         code_str = print_indent(code_str, self.level)
-        code_str += "hcl.reuse_at({}, {})".format(self.target.name, self.axis)
+        code_str += f"hcl.reuse_at({self.target.name}, {self.axis})"
         return code_str
 
 
@@ -1527,7 +1490,7 @@ class BufferAtOp(Operation):
     def __repr__(self):
         code_str = ""
         code_str = print_indent(code_str, self.level)
-        code_str += "hcl.buffer_at({}, {})".format(self.target.name, self.axis)
+        code_str += f"hcl.buffer_at({self.target.name}, {self.axis})"
         return code_str
 
 
@@ -1543,8 +1506,8 @@ class InterKernelToOp(Operation):
     def __repr__(self):
         code_str = ""
         code_str = print_indent(code_str, self.level)
-        code_str += "hcl.inter_kernel_to({}, {}, {})".format(
-            self.tensor.name, self.stage, self.fifo_depth
+        code_str += (
+            f"hcl.inter_kernel_to({self.tensor.name}, {self.stage}, {self.fifo_depth})"
         )
         return code_str
 
@@ -1561,9 +1524,7 @@ class OutlineOp(Operation):
     def __repr__(self):
         code_str = ""
         code_str = print_indent(code_str, self.level)
-        code_str += "hcl.outline({}, axis={}, unify={})".format(
-            ", ".join([v.name for v in self.stage_hdls]), self.axis, self.unify
-        )
+        code_str += f"hcl.outline({', '.join([v.name for v in self.stage_hdls])}, axis={self.axis}, unify={self.unify})"
         return code_str
 
 
@@ -1577,7 +1538,7 @@ class ReorderOp(Operation):
     def __repr__(self):
         code_str = ""
         code_str = print_indent(code_str, self.level)
-        code_str += "hcl.reorder({})".format(", ".join([v.name for v in self.args]))
+        code_str += f"hcl.reorder({', '.join([v.name for v in self.args])})"
         return code_str
 
 
@@ -1596,9 +1557,7 @@ class SplitOp(Operation):
     def __repr__(self):
         code_str = ""
         code_str = print_indent(code_str, self.level)
-        code_str += "{}, {} = hcl.split({})".format(
-            self.results[0].name, self.results[1].name, self.parent.name
-        )
+        code_str += f"{self.results[0].name}, {self.results[1].name} = hcl.split({self.parent.name}, factor={self.factor})"
         return code_str
 
 
@@ -1621,14 +1580,7 @@ class TileOp(Operation):
     def __repr__(self):
         code_str = ""
         code_str = print_indent(code_str, self.level)
-        code_str += "{}, {}, {}, {} = hcl.tile({}, {})".format(
-            self.results[0].name,
-            self.results[1].name,
-            self.results[2].name,
-            self.results[3].name,
-            self.x_parent.name,
-            self.y_parent.name,
-        )
+        code_str += f"{self.results[0].name}, {self.results[1].name}, {self.results[2].name}, {self.results[3].name} = hcl.tile({self.x_parent.name}, {self.y_parent.name}, x_factor={self.x_factor}, y_factor={self.y_factor})"
         return code_str
 
 
@@ -1643,7 +1595,7 @@ class PipelineOp(Operation):
     def __repr__(self):
         code_str = ""
         code_str = print_indent(code_str, self.level)
-        code_str += "hcl.pipeline({}, {})".format(self.target.name, self.ii)
+        code_str += f"hcl.pipeline({self.target.name}, {self.ii})"
         return code_str
 
 
@@ -1658,7 +1610,7 @@ class UnrollOp(Operation):
     def __repr__(self):
         code_str = ""
         code_str = print_indent(code_str, self.level)
-        code_str += "hcl.unroll({}, {})".format(self.target.name, self.factor)
+        code_str += f"hcl.unroll({self.target.name}, {self.factor})"
         return code_str
 
 
@@ -1672,7 +1624,7 @@ class ParallelOp(Operation):
     def __repr__(self):
         code_str = ""
         code_str = print_indent(code_str, self.level)
-        code_str += "hcl.parallel({})".format(self.target.name)
+        code_str += f"hcl.parallel({self.target.name})"
         return code_str
 
 
@@ -1686,7 +1638,7 @@ class FuseOp(Operation):
     def __repr__(self):
         code_str = ""
         code_str = print_indent(code_str, self.level)
-        code_str += "hcl.fuse({})".format(", ".join([str(v) for v in self.arg_list]))
+        code_str += f"hcl.fuse({', '.join([str(v) for v in self.arg_list])})"
         return code_str
 
 
@@ -1702,8 +1654,8 @@ class ComputeAtOp(Operation):
     def __repr__(self):
         code_str = ""
         code_str = print_indent(code_str, self.level)
-        code_str += "hcl.compute_at({}, {}, {})".format(
-            self.stage.name, self.parent.name, self.axis
+        code_str += (
+            f"hcl.compute_at({self.stage.name}, {self.parent.name}, {self.axis})"
         )
         return code_str
 
@@ -1718,11 +1670,11 @@ class SystolicOp(Operation):
     def __repr__(self):
         code_str = ""
         code_str = print_indent(code_str, self.level)
-        code_str += "hcl.systolic({})".format(self.target.name)
+        code_str += f"hcl.systolic({self.target.name})"
         return code_str
 
 
-class AST(object):
+class AST:
     """HeteroCL AST
 
     HeteroCL AST is a hierarchical representation of the input program.
