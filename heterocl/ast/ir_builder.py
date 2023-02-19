@@ -518,7 +518,7 @@ class IRBuilder:
             self.build_visitor(lb_cast, ip)
             self.build_visitor(ub_cast, ip)
             step_cast = ast.immediate_to_constant(step, itmd_loc, htypes.Index())
-            self.build_visitor(step, ip)
+            self.build_visitor(step_cast, ip)
             for_op = scf_d.ForOp(
                 lb_cast.result,
                 ub_cast.result,
