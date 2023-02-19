@@ -51,7 +51,6 @@ hcl.init()
 
 
 def simple_compute(a, A):
-
     B = hcl.compute(A.shape, lambda x, y: A[x, y] + a.v, "B")
     """
     The above API is equivalent to the following Python code.

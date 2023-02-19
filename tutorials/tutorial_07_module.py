@@ -43,7 +43,6 @@ hcl.init()
 
 
 def maximum(A, B, C, D):
-
     # Due to MLIR limitation, hcl.return_ must be the
     # last statement in the module (i.e. region terminator)
     # TODO(Niansong): add checker pass for this case
@@ -127,7 +126,6 @@ hcl.init()
 
 
 def maximum2(A, B, C, D):
-
     # B will be the tensor that holds the maximum values
     @hcl.def_([A.shape, B.shape])
     def find_max(A, B):
