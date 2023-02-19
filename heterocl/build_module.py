@@ -10,7 +10,7 @@ import hcl_mlir
 from hcl_mlir.dialects import hcl as hcl_d
 from hcl_mlir.dialects import func as func_d
 from hcl_mlir.execution_engine import ExecutionEngine
-from hcl_mlir.exceptions import APIError, APIWarning, PassWarning
+from hcl_mlir.exceptions import APIError, PassWarning
 from hcl_mlir.ir import (
     Module,
     StringAttr,

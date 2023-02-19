@@ -1,7 +1,7 @@
 # Copyright HeteroCL authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
+# pylint: disable=too-many-public-methods
 
-from . import ast
 from . import ast_visitor
 
 

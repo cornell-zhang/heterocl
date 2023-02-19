@@ -1,12 +1,11 @@
 # Copyright HeteroCL authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
-# pylint: disable=unused-argument
+# pylint: disable=unused-argument, too-many-public-methods, too-many-branches
 
+from hcl_mlir.exceptions import HCLNotImplementedError
 from . import ast
-from hcl_mlir.exceptions import *
 
-
-class ASTVisitor(object):
+class ASTVisitor:
     def __init__(self, name):
         self.name = name
 
