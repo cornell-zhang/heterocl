@@ -1,6 +1,6 @@
 # Copyright HeteroCL authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
-# pylint: disable=no-name-in-module, too-many-return-statements, too-many-branches, unused-argument
+# pylint: disable=no-name-in-module, too-many-return-statements, too-many-branches, unused-argument, too-many-public-methods, no-else-return, else-if-used, too-many-function-args
 """ IRBuilder Assumptions
     - All Python immediate should be converted to ConstantOp
 """
@@ -376,7 +376,7 @@ class IRBuilder:
                 dtype = hcl_dtype_to_mlir(dtype, signless=True)
                 output_types.append(dtype)
         func_type = FunctionType.get(input_types, output_types)
-        # pylint: disable=unexpected-keyword-arg
+        # pylint: disable=unexpected-keyword-arg, no-value-for-parameter
         func_op = func_d.FuncOp(name=op.name, type=func_type, ip=ip, loc=loc)
         op.ir_op = func_op
 
@@ -472,8 +472,8 @@ class IRBuilder:
             Whether the loop is a reduction loop.
         ip : InsertPoint
             Insert point of the loop.
-        loc : MLIR Location
-            Source file location.
+        loc : Location
+            Instance of MLIR Location. Represents location in source code.
         """
         if not isinstance(step, int):
             raise HCLNotImplementedError("Non-constant step size is not supported yet")
@@ -513,16 +513,16 @@ class IRBuilder:
             ub = ast.immediate_to_constant(ub, itmd_loc, htypes.Index())
             self.build_visitor(lb, ip)
             self.build_visitor(ub, ip)
-            lb = ast.CastOp(lb, htypes.Index(), loc=itmd_loc)
-            ub = ast.CastOp(ub, htypes.Index(), loc=itmd_loc)
-            self.build_visitor(lb, ip)
-            self.build_visitor(ub, ip)
-            step = ast.immediate_to_constant(step, itmd_loc, htypes.Index())
+            lb_cast = ast.CastOp(lb, htypes.Index(), loc=itmd_loc)
+            ub_cast = ast.CastOp(ub, htypes.Index(), loc=itmd_loc)
+            self.build_visitor(lb_cast, ip)
+            self.build_visitor(ub_cast, ip)
+            step_cast = ast.immediate_to_constant(step, itmd_loc, htypes.Index())
             self.build_visitor(step, ip)
             for_op = scf_d.ForOp(
-                lb.result,
-                ub.result,
-                step.result,
+                lb_cast.result,
+                ub_cast.result,
+                step_cast.result,
                 name=(
                     StringAttr.get("") if name in {"", None} else StringAttr.get(name)
                 ),
@@ -823,6 +823,7 @@ class IRBuilder:
             try:
                 affine_expr = self.build_affine_expr(index)
                 index_exprs.append(affine_expr)
+            # pylint: disable=broad-exception-caught
             except Exception:
                 flag = False
                 break
@@ -845,6 +846,7 @@ class IRBuilder:
                 index = ast.CastOp(index, htypes.Index(), loc)
                 self.build_visitor(index, ip)
                 new_indices.append(index.result)
+            # pylint: disable=no-value-for-parameter
             load_op = memref_d.LoadOp(op.tensor.result, new_indices, ip=ip, loc=loc)
             op.result = load_op.result
             op.ir_op = load_op
@@ -866,6 +868,7 @@ class IRBuilder:
             try:
                 affine_expr = self.build_affine_expr(index)
                 index_exprs.append(affine_expr)
+            # pylint: disable=broad-exception-caught
             except Exception:
                 flag = False
                 break
@@ -903,6 +906,7 @@ class IRBuilder:
                 value_attr = IntegerAttr.get(IndexType.get(), op.value)
             elif op.dtype.bits == 1:
                 value_attr = BoolAttr.get(op.value)
+            # pylint: disable=else-if-used
             else:
                 if op.dtype.bits < 64:
                     attr_type = IntegerType.get_signless(op.dtype.bits)
@@ -924,7 +928,7 @@ class IRBuilder:
             elif op.dtype.bits == 64:
                 value_attr = FloatAttr.get(F64Type.get(), op.value)
             else:
-                raise DTypeError("Unsupported float type: {}".format(op.dtype))
+                raise DTypeError(f"Unsupported float type: {op.dtype}")
             const_op = arith_d.ConstantOp(dtype, value_attr, ip=ip, loc=loc)
         elif isinstance(op.dtype, (htypes.Fixed, htypes.UFixed)):
             # assume the value is converted to integer base
@@ -934,7 +938,7 @@ class IRBuilder:
             value_attr = IntegerAttr.get(attr_type, op.value)
             const_op = arith_d.ConstantOp(dtype, value_attr, ip=ip, loc=loc)
         else:
-            raise DTypeError("Unsupported type: {}".format(op.dtype))
+            raise DTypeError(f"Unsupported type: {op.dtype}")
 
         op.result = const_op.result
         op.ir_op = const_op
@@ -952,6 +956,7 @@ class IRBuilder:
             src_type = src_type[1]
         # determine cast op
         CastOpClass = None
+        # pylint: disable=unidiomatic-typecheck
         if type(res_type) == type(src_type) and res_type == src_type:
             op.result = op.expr.result
             op.ir_op = op.expr.ir_op
@@ -1208,6 +1213,7 @@ class IRBuilder:
         # Step 2: type inference and cast
         res_type = self.tinf_engine.infer(op)
         # cast condition to uint1
+        # pylint: disable=redefined-variable-type
         if not isinstance(cond, ast.Cmp):
             cond = ast.CastOp(cond, htypes.UInt(1), op.loc)
             self.build_visitor(cond, ip)
@@ -1441,7 +1447,7 @@ class IRBuilder:
     def build_struct_construct_op(self, op: ast.StructConstructOp, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         # build fields
-        field_results = list()
+        field_results = []
         for idx, field in enumerate(op.args):
             field_key_list = list(op.dtype.dtype_dict.keys())
             type_key = field_key_list[idx]
