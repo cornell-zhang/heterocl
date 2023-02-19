@@ -1,6 +1,6 @@
 # Copyright HeteroCL authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
-# pylint: disable=no-else-return, no-else-raise, too-many-instance-attributes
+# pylint: disable=too-many-instance-attributes
 
 import sympy as sp
 from hcl_mlir.exceptions import (
@@ -9,9 +9,23 @@ from hcl_mlir.exceptions import (
     TensorError,
     HCLNotImplementedError,
     HCLValueError,
+    DTypeWarning,
 )
-from ..types import Int, UInt, Index, Float, dtype_to_str
-from ..type_infer import TypeInference
+
+from .registry import get_type_rules, register_type_rules
+from .type_rules import (
+    add_sub_rule,
+    mul_rule,
+    mod_rule,
+    and_or_rule,
+    logic_op_rule,
+    cmp_rule,
+    div_rule,
+    pow_rule,
+    shift_rule,
+    select_rule,
+)
+from ..types import Int, UInt, Index, Float, Struct, dtype_to_str
 
 
 def print_indent(string, level):
@@ -26,18 +40,12 @@ def immediate_to_constant(value, loc, dtype=None):
     if dtype is not None:
         return ConstantOp(value, dtype, loc)
     if isinstance(value, bool):
-        if value:
-            return ConstantOp(1, Int(1), loc)
-        else:
-            return ConstantOp(0, Int(1), loc)
-    elif isinstance(value, int):
-        if value < 0xFFFFFFFF:
-            return ConstantOp(value, Int(32), loc)
-        else:
-            bits = value.bit_length()
-            return ConstantOp(value, Int(bits), loc)
-    else:
-        return ConstantOp(value, Float(64), loc)
+        return ConstantOp(value, Int(1), loc)
+    if isinstance(value, int):
+        return ConstantOp(
+            value, Int(32 if value < 0xFFFFFFFF else value.bit_length()), loc
+        )
+    return ConstantOp(value, Float(64), loc)
 
 
 def replace_all_uses_with(op, old_tensor, new_tensor):
@@ -78,17 +86,17 @@ def simplify(expr):
         return sp.symbols(expr.name)
     if isinstance(expr, Add):
         return sp.simplify(simplify(expr.lhs) + simplify(expr.rhs))
-    elif isinstance(expr, Sub):
+    if isinstance(expr, Sub):
         return sp.simplify(simplify(expr.lhs) - simplify(expr.rhs))
-    elif isinstance(expr, Mul):
+    if isinstance(expr, Mul):
         return sp.simplify(simplify(expr.lhs) * simplify(expr.rhs))
-    elif isinstance(expr, Div):
+    if isinstance(expr, Div):
         return sp.simplify(simplify(expr.lhs) / simplify(expr.rhs))
-    elif isinstance(expr, FloorDiv):
+    if isinstance(expr, FloorDiv):
         return sp.simplify(simplify(expr.lhs) // simplify(expr.rhs))
-    elif isinstance(expr, Mod):
+    if isinstance(expr, Mod):
         return sp.simplify(simplify(expr.lhs) % simplify(expr.rhs))
-    elif isinstance(expr, LoadOp):
+    if isinstance(expr, LoadOp):
         tensor = expr.tensor
         if tensor.fcompute is None:
             return expr
@@ -344,6 +352,7 @@ class Expr:
 
     def __getitem__(self, indices):
         """Bit slicing and bit selection"""
+        # pylint: disable=no-else-return
         if isinstance(indices, slice):
             lo, hi = indices.start, indices.stop
             if isinstance(lo, int) and isinstance(hi, int):
@@ -367,6 +376,7 @@ class Expr:
 
     def __setitem__(self, indices, expr):
         region = scope.get()
+        # pylint: disable=no-else-raise
         if isinstance(indices, slice):
             lo, hi = indices.start, indices.stop
             if isinstance(lo, int) and isinstance(hi, int):
@@ -423,7 +433,7 @@ class Expr:
         # bypass the attribute lookup to avoid infinite recursion
         if key in self.__dict__:
             return self.__dict__[key]
-        elif isinstance(self, LoadOp):
+        if isinstance(self, LoadOp):
             # access a field from a struct tensor
             key_list = list(self.tensor.dtype.dtype_dict.keys())
             if key not in key_list:
@@ -432,11 +442,10 @@ class Expr:
                 )
             key_idx = key_list.index(key)
             return StructGetOp(self, key_idx, self.loc)
-        else:
-            # We don't throw an error here
-            # because the user may be trying to test if
-            # an attribute exists with hasattr().
-            return None
+        # We don't throw an error here
+        # because the user may be trying to test if
+        # an attribute exists with hasattr().
+        return None
 
 
 class UnaryOp(Expr):
@@ -521,6 +530,7 @@ class CastOp(Expr):
         return f"({self.dtype}) {self.expr}"
 
 
+@register_type_rules(add_sub_rule)
 class Add(BinaryOp):
     """Addition operation."""
 
@@ -528,6 +538,7 @@ class Add(BinaryOp):
         super().__init__("+", lhs, rhs, loc)
 
 
+@register_type_rules(add_sub_rule)
 class Sub(BinaryOp):
     """Subtraction operation."""
 
@@ -535,6 +546,7 @@ class Sub(BinaryOp):
         super().__init__("-", lhs, rhs, loc)
 
 
+@register_type_rules(mul_rule)
 class Mul(BinaryOp):
     """Multiplication operation."""
 
@@ -542,6 +554,7 @@ class Mul(BinaryOp):
         super().__init__("*", lhs, rhs, loc)
 
 
+@register_type_rules(div_rule)
 class Div(BinaryOp):
     """Division operation."""
 
@@ -549,6 +562,7 @@ class Div(BinaryOp):
         super().__init__("/", lhs, rhs, loc)
 
 
+@register_type_rules(select_rule)
 class Min(BinaryOp):
     """Min operation."""
 
@@ -559,6 +573,7 @@ class Min(BinaryOp):
         return f"min({self.lhs}, {self.rhs})"
 
 
+@register_type_rules(select_rule)
 class Max(BinaryOp):
     """Max operation."""
 
@@ -569,6 +584,7 @@ class Max(BinaryOp):
         return f"max({self.lhs}, {self.rhs})"
 
 
+@register_type_rules(div_rule)
 class FloorDiv(BinaryOp):
     """Floor division operation."""
 
@@ -576,6 +592,7 @@ class FloorDiv(BinaryOp):
         super().__init__("//", lhs, rhs, loc)
 
 
+@register_type_rules(mod_rule)
 class Mod(BinaryOp):
     """Modulo operation."""
 
@@ -583,6 +600,7 @@ class Mod(BinaryOp):
         super().__init__("%", lhs, rhs, loc)
 
 
+@register_type_rules(shift_rule)
 class LeftShiftOp(BinaryOp):
     """Left shift operation."""
 
@@ -590,6 +608,7 @@ class LeftShiftOp(BinaryOp):
         super().__init__("<<", lhs, rhs, loc)
 
 
+@register_type_rules(shift_rule)
 class RightShiftOp(BinaryOp):
     """Right shift operation."""
 
@@ -597,6 +616,7 @@ class RightShiftOp(BinaryOp):
         super().__init__(">>", lhs, rhs, loc)
 
 
+@register_type_rules(cmp_rule)
 class Cmp(BinaryOp):
     """Comparison operation."""
 
@@ -605,6 +625,7 @@ class Cmp(BinaryOp):
         self.dtype = UInt(1)
 
 
+@register_type_rules(and_or_rule)
 class And(BinaryOp):
     """Bitwise and operation."""
 
@@ -612,6 +633,7 @@ class And(BinaryOp):
         super().__init__("&", lhs, rhs, loc)
 
 
+@register_type_rules(and_or_rule)
 class Or(BinaryOp):
     """Bitwise or operation."""
 
@@ -619,6 +641,7 @@ class Or(BinaryOp):
         super().__init__("|", lhs, rhs, loc)
 
 
+@register_type_rules(and_or_rule)
 class XOr(BinaryOp):
     """Bitwise xor operation."""
 
@@ -626,6 +649,7 @@ class XOr(BinaryOp):
         super().__init__("^", lhs, rhs, loc)
 
 
+@register_type_rules(and_or_rule)
 class Invert(UnaryOp):
     """Bitwise invert operation, e.g. 0b1011 -> 0b0100."""
 
@@ -666,6 +690,7 @@ class MathExpOp(UnaryOp):
         self.dtype = self.tinf_engine.infer(self)
 
 
+@register_type_rules(pow_rule)
 class MathPowOp(BinaryOp):
     """Mathematical power operation."""
 
@@ -730,6 +755,7 @@ class MathTanhOp(UnaryOp):
         self.dtype = self.tinf_engine.infer(self)
 
 
+@register_type_rules(logic_op_rule)
 class LogicalAnd(BinaryOp):
     """Logical and operation."""
 
@@ -737,6 +763,7 @@ class LogicalAnd(BinaryOp):
         super().__init__("&&", lhs, rhs, loc)
 
 
+@register_type_rules(logic_op_rule)
 class LogicalOr(BinaryOp):
     """Logical or operation."""
 
@@ -744,6 +771,7 @@ class LogicalOr(BinaryOp):
         super().__init__("||", lhs, rhs, loc)
 
 
+@register_type_rules(logic_op_rule)
 class LogicalXOr(BinaryOp):
     """Logical xor operation."""
 
@@ -953,7 +981,7 @@ class TensorSlice(Expr):
                 self.loc,
                 self.name,
             )
-        elif len(self.indices + indices) == len(self.full_shape):
+        if len(self.indices + indices) == len(self.full_shape):
             # format indices
             new_indices = []
             for index in self.indices + indices:
@@ -961,15 +989,14 @@ class TensorSlice(Expr):
                 new_indices.append(index)
             load = LoadOp(self.parent, new_indices, self.loc)
             return load
-        else:
-            raise TensorError("Indices length > # of array dimensions")
+        raise TensorError("Indices length > # of array dimensions")
 
     def __setitem__(self, indices, expr):
         if not isinstance(indices, tuple):
             indices = (indices,)
         if len(self.indices + indices) < len(self.full_shape):
             raise HCLNotImplementedError("Writing to a slice of tensor is not allowed.")
-        elif len(self.indices + indices) == len(self.full_shape):
+        if len(self.indices + indices) == len(self.full_shape):
             new_indices = []
             for index in list(self.indices) + list(indices):
                 index = immediate_to_constant(index, self.loc)
@@ -1033,7 +1060,7 @@ class AllocOp(Expr):
                 name=self.name,
             )
         # if we are loading a value from the tensor
-        elif len(indices) == len(self.shape):
+        if len(indices) == len(self.shape):
             # format indices
             new_indices = []
             for index in indices:
@@ -1041,15 +1068,14 @@ class AllocOp(Expr):
                 new_indices.append(index)
             load = LoadOp(self, new_indices, self.loc)
             return load
-        else:
-            raise TensorError("Indices length > # of array dimensions")
+        raise TensorError("Indices length > # of array dimensions")
 
     def __setitem__(self, indices, value):
         if not isinstance(indices, tuple):
             indices = (indices,)
         if len(indices) < len(self.shape):
             raise HCLNotImplementedError("Writing to a slice of tensor is not allowed.")
-        elif len(indices) == len(self.shape):
+        if len(indices) == len(self.shape):
             # format indices
             new_indices = []
             for index in indices:
@@ -1068,8 +1094,7 @@ class AllocOp(Expr):
     def v(self):
         if len(self.shape) == 1 and self.shape[0] == 1:
             return self[0]
-        else:
-            raise TensorError(".v can only be used on scalars")
+        raise TensorError(".v can only be used on scalars")
 
     @v.setter
     def v(self, value):
@@ -1326,6 +1351,7 @@ class CallOp(Expr):
         return code_str
 
 
+@register_type_rules(select_rule)
 class SelectOp(Expr):
     def __init__(self, cond, true_value, false_value, loc):
         super().__init__("select", loc)
@@ -1739,3 +1765,75 @@ class AST:
         for op in self.region:
             code_str += str(op)
         return code_str
+
+
+class TypeInference:
+    """A type inference engine for HeteroCL programs."""
+
+    # pylint: disable=too-many-return-statements
+    def infer(self, expr):
+        """Infer the type of an expression"""
+        if isinstance(expr, LoadOp):
+            return self.infer_load(expr)
+        if isinstance(expr, BinaryOp):
+            return self.infer_binary(expr)
+        if isinstance(expr, SelectOp):
+            return self.infer_select(expr)
+        if isinstance(expr, ConstantOp):
+            return self.infer_const(expr)
+        if isinstance(expr, IterVar):
+            return Index()
+        if isinstance(
+            expr, (CastOp, BitCastOp, GetBitOp, GetSliceOp, StructConstructOp)
+        ):
+            return expr.dtype
+        if isinstance(expr, ReduceOp):
+            # TODO: infer the type of the reduction
+            return expr.dtype
+        if isinstance(expr, (SetBitOp, SetSliceOp, BitReverseOp)):
+            return self.infer(expr.expr)
+        if isinstance(expr, StructGetOp):
+            assert isinstance(expr.struct.dtype, Struct)
+            struct_t = expr.struct.dtype
+            key_list = list(struct_t.dtype_dict.keys())
+            key = key_list[expr.field]
+            return struct_t.dtype_dict[key]
+        if isinstance(expr, CallOp):
+            return self.infer(expr.rets[0])
+        if isinstance(expr, Neg):
+            return self.infer(expr.expr)
+        if isinstance(expr, MathTanhOp):
+            return Float(64)
+        raise APIError(
+            f"Type inference not defined for expression of type: {type(expr)}"
+        )
+
+    def infer_binary(self, expr):
+        lhs_type = self.infer(expr.lhs)
+        rhs_type = self.infer(expr.rhs)
+        if isinstance(lhs_type, tuple):
+            lhs_type = lhs_type[-1]
+        if isinstance(rhs_type, tuple):
+            rhs_type = rhs_type[-1]
+        # find the rule set based on the operation type
+        type_rule = get_type_rules(type(expr))
+        res_type = type_rule(lhs_type, rhs_type)
+        # MLIR limitation: modulo only supports integer <= 128 bits
+        if isinstance(expr, Mod) and isinstance(res_type, (Int, UInt)):
+            if res_type.bits > 128:
+                DTypeWarning("Modulo only supports integer <= 128 bits").warn()
+                res_type = Int(128) if isinstance(res_type, Int) else UInt(128)
+        return res_type
+
+    def infer_select(self, expr):
+        true_type = self.infer(expr.true_value)
+        false_type = self.infer(expr.false_value)
+        type_rule = get_type_rules(type(expr))
+        res_type = type_rule(true_type, false_type)
+        return res_type
+
+    def infer_load(self, expr):
+        return expr.tensor.dtype
+
+    def infer_const(self, expr):
+        return expr.dtype
