@@ -66,8 +66,12 @@ def simplify(expr):
     and compute the result if possible
     Only supports affine expressions on integers and floats
     """
+
+    print("Pass through")
     if isinstance(expr, (int, float)):
         return expr
+    if isinstance(expr, sp.numbers.Integer):
+        return int(expr)
     if isinstance(expr, ConstantOp):
         return expr.value
     if isinstance(expr, IterVar):
@@ -90,6 +94,50 @@ def simplify(expr):
             return expr
         index = expr.index
         return sp.simplify(simplify(tensor.fcompute(*index)))
+    
+    # Start
+    elif isinstance(expr, LeftShiftOp):
+        lhs = simplify(simplify(expr.lhs))
+        rhs = simplify(simplify(expr.rhs))
+        return sp.simplify(lhs << rhs)
+    elif isinstance(expr, RightShiftOp):
+        lhs = simplify(simplify(expr.lhs))
+        rhs = simplify(simplify(expr.rhs))
+        return sp.simplify(lhs >> rhs)
+    elif isinstance(expr, And):
+        lhs = simplify(simplify(expr.lhs))
+        rhs = simplify(simplify(expr.rhs))
+        return sp.simplify(lhs & rhs)
+    elif isinstance(expr, Or):
+        lhs = simplify(simplify(expr.lhs))
+        rhs = simplify(simplify(expr.rhs))
+        return sp.simplify(lhs | rhs)
+    elif isinstance(expr, XOr):
+        lhs = simplify(simplify(expr.lhs))
+        rhs = simplify(simplify(expr.rhs))
+        return sp.simplify(lhs ^ rhs)
+    elif isinstance(expr, Cmp):
+        print("Pass through here.")
+        lhs = simplify(simplify(expr.lhs))
+        rhs = simplify(simplify(expr.rhs))
+        op = expr.name
+        if op == "lt":
+            return 1
+        # elif op == "le":
+        #     return sp.simplify(lhs <= rhs)
+        # elif op == "eq":
+        #     return sp.simplify(lhs == rhs)
+        # elif op == "ne":
+        #     return sp.simplify(lhs != rhs)
+        # elif op == "gt":
+        #     return sp.simplify(lhs > rhs)
+        # elif op == "ge":
+        #     return sp.simplify(lhs >= rhs)
+        else:
+            raise HCLError("Unsupported expression type: {main} ({sub})".format(name=type(expr), sub=expr.name))
+
+    # End
+
     else:
         raise HCLError(f"Unsupported expression type: {type(expr)}")
 
