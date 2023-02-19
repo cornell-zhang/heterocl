@@ -16,6 +16,7 @@ docs/source/tutorials
 soda_*
 out
 rapidjson
+project_*
 
 # Downloaded files
 *.params
