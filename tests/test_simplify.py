@@ -108,7 +108,6 @@ def test_bitwise_xor():
 
         lower_idx = b.v
         upper_idx = a.v ^ b.v # 5 ^ 2 = 7
-
         B = hcl.compute(A.shape, lambda x: A[x][lower_idx:upper_idx])
         return B
     A = hcl.placeholder((2,), "A")
@@ -119,8 +118,42 @@ def test_bitwise_xor():
     f(np_A, np_B)
     assert np_B.asnumpy().tolist() == [0b11001, 0b00100]
 
+def test_cmp_lt():
+    def kernel(A):
+        a = hcl.scalar(5)
+
+        lower_idx = 0
+        with hcl.if_(a.v < 8): # TODO: It goes through both the if and else branches
+            upper_idx = 5
+        with hcl.else_():
+            upper_idx = 3
+        B = hcl.compute(A.shape, lambda x: A[x][lower_idx:upper_idx])
+        return B
+    A = hcl.placeholder((2,), "A")
+    s = hcl.create_schedule([A], kernel)
+    f = hcl.build(s)
+    np_A = hcl.asarray([0b1101001010, 0b0111001110])
+    np_B = hcl.asarray([0, 0])
+    f(np_A, np_B)
+    assert np_B.asnumpy().tolist() == [0b01010, 0b01110]
+
+
 # pytest does not execute this part
 # you can run this file directly to test
 # e.g. python test_simplify.py
 if __name__ == "__main__":
-    test_simplifier()
+    def kernel(A):
+        a = hcl.scalar(5)
+
+        lower_idx = 0
+        upper_idx = 2 < a.v
+        print(upper_idx)
+        B = hcl.compute(A.shape, lambda x: A[x][lower_idx:upper_idx])
+        return B
+    A = hcl.placeholder((2,), "A")
+    s = hcl.create_schedule([A], kernel)
+    f = hcl.build(s)
+    np_A = hcl.asarray([0b1101001010, 0b0111001110])
+    np_B = hcl.asarray([0, 0])
+    f(np_A, np_B)
+    assert np_B.asnumpy().tolist() == [0b01010, 0b01110]
