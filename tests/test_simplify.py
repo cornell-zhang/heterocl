@@ -123,25 +123,120 @@ def test_bitwise_xor():
     f(np_A, np_B)
     assert np_B.asnumpy().tolist() == [0b11001, 0b00100]
 
-def test_cmp_lt():
+def test_cmp_lt1():
     def kernel(A):
         a = hcl.scalar(5)
 
         lower_idx = 0
-        with hcl.if_(a.v < 8): # TODO: It goes through both the if and else branches
-            upper_idx = 5
-        with hcl.else_():
-            upper_idx = 3
+        upper_idx = 8 > a.v # 8 > 5 -> 5 < 8 = True -> 1
         B = hcl.compute(A.shape, lambda x: A[x][lower_idx:upper_idx])
         return B
     A = hcl.placeholder((2,), "A")
     s = hcl.create_schedule([A], kernel)
     f = hcl.build(s)
-    np_A = hcl.asarray([0b1101001010, 0b0111001110])
+    np_A = hcl.asarray([0b10, 0b01])
     np_B = hcl.asarray([0, 0])
     f(np_A, np_B)
-    assert np_B.asnumpy().tolist() == [0b01010, 0b01110]
+    assert np_B.asnumpy().tolist() == [0b0, 0b1]
 
+def test_cmp_le1():
+    def kernel(A):
+        a = hcl.scalar(5)
+
+        lower_idx = 0
+        upper_idx = 5 >= a.v # 5 >= 5 -> 5 <= 5 = True -> 1
+        B = hcl.compute(A.shape, lambda x: A[x][lower_idx:upper_idx])
+        return B
+    A = hcl.placeholder((2,), "A")
+    s = hcl.create_schedule([A], kernel)
+    f = hcl.build(s)
+    np_A = hcl.asarray([0b10, 0b01])
+    np_B = hcl.asarray([0, 0])
+    f(np_A, np_B)
+    assert np_B.asnumpy().tolist() == [0b0, 0b1]
+
+def test_cmp_eq1():
+    def kernel(A):
+        a = hcl.scalar(5)
+
+        lower_idx = a.v == 6 # 5 == 6 -> 6 == 5 = False -> 0
+        upper_idx = 5 == a.v # 5 == 5 = True -> 1
+        B = hcl.compute(A.shape, lambda x: A[x][lower_idx:upper_idx])
+        return B
+    A = hcl.placeholder((2,), "A")
+    s = hcl.create_schedule([A], kernel)
+    f = hcl.build(s)
+    np_A = hcl.asarray([0b11, 0b01])
+    np_B = hcl.asarray([0, 0])
+    f(np_A, np_B)
+    assert np_B.asnumpy().tolist() == [0b1, 0b1]
+
+def test_cmp_ne1():
+    def kernel(A):
+        a = hcl.scalar(12)
+
+        lower_idx = 12 != a.v # 12 != 12 = False -> 0
+        upper_idx = 5 != a.v # 5 != 12 -> 12 != 5 = True -> 1
+        B = hcl.compute(A.shape, lambda x: A[x][lower_idx:upper_idx])
+        return B
+    A = hcl.placeholder((2,), "A")
+    s = hcl.create_schedule([A], kernel)
+    f = hcl.build(s)
+    np_A = hcl.asarray([0b00, 0b10])
+    np_B = hcl.asarray([0, 0])
+    f(np_A, np_B)
+    assert np_B.asnumpy().tolist() == [0b0, 0b0]
+
+def test_cmp_gt1():
+    def kernel(A):
+        a = hcl.scalar(5)
+
+        lower_idx = 0
+        upper_idx = 2 < a.v # 2 < 5 -> 5 > 2 = True -> 1
+        B = hcl.compute(A.shape, lambda x: A[x][lower_idx:upper_idx])
+        return B
+    A = hcl.placeholder((2,), "A")
+    s = hcl.create_schedule([A], kernel)
+    f = hcl.build(s)
+    np_A = hcl.asarray([0b1101001011, 0b0111001110])
+    np_B = hcl.asarray([0, 0])
+    f(np_A, np_B)
+    assert np_B.asnumpy().tolist() == [0b1, 0b0]
+
+# def test_cmp_gt2():
+    # def kernel(A):
+    #     a = hcl.scalar(5)
+
+    #     lower_idx = 0
+    #     with hcl.if_(a.v < 8): # TODO: It goes through both the if and else branches
+    #         upper_idx = 5
+    #     with hcl.else_():
+    #         upper_idx = 3
+    #     B = hcl.compute(A.shape, lambda x: A[x][lower_idx:upper_idx])
+    #     return B
+    # A = hcl.placeholder((2,), "A")
+    # s = hcl.create_schedule([A], kernel)
+    # f = hcl.build(s)
+    # np_A = hcl.asarray([0b1101001010, 0b0111001110])
+    # np_B = hcl.asarray([0, 0])
+    # f(np_A, np_B)
+    # assert np_B.asnumpy().tolist() == [0b01010, 0b01110]
+
+def test_cmp_ge1():
+    def kernel(A):
+        a = hcl.scalar(5)
+
+        lower_idx = 0
+        upper_idx = 2 <= a.v # 2 <= 5 -> 5 => 2 = True -> 1
+        B = hcl.compute(A.shape, lambda x: A[x][lower_idx:upper_idx])
+        return B
+    A = hcl.placeholder((2,), "A")
+    s = hcl.create_schedule([A], kernel)
+    f = hcl.build(s)
+    np_A = hcl.asarray([0b1101001011, 0b0111001110])
+    np_B = hcl.asarray([0, 0])
+    f(np_A, np_B)
+    assert np_B.asnumpy().tolist() == [0b1, 0b0]
 
 # pytest does not execute this part
 # you can run this file directly to test
@@ -150,9 +245,13 @@ if __name__ == "__main__":
     def kernel(A):
         a = hcl.scalar(5)
 
-        lower_idx = 0
-        upper_idx = 2 < a.v
-        print(upper_idx)
+        lower_idx = 3 != a.v
+        with hcl.if_(a.v < 8): # TODO: It goes through both the if and else branches
+            print("IF")
+            upper_idx = 5
+        with hcl.else_():
+            print("ELSE")
+            upper_idx = 3
         B = hcl.compute(A.shape, lambda x: A[x][lower_idx:upper_idx])
         return B
     A = hcl.placeholder((2,), "A")
