@@ -51,6 +51,7 @@ jobs:
           command: |
             export HCL_HOME=$(pwd)
             export LLVM_BUILD_DIR=/home/circleci/llvm-project/build
+            export PATH=${LLVM_BUILD_DIR}/bin:${PATH}
             export PYTHONPATH=$HCL_HOME/hcl-dialect/build/tools/hcl/python_packages/hcl_core:${PYTHONPATH}
             export PYTHONPATH=$HCL_HOME:${PYTHONPATH}
             python3 -m pytest tests -v
@@ -59,6 +60,7 @@ jobs:
           command: |
             export HCL_HOME=$(pwd)
             export LLVM_BUILD_DIR=/home/circleci/llvm-project/build
+            export PATH=${LLVM_BUILD_DIR}/bin:${PATH}
             export PYTHONPATH=$HCL_HOME/hcl-dialect/build/tools/hcl/python_packages/hcl_core:${PYTHONPATH}
             export PYTHONPATH=$HCL_HOME:${PYTHONPATH}
             cd tutorials
