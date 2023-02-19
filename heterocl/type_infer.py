@@ -75,6 +75,10 @@ class TypeInference:
     def infer_binary(self, expr):
         lhs_type = self.infer(expr.lhs)
         rhs_type = self.infer(expr.rhs)
+        if isinstance(lhs_type, tuple):
+            lhs_type = lhs_type[-1]
+        if isinstance(rhs_type, tuple):
+            rhs_type = rhs_type[-1]
         # find the rule set based on the operation type
         if type(expr) not in self._rule_dict:
             raise APIError(f"Typing rules not defined for operation type: {type(expr)}")
