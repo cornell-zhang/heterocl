@@ -1,8 +1,19 @@
 # Copyright HeteroCL authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
+# pylint: disable=f-string-without-interpolation
 
 import sympy as sp
-from hcl_mlir.exceptions import *
+from hcl_mlir.exceptions import (
+    HCLError,
+    DTypeError,
+    APIError,
+    TensorError,
+    HCLNotImplementedError,
+    MLIRLimitationError,
+    HCLValueError,
+    DTypeWarning,
+    APIWarning,
+)
 from ..context import *
 from ..types import *
 from ..type_infer import TypeInference
@@ -36,7 +47,7 @@ def immediate_to_constant(value, loc, dtype=None):
 
 def replace_all_uses_with(op, old_tensor, new_tensor):
     if isinstance(op, FuncOp):
-        new_rets = list()
+        new_rets = []
         for ret in op.return_tensors:
             if ret.name == old_tensor.name:
                 new_rets.append(new_tensor)
@@ -103,7 +114,7 @@ class Scope(object):
     """Scope class to manage operation insertion scopes."""
 
     def __init__(self):
-        self.stack = list()
+        self.stack = []
 
     def push(self, scope):
         """Push a new scope to the stack.
@@ -133,7 +144,7 @@ class Scope(object):
         # in the case that there is a top-level function,
         # this list will be poped and the operations will
         # be inserted into the top-level function body scope
-        self.stack.append(list())
+        self.stack.append([])
 
 
 scope = Scope()
@@ -886,7 +897,7 @@ class TensorSlice(Expr):
         self.parent = parent
         self.indices = indices
         # calculate tensor slice shape
-        shape = list()
+        shape = []
         dims = 0
         for index in indices:
             if isinstance(index, int):
@@ -967,9 +978,9 @@ class AllocOp(Expr):
         self.fcompute = None
         # uses is a list of ComputeOp that uses the tensor produced by this op
         # we need such list to support create_schedule without an enclosing function
-        self.uses = list()
+        self.uses = []
         # Axes, a list of loop handles corresponding to the loop axes
-        self.axis = list()
+        self.axis = []
         # the device where the tensor is allocated
         # e.g. Host, FPGA, GPU
         self.device = None
@@ -1068,14 +1079,14 @@ class ComputeOp(Operation):
             self.kind = "update"
         else:
             raise HCLValueError("tensor must be either None, 'no_alloc', or an AllocOp")
-        self.body = list()
-        self.iter_vars = list()
-        self.reduce_vars = list()
+        self.body = []
+        self.iter_vars = []
+        self.reduce_vars = []
         self.level = len(scope)
         # For stages that do not produce a tensor
         # we use an auxiliary tensor to attach loop axis
         self.aux_tensor = AllocOp(name, shape, dtype, loc)
-        self.input_tensors = list()
+        self.input_tensors = []
 
         # update tensor's reference to fcompute
         if self.tensor is not None:
@@ -1099,8 +1110,8 @@ class IfOp(Operation):
     def __init__(self, cond, loc):
         super().__init__("if", loc)
         self.cond = immediate_to_constant(cond, loc)
-        self.body = list()
-        self.else_body = list()
+        self.body = []
+        self.else_body = []
         self.level = len(scope)
         self.else_branch_valid = False
 
@@ -1124,7 +1135,7 @@ class IfOp(Operation):
 class ElseOp(Operation):
     def __init__(self, loc):
         super().__init__("else", loc)
-        self.body = list()
+        self.body = []
         self.level = len(scope)
 
     def __repr__(self):
@@ -1142,7 +1153,7 @@ class ElseIfOp(Operation):
     def __init__(self, cond, loc):
         super().__init__("elseif", loc)
         self.cond = cond
-        self.body = list()
+        self.body = []
         self.level = len(scope)
 
     def __repr__(self):
@@ -1210,7 +1221,7 @@ class ForOp(Operation):
         self.low = low
         self.high = high
         self.step = step
-        self.body = list()
+        self.body = []
         self.iter_var = IterVar(name, self, loc)
         self.level = len(scope)
 
@@ -1231,7 +1242,7 @@ class WhileOp(Operation):
     def __init__(self, cond, loc):
         super().__init__("while", loc)
         self.cond = cond
-        self.body = list()
+        self.body = []
         self.level = len(scope)
 
     def __repr__(self):
@@ -1251,7 +1262,7 @@ class FuncOp(Operation):
         self.name = name
         self.args = args
         self.body = body
-        self.return_tensors = list()
+        self.return_tensors = []
         self.level = len(scope)
         self.body_ip = None
         self.python_callable = None
@@ -1344,7 +1355,7 @@ class ReduceOp(Expr):
         self.name = name
         self.expr = expr
         self.scalar = AllocOp(name, (1,), dtype, loc)
-        self.body = list()
+        self.body = []
         self.reduce_op = reduce_op
         self.axis = axis
         self.dtype = dtype
