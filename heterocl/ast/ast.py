@@ -75,7 +75,6 @@ def simplify(expr):
     Only supports affine expressions on integers and floats
     """
 
-    print("Pass through")
     if isinstance(expr, (int, float)):
         return expr
     if isinstance(expr, sp.numbers.Integer):
@@ -125,24 +124,28 @@ def simplify(expr):
         rhs = simplify(simplify(expr.rhs))
         return sp.simplify(lhs ^ rhs)
     elif isinstance(expr, Cmp):
-        print("Pass through here.")
         lhs = simplify(simplify(expr.lhs))
         rhs = simplify(simplify(expr.rhs))
         op = expr.name
         if op == "lt":
-            return 1
-        # elif op == "le":
-        #     return sp.simplify(lhs <= rhs)
-        # elif op == "eq":
-        #     return sp.simplify(lhs == rhs)
-        # elif op == "ne":
-        #     return sp.simplify(lhs != rhs)
-        # elif op == "gt":
-        #     return sp.simplify(lhs > rhs)
-        # elif op == "ge":
-        #     return sp.simplify(lhs >= rhs)
+            output = lhs < rhs
+        elif op == "le":
+            output = lhs <= rhs
+        elif op == "eq":
+            output = lhs == rhs
+        elif op == "ne":
+            output = lhs != rhs
+        elif op == "gt":
+            output = lhs > rhs
+        elif op == "ge":
+            output = lhs >= rhs
         else:
             raise HCLError("Unsupported expression type: {main} ({sub})".format(name=type(expr), sub=expr.name))
+        
+        if output:
+            return 1
+        else:
+            return 0
 
     # End
 
