@@ -26,19 +26,28 @@ The HeteroCL DSL provides a clean programming abstraction that decouples algorit
 ![flow](docs/compile_flow_mlir.png)
 
 ## Install MLIR-based HeteroCL
-For installing and using the HeteroCL MLIR dialect, please refer to the guide in the [HCL-MLIR](https://github.com/cornell-zhang/hcl-dialect) repository and build the dialect with Python binding. The following shows the complete script to build and connect the frontend with the MLIR flow.
+To install the HeteroCL-MLIR dialect, please make sure you have installed the tools below:
+
+- gcc >= 5.4
+- cmake >= 3.19
+- python >= 3.7
+
+The following script shows the complete process of building the HeteroCL-MLIR dialect and connecting it with the HeteroCL frontend. It may take about 10 minutes to install the LLVM package depending on the internet connection and the hardware resource of your machine. If you are a HeteroCL developer, please refer to the guide in the [HCL-MLIR](https://github.com/cornell-zhang/hcl-dialect) repository and build the dialect with the Python binding from source.
 
 ```bash
 git clone https://github.com/cornell-zhang/heterocl.git heterocl-mlir
 cd heterocl-mlir
 git submodule update --init --recursive
-pip install .
+pip install . -v
+# export LLVM path
+export LLVM_BUILD_DIR=$(pwd)/hcl-dialect/externals/llvm-project/build
+export PATH=${LLVM_BUILD_DIR}/bin:${PATH}
 ```
 
-To verify HeteroCL is installed correctly, we can run the following test.
+To verify HeteroCL is installed correctly, you can run the following test.
 
 ```bash
-python3 tests/hcl-mlir/test_gemm.py
+python3 -m pytest test
 ```
 
 

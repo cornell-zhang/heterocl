@@ -11,7 +11,7 @@ from setuptools.command.build_ext import build_ext
 from setuptools.command.build_py import build_py
 
 args = sys.argv[1:]
-nthreads = args[args.index("--nthreads") + 1] if "--nthreads" in args else 40
+nthreads = args[args.index("--nthreads") + 1] if "--nthreads" in args else 4
 
 
 class CustomBuild(_build):
