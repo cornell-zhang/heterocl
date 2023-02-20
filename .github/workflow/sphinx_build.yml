@@ -1,0 +1,45 @@
+# Copyright HeteroCL authors. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+name: "Build documentation"
+# This workflow is triggered on pushes to the repository.
+on:
+  push:
+    branches:
+      - docs
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    # This job runs on Linux
+    runs-on: ubuntu-latest
+    container:
+      image: zzzdavid/llvm-project:15.0.0
+      credentials:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        ref: docs
+    # This step uses ammaraskar's Sphinx Build Action: https://github.com/ammaraskar/sphinx-action
+    - uses: ammaraskar/sphinx-action@master
+      with:
+        docs-folder: "docs/"
+        # list of shell commands to prepare environment before build
+        pre-build-command: "pip install -r docs/requirements.txt"
+    # Create an artifact of the html output using Github action: https://github.com/actions/upload-artifact
+    - uses: actions/upload-artifact@v1
+      with:
+        name: DocumentationHTML
+        path: docs/build/html/
+    - name: Deploy docs
+      uses: JamesIves/github-pages-deploy-action@releases/v3
+      if: github.event_name == 'push'
+      with:
+        ACCESS_TOKEN: ${{ secrets.DEPLOY_ACCESS_TOKEN }}
+        BRANCH: gh-pages
+        FOLDER: docs/build/html
