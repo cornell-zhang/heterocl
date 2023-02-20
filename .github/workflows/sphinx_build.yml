@@ -17,9 +17,6 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: zzzdavid/llvm-project:15.0.0
-      credentials:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
     steps:
     - uses: actions/checkout@v3
