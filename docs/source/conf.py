@@ -124,7 +124,7 @@ html_static_path = ["_static"]
 
 
 sphinx_gallery_conf = {
-    "examples_dirs": "scripts", #"../../tutorials",  # path to gallery scripts
+    "examples_dirs": "scripts",  # "../../tutorials",  # path to gallery scripts
     "gallery_dirs": "gallery",  # path to where to save gallery generated output
     "filename_pattern": r"/*\.py",
     "ignore_pattern": r"test_tutorial.py",
