@@ -18,28 +18,14 @@
     specific language governing permissions and limitations
     under the License.
 
-######################
-HeteroCL Documentation
-######################
+.. _setup:
 
-HeteroCL is a multi-paradigm programming infrastructure for software-defined reconfigurable computing.
+############
+Installation
+############
 
+We provide two approaches to installing HeteroCL. The easiest way is to install HeteroCL through pip:
 
-.. toctree::
-   :maxdepth: 1
-   :caption: Getting Started
+.. code-block:: console
 
-   setup/index.rst
-   gallery/getting-started.rst
-
-
-.. toctree::
-   :maxdepth: 1
-   :caption: Tutorials
-
-
-.. toctree::
-   :maxdepth: 1
-   :caption: Reference
-
-   genindex
+  $ pip install .

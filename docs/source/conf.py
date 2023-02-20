@@ -103,13 +103,14 @@ intersphinx_mapping = {
 #
 # html_logo = '_static/logo.svg'
 # html_favicon = '_static/favicon.svg'
-html_theme = "piccolo-theme"
+html_theme = "piccolo_theme"
 html_theme_options = {
-    "repository_url": "https://github.com/cornell-zhang/heterocl",
-    "use_repository_button": True,
-    "logo_only": True,
-    "extra_navbar": r"",
-    "show_navbar_depth": 1,
+    "source_url": "https://github.com/cornell-zhang/heterocl",
+    # "repository_url": "https://github.com/cornell-zhang/heterocl",
+    # "use_repository_button": True,
+    # "logo_only": True,
+    # "extra_navbar": r"",
+    # "show_navbar_depth": 1,
     # "home_page_in_toc": True
 }
 html_title = "HeteroCL Documentation"
@@ -123,10 +124,10 @@ html_static_path = ["_static"]
 
 
 sphinx_gallery_conf = {
-    "examples_dirs": "scripts",  # path to gallery scripts
+    "examples_dirs": "scripts", #"../../tutorials",  # path to gallery scripts
     "gallery_dirs": "gallery",  # path to where to save gallery generated output
     "filename_pattern": r"/*\.py",
-    # "ignore_pattern": r"",
+    "ignore_pattern": r"test_tutorial.py",
     "download_all_examples": False,
 }
 

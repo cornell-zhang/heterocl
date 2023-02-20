@@ -6,3 +6,4 @@ piccolo-theme
 matplotlib
 sphinxcontrib-googleanalytics
 sphinx_rtd_theme
+numpy
