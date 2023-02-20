@@ -17,6 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: zzzdavid/llvm-project:15.0.0
+      options: --user root
 
     steps:
     - uses: actions/checkout@v3
