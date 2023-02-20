@@ -31,9 +31,8 @@ For installing and using the HeteroCL MLIR dialect, please refer to the guide in
 ```bash
 git clone https://github.com/cornell-zhang/heterocl.git heterocl-mlir
 cd heterocl-mlir
-git checkout hcl-mlir
 git submodule update --init --recursive
-pip install -e ".[dev]"
+pip install .
 ```
 
 To verify HeteroCL is installed correctly, we can run the following test.
