@@ -22,8 +22,8 @@ jobs:
     steps:
     - name: Build HCL-MLIR
       run: |
-        export BUILD_DIR=$HOME/llvm-project/build
-        export PREFIX=$HOME/llvm-project/build
+        export BUILD_DIR=/home/circleci/llvm-project/build
+        export PREFIX=/home/circleci/llvm-project/build
         git clone https://github.com/cornell-zhang/hcl-dialect.git
         cd hcl-dialect
         mkdir -p build && cd build
