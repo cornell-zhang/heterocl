@@ -38,7 +38,7 @@ jobs:
         cd /home/circleci
         git clone https://github.com/cornell-zhang/heterocl
         cd heterocl
-        git checkout docs
+        git switch docs
         mkdir -p hcl-dialect/externals/llvm-project/llvm
         mkdir -p hcl-dialect/externals/llvm-project/build/bin/llvm-config
         mkdir -p hcl-dialect/build/bin/hcl-opt
