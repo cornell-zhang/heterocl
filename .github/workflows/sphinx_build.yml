@@ -33,10 +33,11 @@ jobs:
             -DPYTHON_BINDING=ON \
             -DPython3_EXECUTABLE=`which python3`
         make -j2
-        mkdir -p ../externals/llvm-project/build/bin/llvm-config
+        cd ..
+        mkdir -p externals/llvm-project/build/bin/llvm-config
         cd ..
         pip install -e . -v
-        cd build/tools/hcl/python_packages/hcl_core
+        cd hcl-dialect/build/tools/hcl/python_packages/hcl_core
         pip install .
     - uses: actions/checkout@v3
       with:
