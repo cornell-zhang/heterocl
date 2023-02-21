@@ -20,6 +20,20 @@ jobs:
       options: --user root
 
     steps:
+    - name: Build HCL-MLIR
+      command: |
+        export BUILD_DIR=$HOME/llvm-project/build
+        export PREFIX=$HOME/llvm-project/build
+        git clone https://github.com/cornell-zhang/hcl-dialect.git
+        cd hcl-dialect
+        mkdir -p build && cd build
+        cmake -G "Unix Makefiles" .. \
+            -DMLIR_DIR=$PREFIX/lib/cmake/mlir \
+            -DLLVM_EXTERNAL_LIT=$BUILD_DIR/bin/llvm-lit \
+            -DPYTHON_BINDING=ON \
+            -DPython3_EXECUTABLE=`which python3`
+        make -j2
+        export PYTHONPATH=$(pwd)/tools/hcl/python_packages/hcl_core:${PYTHONPATH}
     - uses: actions/checkout@v3
       with:
         ref: docs
@@ -28,7 +42,7 @@ jobs:
       with:
         docs-folder: "docs/"
         # list of shell commands to prepare environment before build
-        pre-build-command: "pip install -r docs/requirements.txt"
+        pre-build-command: "pip install -r docs/requirements.txt && export HCL_HOME=$(pwd) && export PYTHONPATH=$(pwd)/hcl-dialect/build/tools/hcl/python_packages/hcl_core:$HCL_HOME:${PYTHONPATH}"
     # Create an artifact of the html output using Github action: https://github.com/actions/upload-artifact
     - uses: actions/upload-artifact@v1
       with:

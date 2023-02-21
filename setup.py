@@ -168,7 +168,7 @@ def setup():
             "build_py": CMakeBuild,
             "build_ext": NoopBuildExtension,
         },
-        setup_requires=["numpy", "pybind11", "pip"],
+        setup_requires=["numpy", "pybind11", "pip", "cmake"],
         install_requires=parse_requirements("requirements.txt"),
         packages=setuptools.find_packages(),
         url="https://github.com/cornell-zhang/heterocl",
