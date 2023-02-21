@@ -21,10 +21,11 @@ jobs:
 
     steps:
     - name: Build HCL-MLIR
-      command: |
+      run: |
         export BUILD_DIR=$HOME/llvm-project/build
         export PREFIX=$HOME/llvm-project/build
-        git clone https://github.com/cornell-zhang/hcl-dialect.git
+        ls
+        git submodule update --init
         cd hcl-dialect
         mkdir -p build && cd build
         cmake -G "Unix Makefiles" .. \
