@@ -12,7 +12,7 @@ from setuptools.command.build_py import build_py
 
 args = sys.argv[1:]
 nthreads = args[args.index("--nthreads") + 1] if "--nthreads" in args else 4
-ONLY_FRONTEND = True if "--only-frontend" in args else False
+only_frontend = "--only-frontend" in args
 
 
 class CustomBuild(_build):
@@ -39,7 +39,6 @@ class CMakeBuild(build_py):
     def initialize_options(self):
         # call parent initialize_options method
         build_py.initialize_options(self)
-        self.error = 0
 
     def finalize_options(self):
         # call parent finalize_options method
@@ -121,7 +120,7 @@ class CMakeBuild(build_py):
             )
 
     def run(self):
-        if not ONLY_FRONTEND:
+        if not only_frontend:
             self.src_dir = os.path.abspath(os.path.dirname(__file__))
             self.llvm_dir = os.path.join(
                 self.src_dir, "hcl-dialect/externals/llvm-project"
@@ -172,6 +171,7 @@ def setup():
             "build_py": CMakeBuild,
             "build_ext": NoopBuildExtension,
         },
+        options={"only_frontend": only_frontend},
         setup_requires=["numpy", "pybind11", "pip", "cmake"],
         install_requires=parse_requirements("requirements.txt"),
         packages=setuptools.find_packages(),
