@@ -140,7 +140,7 @@ class CMakeBuild(build_py):
                 os.path.join(self.src_dir, "hcl-dialect/build/bin/hcl-opt")
             ):
                 self.build_hcl_dialect()
-            self.install_hcl_dialect()
+                self.install_hcl_dialect()
         build_py.run(self)
 
 
