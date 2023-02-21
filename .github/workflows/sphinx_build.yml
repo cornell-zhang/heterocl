@@ -33,12 +33,15 @@ jobs:
             -DPYTHON_BINDING=ON \
             -DPython3_EXECUTABLE=`which python3`
         make -j2
-        cd ..
-        mkdir -p externals/llvm-project/build/bin/llvm-config
-        cd ..
+        cd tools/hcl/python_packages/hcl_core
+        pip install -e .
+        cd /home/circleci
+        git clone https://github.com/cornell-zhang/heterocl
+        cd heterocl
+        mkdir -p hcl-dialect/externals/llvm-project/llvm
+        mkdir -p hcl-dialect/externals/llvm-project/build/bin/llvm-config
+        mkdir -p hcl-dialect/build/bin/hcl-opt
         pip install -e . -v
-        cd hcl-dialect/build/tools/hcl/python_packages/hcl_core
-        pip install .
     - uses: actions/checkout@v3
       with:
         ref: docs
