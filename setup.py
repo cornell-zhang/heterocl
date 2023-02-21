@@ -12,7 +12,6 @@ from setuptools.command.build_py import build_py
 
 args = sys.argv[1:]
 nthreads = args[args.index("--nthreads") + 1] if "--nthreads" in args else 4
-only_frontend = "--only-frontend" in args
 
 
 class CustomBuild(_build):
@@ -120,27 +119,26 @@ class CMakeBuild(build_py):
             )
 
     def run(self):
-        if not only_frontend:
-            self.src_dir = os.path.abspath(os.path.dirname(__file__))
-            self.llvm_dir = os.path.join(
-                self.src_dir, "hcl-dialect/externals/llvm-project"
+        self.src_dir = os.path.abspath(os.path.dirname(__file__))
+        self.llvm_dir = os.path.join(
+            self.src_dir, "hcl-dialect/externals/llvm-project"
+        )
+        if not os.path.exists(os.path.join(self.llvm_dir, "llvm")):
+            raise RuntimeError(
+                "`llvm-project` not found. Please run `git submodule update --init --recursive` first"
             )
-            if not os.path.exists(os.path.join(self.llvm_dir, "llvm")):
-                raise RuntimeError(
-                    "`llvm-project` not found. Please run `git submodule update --init --recursive` first"
-                )
-            self.llvm_cmake_build_dir = os.path.join(self.llvm_dir, "build")
-            if not os.path.exists(
-                os.path.join(self.llvm_cmake_build_dir, "bin/llvm-config")
-            ):
-                self.build_llvm()
-            self.hcl_dialect_dir = os.path.join(self.src_dir, "hcl-dialect")
-            self.hcl_cmake_build_dir = os.path.join(self.hcl_dialect_dir, "build")
-            if not os.path.exists(
-                os.path.join(self.src_dir, "hcl-dialect/build/bin/hcl-opt")
-            ):
-                self.build_hcl_dialect()
-                self.install_hcl_dialect()
+        self.llvm_cmake_build_dir = os.path.join(self.llvm_dir, "build")
+        if not os.path.exists(
+            os.path.join(self.llvm_cmake_build_dir, "bin/llvm-config")
+        ):
+            self.build_llvm()
+        self.hcl_dialect_dir = os.path.join(self.src_dir, "hcl-dialect")
+        self.hcl_cmake_build_dir = os.path.join(self.hcl_dialect_dir, "build")
+        if not os.path.exists(
+            os.path.join(self.src_dir, "hcl-dialect/build/bin/hcl-opt")
+        ):
+            self.build_hcl_dialect()
+            self.install_hcl_dialect()
         build_py.run(self)
 
 
@@ -171,7 +169,6 @@ def setup():
             "build_py": CMakeBuild,
             "build_ext": NoopBuildExtension,
         },
-        options={"only_frontend": only_frontend},
         setup_requires=["numpy", "pybind11", "pip", "cmake"],
         install_requires=parse_requirements("requirements.txt"),
         packages=setuptools.find_packages(),
