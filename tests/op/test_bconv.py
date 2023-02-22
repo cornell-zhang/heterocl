@@ -232,8 +232,7 @@ def test_bconv_nhwc_buffer_at():
                         for rh in range(0, kh):
                             for rw in range(0, kw):
                                 np_C[n][y][x][c] += 1 - 2 * (
-                                    np_A[n][y + rh][x + rw][rc]
-                                    ^ np_B[c][rh][rw][rc]
+                                    np_A[n][y + rh][x + rw][rc] ^ np_B[c][rh][rw][rc]
                                 )
 
     hcl_A = hcl.asarray(np_A, dtype=hcl.UInt(1))
@@ -256,6 +255,7 @@ def test_packed_bconv_nhwc_threshold_bufferat():
 
     # heterocl kernel
     hcl.init(hcl.UInt(packing_factor))
+
     def packed_bconv_nhwc(A, F):
         rc = hcl.reduce_axis(0, ic // packing_factor)
         rh = hcl.reduce_axis(0, kh)
@@ -278,34 +278,32 @@ def test_packed_bconv_nhwc_threshold_bufferat():
         )
         return B
 
-    def packed_batch_norm_threshold_nhwc(
-            data, threshold, name="C"
-        ):
-            batch, out_height, out_width, channel = data.shape
-            bitwidth = channel  # pack channels
+    def packed_batch_norm_threshold_nhwc(data, threshold, name="C"):
+        batch, out_height, out_width, channel = data.shape
+        bitwidth = channel  # pack channels
 
-            def genpack(i, h, w, c):
-                out = hcl.scalar(0, name=name + "_pack", dtype=hcl.UInt(bitwidth))
-                with hcl.for_(0, bitwidth) as k:
-                    out[0][k] = hcl.select(
-                        data[i, h, w, c * bitwidth + k] > threshold[h, w, c * bitwidth + k],
-                        hcl.cast(hcl.UInt(1), 1),
-                        hcl.cast(hcl.UInt(1), 0),
-                    )
-                return out[0]
+        def genpack(i, h, w, c):
+            out = hcl.scalar(0, name=name + "_pack", dtype=hcl.UInt(bitwidth))
+            with hcl.for_(0, bitwidth) as k:
+                out[0][k] = hcl.select(
+                    data[i, h, w, c * bitwidth + k] > threshold[h, w, c * bitwidth + k],
+                    hcl.cast(hcl.UInt(1), 1),
+                    hcl.cast(hcl.UInt(1), 0),
+                )
+            return out[0]
 
-            return hcl.compute(
-                (batch, out_height, out_width, channel // bitwidth),
-                genpack,
-                name=name,
-                dtype=hcl.UInt(bitwidth),
-            )
+        return hcl.compute(
+            (batch, out_height, out_width, channel // bitwidth),
+            genpack,
+            name=name,
+            dtype=hcl.UInt(bitwidth),
+        )
 
     def two_layer(A, F, X):
         B = packed_bconv_nhwc(A, F)
         C = packed_batch_norm_threshold_nhwc(B, X)
         return B, C
-    
+
     A = hcl.placeholder((bs, ih, iw, ic // packing_factor))
     F = hcl.placeholder((oc, kh, kw, ic // packing_factor))
     X = hcl.placeholder((oh, ow, oc), dtype=hcl.Int(32))
@@ -332,8 +330,7 @@ def test_packed_bconv_nhwc_threshold_bufferat():
                         for rh in range(0, kh):
                             for rw in range(0, kw):
                                 np_B[n][y][x][c] += 1 - 2 * (
-                                    np_A[n][y + rh][x + rw][rc]
-                                    ^ np_F[c][rh][rw][rc]
+                                    np_A[n][y + rh][x + rw][rc] ^ np_F[c][rh][rw][rc]
                                 )
 
     # threshold
@@ -352,7 +349,6 @@ def test_packed_bconv_nhwc_threshold_bufferat():
                 for c in range(0, oc):
                     packed_C[n][y][x][0] |= np_C[n][y][x][c] << c
 
-
     packed_A = np.zeros((bs, ih, iw, ic // packing_factor), dtype="int")
     packed_F = np.zeros((oc, kh, kw, ic // packing_factor), dtype="int")
     # pack A
@@ -361,14 +357,18 @@ def test_packed_bconv_nhwc_threshold_bufferat():
             for x in range(0, iw):
                 for c in range(0, ic // packing_factor):
                     for k in range(0, packing_factor):
-                        packed_A[n][y][x][c] |= np_A[n][y][x][c * packing_factor + k] << k
+                        packed_A[n][y][x][c] |= (
+                            np_A[n][y][x][c * packing_factor + k] << k
+                        )
     # pack F
     for n in range(0, oc):
         for y in range(0, kh):
             for x in range(0, kw):
                 for c in range(0, ic // packing_factor):
                     for k in range(0, packing_factor):
-                        packed_F[n][y][x][c] |= np_F[n][y][x][c * packing_factor + k] << k
+                        packed_F[n][y][x][c] |= (
+                            np_F[n][y][x][c * packing_factor + k] << k
+                        )
 
     hcl_A = hcl.asarray(packed_A, dtype=hcl.UInt(packing_factor))
     hcl_F = hcl.asarray(packed_F, dtype=hcl.UInt(packing_factor))
