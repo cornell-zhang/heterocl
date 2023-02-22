@@ -1550,7 +1550,7 @@ class IRBuilder:
         self.build_visitor(op.axis, ip)
         f32 = F32Type.get()
         memref_type = MemRefType.get((1,), f32, loc=loc)
-        buffer_at_op = hcl_d.BufferAt(
+        buffer_at_op = hcl_d.BufferAtOp(
             memref_type, op.target.result, op.axis.result, ip=ip, loc=loc
         )
         op.ir_op = buffer_at_op
