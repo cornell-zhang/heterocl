@@ -101,7 +101,7 @@ def simplify(expr):
             return expr
         index = expr.index
         return sp.simplify(simplify(tensor.fcompute(*index)))
-    
+
     # Start
     elif isinstance(expr, LeftShiftOp):
         lhs = simplify(simplify(expr.lhs))
@@ -140,15 +140,12 @@ def simplify(expr):
         elif op == "ge":
             output = lhs >= rhs
         else:
-            raise HCLError("Unsupported expression type: {main} ({sub})".format(name=type(expr), sub=expr.name))
-        
+            raise HCLError(f"Unsupported expression type: {type(expr)}, {expr.name}")
+
         if output:
             return 1
         else:
             return 0
-
-    # End
-
     else:
         raise HCLError(f"Unsupported expression type: {type(expr)}")
 
