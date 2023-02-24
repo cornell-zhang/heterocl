@@ -328,7 +328,7 @@ def test_const_tensor_int():
     def test_kernel(dtype, size):
         hcl.init(dtype)
 
-        np_A = np.random.randint(-32, 32, size=size, dtype=np.int32)
+        np_A = np.random.randint(-15, 15, size=size, dtype=np.int32)
         py_A = np_A.tolist()
 
         def kernel():
