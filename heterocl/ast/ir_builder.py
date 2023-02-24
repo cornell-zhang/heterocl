@@ -1434,7 +1434,8 @@ class IRBuilder:
             new_dtype = np.dtype(
                 {
                     "names": [f"f{i}" for i in range(n_bytes)],
-                    "formats": ["u1"] * (n_bytes - 1) + (["i1"] if isinstance(dtype, htypes.Int) else ["u1"]),
+                    "formats": ["u1"] * (n_bytes - 1)
+                    + (["i1"] if isinstance(dtype, htypes.Int) else ["u1"]),
                     "offsets": list(range(n_bytes)),
                     "itemize": n_bytes,
                 }
