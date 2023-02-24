@@ -133,8 +133,20 @@ def get_src_loc(frame=0):
 def make_const_tensor(val, dtype):
     # val is numpy ndarray
     if isinstance(dtype, (Int, UInt)):
-        if dtype.bits <= 64:
+        if dtype.bits == 1:
+            np_dtype = np.bool_
+        elif dtype.bits <= 8:
+            np_dtype = np.int8
+        elif dtype.bits <= 16:
+            np_dtype = np.int16
+        elif dtype.bits <= 32:
+            np_dtype = np.int32
+        elif dtype.bits <= 64:
             np_dtype = np.int64
+        elif dtype.bits <= 128:
+            np_dtype = np.int128
+        elif dtype.bits <= 256:
+            np_dtype = np.int256
         else:
             raise DTypeError(
                 f"Integer width ({dtype}) too large, not supported by numpy"
