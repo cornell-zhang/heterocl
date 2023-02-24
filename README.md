@@ -2,7 +2,7 @@
 <!--- SPDX-License-Identifier: Apache-2.0  -->
 
 [![GitHub license](https://dmlc.github.io/img/apache2.svg)](./LICENSE)
-[![CircleCI](https://circleci.com/gh/cornell-zhang/heterocl/tree/master.svg?style=svg&circle-token=2b5ee9faf30b94aac41b61032d03e4654a65079d)](https://circleci.com/gh/cornell-zhang/heterocl/tree/master)
+[![CircleCI](https://circleci.com/gh/cornell-zhang/heterocl/tree/main.svg?style=svg&circle-token=2b5ee9faf30b94aac41b61032d03e4654a65079d)](https://circleci.com/gh/cornell-zhang/heterocl/tree/main)
 
 HeteroCL: A Multi-Paradigm Programming Infrastructure for Software-Defined Reconfigurable Computing
 ===================================================================================================
@@ -59,27 +59,19 @@ python3 -m pytest test
 
 ## Related Work
 
+* **[MLIR](https://arxiv.org/pdf/2002.11054.pdf)**
+* **[TVM](https://tvm.ai)** / **[Halide](https://halide-lang.org)**
 * **[Stencil with Optimized Dataflow Architecture](https://vast.cs.ucla.edu/~chiyuze/pub/iccad18.pdf)** (SODA)
 * **[Polyhedral-Based Systolic Array Auto-Compilation](http://cadlab.cs.ucla.edu/~jaywang/papers/iccad18-polysa.pdf)** (PolySA)
 * **[Merlin Compiler](https://www.falconcomputing.com/merlin-fpga-compiler/)**
-* **[Halide](https://halide-lang.org)**
-* **[TVM](https://tvm.ai)**
-* **[MLIR](https://arxiv.org/pdf/2002.11054.pdf)**
+
 
 ## Contributing to HeteroCL
 
 ### Coding Style (Python)
 
-We follow [official Python coding style](https://www.python.org/dev/peps/pep-0008/#descriptive-naming-styles) and use [NumPy docstring style](https://numpydoc.readthedocs.io/en/latest/format.html#other-points-to-keep-in-mind).
+We follow [official Python coding style](https://www.python.org/dev/peps/pep-0008/#descriptive-naming-styles) and use [NumPy docstring style](https://numpydoc.readthedocs.io/en/latest/format.html#other-points-to-keep-in-mind). We use [Black](https://pypi.org/project/black/) and [PyLint](https://pylint.readthedocs.io/) to format Python code.
 
 ### Coding Style (C and C++)
 
-We follow [Google coding style](https://google.github.io/styleguide/cppguide.htm).
-
-### Steps
-
-1. Use [clang-format](https://clang.llvm.org/docs/ClangFormat.html) to format your C-related files. The configuration file is in `docs/.clang-format`. Following is a sample command to format the file in place. Note that you need to put the configuration file at the same directory you execute the command.
-
-   ``clang-format -i -style=file <cpp-file>``
-2. Use [Pull Request](https://help.github.com/articles/about-pull-requests/). Remember to select the most suitable labels and put it in the title.
-3. Make sure all the tests pass.
+We follow [Google coding style](https://google.github.io/styleguide/cppguide.htm). Please refer to the [hcl-dialect](https://github.com/cornell-zhang/hcl-dialect) repository for more details.
