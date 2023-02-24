@@ -1447,10 +1447,11 @@ class IRBuilder:
             val = val.view(np.dtype(new_dtype))
             # -> reshape: 6*6*i24
             val = val.reshape(shape)
+            # Pass in the numpy array to get the MLIR attribute
+            value_attr = DenseElementsAttr.get(val, shape=val.shape, type=dtype)
         else:
             val = op.values
-        # Pass in the numpy array to get the MLIR attribute
-        value_attr = DenseElementsAttr.get(val, shape=val.shape, type=dtype)
+            value_attr = DenseElementsAttr.get(val)
         sym_name = StringAttr.get(op.name)
         sym_visibility = StringAttr.get("private")
         if isinstance(op.dtype, (htypes.Fixed, htypes.UFixed)):

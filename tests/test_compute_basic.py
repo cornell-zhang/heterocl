@@ -328,7 +328,7 @@ def test_const_tensor_int():
     def test_kernel(dtype, size):
         hcl.init(dtype)
 
-        np_A = np.random.randint(32, size=size, dtype=np.int32)
+        np_A = np.random.randint(-32, 32, size=size, dtype=np.int32)
         py_A = np_A.tolist()
 
         def kernel():
@@ -350,8 +350,35 @@ def test_const_tensor_int():
     for i in range(0, 5):
         bit = np.random.randint(6, 60)
         test_kernel(hcl.Int(bit), (8, 8))
-        test_kernel(hcl.UInt(bit), (8, 8))
         test_kernel(hcl.Int(bit), (20, 20, 3))
+
+
+def test_const_tensor_uint():
+    def test_kernel(dtype, size):
+        hcl.init(dtype)
+
+        np_A = np.random.randint(32, size=size, dtype=np.int32)
+        py_A = np_A.tolist()
+
+        def kernel():
+            cp1 = hcl.const_tensor(np_A, dtype=dtype)
+            cp2 = hcl.const_tensor(py_A, dtype=dtype)
+            return hcl.compute(np_A.shape, lambda *x: cp1[x] + cp2[x])
+
+        O = hcl.placeholder(np_A.shape)
+        s = hcl.create_schedule([], kernel)
+        f = hcl.build(s)
+
+        np_O = np.zeros(np_A.shape)
+        hcl_O = hcl.asarray(np_O, dtype=dtype)
+
+        f(hcl_O)
+
+        assert np.array_equal(hcl_O.asnumpy(), np_A * 2)
+
+    for i in range(0, 5):
+        bit = np.random.randint(6, 60)
+        test_kernel(hcl.UInt(bit), (8, 8))
         test_kernel(hcl.UInt(bit), (20, 20, 3))
 
 
