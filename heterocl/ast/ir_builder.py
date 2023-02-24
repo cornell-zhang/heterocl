@@ -1426,6 +1426,11 @@ class IRBuilder:
                 array = np.packbits(val, axis=None, bitorder="little")
                 value_attr = DenseElementsAttr.get(array, shape=val.shape, type=dtype)
             else:
+                # Here we construct a customized NumPy dtype, "f0", "f1", "f2", etc.
+                # are the field names, and the entire data type is `op.values.dtype`.
+                # This can be viewed as a `union` type in C/C++.
+                # Please refer to the documentation for more details:
+                # https://numpy.org/doc/stable/reference/arrays.dtypes.html#specifying-and-constructing-data-types
                 decomposed_np_dtype = np.dtype(
                     (
                         op.values.dtype,
@@ -1438,6 +1443,7 @@ class IRBuilder:
                 val = op.values.view(decomposed_np_dtype)
                 # 2. Compose the uint8 array into a structured array of target bitwidth
                 # This is done by taking the first several bytes of the uint8 array
+                # "u1" means one unsigned byte, and "i1" means one signed byte
                 n_bytes = int(np.ceil(dtype.width / 8))
                 new_dtype = np.dtype(
                     {
