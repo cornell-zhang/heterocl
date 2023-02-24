@@ -339,6 +339,18 @@ def test_const_tensor_int():
         O = hcl.placeholder(np_A.shape)
         s = hcl.create_schedule([], kernel)
         f = hcl.build(s)
+        # Test the generated bitwidth is the same as what user specified
+        from hcl_mlir.dialects import memref as memref_d
+        from hcl_mlir.ir import MemRefType, IntegerType, TypeAttr
+
+        for op in s.module.body.operations:
+            if isinstance(op, memref_d.GlobalOp):
+                assert (
+                    IntegerType(
+                        MemRefType(TypeAttr(op.attributes["type"]).value).element_type
+                    ).width
+                    == dtype.bits
+                )
 
         np_O = np.zeros(np_A.shape)
         hcl_O = hcl.asarray(np_O, dtype=dtype)
@@ -351,6 +363,32 @@ def test_const_tensor_int():
         bit = np.random.randint(6, 60)
         test_kernel(hcl.Int(bit), (8, 8))
         test_kernel(hcl.Int(bit), (20, 20, 3))
+
+
+def test_const_tensor_int_corner_case():
+    def test_kernel(dtype, size):
+        hcl.init(dtype)
+
+        # 2^5 - 1 = 31
+        np_A = np.random.randint(-15, 15, size=size, dtype=np.int32)
+        py_A = np_A.tolist()
+
+        def kernel():
+            cp1 = hcl.const_tensor(np_A, dtype=dtype)
+            cp2 = hcl.const_tensor(py_A, dtype=dtype)
+            return hcl.compute(np_A.shape, lambda *x: cp1[x] + cp2[x])
+
+        O = hcl.placeholder(np_A.shape)
+        s = hcl.create_schedule([], kernel)
+        f = hcl.build(s)
+        np_O = np.zeros(np_A.shape)
+        hcl_O = hcl.asarray(np_O, dtype=dtype)
+
+        f(hcl_O)
+
+        assert np.array_equal(hcl_O.asnumpy(), np_A * 2)
+
+    test_kernel(hcl.Int(6), (8, 8))
 
 
 def test_const_tensor_uint():
