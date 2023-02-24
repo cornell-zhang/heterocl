@@ -110,17 +110,9 @@ def const_tensor(values, name=None, dtype=None):
     values = np.array(values)
     shape = values.shape
     values = make_const_tensor(values, dtype)
-    realtype = Int(64) if isinstance(dtype, (Int, UInt)) else dtype
-    cst_op = ast.ConstantTensorOp(values, name, shape, realtype, loc)
+    cst_op = ast.ConstantTensorOp(values, name, shape, dtype, loc)
     region = ast.scope.get()
     region.append(cst_op)
-    if isinstance(dtype, (Int, UInt)):
-        return compute(
-            shape,
-            lambda *args: cast(dtype, cst_op.tensor[args]),
-            name=name + "_cast",
-            dtype=dtype,
-        )
     return cst_op.tensor
 
 

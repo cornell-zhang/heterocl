@@ -328,12 +328,12 @@ def test_const_tensor_int():
     def test_kernel(dtype, size):
         hcl.init(dtype)
 
-        np_A = np.random.randint(10, size=size)
+        np_A = np.random.randint(32, size=size, dtype=np.int32)
         py_A = np_A.tolist()
 
         def kernel():
-            cp1 = hcl.const_tensor(np_A)
-            cp2 = hcl.const_tensor(py_A)
+            cp1 = hcl.const_tensor(np_A, dtype=dtype)
+            cp2 = hcl.const_tensor(py_A, dtype=dtype)
             return hcl.compute(np_A.shape, lambda *x: cp1[x] + cp2[x])
 
         O = hcl.placeholder(np_A.shape)
