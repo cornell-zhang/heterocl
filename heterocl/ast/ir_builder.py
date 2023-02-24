@@ -1448,8 +1448,8 @@ class IRBuilder:
                 new_dtype = np.dtype(
                     {
                         "names": [f"f{i}" for i in range(n_bytes)],
-                        "formats": ["u1"] * (n_bytes - 1)
-                        + (["i1"] if isinstance(dtype, htypes.Int) else ["u1"]),
+                        "formats": (["i1"] if isinstance(dtype, htypes.Int) else ["u1"])
+                        + ["u1"] * (n_bytes - 1),
                         "offsets": list(range(n_bytes)),
                         "itemize": n_bytes,
                     }
@@ -1463,6 +1463,7 @@ class IRBuilder:
                 # -> reshape: 6*6*i24
                 val = val.reshape(shape)
                 # Pass in the numpy array to get the MLIR attribute
+                # -> result: 6*6*i20
                 value_attr = DenseElementsAttr.get(val, shape=val.shape, type=dtype)
         else:
             val = op.values
