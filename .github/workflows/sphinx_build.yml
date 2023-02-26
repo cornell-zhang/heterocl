@@ -7,9 +7,13 @@ on:
   push:
     branches:
       - docs
+    paths:
+      - 'docs/**'
   pull_request:
     branches:
       - main
+    paths:
+      - 'docs/**'
 
 jobs:
   build:
@@ -41,7 +45,10 @@ jobs:
     - name: Build docs
       run: |
         export HCL_HOME=$(pwd)
+        export LLVM_BUILD_DIR=/home/circleci/llvm-project/build
+        export PATH=${LLVM_BUILD_DIR}/bin:${PATH}
         export PYTHONPATH=$HCL_HOME:${PYTHONPATH}
+        export PYTHONPATH=$HCL_HOME/hcl-dialect/build/tools/hcl/python_packages/hcl_core:${PYTHONPATH}
         python3 -m pip install -r requirements.txt
         cd docs
         python3 -m pip install -r requirements.txt
