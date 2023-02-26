@@ -6,7 +6,10 @@ name: "Build documentation"
 on:
   push:
     branches:
-      - docs
+      - main
+    paths:
+      - 'docs/**'
+      - 'tutorials/**'
   pull_request:
     branches:
       - main
