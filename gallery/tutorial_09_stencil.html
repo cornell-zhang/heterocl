@@ -4,8 +4,9 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Getting Started &#8212; HeteroCL Documentation</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>Use the Stencil Backend &#8212; HeteroCL Documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/basic_mod.css?v=0.7.0-1" />
     <link rel="stylesheet" type="text/css" href="../_static/graphviz.css" />
@@ -25,7 +26,7 @@
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="Index" href="../genindex.html" />
-    <link rel="prev" title="Installation" href="../setup/index.html" /> 
+    <link rel="prev" title="Back-end Support" href="tutorial_08_backend.html" /> 
   </head><body data-dark_mode_code_blocks="true">
 
 <div id="top_nav">
@@ -136,9 +137,20 @@
     
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper"><p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
-<ul class="current">
+<ul>
 <li class="toctree-l1"><a class="reference internal" href="../setup/index.html">Installation</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Getting Started</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Tutorials</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="tutorial_01_get_started.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorial_02_imperative.html">Imperative Programming</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorial_03_api.html">HeteroCL Compute APIs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorial_04_compute.html">Compute Customization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorial_05_dtype.html">Data Type Customization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorial_06_memory.html">Memory Customization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorial_07_module.html">Custom Module Definition</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorial_08_backend.html">Back-end Support</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Use the Stencil Backend</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Reference</span></p>
 <ul>
@@ -156,38 +168,84 @@
             
   <div class="sphx-glr-download-link-note admonition note">
 <p class="admonition-title">Note</p>
-<p>Click <a class="reference internal" href="#sphx-glr-download-gallery-getting-started-py"><span class="std std-ref">here</span></a>
+<p>Click <a class="reference internal" href="#sphx-glr-download-gallery-tutorial-09-stencil-py"><span class="std std-ref">here</span></a>
 to download the full example code</p>
 </div>
-<div class="sphx-glr-example-title section" id="getting-started">
-<span id="sphx-glr-gallery-getting-started-py"></span><h1>Getting Started<a class="headerlink" href="#getting-started" title="Permalink to this headline"><span>¶</span></a></h1>
-<p>This is a simple tutorial to get you started with HeteroCL.</p>
+<section class="sphx-glr-example-title" id="use-the-stencil-backend">
+<span id="sphx-glr-gallery-tutorial-09-stencil-py"></span><h1>Use the Stencil Backend<a class="headerlink" href="#use-the-stencil-backend" title="Permalink to this headline"><span>¶</span></a></h1>
+<p><strong>Author</strong>: Yuze Chi (Blaok)</p>
+<p>In this tutorial, we show how to use the stencil backend in HeteroCL and
+generate HLS C++ code as the result.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="kn">import</span> <span class="nn">heterocl</span> <span class="k">as</span> <span class="nn">hcl</span>
 </pre></div>
 </div>
-<div class="section" id="this-is-a-test">
-<h2>This is a test<a class="headerlink" href="#this-is-a-test" title="Permalink to this headline"><span>¶</span></a></h2>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><a href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="numpy.ndarray" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">a</span></a> <span class="o">=</span> <a href="https://numpy.org/doc/stable/reference/generated/numpy.array.html#numpy.array" title="numpy.array" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-function"><span class="n">np</span><span class="o">.</span><span class="n">array</span></a><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">])</span>
-<a href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="numpy.ndarray" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">b</span></a> <span class="o">=</span> <a href="https://numpy.org/doc/stable/reference/generated/numpy.array.html#numpy.array" title="numpy.array" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-function"><span class="n">np</span><span class="o">.</span><span class="n">array</span></a><span class="p">([</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">])</span>
-<a href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="numpy.ndarray" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">c</span></a> <span class="o">=</span> <a href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="numpy.ndarray" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">a</span></a> <span class="o">+</span> <a href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="numpy.ndarray" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">b</span></a>
-<span class="nb">print</span><span class="p">(</span><a href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="numpy.ndarray" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">c</span></a><span class="p">)</span>
+<section id="stencil-comptuation">
+<h2>Stencil Comptuation<a class="headerlink" href="#stencil-comptuation" title="Permalink to this headline"><span>¶</span></a></h2>
+<p>Stencil kernels compute output based on a sliding window over the input. The
+following shows an example. It computes the average over a 5-point window.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">jacobi</span><span class="p">(</span><span class="n">input_image</span><span class="p">,</span> <span class="n">output_image</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">jacobi_kernel</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="n">input_image</span><span class="p">[</span><span class="n">y</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">x</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+            <span class="o">+</span> <span class="n">input_image</span><span class="p">[</span><span class="n">y</span><span class="p">,</span> <span class="n">x</span><span class="p">]</span>
+            <span class="o">+</span> <span class="n">input_image</span><span class="p">[</span><span class="n">y</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">x</span><span class="p">]</span>
+            <span class="o">+</span> <span class="n">input_image</span><span class="p">[</span><span class="n">y</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">x</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+            <span class="o">+</span> <span class="n">input_image</span><span class="p">[</span><span class="n">y</span> <span class="o">+</span> <span class="mi">2</span><span class="p">,</span> <span class="n">x</span><span class="p">]</span>
+        <span class="p">)</span> <span class="o">/</span> <span class="mi">5</span>
+
+    <span class="k">return</span> <span class="n">hcl</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">output_image</span><span class="p">,</span> <span class="n">jacobi_kernel</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">output_image</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>[5 7 9]
+</section>
+<section id="id1">
+<h2>Use the Stencil Backend<a class="headerlink" href="#id1" title="Permalink to this headline"><span>¶</span></a></h2>
+<p>HeteroCL provides a special backend for stencil computation kernels. It can
+be used via the <cite>target</cite> argument when building a program.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">dtype</span> <span class="o">=</span> <span class="n">hcl</span><span class="o">.</span><span class="n">Float</span><span class="p">()</span>
+<span class="n">input_image</span> <span class="o">=</span> <span class="n">hcl</span><span class="o">.</span><span class="n">placeholder</span><span class="p">((</span><span class="mi">480</span><span class="p">,</span> <span class="mi">640</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;input&quot;</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+<span class="n">output_image</span> <span class="o">=</span> <span class="n">hcl</span><span class="o">.</span><span class="n">placeholder</span><span class="p">((</span><span class="mi">480</span><span class="p">,</span> <span class="mi">640</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;output&quot;</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+<span class="n">soda_schedule</span> <span class="o">=</span> <span class="n">hcl</span><span class="o">.</span><span class="n">create_schedule</span><span class="p">([</span><span class="n">input_image</span><span class="p">,</span> <span class="n">output_image</span><span class="p">],</span> <span class="n">jacobi</span><span class="p">)</span>
+<span class="c1"># soda_schedule[jacobi.output].stencil()</span>
+<span class="c1"># print(hcl.build(soda_schedule, target=&#39;soda&#39;))</span>
 </pre></div>
 </div>
-<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> ( 0 minutes  0.003 seconds)</p>
-<div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-gallery-getting-started-py">
+</section>
+<section id="increase-parallelism">
+<h2>Increase Parallelism<a class="headerlink" href="#increase-parallelism" title="Permalink to this headline"><span>¶</span></a></h2>
+<p>The above program is written in the SODA DSL, which provides advanced
+optimizations to stencil kernels. One of the optimizations is to provide
+scalable parallelism. To increase parallelism, one can unroll the inner-most
+stencil loop, as follows. The same SODA DSL will be generated, except the
+unroll factor will become 8.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">soda_schedule</span> <span class="o">=</span> <span class="n">hcl</span><span class="o">.</span><span class="n">create_schedule</span><span class="p">([</span><span class="n">input_image</span><span class="p">,</span> <span class="n">output_image</span><span class="p">],</span> <span class="n">jacobi</span><span class="p">)</span>
+<span class="c1"># soda_schedule[jacobi.output].stencil(unroll_factor=8)</span>
+<span class="c1"># print(hcl.build(soda_schedule, target=&#39;soda&#39;))</span>
+</pre></div>
+</div>
+</section>
+<section id="generatel-hls-c-code">
+<h2>Generatel HLS C++ Code<a class="headerlink" href="#generatel-hls-c-code" title="Permalink to this headline"><span>¶</span></a></h2>
+<p>The SODA DSL certainly does not compile directly. It needs to be passed to
+the SODA Compiler. HeteroCL provides a built-in target that generates HLS
+C++ code from the intermediate SODA code directly. The generated C++ code is
+valid HLS code and can be passed to HLS vendor tools without modifications.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># print(hcl.build(soda_schedule, target=&#39;soda_xhls&#39;))</span>
+</pre></div>
+</div>
+<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> ( 0 minutes  0.002 seconds)</p>
+<div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-gallery-tutorial-09-stencil-py">
 <div class="sphx-glr-download sphx-glr-download-python docutils container">
-<p><a class="reference download internal" download="" href="../_downloads/bf0a71ac2cac61fdfcf5b8859c0a4261/getting-started.py"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Python</span> <span class="pre">source</span> <span class="pre">code:</span> <span class="pre">getting-started.py</span></code></a></p>
+<p><a class="reference download internal" download="" href="../_downloads/d5a4b3e62e048c20b5c7515f7064fe01/tutorial_09_stencil.py"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Python</span> <span class="pre">source</span> <span class="pre">code:</span> <span class="pre">tutorial_09_stencil.py</span></code></a></p>
 </div>
 <div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
-<p><a class="reference download internal" download="" href="../_downloads/e9609e0dcc8768204ddfa81c1400bbeb/getting-started.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">getting-started.ipynb</span></code></a></p>
+<p><a class="reference download internal" download="" href="../_downloads/7f66f80a24c0571773a47ac3b94202bf/tutorial_09_stencil.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">tutorial_09_stencil.ipynb</span></code></a></p>
 </div>
 </div>
 <p class="sphx-glr-signature"><a class="reference external" href="https://sphinx-gallery.github.io">Gallery generated by Sphinx-Gallery</a></p>
-</div>
-</div>
+</section>
+</section>
 
 
             <div class="clearer"></div>
@@ -203,8 +261,11 @@ to download the full example code</p>
             <p><a class="toggle_right_sidebar" href="#"><span class="icon">></span><span>Page contents:<span></a></p>
             <div class="page_toc">
                 <ul>
-<li><a class="reference internal" href="#">Getting Started</a><ul>
-<li><a class="reference internal" href="#this-is-a-test">This is a test</a></li>
+<li><a class="reference internal" href="#">Use the Stencil Backend</a><ul>
+<li><a class="reference internal" href="#stencil-comptuation">Stencil Comptuation</a></li>
+<li><a class="reference internal" href="#id1">Use the Stencil Backend</a></li>
+<li><a class="reference internal" href="#increase-parallelism">Increase Parallelism</a></li>
+<li><a class="reference internal" href="#generatel-hls-c-code">Generatel HLS C++ Code</a></li>
 </ul>
 </li>
 </ul>
@@ -219,8 +280,8 @@ to download the full example code</p>
         <div class="button_nav">
             <div class="left">
                 
-                <a href="../setup/index.html">
-                    <span class="icon"><</span><span>Installation</span></a>
+                <a href="tutorial_08_backend.html">
+                    <span class="icon"><</span><span>Back-end Support</span></a>
                 
             </div>
 

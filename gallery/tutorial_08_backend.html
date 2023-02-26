@@ -1,0 +1,486 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>Back-end Support &#8212; HeteroCL Documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic_mod.css?v=0.7.0-1" />
+    <link rel="stylesheet" type="text/css" href="../_static/graphviz.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-binder.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-dataframe.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-rendered-html.css" />
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/clipboard.min.js"></script>
+    <script src="../_static/copybutton.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <script src="../_static/js/petite-vue.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Use the Stencil Backend" href="tutorial_09_stencil.html" />
+    <link rel="prev" title="Custom Module Definition" href="tutorial_07_module.html" /> 
+  </head><body data-dark_mode_code_blocks="true">
+
+<div id="top_nav">
+    
+
+    <nav>
+        
+            
+        
+
+        <p id="toggle_sidebar">
+            <a href="#" title="Toggle sidebar">|||</a>
+        </p>
+        <h1><a href="../index.html" title="Go to homepage">HeteroCL Documentation</a></h1>
+            <a id="source_link" href="https://github.com/cornell-zhang/heterocl">
+    
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512">
+            <path fill="white" d="M 244.8,8 C 106.1,8 0,113.3 0,252 c 0,110.9 69.8,205.8 169.5,239.2 12.8,2.3 17.3,-5.6 17.3,-12.1 0,-6.2 -0.3,-40.4 -0.3,-61.4 0,0 -70,15 -84.7,-29.8 0,0 -11.4,-29.1 -27.8,-36.6 0,0 -22.9,-15.7 1.6,-15.4 0,0 24.9,2 38.6,25.8 21.9,38.6 58.6,27.5 72.9,20.9 2.3,-16 8.8,-27.1 16,-33.7 -55.9,-6.2 -112.3,-14.3 -112.3,-110.5 0,-27.5 7.6,-41.3 23.6,-58.9 -2.6,-6.5 -11.1,-33.3 2.6,-67.9 20.9,-6.5 69,27 69,27 20,-5.6 41.5,-8.5 62.8,-8.5 21.3,0 42.8,2.9 62.8,8.5 0,0 48.1,-33.6 69,-27 13.7,34.7 5.2,61.4 2.6,67.9 16,17.7 25.8,31.5 25.8,58.9 0,96.5 -58.9,104.2 -114.8,110.5 9.2,7.9 17,22.9 17,46.4 0,33.7 -0.3,75.4 -0.3,83.6 0,6.5 4.6,14.4 17.3,12.1 C 428.2,457.8 496,362.9 496,252 496,113.3 383.5,8 244.8,8 Z"/>
+        </svg>
+    
+</a>
+        
+
+        <a id="mode_toggle" href="#" @click.prevent="handleClick" :title="mode">
+    <template v-if="mode == 'light'">
+        <svg width="100%" height="100%" viewBox="0 0 79 80" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;"><g id="mode_light"><rect id="Bounds" x="0" y="-0" width="78.623" height="79.049" style="fill:none;"/><circle cx="39.311" cy="39.524" r="15.734" style="fill:#fff;"/><g id="beams"><g id="beam"><path id="beam1" serif:id="beam" d="M44.212,4.901c0,-2.705 -2.196,-4.901 -4.901,-4.901c-2.704,-0 -4.9,2.196 -4.9,4.901l-0,9.614c-0,2.705 2.196,4.901 4.9,4.901c2.705,0 4.901,-2.196 4.901,-4.901l0,-9.614Z" style="fill:#fff;"/></g><g id="beam2" serif:id="beam"><path id="beam3" serif:id="beam" d="M67.48,18.073c1.913,-1.912 1.913,-5.018 0,-6.931c-1.912,-1.912 -5.018,-1.912 -6.931,0l-6.798,6.799c-1.912,1.912 -1.912,5.018 0,6.931c1.913,1.912 5.018,1.912 6.931,-0l6.798,-6.799Z" style="fill:#fff;"/></g><g id="beam4" serif:id="beam"><path id="beam5" serif:id="beam" d="M25.728,61.108c1.912,-1.913 1.912,-5.018 -0,-6.931c-1.913,-1.913 -5.019,-1.913 -6.931,-0l-6.799,6.798c-1.912,1.913 -1.912,5.019 0,6.931c1.913,1.913 5.019,1.913 6.931,0l6.799,-6.798Z" style="fill:#fff;"/></g><g id="beam6" serif:id="beam"><path id="beam7" serif:id="beam" d="M60.682,54.177c-1.913,-1.913 -5.018,-1.913 -6.931,-0c-1.912,1.913 -1.912,5.018 0,6.931l6.798,6.798c1.913,1.913 5.019,1.913 6.931,0c1.913,-1.912 1.913,-5.018 0,-6.931l-6.798,-6.798Z" style="fill:#fff;"/></g><g id="beam8" serif:id="beam"><path id="beam9" serif:id="beam" d="M4.901,34.623c-2.705,0 -4.901,2.196 -4.901,4.901c0,2.705 2.196,4.901 4.901,4.901l9.614,0c2.705,0 4.901,-2.196 4.901,-4.901c0,-2.705 -2.196,-4.901 -4.901,-4.901l-9.614,0Z" style="fill:#fff;"/></g><g id="beam10" serif:id="beam"><path id="beam11" serif:id="beam" d="M44.212,64.534c0,-2.705 -2.196,-4.901 -4.901,-4.901c-2.704,-0 -4.9,2.196 -4.9,4.901l-0,9.614c-0,2.705 2.196,4.901 4.9,4.901c2.705,-0 4.901,-2.196 4.901,-4.901l0,-9.614Z" style="fill:#fff;"/></g><g id="beam12" serif:id="beam"><path id="beam13" serif:id="beam" d="M18.929,11.142c-1.912,-1.912 -5.018,-1.912 -6.931,0c-1.912,1.913 -1.912,5.019 0,6.931l6.799,6.799c1.912,1.912 5.018,1.912 6.931,-0c1.912,-1.913 1.912,-5.019 -0,-6.931l-6.799,-6.799Z" style="fill:#fff;"/></g><g id="beam14" serif:id="beam"><path id="beam15" serif:id="beam" d="M64.108,34.623c-2.705,0 -4.901,2.196 -4.901,4.901c-0,2.705 2.196,4.901 4.901,4.901l9.614,0c2.705,0 4.901,-2.196 4.901,-4.901c-0,-2.705 -2.196,-4.901 -4.901,-4.901l-9.614,0Z" style="fill:#fff;"/></g></g></g></svg>
+    </template>
+
+    <template v-if="mode == 'dark'">
+        <svg width="100%" height="100%" viewBox="0 0 79 80" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;"><g id="mode_dark"><rect id="Bounds" x="0" y="-0" width="78.623" height="79.049" style="fill:none;"/><circle cx="39.311" cy="39.524" r="15.734" style="fill:#fff;"/><g id="beams"><g id="beam"><path id="beam1" serif:id="beam" d="M44.212,14.515c0,-2.705 -2.196,-4.901 -4.901,-4.901c-2.704,0 -4.901,2.196 -4.901,4.901c0,2.705 2.197,4.901 4.901,4.901c2.705,0 4.901,-2.196 4.901,-4.901Z" style="fill:#fff;"/></g><g id="beam2" serif:id="beam"><path id="beam3" serif:id="beam" d="M60.662,24.892c1.902,-1.902 1.902,-4.99 0,-6.892l-0.04,-0.039c-1.901,-1.902 -4.989,-1.902 -6.891,-0c-1.901,1.901 -1.901,4.989 0,6.891l0.04,0.04c1.902,1.901 4.989,1.901 6.891,-0Z" style="fill:#fff;"/></g><g id="beam4" serif:id="beam"><path id="beam5" serif:id="beam" d="M25.732,61.103c1.91,-1.91 1.91,-5.011 0,-6.921l-0.009,-0.01c-1.91,-1.91 -5.012,-1.91 -6.921,-0c-1.91,1.91 -1.91,5.011 -0,6.921l0.01,0.01c1.909,1.91 5.011,1.91 6.92,-0Z" style="fill:#fff;"/></g><g id="beam6" serif:id="beam"><path id="beam7" serif:id="beam" d="M60.672,54.167c-1.907,-1.907 -5.004,-1.907 -6.911,0l-0.02,0.02c-1.907,1.907 -1.907,5.004 0,6.911c1.907,1.907 5.004,1.907 6.911,-0l0.02,-0.02c1.907,-1.907 1.907,-5.004 0,-6.911Z" style="fill:#fff;"/></g><g id="beam8" serif:id="beam"><path id="beam9" serif:id="beam" d="M14.52,34.623c-2.702,0 -4.896,2.194 -4.896,4.896l0,0.01c0,2.702 2.194,4.896 4.896,4.896c2.702,0 4.896,-2.194 4.896,-4.896l-0,-0.01c-0,-2.702 -2.194,-4.896 -4.896,-4.896Z" style="fill:#fff;"/></g><g id="beam10" serif:id="beam"><path id="beam11" serif:id="beam" d="M44.212,64.534c0,-2.705 -2.196,-4.901 -4.901,-4.901c-2.704,-0 -4.901,2.196 -4.901,4.901c0,2.704 2.197,4.9 4.901,4.9c2.705,0 4.901,-2.196 4.901,-4.9Z" style="fill:#fff;"/></g><g id="beam12" serif:id="beam"><path id="beam13" serif:id="beam" d="M25.73,17.943c-1.911,-1.911 -5.015,-1.911 -6.926,0l-0.005,0.005c-1.911,1.911 -1.911,5.015 0,6.926c1.911,1.911 5.015,1.911 6.926,0l0.005,-0.005c1.911,-1.911 1.911,-5.014 -0,-6.926Z" style="fill:#fff;"/></g><g id="beam14" serif:id="beam"><path id="beam15" serif:id="beam" d="M64.098,34.623c-2.699,0 -4.891,2.192 -4.891,4.892l-0,0.019c-0,2.699 2.192,4.891 4.891,4.891c2.7,0 4.892,-2.192 4.892,-4.891l0,-0.019c0,-2.7 -2.192,-4.892 -4.892,-4.892Z" style="fill:#fff;"/></g></g></g></svg>
+    </template>
+
+    <template v-if="mode == 'darkest'">
+        <svg width="100%" height="100%" viewBox="0 0 79 80" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;"><g id="mode_darkest"><rect id="Bounds" x="0" y="-0" width="78.623" height="79.049" style="fill:none;"/><path d="M39.315,23.791c8.684,-0 15.734,7.05 15.734,15.733c0,8.684 -7.05,15.734 -15.734,15.734c-8.683,0 -15.733,-7.05 -15.733,-15.734c-0,-8.683 7.05,-15.733 15.733,-15.733Zm0,4.737c6.069,0 10.997,4.927 10.997,10.996c-0,6.069 -4.928,10.996 -10.997,10.996c-6.068,0 -10.996,-4.927 -10.996,-10.996c0,-6.069 4.928,-10.996 10.996,-10.996Z" style="fill:#fff;"/><g id="beams"><g id="beam"><path id="beam1" serif:id="beam" d="M44.216,14.515c0,-2.705 -2.196,-4.901 -4.901,-4.901c-2.704,0 -4.9,2.196 -4.9,4.901c-0,2.705 2.196,4.901 4.9,4.901c2.705,0 4.901,-2.196 4.901,-4.901Z" style="fill:#fff;"/></g><g id="beam2" serif:id="beam"><path id="beam3" serif:id="beam" d="M60.666,24.892c1.902,-1.902 1.902,-4.99 0,-6.892l-0.04,-0.039c-1.901,-1.902 -4.989,-1.902 -6.891,-0c-1.901,1.901 -1.901,4.989 0,6.891l0.04,0.04c1.902,1.901 4.99,1.901 6.891,-0Z" style="fill:#fff;"/></g><g id="beam4" serif:id="beam"><path id="beam5" serif:id="beam" d="M25.737,61.103c1.909,-1.91 1.909,-5.011 -0,-6.921l-0.01,-0.01c-1.91,-1.91 -5.011,-1.91 -6.921,-0c-1.91,1.91 -1.91,5.011 -0,6.921l0.01,0.01c1.91,1.91 5.011,1.91 6.921,-0Z" style="fill:#fff;"/></g><g id="beam6" serif:id="beam"><path id="beam7" serif:id="beam" d="M60.676,54.167c-1.907,-1.907 -5.004,-1.907 -6.911,0l-0.02,0.02c-1.907,1.907 -1.907,5.004 0,6.911c1.907,1.907 5.004,1.907 6.911,-0l0.02,-0.02c1.907,-1.907 1.907,-5.004 0,-6.911Z" style="fill:#fff;"/></g><g id="beam8" serif:id="beam"><path id="beam9" serif:id="beam" d="M14.524,34.623c-2.702,0 -4.896,2.194 -4.896,4.896l0,0.01c0,2.702 2.194,4.896 4.896,4.896c2.702,0 4.896,-2.194 4.896,-4.896l0,-0.01c0,-2.702 -2.194,-4.896 -4.896,-4.896Z" style="fill:#fff;"/></g><g id="beam10" serif:id="beam"><path id="beam11" serif:id="beam" d="M44.216,64.534c0,-2.705 -2.196,-4.901 -4.901,-4.901c-2.704,-0 -4.9,2.196 -4.9,4.901c-0,2.704 2.196,4.9 4.9,4.9c2.705,0 4.901,-2.196 4.901,-4.9Z" style="fill:#fff;"/></g><g id="beam12" serif:id="beam"><path id="beam13" serif:id="beam" d="M25.734,17.943c-1.911,-1.911 -5.015,-1.911 -6.926,0l-0.005,0.005c-1.911,1.911 -1.911,5.015 0,6.926c1.911,1.911 5.015,1.911 6.926,0l0.005,-0.005c1.911,-1.911 1.911,-5.014 0,-6.926Z" style="fill:#fff;"/></g><g id="beam14" serif:id="beam"><path id="beam15" serif:id="beam" d="M64.103,34.623c-2.7,0 -4.892,2.192 -4.892,4.892l-0,0.019c-0,2.699 2.192,4.891 4.892,4.891c2.699,0 4.891,-2.192 4.891,-4.891l0,-0.019c0,-2.7 -2.192,-4.892 -4.891,-4.892Z" style="fill:#fff;"/></g></g></g></svg>
+    </template>
+</a>
+
+<script>
+(function() {
+    const LOCAL_STORAGE_KEY = 'piccoloThemeMode'
+
+    var initialMode = localStorage.getItem(LOCAL_STORAGE_KEY)
+
+    if (initialMode) {
+        // Make sure the value in local storage is valid
+        if (['light', 'dark', 'darkest'].indexOf(initialMode) == -1) {
+            initialMode = 'light'
+            localStorage.setItem(LOCAL_STORAGE_KEY, initialMode)
+        }
+    } else {
+        // Check if the client prefers dark mode
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            initialMode = 'dark'
+        } else {
+            initialMode = 'light'
+        }
+        localStorage.setItem(LOCAL_STORAGE_KEY, initialMode)
+    }
+
+    document.documentElement.dataset.mode = initialMode
+
+    PetiteVue.createApp({
+        'mode': initialMode,
+        handleClick() {
+            let currentMode = this.mode
+
+            if (currentMode == 'light') {
+                this.mode = 'dark'
+            } else if (currentMode == 'dark') {
+                this.mode = 'darkest'
+            } else if (currentMode == 'darkest') {
+                this.mode = 'light'
+            }
+
+            document.documentElement.dataset.mode = this.mode
+            localStorage.setItem(LOCAL_STORAGE_KEY, this.mode)
+
+            console.log(this.mode)
+        }
+    }).mount('#mode_toggle')
+})()
+</script>
+            <p class="mobile_search_link">
+                <a href="../search.html" title="Search">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 65 64" fill-rule="evenodd" stroke-linejoin="round" stroke-miterlimit="2">
+                        <path d="M14.873 40.009c-2.315-3.943-3.642-8.532-3.642-13.429C11.231 11.91 23.141 0 37.811 0s26.58 11.91 26.58 26.58-11.91 26.58-26.58 26.58a26.44 26.44 0 0 1-14.277-4.161L9.739 62.794a3.12 3.12 0 0 1-4.413 0L.913 58.382c-1.217-1.218-1.217-3.196 0-4.413l13.96-13.96zM37.811 8.054c10.225 0 18.526 8.301 18.526 18.526s-8.301 18.526-18.526 18.526-18.526-8.301-18.526-18.526S27.586 8.054 37.811 8.054z" fill="#fff" />
+                    </svg>
+                </a>
+            </p>
+        
+
+        <div class="searchbox_wrapper">
+            
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+    </nav>
+</div>
+
+    
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../setup/index.html">Installation</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Tutorials</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="tutorial_01_get_started.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorial_02_imperative.html">Imperative Programming</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorial_03_api.html">HeteroCL Compute APIs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorial_04_compute.html">Compute Customization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorial_05_dtype.html">Data Type Customization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorial_06_memory.html">Memory Customization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorial_07_module.html">Custom Module Definition</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Back-end Support</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorial_09_stencil.html">Use the Stencil Backend</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../genindex.html">Index</a></li>
+</ul>
+
+        </div>
+      </div>
+
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="sphx-glr-download-link-note admonition note">
+<p class="admonition-title">Note</p>
+<p>Click <a class="reference internal" href="#sphx-glr-download-gallery-tutorial-08-backend-py"><span class="std std-ref">here</span></a>
+to download the full example code</p>
+</div>
+<section class="sphx-glr-example-title" id="back-end-support">
+<span id="sphx-glr-gallery-tutorial-08-backend-py"></span><h1>Back-end Support<a class="headerlink" href="#back-end-support" title="Permalink to this headline"><span>¶</span></a></h1>
+<p><strong>Author</strong>: Yi-Hsiang Lai (<a class="reference external" href="mailto:seanlatias&#37;&#52;&#48;github">seanlatias<span>&#64;</span>github</a>)</p>
+<p>HeteroCL provides multiple back-end supports. Currently, we support both CPU
+and FPGA flows. We will be extending to other back ends including ASICs and
+PIMs (processing in memory). To set to different back ends, simply set the
+<code class="docutils literal notranslate"><span class="pre">target</span></code> of <code class="docutils literal notranslate"><span class="pre">hcl.build</span></code> API. In this tutorial, we will demonstrate how
+to target different back ends in HeteroCL. The same program and schedule will
+be used throughout the entire tutorial.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">heterocl</span> <span class="k">as</span> <span class="nn">hcl</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="n">hcl</span><span class="o">.</span><span class="n">init</span><span class="p">()</span>
+<span class="n">A</span> <span class="o">=</span> <span class="n">hcl</span><span class="o">.</span><span class="n">placeholder</span><span class="p">((</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="s2">&quot;A&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">kernel</span><span class="p">(</span><span class="n">A</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">hcl</span><span class="o">.</span><span class="n">compute</span><span class="p">((</span><span class="mi">8</span><span class="p">,</span> <span class="mi">8</span><span class="p">),</span> <span class="k">lambda</span> <span class="n">y</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">A</span><span class="p">[</span><span class="n">y</span><span class="p">][</span><span class="n">x</span><span class="p">]</span> <span class="o">+</span> <span class="n">A</span><span class="p">[</span><span class="n">y</span> <span class="o">+</span> <span class="mi">2</span><span class="p">][</span><span class="n">x</span> <span class="o">+</span> <span class="mi">2</span><span class="p">],</span> <span class="s2">&quot;B&quot;</span><span class="p">)</span>
+
+
+<span class="n">s</span> <span class="o">=</span> <span class="n">hcl</span><span class="o">.</span><span class="n">create_scheme</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">kernel</span><span class="p">)</span>
+<span class="n">s</span><span class="o">.</span><span class="n">downsize</span><span class="p">(</span><span class="n">kernel</span><span class="o">.</span><span class="n">B</span><span class="p">,</span> <span class="n">hcl</span><span class="o">.</span><span class="n">UInt</span><span class="p">(</span><span class="mi">4</span><span class="p">))</span>
+<span class="n">s</span> <span class="o">=</span> <span class="n">hcl</span><span class="o">.</span><span class="n">create_schedule_from_scheme</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+<span class="n">s</span><span class="o">.</span><span class="n">partition</span><span class="p">(</span><span class="n">A</span><span class="p">)</span>
+<span class="n">s</span><span class="p">[</span><span class="n">kernel</span><span class="o">.</span><span class="n">B</span><span class="p">]</span><span class="o">.</span><span class="n">pipeline</span><span class="p">(</span><span class="n">kernel</span><span class="o">.</span><span class="n">B</span><span class="o">.</span><span class="n">axis</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+</pre></div>
+</div>
+<section id="cpu">
+<h2>CPU<a class="headerlink" href="#cpu" title="Permalink to this headline"><span>¶</span></a></h2>
+<p>CPU is the default back end of a HeteroCL program. If you want to be more
+specific, set the <code class="docutils literal notranslate"><span class="pre">target</span></code> to be <code class="docutils literal notranslate"><span class="pre">llvm</span></code>. Note the some customization
+primitives are ignored by the CPU back end. For instance, <code class="docutils literal notranslate"><span class="pre">partition</span></code> and
+<code class="docutils literal notranslate"><span class="pre">pipeline</span></code> have no effect. Instead, we can use <code class="docutils literal notranslate"><span class="pre">parallel</span></code>.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">f</span> <span class="o">=</span> <span class="n">hcl</span><span class="o">.</span><span class="n">build</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>  <span class="c1"># equivalent to hcl.build(s, target=&quot;llvm&quot;)</span>
+</pre></div>
+</div>
+<p>We can execute the returned function as we demonstrated in other tutorials.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">hcl_A</span> <span class="o">=</span> <span class="n">hcl</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><a href="https://numpy.org/doc/stable/reference/random/generated/numpy.random.randint.html#numpy.random.randint" title="numpy.random.randint" class="sphx-glr-backref-module-numpy-random sphx-glr-backref-type-py-function"><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span></a><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="n">A</span><span class="o">.</span><span class="n">shape</span><span class="p">))</span>
+<span class="n">hcl_B</span> <span class="o">=</span> <span class="n">hcl</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><a href="https://numpy.org/doc/stable/reference/generated/numpy.zeros.html#numpy.zeros" title="numpy.zeros" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-function"><span class="n">np</span><span class="o">.</span><span class="n">zeros</span></a><span class="p">((</span><span class="mi">8</span><span class="p">,</span> <span class="mi">8</span><span class="p">)),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">hcl</span><span class="o">.</span><span class="n">UInt</span><span class="p">(</span><span class="mi">4</span><span class="p">))</span>
+<span class="n">f</span><span class="p">(</span><span class="n">hcl_A</span><span class="p">,</span> <span class="n">hcl_B</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="fpga">
+<h2>FPGA<a class="headerlink" href="#fpga" title="Permalink to this headline"><span>¶</span></a></h2>
+<p>For FPGA, we provide several back ends.</p>
+<section id="vivado-hls-c-code-generation">
+<h3>Vivado HLS C++ Code Generation<a class="headerlink" href="#vivado-hls-c-code-generation" title="Permalink to this headline"><span>¶</span></a></h3>
+<p>To generate Vivado HLS code, simply set the target to <code class="docutils literal notranslate"><span class="pre">vhls</span></code>. Note that
+the returned function is a <strong>code</strong> instead of an executable.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">f</span> <span class="o">=</span> <span class="n">hcl</span><span class="o">.</span><span class="n">build</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">target</span><span class="o">=</span><span class="s2">&quot;vhls&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>//===------------------------------------------------------------*- C++ -*-===//
+//
+// Automatically generated file for High-level Synthesis (HLS).
+//
+//===----------------------------------------------------------------------===//
+#include &lt;algorithm&gt;
+#include &lt;ap_axi_sdata.h&gt;
+#include &lt;ap_fixed.h&gt;
+#include &lt;ap_int.h&gt;
+#include &lt;hls_math.h&gt;
+#include &lt;hls_stream.h&gt;
+#include &lt;math.h&gt;
+#include &lt;stdint.h&gt;
+using namespace std;
+/// This is top function.
+void top(
+  int32_t v0[10][10],
+  ap_uint&lt;4&gt; v1[8][8]
+) {     // L28
+  #pragma HLS array_partition variable=v0 complete dim=1
+  #pragma HLS array_partition variable=v0 complete dim=2
+
+  l_B_y: for (int y = 0; y &lt; 8; y++) {  // L480
+    l_x: for (int x = 0; x &lt; 8; x++) {  // L480
+    #pragma HLS pipeline II=1
+      int32_t v4 = v0[y][x];    // L21
+      int32_t v5 = v0[(y + 2)][(x + 2)];        // L21
+      ap_int&lt;33&gt; v6 = v4;       // L480
+      ap_int&lt;33&gt; v7 = v5;       // L480
+      ap_int&lt;33&gt; v8 = v6 + v7;  // L21
+      ap_int&lt;4&gt; v9 = v8;        // L480
+      v1[y][x] = v9;    // L480
+    }
+  }
+}
+</pre></div>
+</div>
+</section>
+<section id="vivado-hls-c-code-simulation">
+<h3>Vivado HLS C++ Code Simulation<a class="headerlink" href="#vivado-hls-c-code-simulation" title="Permalink to this headline"><span>¶</span></a></h3>
+<p>HeteroCL provides users with the ability to simulation the generated HLS
+code directly from the Python interface. To use this feature, you need to
+have the Vivado HLS header files in your <code class="docutils literal notranslate"><span class="pre">g++</span></code> include path. If this is
+the case, then we can set target to <code class="docutils literal notranslate"><span class="pre">vhls_csim</span></code>, which returns an
+<strong>executable</strong>. We can then run it the same as what we do for the CPU back
+end.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The Vivado HLS program will not be triggered during the simulation.
+We only need the header files to be in the path.</p>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">subprocess</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+
+<span class="n">proc</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">Popen</span><span class="p">(</span>
+    <span class="s2">&quot;g++ -E -Wp,-v -xc++ /dev/null&quot;</span><span class="p">,</span>
+    <span class="n">shell</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">stdout</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">PIPE</span><span class="p">,</span>
+    <span class="n">stderr</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">PIPE</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">stdout</span><span class="p">,</span> <span class="n">stderr</span> <span class="o">=</span> <span class="n">proc</span><span class="o">.</span><span class="n">communicate</span><span class="p">()</span>
+<span class="k">if</span> <span class="s2">&quot;Vivado_HLS&quot;</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">stderr</span><span class="p">):</span>
+    <span class="n">f</span> <span class="o">=</span> <span class="n">hcl</span><span class="o">.</span><span class="n">build</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">target</span><span class="o">=</span><span class="s2">&quot;vhls_csim&quot;</span><span class="p">)</span>
+    <span class="n">f</span><span class="p">(</span><span class="n">hcl_A</span><span class="p">,</span> <span class="n">hcl_B</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="intel-hls-c-code-generation">
+<h3>Intel HLS C++ Code Generation<a class="headerlink" href="#intel-hls-c-code-generation" title="Permalink to this headline"><span>¶</span></a></h3>
+<p>HeteroCL can also generate Intel HLS code. However, due to certain
+limitation, some directives cannot be generated. To generate the code, set
+the target to <code class="docutils literal notranslate"><span class="pre">ihls</span></code>.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">f</span> <span class="o">=</span> <span class="n">hcl</span><span class="o">.</span><span class="n">build</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">target</span><span class="o">=</span><span class="s2">&quot;ihls&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>//===------------------------------------------------------------*- C++ -*-===//
+//
+// Automatically generated file for Intel High-level Synthesis (HLS).
+//
+//===----------------------------------------------------------------------===//
+#include &lt;CL/sycl.hpp&gt;
+#include &lt;iostream&gt;
+#include &lt;sycl/ext/intel/fpga_extensions.hpp&gt;
+#include &lt;vector&gt;
+
+// dpc_common.hpp can be found in the dev-utilities include folder.
+// e.g., $ONEAPI_ROOT/dev-utilities//include/dpc_common.hpp
+#include &quot;dpc_common.hpp&quot;
+
+using namespace sycl;
+
+// Forward declare the kernel name in the global scope to reduce name mangling.
+// This is an FPGA best practice that makes it easier to identify the kernel in
+// the optimization reports.
+class Top;
+
+
+int main() {
+
+  // Select either:
+  //  - the FPGA emulator device (CPU emulation of the FPGA)
+  //  - the FPGA device (a real FPGA)
+#if defined(FPGA_EMULATOR)
+  ext::intel::fpga_emulator_selector device_selector;
+#else
+  ext::intel::fpga_selector device_selector;
+#endif
+
+  try {
+
+    // Create a queue bound to the chosen device.
+    // If the device is unavailable, a SYCL runtime exception is thrown.
+    queue q(device_selector, dpc_common::exception_handler);
+
+    // Print out the device information.
+    std::cout &lt;&lt; &quot;Running on device: &quot;
+              &lt;&lt; q.get_device().get_info&lt;info::device::name&gt;() &lt;&lt; &quot;\n&quot;;
+
+    {
+      // Create buffers to share data between host and device.
+      // The runtime will copy the necessary data to the FPGA device memory
+      // when the kernel is launched.
+      buffer&lt;int32_t, 2&gt; buf_v0(range(10, 10));
+      buffer&lt;ac_uint&lt;4&gt;, 2&gt; buf_v1(range(8, 8));
+
+      // Submit a command group to the device queue.
+      q.submit([&amp;](handler&amp; h) {
+
+        // The SYCL runtime uses the accessors to infer data dependencies.
+        // A &quot;read&quot; accessor must wait for data to be copied to the device
+        // before the kernel can start. A &quot;write no_init&quot; accessor does not.
+        accessor v0(buf_v0, h, read_only);
+        accessor v1(buf_v1, h);
+
+        // The kernel uses single_task rather than parallel_for.
+        // The task&#39;s for loop is executed in pipeline parallel on the FPGA,
+        // exploiting the same parallelism as an equivalent parallel_for.
+        //
+        //    DPC++FPGA/Tutorials/Features/kernel_args_restrict
+        h.single_task&lt;Top&gt;([=]() [[intel::kernel_args_restrict]] {
+          for (int v2 = 0; v2 &lt; 8; v2 += 1) {   // L480
+            [[intel::initiation_interval(1)]]
+            for (int v3 = 0; v3 &lt; 8; v3 += 1) { // L480
+              int32_t v4 = v0[v2][v3];  // L21
+              int32_t v5 = v0[(v2 + 2)][(v3 + 2)];      // L21
+              ac_int&lt;33&gt; v6 = v4;       // L480
+              ac_int&lt;33&gt; v7 = v5;       // L480
+              ac_int&lt;33&gt; v8 = v6 + v7;  // L21
+              ac_int&lt;4&gt; v9 = v8;        // L480
+              v1[v2][v3] = v9;  // L480
+            }
+          }
+
+        });
+      });
+    }
+
+    // The queue destructor is invoked when q passes out of scope.
+    // q&#39;s destructor invokes q&#39;s exception handler on any device exceptions.
+  }
+  catch (sycl::exception const&amp; e) {
+    // Catches exceptions in the host code
+    std::cerr &lt;&lt; &quot;Caught a SYCL host exception:\n&quot; &lt;&lt; e.what() &lt;&lt; &quot;\n&quot;;
+
+    // Most likely the runtime couldn&#39;t find FPGA hardware!
+    if (e.code().value() == CL_DEVICE_NOT_FOUND) {
+      std::cerr &lt;&lt; &quot;If you are targeting an FPGA, please ensure that your &quot;
+                   &quot;system has a correctly configured FPGA board.\n&quot;;
+      std::cerr &lt;&lt; &quot;Run sys_check in the oneAPI root directory to verify.\n&quot;;
+      std::cerr &lt;&lt; &quot;If you are targeting the FPGA emulator, compile with &quot;
+                   &quot;-DFPGA_EMULATOR.\n&quot;;
+    }
+    std::terminate();
+  }
+
+  return 0;
+}
+</pre></div>
+</div>
+</section>
+<section id="soda-stencil-code-generation">
+<h3>SODA Stencil Code Generation<a class="headerlink" href="#soda-stencil-code-generation" title="Permalink to this headline"><span>¶</span></a></h3>
+<p>HeteroCL incorporates the SODA framework for efficient stencil architecture
+generation. For more details, please refer to
+<a class="reference internal" href="tutorial_09_stencil.html#sphx-glr-gallery-tutorial-09-stencil-py"><span class="std std-ref">Use the Stencil Backend</span></a>.</p>
+<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> ( 0 minutes  0.088 seconds)</p>
+<div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-gallery-tutorial-08-backend-py">
+<div class="sphx-glr-download sphx-glr-download-python docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/31ca84aa3c8ae91353863d29b36fbbc0/tutorial_08_backend.py"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Python</span> <span class="pre">source</span> <span class="pre">code:</span> <span class="pre">tutorial_08_backend.py</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/366e024301a866e5e7272eed4f1329df/tutorial_08_backend.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">tutorial_08_backend.ipynb</span></code></a></p>
+</div>
+</div>
+<p class="sphx-glr-signature"><a class="reference external" href="https://sphinx-gallery.github.io">Gallery generated by Sphinx-Gallery</a></p>
+</section>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+    
+        <div id="show_right_sidebar">
+            <p><a class="toggle_right_sidebar" href="#"><span class="icon"><</span><span>Page contents<span></a></p>
+        </div>
+
+        <div id="right_sidebar">
+            <p><a class="toggle_right_sidebar" href="#"><span class="icon">></span><span>Page contents:<span></a></p>
+            <div class="page_toc">
+                <ul>
+<li><a class="reference internal" href="#">Back-end Support</a><ul>
+<li><a class="reference internal" href="#cpu">CPU</a></li>
+<li><a class="reference internal" href="#fpga">FPGA</a><ul>
+<li><a class="reference internal" href="#vivado-hls-c-code-generation">Vivado HLS C++ Code Generation</a></li>
+<li><a class="reference internal" href="#vivado-hls-c-code-simulation">Vivado HLS C++ Code Simulation</a></li>
+<li><a class="reference internal" href="#intel-hls-c-code-generation">Intel HLS C++ Code Generation</a></li>
+<li><a class="reference internal" href="#soda-stencil-code-generation">SODA Stencil Code Generation</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+            </div>
+        </div>
+    
+
+      <div class="clearer"></div>
+    </div>
+    <div class="button_nav_wrapper">
+        <div class="button_nav">
+            <div class="left">
+                
+                <a href="tutorial_07_module.html">
+                    <span class="icon"><</span><span>Custom Module Definition</span></a>
+                
+            </div>
+
+            <div class="right">
+                
+                    <a href="tutorial_09_stencil.html"><span>Use the Stencil Backend</span><span class="icon">></span></a>
+                
+            </div>
+        </div>
+    </div>
+
+
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2023, HeteroCL Authors.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.5.0.
+    </div>
+
+<p id="theme_credit">Styled using the <a href="https://github.com/piccolo-orm/piccolo_theme">Piccolo Theme</a></p>
+  </body>
+</html>

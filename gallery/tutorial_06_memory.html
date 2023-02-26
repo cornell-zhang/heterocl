@@ -1,0 +1,938 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>Memory Customization &#8212; HeteroCL Documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic_mod.css?v=0.7.0-1" />
+    <link rel="stylesheet" type="text/css" href="../_static/graphviz.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-binder.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-dataframe.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-rendered-html.css" />
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/clipboard.min.js"></script>
+    <script src="../_static/copybutton.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <script src="../_static/js/petite-vue.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Custom Module Definition" href="tutorial_07_module.html" />
+    <link rel="prev" title="Data Type Customization" href="tutorial_05_dtype.html" /> 
+  </head><body data-dark_mode_code_blocks="true">
+
+<div id="top_nav">
+    
+
+    <nav>
+        
+            
+        
+
+        <p id="toggle_sidebar">
+            <a href="#" title="Toggle sidebar">|||</a>
+        </p>
+        <h1><a href="../index.html" title="Go to homepage">HeteroCL Documentation</a></h1>
+            <a id="source_link" href="https://github.com/cornell-zhang/heterocl">
+    
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512">
+            <path fill="white" d="M 244.8,8 C 106.1,8 0,113.3 0,252 c 0,110.9 69.8,205.8 169.5,239.2 12.8,2.3 17.3,-5.6 17.3,-12.1 0,-6.2 -0.3,-40.4 -0.3,-61.4 0,0 -70,15 -84.7,-29.8 0,0 -11.4,-29.1 -27.8,-36.6 0,0 -22.9,-15.7 1.6,-15.4 0,0 24.9,2 38.6,25.8 21.9,38.6 58.6,27.5 72.9,20.9 2.3,-16 8.8,-27.1 16,-33.7 -55.9,-6.2 -112.3,-14.3 -112.3,-110.5 0,-27.5 7.6,-41.3 23.6,-58.9 -2.6,-6.5 -11.1,-33.3 2.6,-67.9 20.9,-6.5 69,27 69,27 20,-5.6 41.5,-8.5 62.8,-8.5 21.3,0 42.8,2.9 62.8,8.5 0,0 48.1,-33.6 69,-27 13.7,34.7 5.2,61.4 2.6,67.9 16,17.7 25.8,31.5 25.8,58.9 0,96.5 -58.9,104.2 -114.8,110.5 9.2,7.9 17,22.9 17,46.4 0,33.7 -0.3,75.4 -0.3,83.6 0,6.5 4.6,14.4 17.3,12.1 C 428.2,457.8 496,362.9 496,252 496,113.3 383.5,8 244.8,8 Z"/>
+        </svg>
+    
+</a>
+        
+
+        <a id="mode_toggle" href="#" @click.prevent="handleClick" :title="mode">
+    <template v-if="mode == 'light'">
+        <svg width="100%" height="100%" viewBox="0 0 79 80" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;"><g id="mode_light"><rect id="Bounds" x="0" y="-0" width="78.623" height="79.049" style="fill:none;"/><circle cx="39.311" cy="39.524" r="15.734" style="fill:#fff;"/><g id="beams"><g id="beam"><path id="beam1" serif:id="beam" d="M44.212,4.901c0,-2.705 -2.196,-4.901 -4.901,-4.901c-2.704,-0 -4.9,2.196 -4.9,4.901l-0,9.614c-0,2.705 2.196,4.901 4.9,4.901c2.705,0 4.901,-2.196 4.901,-4.901l0,-9.614Z" style="fill:#fff;"/></g><g id="beam2" serif:id="beam"><path id="beam3" serif:id="beam" d="M67.48,18.073c1.913,-1.912 1.913,-5.018 0,-6.931c-1.912,-1.912 -5.018,-1.912 -6.931,0l-6.798,6.799c-1.912,1.912 -1.912,5.018 0,6.931c1.913,1.912 5.018,1.912 6.931,-0l6.798,-6.799Z" style="fill:#fff;"/></g><g id="beam4" serif:id="beam"><path id="beam5" serif:id="beam" d="M25.728,61.108c1.912,-1.913 1.912,-5.018 -0,-6.931c-1.913,-1.913 -5.019,-1.913 -6.931,-0l-6.799,6.798c-1.912,1.913 -1.912,5.019 0,6.931c1.913,1.913 5.019,1.913 6.931,0l6.799,-6.798Z" style="fill:#fff;"/></g><g id="beam6" serif:id="beam"><path id="beam7" serif:id="beam" d="M60.682,54.177c-1.913,-1.913 -5.018,-1.913 -6.931,-0c-1.912,1.913 -1.912,5.018 0,6.931l6.798,6.798c1.913,1.913 5.019,1.913 6.931,0c1.913,-1.912 1.913,-5.018 0,-6.931l-6.798,-6.798Z" style="fill:#fff;"/></g><g id="beam8" serif:id="beam"><path id="beam9" serif:id="beam" d="M4.901,34.623c-2.705,0 -4.901,2.196 -4.901,4.901c0,2.705 2.196,4.901 4.901,4.901l9.614,0c2.705,0 4.901,-2.196 4.901,-4.901c0,-2.705 -2.196,-4.901 -4.901,-4.901l-9.614,0Z" style="fill:#fff;"/></g><g id="beam10" serif:id="beam"><path id="beam11" serif:id="beam" d="M44.212,64.534c0,-2.705 -2.196,-4.901 -4.901,-4.901c-2.704,-0 -4.9,2.196 -4.9,4.901l-0,9.614c-0,2.705 2.196,4.901 4.9,4.901c2.705,-0 4.901,-2.196 4.901,-4.901l0,-9.614Z" style="fill:#fff;"/></g><g id="beam12" serif:id="beam"><path id="beam13" serif:id="beam" d="M18.929,11.142c-1.912,-1.912 -5.018,-1.912 -6.931,0c-1.912,1.913 -1.912,5.019 0,6.931l6.799,6.799c1.912,1.912 5.018,1.912 6.931,-0c1.912,-1.913 1.912,-5.019 -0,-6.931l-6.799,-6.799Z" style="fill:#fff;"/></g><g id="beam14" serif:id="beam"><path id="beam15" serif:id="beam" d="M64.108,34.623c-2.705,0 -4.901,2.196 -4.901,4.901c-0,2.705 2.196,4.901 4.901,4.901l9.614,0c2.705,0 4.901,-2.196 4.901,-4.901c-0,-2.705 -2.196,-4.901 -4.901,-4.901l-9.614,0Z" style="fill:#fff;"/></g></g></g></svg>
+    </template>
+
+    <template v-if="mode == 'dark'">
+        <svg width="100%" height="100%" viewBox="0 0 79 80" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;"><g id="mode_dark"><rect id="Bounds" x="0" y="-0" width="78.623" height="79.049" style="fill:none;"/><circle cx="39.311" cy="39.524" r="15.734" style="fill:#fff;"/><g id="beams"><g id="beam"><path id="beam1" serif:id="beam" d="M44.212,14.515c0,-2.705 -2.196,-4.901 -4.901,-4.901c-2.704,0 -4.901,2.196 -4.901,4.901c0,2.705 2.197,4.901 4.901,4.901c2.705,0 4.901,-2.196 4.901,-4.901Z" style="fill:#fff;"/></g><g id="beam2" serif:id="beam"><path id="beam3" serif:id="beam" d="M60.662,24.892c1.902,-1.902 1.902,-4.99 0,-6.892l-0.04,-0.039c-1.901,-1.902 -4.989,-1.902 -6.891,-0c-1.901,1.901 -1.901,4.989 0,6.891l0.04,0.04c1.902,1.901 4.989,1.901 6.891,-0Z" style="fill:#fff;"/></g><g id="beam4" serif:id="beam"><path id="beam5" serif:id="beam" d="M25.732,61.103c1.91,-1.91 1.91,-5.011 0,-6.921l-0.009,-0.01c-1.91,-1.91 -5.012,-1.91 -6.921,-0c-1.91,1.91 -1.91,5.011 -0,6.921l0.01,0.01c1.909,1.91 5.011,1.91 6.92,-0Z" style="fill:#fff;"/></g><g id="beam6" serif:id="beam"><path id="beam7" serif:id="beam" d="M60.672,54.167c-1.907,-1.907 -5.004,-1.907 -6.911,0l-0.02,0.02c-1.907,1.907 -1.907,5.004 0,6.911c1.907,1.907 5.004,1.907 6.911,-0l0.02,-0.02c1.907,-1.907 1.907,-5.004 0,-6.911Z" style="fill:#fff;"/></g><g id="beam8" serif:id="beam"><path id="beam9" serif:id="beam" d="M14.52,34.623c-2.702,0 -4.896,2.194 -4.896,4.896l0,0.01c0,2.702 2.194,4.896 4.896,4.896c2.702,0 4.896,-2.194 4.896,-4.896l-0,-0.01c-0,-2.702 -2.194,-4.896 -4.896,-4.896Z" style="fill:#fff;"/></g><g id="beam10" serif:id="beam"><path id="beam11" serif:id="beam" d="M44.212,64.534c0,-2.705 -2.196,-4.901 -4.901,-4.901c-2.704,-0 -4.901,2.196 -4.901,4.901c0,2.704 2.197,4.9 4.901,4.9c2.705,0 4.901,-2.196 4.901,-4.9Z" style="fill:#fff;"/></g><g id="beam12" serif:id="beam"><path id="beam13" serif:id="beam" d="M25.73,17.943c-1.911,-1.911 -5.015,-1.911 -6.926,0l-0.005,0.005c-1.911,1.911 -1.911,5.015 0,6.926c1.911,1.911 5.015,1.911 6.926,0l0.005,-0.005c1.911,-1.911 1.911,-5.014 -0,-6.926Z" style="fill:#fff;"/></g><g id="beam14" serif:id="beam"><path id="beam15" serif:id="beam" d="M64.098,34.623c-2.699,0 -4.891,2.192 -4.891,4.892l-0,0.019c-0,2.699 2.192,4.891 4.891,4.891c2.7,0 4.892,-2.192 4.892,-4.891l0,-0.019c0,-2.7 -2.192,-4.892 -4.892,-4.892Z" style="fill:#fff;"/></g></g></g></svg>
+    </template>
+
+    <template v-if="mode == 'darkest'">
+        <svg width="100%" height="100%" viewBox="0 0 79 80" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;"><g id="mode_darkest"><rect id="Bounds" x="0" y="-0" width="78.623" height="79.049" style="fill:none;"/><path d="M39.315,23.791c8.684,-0 15.734,7.05 15.734,15.733c0,8.684 -7.05,15.734 -15.734,15.734c-8.683,0 -15.733,-7.05 -15.733,-15.734c-0,-8.683 7.05,-15.733 15.733,-15.733Zm0,4.737c6.069,0 10.997,4.927 10.997,10.996c-0,6.069 -4.928,10.996 -10.997,10.996c-6.068,0 -10.996,-4.927 -10.996,-10.996c0,-6.069 4.928,-10.996 10.996,-10.996Z" style="fill:#fff;"/><g id="beams"><g id="beam"><path id="beam1" serif:id="beam" d="M44.216,14.515c0,-2.705 -2.196,-4.901 -4.901,-4.901c-2.704,0 -4.9,2.196 -4.9,4.901c-0,2.705 2.196,4.901 4.9,4.901c2.705,0 4.901,-2.196 4.901,-4.901Z" style="fill:#fff;"/></g><g id="beam2" serif:id="beam"><path id="beam3" serif:id="beam" d="M60.666,24.892c1.902,-1.902 1.902,-4.99 0,-6.892l-0.04,-0.039c-1.901,-1.902 -4.989,-1.902 -6.891,-0c-1.901,1.901 -1.901,4.989 0,6.891l0.04,0.04c1.902,1.901 4.99,1.901 6.891,-0Z" style="fill:#fff;"/></g><g id="beam4" serif:id="beam"><path id="beam5" serif:id="beam" d="M25.737,61.103c1.909,-1.91 1.909,-5.011 -0,-6.921l-0.01,-0.01c-1.91,-1.91 -5.011,-1.91 -6.921,-0c-1.91,1.91 -1.91,5.011 -0,6.921l0.01,0.01c1.91,1.91 5.011,1.91 6.921,-0Z" style="fill:#fff;"/></g><g id="beam6" serif:id="beam"><path id="beam7" serif:id="beam" d="M60.676,54.167c-1.907,-1.907 -5.004,-1.907 -6.911,0l-0.02,0.02c-1.907,1.907 -1.907,5.004 0,6.911c1.907,1.907 5.004,1.907 6.911,-0l0.02,-0.02c1.907,-1.907 1.907,-5.004 0,-6.911Z" style="fill:#fff;"/></g><g id="beam8" serif:id="beam"><path id="beam9" serif:id="beam" d="M14.524,34.623c-2.702,0 -4.896,2.194 -4.896,4.896l0,0.01c0,2.702 2.194,4.896 4.896,4.896c2.702,0 4.896,-2.194 4.896,-4.896l0,-0.01c0,-2.702 -2.194,-4.896 -4.896,-4.896Z" style="fill:#fff;"/></g><g id="beam10" serif:id="beam"><path id="beam11" serif:id="beam" d="M44.216,64.534c0,-2.705 -2.196,-4.901 -4.901,-4.901c-2.704,-0 -4.9,2.196 -4.9,4.901c-0,2.704 2.196,4.9 4.9,4.9c2.705,0 4.901,-2.196 4.901,-4.9Z" style="fill:#fff;"/></g><g id="beam12" serif:id="beam"><path id="beam13" serif:id="beam" d="M25.734,17.943c-1.911,-1.911 -5.015,-1.911 -6.926,0l-0.005,0.005c-1.911,1.911 -1.911,5.015 0,6.926c1.911,1.911 5.015,1.911 6.926,0l0.005,-0.005c1.911,-1.911 1.911,-5.014 0,-6.926Z" style="fill:#fff;"/></g><g id="beam14" serif:id="beam"><path id="beam15" serif:id="beam" d="M64.103,34.623c-2.7,0 -4.892,2.192 -4.892,4.892l-0,0.019c-0,2.699 2.192,4.891 4.892,4.891c2.699,0 4.891,-2.192 4.891,-4.891l0,-0.019c0,-2.7 -2.192,-4.892 -4.891,-4.892Z" style="fill:#fff;"/></g></g></g></svg>
+    </template>
+</a>
+
+<script>
+(function() {
+    const LOCAL_STORAGE_KEY = 'piccoloThemeMode'
+
+    var initialMode = localStorage.getItem(LOCAL_STORAGE_KEY)
+
+    if (initialMode) {
+        // Make sure the value in local storage is valid
+        if (['light', 'dark', 'darkest'].indexOf(initialMode) == -1) {
+            initialMode = 'light'
+            localStorage.setItem(LOCAL_STORAGE_KEY, initialMode)
+        }
+    } else {
+        // Check if the client prefers dark mode
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            initialMode = 'dark'
+        } else {
+            initialMode = 'light'
+        }
+        localStorage.setItem(LOCAL_STORAGE_KEY, initialMode)
+    }
+
+    document.documentElement.dataset.mode = initialMode
+
+    PetiteVue.createApp({
+        'mode': initialMode,
+        handleClick() {
+            let currentMode = this.mode
+
+            if (currentMode == 'light') {
+                this.mode = 'dark'
+            } else if (currentMode == 'dark') {
+                this.mode = 'darkest'
+            } else if (currentMode == 'darkest') {
+                this.mode = 'light'
+            }
+
+            document.documentElement.dataset.mode = this.mode
+            localStorage.setItem(LOCAL_STORAGE_KEY, this.mode)
+
+            console.log(this.mode)
+        }
+    }).mount('#mode_toggle')
+})()
+</script>
+            <p class="mobile_search_link">
+                <a href="../search.html" title="Search">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 65 64" fill-rule="evenodd" stroke-linejoin="round" stroke-miterlimit="2">
+                        <path d="M14.873 40.009c-2.315-3.943-3.642-8.532-3.642-13.429C11.231 11.91 23.141 0 37.811 0s26.58 11.91 26.58 26.58-11.91 26.58-26.58 26.58a26.44 26.44 0 0 1-14.277-4.161L9.739 62.794a3.12 3.12 0 0 1-4.413 0L.913 58.382c-1.217-1.218-1.217-3.196 0-4.413l13.96-13.96zM37.811 8.054c10.225 0 18.526 8.301 18.526 18.526s-8.301 18.526-18.526 18.526-18.526-8.301-18.526-18.526S27.586 8.054 37.811 8.054z" fill="#fff" />
+                    </svg>
+                </a>
+            </p>
+        
+
+        <div class="searchbox_wrapper">
+            
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+    </nav>
+</div>
+
+    
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../setup/index.html">Installation</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Tutorials</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="tutorial_01_get_started.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorial_02_imperative.html">Imperative Programming</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorial_03_api.html">HeteroCL Compute APIs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorial_04_compute.html">Compute Customization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorial_05_dtype.html">Data Type Customization</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Memory Customization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorial_07_module.html">Custom Module Definition</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorial_08_backend.html">Back-end Support</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorial_09_stencil.html">Use the Stencil Backend</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../genindex.html">Index</a></li>
+</ul>
+
+        </div>
+      </div>
+
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="sphx-glr-download-link-note admonition note">
+<p class="admonition-title">Note</p>
+<p>Click <a class="reference internal" href="#sphx-glr-download-gallery-tutorial-06-memory-py"><span class="std std-ref">here</span></a>
+to download the full example code</p>
+</div>
+<section class="sphx-glr-example-title" id="memory-customization">
+<span id="sphx-glr-gallery-tutorial-06-memory-py"></span><h1>Memory Customization<a class="headerlink" href="#memory-customization" title="Permalink to this headline"><span>¶</span></a></h1>
+<p><strong>Author</strong>: Yi-Hsiang Lai (<a class="reference external" href="mailto:seanlatias&#37;&#52;&#48;github">seanlatias<span>&#64;</span>github</a>)</p>
+<p>In this tutorial, we demonstrate how memory customization works in HeteroCL.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">heterocl</span> <span class="k">as</span> <span class="nn">hcl</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+</pre></div>
+</div>
+<section id="memory-customization-in-heterocl">
+<h2>Memory Customization in HeteroCL<a class="headerlink" href="#memory-customization-in-heterocl" title="Permalink to this headline"><span>¶</span></a></h2>
+<p>There are two types of memory customization in HeteroCL. The first one is
+similar to what we have seen in
+<a class="reference internal" href="tutorial_04_compute.html#sphx-glr-gallery-tutorial-04-compute-py"><span class="std std-ref">Compute Customization</span></a>, where we demonstrate some
+primitives that will be synthesized as pragmas. An example of such primitive
+is <code class="docutils literal notranslate"><span class="pre">partition</span></code>. Following is an example. Note that the primitive is
+directly applied on the schedule instead of a stage. This is because we are
+modifying the property of a tensor.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">hcl</span><span class="o">.</span><span class="n">init</span><span class="p">()</span>
+
+<span class="n">A</span> <span class="o">=</span> <span class="n">hcl</span><span class="o">.</span><span class="n">placeholder</span><span class="p">((</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="s2">&quot;A&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">kernel</span><span class="p">(</span><span class="n">A</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">hcl</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">A</span><span class="p">[</span><span class="n">x</span><span class="p">][</span><span class="n">y</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;B&quot;</span><span class="p">)</span>
+
+
+<span class="n">s</span> <span class="o">=</span> <span class="n">hcl</span><span class="o">.</span><span class="n">create_schedule</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">kernel</span><span class="p">)</span>
+<span class="n">s</span><span class="o">.</span><span class="n">partition</span><span class="p">(</span><span class="n">A</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">hcl</span><span class="o">.</span><span class="n">lower</span><span class="p">(</span><span class="n">s</span><span class="p">))</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>#map = affine_map&lt;(d0, d1) -&gt; (d0, d1, 0, 0)&gt;
+module {
+  func.func @top(%arg0: memref&lt;10x10xi32, #map&gt;) -&gt; memref&lt;10x10xi32&gt; attributes {itypes = &quot;s&quot;, otypes = &quot;s&quot;} {
+    %0 = memref.alloc() {name = &quot;B&quot;} : memref&lt;10x10xi32&gt;
+    affine.for %arg1 = 0 to 10 {
+      affine.for %arg2 = 0 to 10 {
+        %1 = affine.load %arg0[%arg1, %arg2] {from = &quot;A&quot;} : memref&lt;10x10xi32, #map&gt;
+        %c1_i32 = arith.constant 1 : i32
+        %2 = arith.extsi %1 : i32 to i33
+        %3 = arith.extsi %c1_i32 : i32 to i33
+        %4 = arith.addi %2, %3 : i33
+        %5 = arith.trunci %4 : i33 to i32
+        affine.store %5, %0[%arg1, %arg2] {to = &quot;B&quot;} : memref&lt;10x10xi32&gt;
+      } {loop_name = &quot;y&quot;}
+    } {loop_name = &quot;x&quot;, op_name = &quot;B&quot;}
+    return %0 : memref&lt;10x10xi32&gt;
+  }
+}
+</pre></div>
+</div>
+<p>In the IR, we should see a line that annotates tensor <code class="docutils literal notranslate"><span class="pre">A</span></code> to be
+partitioned completely.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>For more information, please see
+<code class="xref py py-obj docutils literal notranslate"><span class="pre">heterocl.schedule.Schedule.partition</span></code></p>
+</div>
+<p>Another example is to reshape a tensor. This is helpful when we combine
+partitioning with loop titling. In this example, we split the inner axis
+<code class="docutils literal notranslate"><span class="pre">y</span></code> and also reshape the output tensor <code class="docutils literal notranslate"><span class="pre">B</span></code>. After that, we pipeline
+the middle axis <code class="docutils literal notranslate"><span class="pre">yo</span></code> and partition the output tensor accordingly. <strong>Note
+that the</strong> <code class="docutils literal notranslate"><span class="pre">reshape</span></code> <strong>primitive cannot be applied to the input tensors.</strong></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">hcl</span><span class="o">.</span><span class="n">init</span><span class="p">()</span>
+
+<span class="n">s</span> <span class="o">=</span> <span class="n">hcl</span><span class="o">.</span><span class="n">create_schedule</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">kernel</span><span class="p">)</span>
+<span class="n">yo</span><span class="p">,</span> <span class="n">yi</span> <span class="o">=</span> <span class="n">s</span><span class="p">[</span><span class="n">kernel</span><span class="o">.</span><span class="n">B</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">kernel</span><span class="o">.</span><span class="n">B</span><span class="o">.</span><span class="n">axis</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">5</span><span class="p">)</span>
+<span class="n">s</span><span class="p">[</span><span class="n">kernel</span><span class="o">.</span><span class="n">B</span><span class="p">]</span><span class="o">.</span><span class="n">pipeline</span><span class="p">(</span><span class="n">yo</span><span class="p">)</span>
+<span class="n">s</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">kernel</span><span class="o">.</span><span class="n">B</span><span class="p">,</span> <span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
+<span class="n">s</span><span class="o">.</span><span class="n">partition</span><span class="p">(</span><span class="n">kernel</span><span class="o">.</span><span class="n">B</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">hcl</span><span class="o">.</span><span class="n">build</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">target</span><span class="o">=</span><span class="s2">&quot;vhls&quot;</span><span class="p">))</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>//===------------------------------------------------------------*- C++ -*-===//
+//
+// Automatically generated file for High-level Synthesis (HLS).
+//
+//===----------------------------------------------------------------------===//
+#include &lt;algorithm&gt;
+#include &lt;ap_axi_sdata.h&gt;
+#include &lt;ap_fixed.h&gt;
+#include &lt;ap_int.h&gt;
+#include &lt;hls_math.h&gt;
+#include &lt;hls_stream.h&gt;
+#include &lt;math.h&gt;
+#include &lt;stdint.h&gt;
+using namespace std;
+void top(
+  int32_t v0[10][10],
+  int32_t v1[10][2][5]
+) {     // L28
+  #pragma HLS array_partition variable=v1 complete dim=3
+
+  l_B_x: for (int x = 0; x &lt; 10; x++) { // L480
+    l_y_outer: for (int y_outer = 0; y_outer &lt; 2; y_outer++) {  // L480
+    #pragma HLS pipeline II=1
+      l_y_inner: for (int y_inner = 0; y_inner &lt; 5; y_inner++) {        // L480
+        int v5 = (y_inner + (y_outer * 5));     // L480
+        int32_t v6 = v0[x][v5]; // L28
+        ap_int&lt;33&gt; v7 = v6;     // L480
+        ap_int&lt;33&gt; v8 = 1;      // L480
+        ap_int&lt;33&gt; v9 = v7 + v8;        // L28
+        int32_t v10 = v9;       // L480
+        v1[(x + ((v5 / 5) / 2))][((v5 / 5) % 2)][(v5 % 5)] = v10;       // L480
+      }
+    }
+  }
+}
+</pre></div>
+</div>
+</section>
+<section id="data-reuse-in-heterocl">
+<h2>Data Reuse in HeteroCL<a class="headerlink" href="#data-reuse-in-heterocl" title="Permalink to this headline"><span>¶</span></a></h2>
+<p>The other type of memory customization primitives involves the introduction
+of allocation of new memory buffers. An example is data reuse. The idea of
+data reuse is to reduce the number of accesses to a tensor by introducing
+an intermediate buffer that holds the values being reused across different
+iterations. This finally leads to better performance in hardware.</p>
+</section>
+<section id="example-2d-convolution">
+<h2>Example: 2D Convolution<a class="headerlink" href="#example-2d-convolution" title="Permalink to this headline"><span>¶</span></a></h2>
+<p>To demonstrate this, we use the computation of 2D convolution as an example.
+Let’s see how we can define 2D convolution in HeteroCL.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">hcl</span><span class="o">.</span><span class="n">init</span><span class="p">()</span>
+
+<span class="n">A</span> <span class="o">=</span> <span class="n">hcl</span><span class="o">.</span><span class="n">placeholder</span><span class="p">((</span><span class="mi">6</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span> <span class="s2">&quot;A&quot;</span><span class="p">)</span>
+<span class="n">F</span> <span class="o">=</span> <span class="n">hcl</span><span class="o">.</span><span class="n">placeholder</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="s2">&quot;F&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">kernel</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">F</span><span class="p">):</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="n">hcl</span><span class="o">.</span><span class="n">reduce_axis</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+    <span class="n">c</span> <span class="o">=</span> <span class="n">hcl</span><span class="o">.</span><span class="n">reduce_axis</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">hcl</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span>
+        <span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span> <span class="k">lambda</span> <span class="n">y</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">hcl</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">A</span><span class="p">[</span><span class="n">y</span> <span class="o">+</span> <span class="n">r</span><span class="p">,</span> <span class="n">x</span> <span class="o">+</span> <span class="n">c</span><span class="p">]</span> <span class="o">*</span> <span class="n">F</span><span class="p">[</span><span class="n">r</span><span class="p">,</span> <span class="n">c</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="p">[</span><span class="n">r</span><span class="p">,</span> <span class="n">c</span><span class="p">]),</span> <span class="s2">&quot;B&quot;</span>
+    <span class="p">)</span>
+
+
+<span class="n">s</span> <span class="o">=</span> <span class="n">hcl</span><span class="o">.</span><span class="n">create_schedule</span><span class="p">([</span><span class="n">A</span><span class="p">,</span> <span class="n">F</span><span class="p">],</span> <span class="n">kernel</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">hcl</span><span class="o">.</span><span class="n">lower</span><span class="p">(</span><span class="n">s</span><span class="p">))</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>module {
+  func.func @top(%arg0: memref&lt;6x6xi32&gt;, %arg1: memref&lt;3x3xi32&gt;) -&gt; memref&lt;4x4xi32&gt; attributes {itypes = &quot;ss&quot;, otypes = &quot;s&quot;} {
+    %0 = memref.alloc() {name = &quot;B&quot;} : memref&lt;4x4xi32&gt;
+    affine.for %arg2 = 0 to 4 {
+      affine.for %arg3 = 0 to 4 {
+        %1 = memref.alloc() {name = &quot;sum&quot;} : memref&lt;1xi32&gt;
+        %c0_i32 = arith.constant 0 : i32
+        affine.store %c0_i32, %1[0] {to = &quot;sum&quot;} : memref&lt;1xi32&gt;
+        affine.for %arg4 = 0 to 3 {
+          affine.for %arg5 = 0 to 3 {
+            %true = arith.constant true
+            scf.if %true {
+              %3 = affine.load %arg0[%arg2 + %arg4, %arg3 + %arg5] {from = &quot;A&quot;} : memref&lt;6x6xi32&gt;
+              %4 = affine.load %arg1[%arg4, %arg5] {from = &quot;F&quot;} : memref&lt;3x3xi32&gt;
+              %5 = arith.extsi %3 : i32 to i64
+              %6 = arith.extsi %4 : i32 to i64
+              %7 = arith.muli %5, %6 : i64
+              %8 = affine.load %1[0] {from = &quot;sum&quot;} : memref&lt;1xi32&gt;
+              %9 = arith.extsi %7 : i64 to i65
+              %10 = arith.extsi %8 : i32 to i65
+              %11 = arith.addi %9, %10 : i65
+              %12 = arith.trunci %11 : i65 to i32
+              affine.store %12, %1[0] {to = &quot;sum&quot;} : memref&lt;1xi32&gt;
+            }
+          } {loop_name = &quot;r_1&quot;, reduction}
+        } {loop_name = &quot;r_0&quot;, reduction}
+        %2 = affine.load %1[0] {from = &quot;sum&quot;} : memref&lt;1xi32&gt;
+        affine.store %2, %0[%arg2, %arg3] {to = &quot;B&quot;} : memref&lt;4x4xi32&gt;
+      } {loop_name = &quot;x&quot;}
+    } {loop_name = &quot;y&quot;, op_name = &quot;B&quot;}
+    return %0 : memref&lt;4x4xi32&gt;
+  }
+}
+</pre></div>
+</div>
+<p>In the above example, we convolve the input tensor <code class="docutils literal notranslate"><span class="pre">A</span></code> with a filter <code class="docutils literal notranslate"><span class="pre">F</span></code>.
+Then, we store the output in tensor <code class="docutils literal notranslate"><span class="pre">B</span></code>. Note that the output shape is
+different from the shape of the input tensor. Let’s give some real inputs.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">hcl_A</span> <span class="o">=</span> <span class="n">hcl</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><a href="https://numpy.org/doc/stable/reference/random/generated/numpy.random.randint.html#numpy.random.randint" title="numpy.random.randint" class="sphx-glr-backref-module-numpy-random sphx-glr-backref-type-py-function"><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span></a><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="n">A</span><span class="o">.</span><span class="n">shape</span><span class="p">))</span>
+<span class="n">hcl_F</span> <span class="o">=</span> <span class="n">hcl</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><a href="https://numpy.org/doc/stable/reference/random/generated/numpy.random.randint.html#numpy.random.randint" title="numpy.random.randint" class="sphx-glr-backref-module-numpy-random sphx-glr-backref-type-py-function"><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span></a><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="n">F</span><span class="o">.</span><span class="n">shape</span><span class="p">))</span>
+<span class="n">hcl_B</span> <span class="o">=</span> <span class="n">hcl</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><a href="https://numpy.org/doc/stable/reference/generated/numpy.zeros.html#numpy.zeros" title="numpy.zeros" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-function"><span class="n">np</span><span class="o">.</span><span class="n">zeros</span></a><span class="p">((</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">)))</span>
+<span class="n">f</span> <span class="o">=</span> <span class="n">hcl</span><span class="o">.</span><span class="n">build</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+<span class="n">f</span><span class="p">(</span><span class="n">hcl_A</span><span class="p">,</span> <span class="n">hcl_F</span><span class="p">,</span> <span class="n">hcl_B</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Input:&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">hcl_A</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Filter:&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">hcl_F</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Output:&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">hcl_B</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Input:
+array([[7, 2, 6, 3, 2, 3],
+       [8, 4, 4, 2, 7, 8],
+       [1, 1, 7, 0, 4, 6],
+       [6, 9, 8, 4, 7, 8],
+       [9, 6, 7, 5, 8, 3],
+       [1, 1, 2, 3, 6, 8]])
+Filter:
+array([[8, 8, 6],
+       [7, 4, 8],
+       [7, 8, 2]])
+Output:
+array([[241, 205, 233, 208],
+       [317, 246, 273, 284],
+       [325, 299, 313, 293],
+       [330, 299, 321, 312]])
+</pre></div>
+</div>
+<p>To analyze the data reuse, let’s take a closer look to the generated IR.
+To begin with, we can see that in two consecutive iterations of <code class="docutils literal notranslate"><span class="pre">x</span></code> (i.e.,
+the inner loop), there are 6 pixels that are overlapped, as illustrated in
+the figure below. Without any optimization, <strong>we are reading 9 values from
+the input for each iteration</strong>.</p>
+<figure class="align-default">
+<a class="reference internal image-reference" href="../_images/Slide1.png"><img alt="../_images/Slide1.png" src="../_images/Slide1.png" style="width: 504.0px; height: 162.6px;" /></a>
+</figure>
+<section id="introduce-data-reuse-window-buffer">
+<h3>Introduce Data Reuse: Window Buffer<a class="headerlink" href="#introduce-data-reuse-window-buffer" title="Permalink to this headline"><span>¶</span></a></h3>
+<p>To reuse the overlapped pixels, we can introduce a reuse buffer. Since the
+filter moves like a window, we call the buffer a window buffer <code class="docutils literal notranslate"><span class="pre">WB</span></code>. The
+window buffers stores the reused pixels and also the new pixels that will
+be used in the current iteration. For each iteration, to update the values
+inside the window buffer, the last two columns, in this case, shift left.
+After that, the last column is replaced with the pixels read from the
+input. Now, we only <strong>read 3 values from the input for each iteration</strong>.</p>
+<figure class="align-default">
+<a class="reference internal image-reference" href="../_images/Slide2.png"><img alt="../_images/Slide2.png" src="../_images/Slide2.png" style="width: 504.0px; height: 162.6px;" /></a>
+</figure>
+<p>To introduce such reuse buffers in HeteroCL, we use the API <code class="docutils literal notranslate"><span class="pre">reuse_at</span></code>.
+The first argument is the <strong>tensor</strong> whose values will be reused. The
+second argument is the output <strong>stage</strong> that reuses the values of the
+tensor. The reason why we need to specify this is because we may have
+multiple stages reusing the values from the same input tensor. The third
+argument is the desired axis to be reused. It must be the output axis.
+Finally, we can specify the name of the reuse buffer. The API returns
+a new tensor.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">s_x</span> <span class="o">=</span> <span class="n">hcl</span><span class="o">.</span><span class="n">create_schedule</span><span class="p">([</span><span class="n">A</span><span class="p">,</span> <span class="n">F</span><span class="p">],</span> <span class="n">kernel</span><span class="p">)</span>
+<span class="n">WB</span> <span class="o">=</span> <span class="n">s_x</span><span class="o">.</span><span class="n">reuse_at</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">s_x</span><span class="p">[</span><span class="n">kernel</span><span class="o">.</span><span class="n">B</span><span class="p">],</span> <span class="n">kernel</span><span class="o">.</span><span class="n">B</span><span class="o">.</span><span class="n">axis</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="s2">&quot;WB&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">hcl</span><span class="o">.</span><span class="n">lower</span><span class="p">(</span><span class="n">s_x</span><span class="p">))</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>#set = affine_set&lt;(d0) : (d0 - 2 &gt;= 0)&gt;
+module {
+  func.func @top(%arg0: memref&lt;6x6xi32&gt;, %arg1: memref&lt;3x3xi32&gt;) -&gt; memref&lt;4x4xi32&gt; attributes {itypes = &quot;ss&quot;, otypes = &quot;s&quot;} {
+    %0 = memref.alloc() {name = &quot;B&quot;} : memref&lt;4x4xi32&gt;
+    %1 = memref.alloc() {name = &quot;B_reuse_1&quot;} : memref&lt;3x3xi32&gt;
+    affine.for %arg2 = 0 to 4 {
+      affine.for %arg3 = 0 to 6 {
+        affine.for %arg4 = 0 to 3 {
+          %2 = affine.load %1[%arg4, 1] : memref&lt;3x3xi32&gt;
+          affine.store %2, %1[%arg4, 0] : memref&lt;3x3xi32&gt;
+          %3 = affine.load %1[%arg4, 2] : memref&lt;3x3xi32&gt;
+          affine.store %3, %1[%arg4, 1] : memref&lt;3x3xi32&gt;
+          %4 = affine.load %arg0[%arg2 + %arg4, %arg3] : memref&lt;6x6xi32&gt;
+          affine.store %4, %1[%arg4, 2] : memref&lt;3x3xi32&gt;
+        } {spatial}
+        affine.if #set(%arg3) {
+          %2 = memref.alloc() {name = &quot;sum&quot;} : memref&lt;1xi32&gt;
+          %c0_i32 = arith.constant 0 : i32
+          affine.store %c0_i32, %2[0] {to = &quot;sum&quot;} : memref&lt;1xi32&gt;
+          affine.for %arg4 = 0 to 3 {
+            affine.for %arg5 = 0 to 3 {
+              %true = arith.constant true
+              scf.if %true {
+                %4 = affine.load %1[%arg4, %arg5] : memref&lt;3x3xi32&gt;
+                %5 = affine.load %arg1[%arg4, %arg5] {from = &quot;F&quot;} : memref&lt;3x3xi32&gt;
+                %6 = arith.extsi %4 : i32 to i64
+                %7 = arith.extsi %5 : i32 to i64
+                %8 = arith.muli %6, %7 : i64
+                %9 = affine.load %2[0] {from = &quot;sum&quot;} : memref&lt;1xi32&gt;
+                %10 = arith.extsi %8 : i64 to i65
+                %11 = arith.extsi %9 : i32 to i65
+                %12 = arith.addi %10, %11 : i65
+                %13 = arith.trunci %12 : i65 to i32
+                affine.store %13, %2[0] {to = &quot;sum&quot;} : memref&lt;1xi32&gt;
+              }
+            } {loop_name = &quot;r_1&quot;, reduction}
+          } {loop_name = &quot;r_0&quot;, reduction}
+          %3 = affine.load %2[0] {from = &quot;sum&quot;} : memref&lt;1xi32&gt;
+          affine.store %3, %0[%arg2, %arg3 - 2] : memref&lt;4x4xi32&gt;
+        }
+      } {loop_name = &quot;x&quot;}
+    } {loop_name = &quot;y&quot;, op_name = &quot;B&quot;}
+    return %0 : memref&lt;4x4xi32&gt;
+  }
+}
+</pre></div>
+</div>
+<p>In the printed IR, you should be able to see a buffer <code class="docutils literal notranslate"><span class="pre">WB</span></code> with size
+(3, 3) being allocated. Moreover, in the <code class="docutils literal notranslate"><span class="pre">produce</span> <span class="pre">WB</span></code> scope, you should
+see the update algorithm described above. Now let’s test the function again.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">hcl_Bx</span> <span class="o">=</span> <span class="n">hcl</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><a href="https://numpy.org/doc/stable/reference/generated/numpy.zeros.html#numpy.zeros" title="numpy.zeros" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-function"><span class="n">np</span><span class="o">.</span><span class="n">zeros</span></a><span class="p">((</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">)))</span>
+<span class="n">f</span> <span class="o">=</span> <span class="n">hcl</span><span class="o">.</span><span class="n">build</span><span class="p">(</span><span class="n">s_x</span><span class="p">)</span>
+<span class="n">f</span><span class="p">(</span><span class="n">hcl_A</span><span class="p">,</span> <span class="n">hcl_F</span><span class="p">,</span> <span class="n">hcl_Bx</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Output without WB:&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">hcl_B</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Output with WB:&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">hcl_Bx</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Output without WB:
+array([[241, 205, 233, 208],
+       [317, 246, 273, 284],
+       [325, 299, 313, 293],
+       [330, 299, 321, 312]])
+Output with WB:
+array([[241, 205, 233, 208],
+       [317, 246, 273, 284],
+       [325, 299, 313, 293],
+       [330, 299, 321, 312]])
+</pre></div>
+</div>
+<p>You should see the same results with and without the window buffer.</p>
+</section>
+<section id="reuse-at-a-different-dimension-linebuffer">
+<h3>Reuse at a Different Dimension: Linebuffer<a class="headerlink" href="#reuse-at-a-different-dimension-linebuffer" title="Permalink to this headline"><span>¶</span></a></h3>
+<p>Similarly, we can create a reuse buffer for two consecutive iterations of
+<code class="docutils literal notranslate"><span class="pre">y</span></code>. In this case, in each iteration of <code class="docutils literal notranslate"><span class="pre">y</span></code>, we read an entire row from
+input <code class="docutils literal notranslate"><span class="pre">A</span></code>. Meanwhile, we update the reuse buffer by shifting up. Since it
+reads an entire line at a time, we call it a linebuffer <code class="docutils literal notranslate"><span class="pre">LB</span></code>. The
+operation is illustrated in the figure below.</p>
+<figure class="align-default">
+<a class="reference internal image-reference" href="../_images/Slide3.png"><img alt="../_images/Slide3.png" src="../_images/Slide3.png" style="width: 504.0px; height: 162.6px;" /></a>
+</figure>
+<p>Similar to the window buffer, we can introduce the linebuffer in HeteroCL by
+using a single <code class="docutils literal notranslate"><span class="pre">reuse_at</span></code> API. We show the code below.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">s_y</span> <span class="o">=</span> <span class="n">hcl</span><span class="o">.</span><span class="n">create_schedule</span><span class="p">([</span><span class="n">A</span><span class="p">,</span> <span class="n">F</span><span class="p">],</span> <span class="n">kernel</span><span class="p">)</span>
+<span class="n">LB</span> <span class="o">=</span> <span class="n">s_y</span><span class="o">.</span><span class="n">reuse_at</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">s_y</span><span class="p">[</span><span class="n">kernel</span><span class="o">.</span><span class="n">B</span><span class="p">],</span> <span class="n">kernel</span><span class="o">.</span><span class="n">B</span><span class="o">.</span><span class="n">axis</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s2">&quot;LB&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">hcl</span><span class="o">.</span><span class="n">lower</span><span class="p">(</span><span class="n">s_y</span><span class="p">))</span>
+
+<span class="n">hcl_By</span> <span class="o">=</span> <span class="n">hcl</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><a href="https://numpy.org/doc/stable/reference/generated/numpy.zeros.html#numpy.zeros" title="numpy.zeros" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-function"><span class="n">np</span><span class="o">.</span><span class="n">zeros</span></a><span class="p">((</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">)))</span>
+<span class="n">f</span> <span class="o">=</span> <span class="n">hcl</span><span class="o">.</span><span class="n">build</span><span class="p">(</span><span class="n">s_y</span><span class="p">)</span>
+<span class="n">f</span><span class="p">(</span><span class="n">hcl_A</span><span class="p">,</span> <span class="n">hcl_F</span><span class="p">,</span> <span class="n">hcl_By</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Output without LB:&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">hcl_B</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Output with LB:&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">hcl_By</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>#set = affine_set&lt;(d0) : (d0 - 2 &gt;= 0)&gt;
+module {
+  func.func @top(%arg0: memref&lt;6x6xi32&gt;, %arg1: memref&lt;3x3xi32&gt;) -&gt; memref&lt;4x4xi32&gt; attributes {itypes = &quot;ss&quot;, otypes = &quot;s&quot;} {
+    %0 = memref.alloc() {name = &quot;B&quot;} : memref&lt;4x4xi32&gt;
+    %1 = memref.alloc() {name = &quot;B_reuse_0&quot;} : memref&lt;3x6xi32&gt;
+    affine.for %arg2 = 0 to 6 {
+      affine.for %arg3 = 0 to 6 {
+        %2 = affine.load %1[1, %arg3] : memref&lt;3x6xi32&gt;
+        affine.store %2, %1[0, %arg3] : memref&lt;3x6xi32&gt;
+        %3 = affine.load %1[2, %arg3] : memref&lt;3x6xi32&gt;
+        affine.store %3, %1[1, %arg3] : memref&lt;3x6xi32&gt;
+        %4 = affine.load %arg0[%arg2, %arg3] : memref&lt;6x6xi32&gt;
+        affine.store %4, %1[2, %arg3] : memref&lt;3x6xi32&gt;
+      } {spatial}
+      affine.if #set(%arg2) {
+        affine.for %arg3 = 0 to 4 {
+          %2 = memref.alloc() {name = &quot;sum&quot;} : memref&lt;1xi32&gt;
+          %c0_i32 = arith.constant 0 : i32
+          affine.store %c0_i32, %2[0] {to = &quot;sum&quot;} : memref&lt;1xi32&gt;
+          affine.for %arg4 = 0 to 3 {
+            affine.for %arg5 = 0 to 3 {
+              %true = arith.constant true
+              scf.if %true {
+                %4 = affine.load %1[%arg4, %arg3 + %arg5] : memref&lt;3x6xi32&gt;
+                %5 = affine.load %arg1[%arg4, %arg5] {from = &quot;F&quot;} : memref&lt;3x3xi32&gt;
+                %6 = arith.extsi %4 : i32 to i64
+                %7 = arith.extsi %5 : i32 to i64
+                %8 = arith.muli %6, %7 : i64
+                %9 = affine.load %2[0] {from = &quot;sum&quot;} : memref&lt;1xi32&gt;
+                %10 = arith.extsi %8 : i64 to i65
+                %11 = arith.extsi %9 : i32 to i65
+                %12 = arith.addi %10, %11 : i65
+                %13 = arith.trunci %12 : i65 to i32
+                affine.store %13, %2[0] {to = &quot;sum&quot;} : memref&lt;1xi32&gt;
+              }
+            } {loop_name = &quot;r_1&quot;, reduction}
+          } {loop_name = &quot;r_0&quot;, reduction}
+          %3 = affine.load %2[0] {from = &quot;sum&quot;} : memref&lt;1xi32&gt;
+          affine.store %3, %0[%arg2 - 2, %arg3] : memref&lt;4x4xi32&gt;
+        } {loop_name = &quot;x&quot;}
+      }
+    } {loop_name = &quot;y&quot;, op_name = &quot;B&quot;}
+    return %0 : memref&lt;4x4xi32&gt;
+  }
+}
+
+Output without LB:
+array([[241, 205, 233, 208],
+       [317, 246, 273, 284],
+       [325, 299, 313, 293],
+       [330, 299, 321, 312]])
+Output with LB:
+array([[241, 205, 233, 208],
+       [317, 246, 273, 284],
+       [325, 299, 313, 293],
+       [330, 299, 321, 312]])
+</pre></div>
+</div>
+<p>Note that the difference between WB and LB is the we reuse at different
+axes. We can also see from the printed IR that the allocated size is larger,
+which is the same as illustrated in the figure above. In this case, we read
+6 pixels from the input for each iteration of <code class="docutils literal notranslate"><span class="pre">y</span></code>, which means we read 1
+pixel for each iteration of <code class="docutils literal notranslate"><span class="pre">x</span></code> <strong>effectively</strong>. Namely, this is not true
+in terms of hardware execution. Can we do even better?</p>
+</section>
+<section id="combine-window-buffer-and-linebuffer">
+<h3>Combine Window Buffer and Linebuffer<a class="headerlink" href="#combine-window-buffer-and-linebuffer" title="Permalink to this headline"><span>¶</span></a></h3>
+<p>We do not need to restrict ourselves to reuse at a single dimension. Since
+we have data reuse in both dimension, we can reuse both. In this case,
+we generate both a linebuffer and a window buffer. Let’s take a look at
+the figure first.</p>
+<figure class="align-default">
+<a class="reference internal image-reference" href="../_images/Slide4.png"><img alt="../_images/Slide4.png" src="../_images/Slide4.png" style="width: 504.0px; height: 162.6px;" /></a>
+</figure>
+<p>What happens here is that, we first update the linebuffer (blue arrows),
+then we update the window buffer (purple arrows). More precisely, for each
+iteration of <code class="docutils literal notranslate"><span class="pre">x</span></code>, we <strong>read 1 pixel from input ``A``</strong>. We simultaneously
+shift up the linebffer. After we update the linebuffer, we go on update the
+window buffer by reading pixels updated in the linebuffer. Then we shift the
+window buffer. To describe such behavior in HeteroCL is very easy. We only
+need to apply <code class="docutils literal notranslate"><span class="pre">reuse_at</span></code> twice. We just need to specify the corresponding
+reuse tensors and the reuse axes. In this case, the linebuffer reuses the
+pixels from the input <code class="docutils literal notranslate"><span class="pre">A</span></code> while the window buffer reuses from the
+linebuffer. Following we show the code and its IR.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">s_xy</span> <span class="o">=</span> <span class="n">hcl</span><span class="o">.</span><span class="n">create_schedule</span><span class="p">([</span><span class="n">A</span><span class="p">,</span> <span class="n">F</span><span class="p">],</span> <span class="n">kernel</span><span class="p">)</span>
+<span class="n">LB</span> <span class="o">=</span> <span class="n">s_xy</span><span class="o">.</span><span class="n">reuse_at</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">s_xy</span><span class="p">[</span><span class="n">kernel</span><span class="o">.</span><span class="n">B</span><span class="p">],</span> <span class="n">kernel</span><span class="o">.</span><span class="n">B</span><span class="o">.</span><span class="n">axis</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s2">&quot;LB&quot;</span><span class="p">)</span>
+<span class="n">WB</span> <span class="o">=</span> <span class="n">s_xy</span><span class="o">.</span><span class="n">reuse_at</span><span class="p">(</span><span class="n">LB</span><span class="p">,</span> <span class="n">s_xy</span><span class="p">[</span><span class="n">kernel</span><span class="o">.</span><span class="n">B</span><span class="p">],</span> <span class="n">kernel</span><span class="o">.</span><span class="n">B</span><span class="o">.</span><span class="n">axis</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="s2">&quot;WB&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">hcl</span><span class="o">.</span><span class="n">lower</span><span class="p">(</span><span class="n">s_xy</span><span class="p">))</span>
+
+<span class="n">hcl_Bxy</span> <span class="o">=</span> <span class="n">hcl</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><a href="https://numpy.org/doc/stable/reference/generated/numpy.zeros.html#numpy.zeros" title="numpy.zeros" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-function"><span class="n">np</span><span class="o">.</span><span class="n">zeros</span></a><span class="p">((</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">)))</span>
+<span class="n">f</span> <span class="o">=</span> <span class="n">hcl</span><span class="o">.</span><span class="n">build</span><span class="p">(</span><span class="n">s_xy</span><span class="p">)</span>
+<span class="n">f</span><span class="p">(</span><span class="n">hcl_A</span><span class="p">,</span> <span class="n">hcl_F</span><span class="p">,</span> <span class="n">hcl_Bxy</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Output without reuse buffers:&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">hcl_B</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Output with reuse buffers:&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">hcl_Bxy</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>#set = affine_set&lt;(d0) : (d0 - 2 &gt;= 0)&gt;
+module {
+  func.func @top(%arg0: memref&lt;6x6xi32&gt;, %arg1: memref&lt;3x3xi32&gt;) -&gt; memref&lt;4x4xi32&gt; attributes {itypes = &quot;ss&quot;, otypes = &quot;s&quot;} {
+    %0 = memref.alloc() {name = &quot;B&quot;} : memref&lt;4x4xi32&gt;
+    %1 = memref.alloc() {name = &quot;B_reuse_0&quot;} : memref&lt;3x6xi32&gt;
+    %2 = memref.alloc() {name = &quot;B_reuse_1&quot;} : memref&lt;3x3xi32&gt;
+    affine.for %arg2 = 0 to 6 {
+      affine.for %arg3 = 0 to 6 {
+        %3 = affine.load %1[1, %arg3] : memref&lt;3x6xi32&gt;
+        affine.store %3, %1[0, %arg3] : memref&lt;3x6xi32&gt;
+        %4 = affine.load %1[2, %arg3] : memref&lt;3x6xi32&gt;
+        affine.store %4, %1[1, %arg3] : memref&lt;3x6xi32&gt;
+        %5 = affine.load %arg0[%arg2, %arg3] : memref&lt;6x6xi32&gt;
+        affine.store %5, %1[2, %arg3] : memref&lt;3x6xi32&gt;
+        affine.if #set(%arg2) {
+          affine.for %arg4 = 0 to 3 {
+            %6 = affine.load %2[%arg4, 1] : memref&lt;3x3xi32&gt;
+            affine.store %6, %2[%arg4, 0] : memref&lt;3x3xi32&gt;
+            %7 = affine.load %2[%arg4, 2] : memref&lt;3x3xi32&gt;
+            affine.store %7, %2[%arg4, 1] : memref&lt;3x3xi32&gt;
+            %8 = affine.load %1[%arg4, %arg3] : memref&lt;3x6xi32&gt;
+            affine.store %8, %2[%arg4, 2] : memref&lt;3x3xi32&gt;
+          } {spatial}
+          affine.if #set(%arg3) {
+            %6 = memref.alloc() {name = &quot;sum&quot;} : memref&lt;1xi32&gt;
+            %c0_i32 = arith.constant 0 : i32
+            affine.store %c0_i32, %6[0] {to = &quot;sum&quot;} : memref&lt;1xi32&gt;
+            affine.for %arg4 = 0 to 3 {
+              affine.for %arg5 = 0 to 3 {
+                %true = arith.constant true
+                scf.if %true {
+                  %8 = affine.load %2[%arg4, %arg5] : memref&lt;3x3xi32&gt;
+                  %9 = affine.load %arg1[%arg4, %arg5] {from = &quot;F&quot;} : memref&lt;3x3xi32&gt;
+                  %10 = arith.extsi %8 : i32 to i64
+                  %11 = arith.extsi %9 : i32 to i64
+                  %12 = arith.muli %10, %11 : i64
+                  %13 = affine.load %6[0] {from = &quot;sum&quot;} : memref&lt;1xi32&gt;
+                  %14 = arith.extsi %12 : i64 to i65
+                  %15 = arith.extsi %13 : i32 to i65
+                  %16 = arith.addi %14, %15 : i65
+                  %17 = arith.trunci %16 : i65 to i32
+                  affine.store %17, %6[0] {to = &quot;sum&quot;} : memref&lt;1xi32&gt;
+                }
+              } {loop_name = &quot;r_1&quot;, reduction}
+            } {loop_name = &quot;r_0&quot;, reduction}
+            %7 = affine.load %6[0] {from = &quot;sum&quot;} : memref&lt;1xi32&gt;
+            affine.store %7, %0[%arg2 - 2, %arg3 - 2] : memref&lt;4x4xi32&gt;
+          }
+        }
+      } {loop_name = &quot;x&quot;}
+    } {loop_name = &quot;y&quot;, op_name = &quot;B&quot;}
+    return %0 : memref&lt;4x4xi32&gt;
+  }
+}
+
+Output without reuse buffers:
+array([[241, 205, 233, 208],
+       [317, 246, 273, 284],
+       [325, 299, 313, 293],
+       [330, 299, 321, 312]])
+Output with reuse buffers:
+array([[241, 205, 233, 208],
+       [317, 246, 273, 284],
+       [325, 299, 313, 293],
+       [330, 299, 321, 312]])
+</pre></div>
+</div>
+<p>We can see from the IR that the allocation sizes are indeed as expected.</p>
+</section>
+<section id="further-optimization">
+<h3>Further Optimization<a class="headerlink" href="#further-optimization" title="Permalink to this headline"><span>¶</span></a></h3>
+<p>To further optimize the design, we need to think more carefully. For each
+iteration of <code class="docutils literal notranslate"><span class="pre">x</span></code>, there are three pixels in LB that are being read/write
+simultaneously. Thus, to maximize the memory bandwidth, we need to partition
+LB in the row direction. For WB, all pixels are updated at the same time.
+Therefore, we need to partition the whole WB completely. Finally, we can
+pipeline the whole design. Don’t forget that we also need to partition the
+filter <code class="docutils literal notranslate"><span class="pre">F</span></code>.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">s_final</span> <span class="o">=</span> <span class="n">hcl</span><span class="o">.</span><span class="n">create_schedule</span><span class="p">([</span><span class="n">A</span><span class="p">,</span> <span class="n">F</span><span class="p">],</span> <span class="n">kernel</span><span class="p">)</span>
+<span class="n">LB</span> <span class="o">=</span> <span class="n">s_final</span><span class="o">.</span><span class="n">reuse_at</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">s_final</span><span class="p">[</span><span class="n">kernel</span><span class="o">.</span><span class="n">B</span><span class="p">],</span> <span class="n">kernel</span><span class="o">.</span><span class="n">B</span><span class="o">.</span><span class="n">axis</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s2">&quot;LB&quot;</span><span class="p">)</span>
+<span class="n">WB</span> <span class="o">=</span> <span class="n">s_final</span><span class="o">.</span><span class="n">reuse_at</span><span class="p">(</span><span class="n">LB</span><span class="p">,</span> <span class="n">s_final</span><span class="p">[</span><span class="n">kernel</span><span class="o">.</span><span class="n">B</span><span class="p">],</span> <span class="n">kernel</span><span class="o">.</span><span class="n">B</span><span class="o">.</span><span class="n">axis</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="s2">&quot;WB&quot;</span><span class="p">)</span>
+<span class="n">s_final</span><span class="o">.</span><span class="n">partition</span><span class="p">(</span><span class="n">LB</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">s_final</span><span class="o">.</span><span class="n">partition</span><span class="p">(</span><span class="n">WB</span><span class="p">)</span>
+<span class="n">s_final</span><span class="o">.</span><span class="n">partition</span><span class="p">(</span><span class="n">F</span><span class="p">)</span>
+<span class="n">s_final</span><span class="p">[</span><span class="n">kernel</span><span class="o">.</span><span class="n">B</span><span class="p">]</span><span class="o">.</span><span class="n">pipeline</span><span class="p">(</span><span class="n">kernel</span><span class="o">.</span><span class="n">B</span><span class="o">.</span><span class="n">axis</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">hcl</span><span class="o">.</span><span class="n">lower</span><span class="p">(</span><span class="n">s_final</span><span class="p">))</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>#map0 = affine_map&lt;(d0, d1) -&gt; (d0, d1, 0, 0)&gt;
+#map1 = affine_map&lt;(d0, d1) -&gt; (d0, 0, 0, d1)&gt;
+#set = affine_set&lt;(d0) : (d0 - 2 &gt;= 0)&gt;
+module {
+  func.func @top(%arg0: memref&lt;6x6xi32&gt;, %arg1: memref&lt;3x3xi32, #map0&gt;) -&gt; memref&lt;4x4xi32&gt; attributes {itypes = &quot;ss&quot;, otypes = &quot;s&quot;} {
+    %0 = memref.alloc() {name = &quot;B&quot;} : memref&lt;4x4xi32&gt;
+    %1 = memref.alloc() {name = &quot;B_reuse_0&quot;} : memref&lt;3x6xi32, #map1&gt;
+    %2 = memref.alloc() {name = &quot;B_reuse_1&quot;} : memref&lt;3x3xi32, #map0&gt;
+    affine.for %arg2 = 0 to 6 {
+      affine.for %arg3 = 0 to 6 {
+        %3 = affine.load %1[1, %arg3] : memref&lt;3x6xi32, #map1&gt;
+        affine.store %3, %1[0, %arg3] : memref&lt;3x6xi32, #map1&gt;
+        %4 = affine.load %1[2, %arg3] : memref&lt;3x6xi32, #map1&gt;
+        affine.store %4, %1[1, %arg3] : memref&lt;3x6xi32, #map1&gt;
+        %5 = affine.load %arg0[%arg2, %arg3] : memref&lt;6x6xi32&gt;
+        affine.store %5, %1[2, %arg3] : memref&lt;3x6xi32, #map1&gt;
+        affine.if #set(%arg2) {
+          affine.for %arg4 = 0 to 3 {
+            %6 = affine.load %2[%arg4, 1] : memref&lt;3x3xi32, #map0&gt;
+            affine.store %6, %2[%arg4, 0] : memref&lt;3x3xi32, #map0&gt;
+            %7 = affine.load %2[%arg4, 2] : memref&lt;3x3xi32, #map0&gt;
+            affine.store %7, %2[%arg4, 1] : memref&lt;3x3xi32, #map0&gt;
+            %8 = affine.load %1[%arg4, %arg3] : memref&lt;3x6xi32, #map1&gt;
+            affine.store %8, %2[%arg4, 2] : memref&lt;3x3xi32, #map0&gt;
+          } {spatial}
+          affine.if #set(%arg3) {
+            %6 = memref.alloc() {name = &quot;sum&quot;} : memref&lt;1xi32&gt;
+            %c0_i32 = arith.constant 0 : i32
+            affine.store %c0_i32, %6[0] {to = &quot;sum&quot;} : memref&lt;1xi32&gt;
+            affine.for %arg4 = 0 to 3 {
+              affine.for %arg5 = 0 to 3 {
+                %true = arith.constant true
+                scf.if %true {
+                  %8 = affine.load %2[%arg4, %arg5] : memref&lt;3x3xi32, #map0&gt;
+                  %9 = affine.load %arg1[%arg4, %arg5] {from = &quot;F&quot;} : memref&lt;3x3xi32, #map0&gt;
+                  %10 = arith.extsi %8 : i32 to i64
+                  %11 = arith.extsi %9 : i32 to i64
+                  %12 = arith.muli %10, %11 : i64
+                  %13 = affine.load %6[0] {from = &quot;sum&quot;} : memref&lt;1xi32&gt;
+                  %14 = arith.extsi %12 : i64 to i65
+                  %15 = arith.extsi %13 : i32 to i65
+                  %16 = arith.addi %14, %15 : i65
+                  %17 = arith.trunci %16 : i65 to i32
+                  affine.store %17, %6[0] {to = &quot;sum&quot;} : memref&lt;1xi32&gt;
+                }
+              } {loop_name = &quot;r_1&quot;, reduction}
+            } {loop_name = &quot;r_0&quot;, reduction}
+            %7 = affine.load %6[0] {from = &quot;sum&quot;} : memref&lt;1xi32&gt;
+            affine.store %7, %0[%arg2 - 2, %arg3 - 2] : memref&lt;4x4xi32&gt;
+          }
+        }
+      } {loop_name = &quot;x&quot;, pipeline_ii = 1 : i32}
+    } {loop_name = &quot;y&quot;, op_name = &quot;B&quot;}
+    return %0 : memref&lt;4x4xi32&gt;
+  }
+}
+</pre></div>
+</div>
+<p>Finally, we can generate the HLS code and see if the II is indeed 1.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">f</span> <span class="o">=</span> <span class="n">hcl</span><span class="o">.</span><span class="n">build</span><span class="p">(</span><span class="n">s_final</span><span class="p">,</span> <span class="n">target</span><span class="o">=</span><span class="s2">&quot;vhls&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Following is a sample report from Vivado_HLS.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">+</span> <span class="n">Latency</span> <span class="p">(</span><span class="n">clock</span> <span class="n">cycles</span><span class="p">):</span>
+    <span class="o">*</span> <span class="n">Summary</span><span class="p">:</span>
+    <span class="o">+-----+-----+-----+-----+---------+</span>
+    <span class="o">|</span>  <span class="n">Latency</span>  <span class="o">|</span>  <span class="n">Interval</span> <span class="o">|</span> <span class="n">Pipeline</span><span class="o">|</span>
+    <span class="o">|</span> <span class="nb">min</span> <span class="o">|</span> <span class="nb">max</span> <span class="o">|</span> <span class="nb">min</span> <span class="o">|</span> <span class="nb">max</span> <span class="o">|</span>   <span class="n">Type</span>  <span class="o">|</span>
+    <span class="o">+-----+-----+-----+-----+---------+</span>
+    <span class="o">|</span>   <span class="mi">42</span><span class="o">|</span>   <span class="mi">42</span><span class="o">|</span>   <span class="mi">43</span><span class="o">|</span>   <span class="mi">43</span><span class="o">|</span>   <span class="n">none</span>  <span class="o">|</span>
+    <span class="o">+-----+-----+-----+-----+---------+</span>
+
+    <span class="o">+</span> <span class="n">Detail</span><span class="p">:</span>
+        <span class="o">*</span> <span class="n">Instance</span><span class="p">:</span>
+        <span class="n">N</span><span class="o">/</span><span class="n">A</span>
+
+        <span class="o">*</span> <span class="n">Loop</span><span class="p">:</span>
+        <span class="o">+----------+-----+-----+----------+-----------+-----------+------+----------+</span>
+        <span class="o">|</span>          <span class="o">|</span>  <span class="n">Latency</span>  <span class="o">|</span> <span class="n">Iteration</span><span class="o">|</span>  <span class="n">Initiation</span> <span class="n">Interval</span>  <span class="o">|</span> <span class="n">Trip</span> <span class="o">|</span>          <span class="o">|</span>
+        <span class="o">|</span> <span class="n">Loop</span> <span class="n">Name</span><span class="o">|</span> <span class="nb">min</span> <span class="o">|</span> <span class="nb">max</span> <span class="o">|</span>  <span class="n">Latency</span> <span class="o">|</span>  <span class="n">achieved</span> <span class="o">|</span>   <span class="n">target</span>  <span class="o">|</span> <span class="n">Count</span><span class="o">|</span> <span class="n">Pipelined</span><span class="o">|</span>
+        <span class="o">+----------+-----+-----+----------+-----------+-----------+------+----------+</span>
+        <span class="o">|-</span> <span class="n">Loop</span> <span class="mi">1</span>  <span class="o">|</span>   <span class="mi">40</span><span class="o">|</span>   <span class="mi">40</span><span class="o">|</span>         <span class="mi">6</span><span class="o">|</span>          <span class="mi">1</span><span class="o">|</span>          <span class="mi">1</span><span class="o">|</span>    <span class="mi">36</span><span class="o">|</span>    <span class="n">yes</span>   <span class="o">|</span>
+        <span class="o">+----------+-----+-----+----------+-----------+-----------+------+----------+</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="limitations">
+<h2>Limitations<a class="headerlink" href="#limitations" title="Permalink to this headline"><span>¶</span></a></h2>
+<p>Following we list the limitations of using reuse buffers in HeteroCL.</p>
+<ol class="arabic simple">
+<li><p>We do not accept non-linear index patterns, e.g., <code class="docutils literal notranslate"><span class="pre">y*y+c</span></code>, <code class="docutils literal notranslate"><span class="pre">y*(y+c)</span></code></p></li>
+<li><p>The stride is not one, e.g., <code class="docutils literal notranslate"><span class="pre">2*y+c</span></code></p></li>
+<li><p>There is no overlapped pixel between two consecutive iterations of the
+specified axis, e.g., <code class="docutils literal notranslate"><span class="pre">[x+r,</span> <span class="pre">y]</span></code> and reuse <code class="docutils literal notranslate"><span class="pre">y</span></code></p></li>
+</ol>
+</section>
+<section id="more-examples-2d-image-blur">
+<h2>More Examples: 2D Image Blur<a class="headerlink" href="#more-examples-2d-image-blur" title="Permalink to this headline"><span>¶</span></a></h2>
+<p>HeteroCL is also able to infer reuse buffers for explicit reduction
+operations. Namely, instead of using <code class="docutils literal notranslate"><span class="pre">hcl.sum</span></code>, we can expand the compute
+patterns. Following is an example of 2D blur.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">hcl</span><span class="o">.</span><span class="n">init</span><span class="p">()</span>
+<span class="n">A</span> <span class="o">=</span> <span class="n">hcl</span><span class="o">.</span><span class="n">placeholder</span><span class="p">((</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="s2">&quot;A&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">kernel_blur</span><span class="p">(</span><span class="n">A</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">hcl</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span>
+        <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">8</span><span class="p">),</span> <span class="k">lambda</span> <span class="n">y</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">A</span><span class="p">[</span><span class="n">y</span><span class="p">,</span> <span class="n">x</span><span class="p">]</span> <span class="o">+</span> <span class="n">A</span><span class="p">[</span><span class="n">y</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">x</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">A</span><span class="p">[</span><span class="n">y</span> <span class="o">+</span> <span class="mi">2</span><span class="p">,</span> <span class="n">x</span> <span class="o">+</span> <span class="mi">2</span><span class="p">],</span> <span class="s2">&quot;B&quot;</span>
+    <span class="p">)</span>
+
+
+<span class="n">s_blur</span> <span class="o">=</span> <span class="n">hcl</span><span class="o">.</span><span class="n">create_schedule</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">kernel_blur</span><span class="p">)</span>
+<span class="n">B</span> <span class="o">=</span> <span class="n">kernel_blur</span><span class="o">.</span><span class="n">B</span>
+<span class="n">RB_y</span> <span class="o">=</span> <span class="n">s_blur</span><span class="o">.</span><span class="n">reuse_at</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">s_blur</span><span class="p">[</span><span class="n">B</span><span class="p">],</span> <span class="n">B</span><span class="o">.</span><span class="n">axis</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s2">&quot;RB_y&quot;</span><span class="p">)</span>
+<span class="n">RB_x</span> <span class="o">=</span> <span class="n">s_blur</span><span class="o">.</span><span class="n">reuse_at</span><span class="p">(</span><span class="n">RB_y</span><span class="p">,</span> <span class="n">s_blur</span><span class="p">[</span><span class="n">B</span><span class="p">],</span> <span class="n">B</span><span class="o">.</span><span class="n">axis</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="s2">&quot;RB_x&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">hcl</span><span class="o">.</span><span class="n">lower</span><span class="p">(</span><span class="n">s_blur</span><span class="p">))</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>#set = affine_set&lt;(d0) : (d0 - 2 &gt;= 0)&gt;
+module {
+  func.func @top(%arg0: memref&lt;10x10xi32&gt;) -&gt; memref&lt;8x8xi32&gt; attributes {itypes = &quot;s&quot;, otypes = &quot;s&quot;} {
+    %0 = memref.alloc() {name = &quot;B&quot;} : memref&lt;8x8xi32&gt;
+    %1 = memref.alloc() {name = &quot;B_reuse_0&quot;} : memref&lt;3x10xi32&gt;
+    %2 = memref.alloc() {name = &quot;B_reuse_1&quot;} : memref&lt;3x3xi32&gt;
+    affine.for %arg1 = 0 to 10 {
+      affine.for %arg2 = 0 to 10 {
+        %3 = affine.load %1[1, %arg2] : memref&lt;3x10xi32&gt;
+        affine.store %3, %1[0, %arg2] : memref&lt;3x10xi32&gt;
+        %4 = affine.load %1[2, %arg2] : memref&lt;3x10xi32&gt;
+        affine.store %4, %1[1, %arg2] : memref&lt;3x10xi32&gt;
+        %5 = affine.load %arg0[%arg1, %arg2] : memref&lt;10x10xi32&gt;
+        affine.store %5, %1[2, %arg2] : memref&lt;3x10xi32&gt;
+        affine.if #set(%arg1) {
+          affine.for %arg3 = 0 to 3 {
+            %6 = affine.load %2[%arg3, 1] : memref&lt;3x3xi32&gt;
+            affine.store %6, %2[%arg3, 0] : memref&lt;3x3xi32&gt;
+            %7 = affine.load %2[%arg3, 2] : memref&lt;3x3xi32&gt;
+            affine.store %7, %2[%arg3, 1] : memref&lt;3x3xi32&gt;
+            %8 = affine.load %1[%arg3, %arg2] : memref&lt;3x10xi32&gt;
+            affine.store %8, %2[%arg3, 2] : memref&lt;3x3xi32&gt;
+          } {spatial}
+          affine.if #set(%arg2) {
+            %6 = affine.load %2[0, 0] : memref&lt;3x3xi32&gt;
+            %7 = affine.load %2[1, 1] : memref&lt;3x3xi32&gt;
+            %8 = arith.extsi %6 : i32 to i33
+            %9 = arith.extsi %7 : i32 to i33
+            %10 = arith.addi %8, %9 : i33
+            %11 = affine.load %2[2, 2] : memref&lt;3x3xi32&gt;
+            %12 = arith.extsi %10 : i33 to i34
+            %13 = arith.extsi %11 : i32 to i34
+            %14 = arith.addi %12, %13 : i34
+            %15 = arith.trunci %14 : i34 to i32
+            affine.store %15, %0[%arg1 - 2, %arg2 - 2] : memref&lt;8x8xi32&gt;
+          }
+        }
+      } {loop_name = &quot;x&quot;}
+    } {loop_name = &quot;y&quot;, op_name = &quot;B&quot;}
+    return %0 : memref&lt;8x8xi32&gt;
+  }
+}
+</pre></div>
+</div>
+<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> ( 0 minutes  0.358 seconds)</p>
+<div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-gallery-tutorial-06-memory-py">
+<div class="sphx-glr-download sphx-glr-download-python docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/18bf76a1f84829838d3c166a41e5fb6d/tutorial_06_memory.py"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Python</span> <span class="pre">source</span> <span class="pre">code:</span> <span class="pre">tutorial_06_memory.py</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/cd2a6c3261bac33ba8fc1663396dae4d/tutorial_06_memory.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">tutorial_06_memory.ipynb</span></code></a></p>
+</div>
+</div>
+<p class="sphx-glr-signature"><a class="reference external" href="https://sphinx-gallery.github.io">Gallery generated by Sphinx-Gallery</a></p>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+    
+        <div id="show_right_sidebar">
+            <p><a class="toggle_right_sidebar" href="#"><span class="icon"><</span><span>Page contents<span></a></p>
+        </div>
+
+        <div id="right_sidebar">
+            <p><a class="toggle_right_sidebar" href="#"><span class="icon">></span><span>Page contents:<span></a></p>
+            <div class="page_toc">
+                <ul>
+<li><a class="reference internal" href="#">Memory Customization</a><ul>
+<li><a class="reference internal" href="#memory-customization-in-heterocl">Memory Customization in HeteroCL</a></li>
+<li><a class="reference internal" href="#data-reuse-in-heterocl">Data Reuse in HeteroCL</a></li>
+<li><a class="reference internal" href="#example-2d-convolution">Example: 2D Convolution</a><ul>
+<li><a class="reference internal" href="#introduce-data-reuse-window-buffer">Introduce Data Reuse: Window Buffer</a></li>
+<li><a class="reference internal" href="#reuse-at-a-different-dimension-linebuffer">Reuse at a Different Dimension: Linebuffer</a></li>
+<li><a class="reference internal" href="#combine-window-buffer-and-linebuffer">Combine Window Buffer and Linebuffer</a></li>
+<li><a class="reference internal" href="#further-optimization">Further Optimization</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#limitations">Limitations</a></li>
+<li><a class="reference internal" href="#more-examples-2d-image-blur">More Examples: 2D Image Blur</a></li>
+</ul>
+</li>
+</ul>
+
+            </div>
+        </div>
+    
+
+      <div class="clearer"></div>
+    </div>
+    <div class="button_nav_wrapper">
+        <div class="button_nav">
+            <div class="left">
+                
+                <a href="tutorial_05_dtype.html">
+                    <span class="icon"><</span><span>Data Type Customization</span></a>
+                
+            </div>
+
+            <div class="right">
+                
+                    <a href="tutorial_07_module.html"><span>Custom Module Definition</span><span class="icon">></span></a>
+                
+            </div>
+        </div>
+    </div>
+
+
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2023, HeteroCL Authors.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.5.0.
+    </div>
+
+<p id="theme_credit">Styled using the <a href="https://github.com/piccolo-orm/piccolo_theme">Piccolo Theme</a></p>
+  </body>
+</html>

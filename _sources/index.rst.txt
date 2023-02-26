@@ -30,12 +30,21 @@ HeteroCL is a multi-paradigm programming infrastructure for software-defined rec
    :caption: Getting Started
 
    setup/index.rst
-   gallery/getting-started.rst
 
 
 .. toctree::
    :maxdepth: 1
    :caption: Tutorials
+
+   gallery/tutorial_01_get_started.rst
+   gallery/tutorial_02_imperative.rst
+   gallery/tutorial_03_api.rst
+   gallery/tutorial_04_compute.rst
+   gallery/tutorial_05_dtype.rst
+   gallery/tutorial_06_memory.rst
+   gallery/tutorial_07_module.rst
+   gallery/tutorial_08_backend.rst
+   gallery/tutorial_09_stencil.rst
 
 
 .. toctree::

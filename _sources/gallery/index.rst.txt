@@ -12,18 +12,154 @@ HeteroCL Tutorials
 
 .. raw:: html
 
-    <div class="sphx-glr-thumbcontainer" tooltip="This is a simple tutorial to get you started with HeteroCL.">
+    <div class="sphx-glr-thumbcontainer" tooltip="**Author**: Yi-Hsiang Lai (seanlatias@github)">
 
 .. only:: html
 
-  .. image:: /gallery/images/thumb/sphx_glr_getting-started_thumb.png
+  .. image:: /gallery/images/thumb/sphx_glr_tutorial_01_get_started_thumb.png
     :alt: Getting Started
 
-  :ref:`sphx_glr_gallery_getting-started.py`
+  :ref:`sphx_glr_gallery_tutorial_01_get_started.py`
 
 .. raw:: html
 
       <div class="sphx-glr-thumbnail-title">Getting Started</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="**Author**: Yi-Hsiang Lai (seanlatias@github)">
+
+.. only:: html
+
+  .. image:: /gallery/images/thumb/sphx_glr_tutorial_08_backend_thumb.png
+    :alt: Back-end Support
+
+  :ref:`sphx_glr_gallery_tutorial_08_backend.py`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Back-end Support</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="In this tutorial, we show how to use the stencil backend in HeteroCL and generate HLS C++ code ...">
+
+.. only:: html
+
+  .. image:: /gallery/images/thumb/sphx_glr_tutorial_09_stencil_thumb.png
+    :alt: Use the Stencil Backend
+
+  :ref:`sphx_glr_gallery_tutorial_09_stencil.py`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Use the Stencil Backend</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="**Author**: Yi-Hsiang Lai (seanlatias@github)">
+
+.. only:: html
+
+  .. image:: /gallery/images/thumb/sphx_glr_tutorial_05_dtype_thumb.png
+    :alt: Data Type Customization
+
+  :ref:`sphx_glr_gallery_tutorial_05_dtype.py`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Data Type Customization</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="**Author**: Yi-Hsiang Lai (seanlatias@github)">
+
+.. only:: html
+
+  .. image:: /gallery/images/thumb/sphx_glr_tutorial_03_api_thumb.png
+    :alt: HeteroCL Compute APIs
+
+  :ref:`sphx_glr_gallery_tutorial_03_api.py`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">HeteroCL Compute APIs</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="**Author**: Yi-Hsiang Lai (seanlatias@github)">
+
+.. only:: html
+
+  .. image:: /gallery/images/thumb/sphx_glr_tutorial_04_compute_thumb.png
+    :alt: Compute Customization
+
+  :ref:`sphx_glr_gallery_tutorial_04_compute.py`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Compute Customization</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="**Author**: Yi-Hsiang Lai (seanlatias@github)">
+
+.. only:: html
+
+  .. image:: /gallery/images/thumb/sphx_glr_tutorial_02_imperative_thumb.png
+    :alt: Imperative Programming
+
+  :ref:`sphx_glr_gallery_tutorial_02_imperative.py`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Imperative Programming</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="**Author**: Yi-Hsiang Lai (seanlatias@github)">
+
+.. only:: html
+
+  .. image:: /gallery/images/thumb/sphx_glr_tutorial_06_memory_thumb.png
+    :alt: Memory Customization
+
+  :ref:`sphx_glr_gallery_tutorial_06_memory.py`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Memory Customization</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="**Author**: Yi-Hsiang Lai (seanlatias@github.com)">
+
+.. only:: html
+
+  .. image:: /gallery/images/thumb/sphx_glr_tutorial_07_module_thumb.png
+    :alt: Custom Module Definition
+
+  :ref:`sphx_glr_gallery_tutorial_07_module.py`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Custom Module Definition</div>
     </div>
 
 
@@ -35,7 +171,15 @@ HeteroCL Tutorials
 .. toctree::
    :hidden:
 
-   /gallery/getting-started
+   /gallery/tutorial_01_get_started
+   /gallery/tutorial_08_backend
+   /gallery/tutorial_09_stencil
+   /gallery/tutorial_05_dtype
+   /gallery/tutorial_03_api
+   /gallery/tutorial_04_compute
+   /gallery/tutorial_02_imperative
+   /gallery/tutorial_06_memory
+   /gallery/tutorial_07_module
 
 
 
