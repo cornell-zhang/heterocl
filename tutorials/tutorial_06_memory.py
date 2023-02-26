@@ -17,7 +17,7 @@ import numpy as np
 # --------------------------------
 # There are two types of memory customization in HeteroCL. The first one is
 # similar to what we have seen in
-# :ref:`sphx_glr_tutorials_tutorial_04_compute.py`, where we demonstrate some
+# :ref:`sphx_glr_gallery_tutorial_04_compute.py`, where we demonstrate some
 # primitives that will be synthesized as pragmas. An example of such primitive
 # is ``partition``. Following is an example. Note that the primitive is
 # directly applied on the schedule instead of a stage. This is because we are

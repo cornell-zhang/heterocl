@@ -34,24 +34,18 @@ jobs:
             -DPython3_EXECUTABLE=`which python3`
         make -j2
         cd tools/hcl/python_packages/hcl_core
-        pip install . -v
-        cd /home/circleci
-        git clone https://github.com/cornell-zhang/heterocl
-        cd heterocl
-        git switch docs
-        mkdir -p hcl-dialect/externals/llvm-project/llvm
-        mkdir -p hcl-dialect/externals/llvm-project/build/bin/llvm-config
-        mkdir -p hcl-dialect/build/bin/hcl-opt
-        pip install . -v
+        python3 -m pip install . -v
     - uses: actions/checkout@v3
       with:
         ref: docs
-    # This step uses ammaraskar's Sphinx Build Action: https://github.com/ammaraskar/sphinx-action
-    - uses: ammaraskar/sphinx-action@master
-      with:
-        docs-folder: "docs/"
-        # list of shell commands to prepare environment before build
-        pre-build-command: "pip install -r docs/requirements.txt"
+    - name: Build docs
+      run: |
+        export HCL_HOME=$(pwd)
+        export PYTHONPATH=$HCL_HOME:${PYTHONPATH}
+        python3 -m pip install -r requirements.txt
+        cd docs
+        python3 -m pip install -r requirements.txt
+        make html
     # Create an artifact of the html output using Github action: https://github.com/actions/upload-artifact
     - uses: actions/upload-artifact@v1
       with:

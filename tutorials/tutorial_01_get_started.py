@@ -27,7 +27,7 @@ import heterocl as hcl
 # .. note::
 #
 #    For more information on the data types, please see
-#    :ref:`sphx_glr_tutorials_tutorial_05_dtype.py`.
+#    :ref:`sphx_glr_gallery_tutorial_05_dtype.py`.
 
 hcl.init()
 
@@ -47,7 +47,7 @@ hcl.init()
 # .. note::
 #
 #    For more information on the APIs, please see
-#    :ref:`sphx_glr_tutorials_tutorial_03_api.py`
+#    :ref:`sphx_glr_gallery_tutorial_03_api.py`
 
 
 def simple_compute(a, A):

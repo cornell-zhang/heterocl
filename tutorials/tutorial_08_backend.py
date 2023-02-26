@@ -99,4 +99,4 @@ print(f)
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # HeteroCL incorporates the SODA framework for efficient stencil architecture
 # generation. For more details, please refer to
-# :ref:`sphx_glr_tutorials_tutorial_09_stencil.py`.
+# :ref:`sphx_glr_gallery_tutorial_09_stencil.py`.
