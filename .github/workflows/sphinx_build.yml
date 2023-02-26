@@ -7,13 +7,12 @@ on:
   push:
     branches:
       - docs
-    paths:
-      - 'docs/**'
   pull_request:
     branches:
       - main
     paths:
       - 'docs/**'
+      - 'tutorials/**'
 
 jobs:
   build:
