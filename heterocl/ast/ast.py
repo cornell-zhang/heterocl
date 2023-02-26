@@ -773,9 +773,7 @@ class ConstantTensorOp(Expr):
     def __repr__(self):
         code_str = ""
         code_str += print_indent(code_str, self.level)
-        code_str += (
-            f"{self.name} = constant_tensor({self.values.shape}, {self.dtype})"
-        )
+        code_str += f"{self.name} = constant_tensor({self.values.shape}, {self.dtype})"
         return code_str
 
 
