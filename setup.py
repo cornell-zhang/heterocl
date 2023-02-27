@@ -38,7 +38,6 @@ class CMakeBuild(build_py):
     def initialize_options(self):
         # call parent initialize_options method
         build_py.initialize_options(self)
-        self.error = 0
 
     def finalize_options(self):
         # call parent finalize_options method
@@ -121,7 +120,9 @@ class CMakeBuild(build_py):
 
     def run(self):
         self.src_dir = os.path.abspath(os.path.dirname(__file__))
-        self.llvm_dir = os.path.join(self.src_dir, "hcl-dialect/externals/llvm-project")
+        self.llvm_dir = os.path.join(
+            self.src_dir, "hcl-dialect/externals/llvm-project"
+        )
         if not os.path.exists(os.path.join(self.llvm_dir, "llvm")):
             raise RuntimeError(
                 "`llvm-project` not found. Please run `git submodule update --init --recursive` first"
@@ -137,7 +138,7 @@ class CMakeBuild(build_py):
             os.path.join(self.src_dir, "hcl-dialect/build/bin/hcl-opt")
         ):
             self.build_hcl_dialect()
-        self.install_hcl_dialect()
+            self.install_hcl_dialect()
         build_py.run(self)
 
 
@@ -168,7 +169,7 @@ def setup():
             "build_py": CMakeBuild,
             "build_ext": NoopBuildExtension,
         },
-        setup_requires=["numpy", "pybind11", "pip"],
+        setup_requires=["numpy", "pybind11", "pip", "cmake"],
         install_requires=parse_requirements("requirements.txt"),
         packages=setuptools.find_packages(),
         url="https://github.com/cornell-zhang/heterocl",
