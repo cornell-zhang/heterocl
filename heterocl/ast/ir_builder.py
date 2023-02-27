@@ -1482,7 +1482,7 @@ class IRBuilder:
             initial_value=value_attr,
             constant=True,
             alignment=None,
-            ip=InsertionPoint(self.module.body),
+            ip=InsertionPoint(self._ast.top_func.ir_op),
             loc=loc,
         )
         const_tensor.attributes["constant"] = UnitAttr.get()
