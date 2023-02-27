@@ -120,9 +120,7 @@ class CMakeBuild(build_py):
 
     def run(self):
         self.src_dir = os.path.abspath(os.path.dirname(__file__))
-        self.llvm_dir = os.path.join(
-            self.src_dir, "hcl-dialect/externals/llvm-project"
-        )
+        self.llvm_dir = os.path.join(self.src_dir, "hcl-dialect/externals/llvm-project")
         if not os.path.exists(os.path.join(self.llvm_dir, "llvm")):
             raise RuntimeError(
                 "`llvm-project` not found. Please run `git submodule update --init --recursive` first"
