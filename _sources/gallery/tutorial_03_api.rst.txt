@@ -288,8 +288,8 @@ the maximum two values in a tensor.
 
  .. code-block:: none
 
-    [13 36 11 38 38 33 23 20  3 33]
-    [38 38]
+    [38 16 43 45 48 28  9 48  1 47]
+    [48 48]
 
 
 

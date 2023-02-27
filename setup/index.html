@@ -168,10 +168,84 @@
             
   <section id="installation">
 <span id="setup"></span><h1>Installation<a class="headerlink" href="#installation" title="Permalink to this headline"><span>¶</span></a></h1>
-<p>We provide two approaches to installing HeteroCL. The easiest way is to install HeteroCL through pip:</p>
+<p>To install HeteroCL, please make sure you have already cloned the repository and the submodules. This will automatically pull the LLVM repository, which may take a few minutes depending on your network connection. If you want to install LLVM yourself, please refer to the <a class="reference internal" href="#developer"><span class="std std-ref">HeteroCL Developers</span></a> section.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/cornell-zhang/heterocl.git<span class="w"> </span>heterocl-mlir
+<span class="gp">$ </span><span class="nb">cd</span><span class="w"> </span>heterocl-mlir
+<span class="gp">$ </span>git<span class="w"> </span>submodule<span class="w"> </span>update<span class="w"> </span>--init<span class="w"> </span>--recursive
+</pre></div>
+</div>
+<p>After cloning the submodule, you can install HeteroCL through <cite>pip</cite>. It will install LLVM 15.0.0 and build all the dependencies. Make sure you have <cite>cmake (&gt;=3.19)</cite> and <cite>python (&gt;=3.7)</cite>.</p>
 <div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>pip<span class="w"> </span>install<span class="w"> </span>.
 </pre></div>
 </div>
+<p>Later, you can add the following line to your <code class="docutils literal notranslate"><span class="pre">.bashrc</span></code> file to make sure the environment variables are set correctly.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span><span class="nb">export</span><span class="w"> </span><span class="nv">LLVM_BUILD_DIR</span><span class="o">=</span><span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span>/hcl-dialect/externals/llvm-project/build
+<span class="gp">$ </span><span class="nb">export</span><span class="w"> </span><span class="nv">PATH</span><span class="o">=</span><span class="si">${</span><span class="nv">LLVM_BUILD_DIR</span><span class="si">}</span>/bin:<span class="si">${</span><span class="nv">PATH</span><span class="si">}</span>
+</pre></div>
+</div>
+<p>To verify HeteroCL is installed correctly, you can run the following test.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>python3<span class="w"> </span>-m<span class="w"> </span>pytest<span class="w"> </span><span class="nb">test</span>
+</pre></div>
+</div>
+<section id="heterocl-developers">
+<span id="developer"></span><h2>HeteroCL Developers<a class="headerlink" href="#heterocl-developers" title="Permalink to this headline"><span>¶</span></a></h2>
+<p>You can clone and install LLVM in a separate folder, but make sure it is the same version as the one in the submodule (v15.0.0).</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/llvm/llvm-project.git
+<span class="gp">$ </span><span class="nb">cd</span><span class="w"> </span>llvm-project
+<span class="gp">$ </span>git<span class="w"> </span>checkout<span class="w"> </span>tags/llvmorg-15.0.0
+</pre></div>
+</div>
+<p>Then, you can build LLVM with Python binding using the following commands. It is recommended to install the Python binding in a clean virtual environment.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span><span class="c1"># Install required packages. Suppose you are inside the llvm-project folder.</span>
+<span class="gp">$ </span>python3<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>mlir/python/requirements.txt
+
+<span class="gp">$ </span><span class="c1"># Run cmake</span>
+<span class="gp">$ </span>mkdir<span class="w"> </span>build<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>build
+<span class="gp">$ </span>cmake<span class="w"> </span>-G<span class="w"> </span><span class="s2">&quot;Unix Makefiles&quot;</span><span class="w"> </span>../llvm<span class="w"> </span><span class="se">\</span>
+<span class="w">     </span>-DLLVM_ENABLE_PROJECTS<span class="o">=</span>mlir<span class="w"> </span><span class="se">\</span>
+<span class="w">     </span>-DLLVM_BUILD_EXAMPLES<span class="o">=</span>ON<span class="w"> </span><span class="se">\</span>
+<span class="w">     </span>-DLLVM_TARGETS_TO_BUILD<span class="o">=</span><span class="s2">&quot;host&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">     </span>-DCMAKE_BUILD_TYPE<span class="o">=</span>Release<span class="w"> </span><span class="se">\</span>
+<span class="w">     </span>-DLLVM_ENABLE_ASSERTIONS<span class="o">=</span>ON<span class="w"> </span><span class="se">\</span>
+<span class="w">     </span>-DLLVM_INSTALL_UTILS<span class="o">=</span>ON<span class="w"> </span><span class="se">\</span>
+<span class="w">     </span>-DMLIR_ENABLE_BINDINGS_PYTHON<span class="o">=</span>ON<span class="w"> </span><span class="se">\</span>
+<span class="w">     </span>-DPython3_EXECUTABLE<span class="o">=</span><span class="sb">`</span>which<span class="w"> </span>python3<span class="sb">`</span>
+<span class="gp">$ </span>make<span class="w"> </span>-j8
+
+<span class="gp">$ </span><span class="c1"># Export the LLVM build directory</span>
+<span class="gp">$ </span><span class="nb">export</span><span class="w"> </span><span class="nv">LLVM_BUILD_DIR</span><span class="o">=</span><span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span>
+
+<span class="gp">$ </span><span class="c1"># To enable better backtracing for debugging,</span>
+<span class="gp">$ </span><span class="c1"># we suggest setting the following system path</span>
+<span class="gp">$ </span><span class="nb">export</span><span class="w"> </span><span class="nv">LLVM_SYMBOLIZER_PATH</span><span class="o">=</span><span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span>/bin/llvm-symbolizer
+</pre></div>
+</div>
+<p>Clone the HCL-MLIR dialect repository and build it.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>git<span class="w"> </span>clone<span class="w"> </span>git@github.com:cornell-zhang/hcl-dialect.git
+<span class="gp">$ </span><span class="nb">cd</span><span class="w"> </span>hcl-dialect
+<span class="gp">$ </span>mkdir<span class="w"> </span>build<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>build
+<span class="gp">$ </span>cmake<span class="w"> </span>-G<span class="w"> </span><span class="s2">&quot;Unix Makefiles&quot;</span><span class="w"> </span>..<span class="w"> </span><span class="se">\</span>
+<span class="w">     </span>-DMLIR_DIR<span class="o">=</span><span class="nv">$LLVM_BUILD_DIR</span>/lib/cmake/mlir<span class="w"> </span><span class="se">\</span>
+<span class="w">     </span>-DLLVM_EXTERNAL_LIT<span class="o">=</span><span class="nv">$LLVM_BUILD_DIR</span>/bin/llvm-lit<span class="w"> </span><span class="se">\</span>
+<span class="w">     </span>-DPYTHON_BINDING<span class="o">=</span>ON<span class="w"> </span><span class="se">\</span>
+<span class="w">     </span>-DOPENSCOP<span class="o">=</span>OFF<span class="w"> </span><span class="se">\</span>
+<span class="w">     </span>-DPython3_EXECUTABLE<span class="o">=</span><span class="sb">`</span>which<span class="w"> </span>python3<span class="sb">`</span>
+<span class="gp">$ </span>make<span class="w"> </span>-j8
+
+<span class="gp">$ </span><span class="c1"># Export the generated HCL-MLIR Python library</span>
+<span class="gp">$ </span><span class="nb">export</span><span class="w"> </span><span class="nv">PYTHONPATH</span><span class="o">=</span><span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span>/tools/hcl/python_packages/hcl_core:<span class="si">${</span><span class="nv">PYTHONPATH</span><span class="si">}</span>
+</pre></div>
+</div>
+<p>Finally, inside the HeteroCL root folder, export the required environment variables.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span><span class="nb">export</span><span class="w"> </span><span class="nv">PYTHONPATH</span><span class="o">=</span><span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span>:<span class="si">${</span><span class="nv">PYTHONPATH</span><span class="si">}</span>
+<span class="gp">$ </span><span class="nb">export</span><span class="w"> </span><span class="nv">PATH</span><span class="o">=</span><span class="si">${</span><span class="nv">LLVM_BUILD_DIR</span><span class="si">}</span>/bin:<span class="si">${</span><span class="nv">PATH</span><span class="si">}</span>
+</pre></div>
+</div>
+<p>You can run the following test to make sure everything is set up correctly.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>python3<span class="w"> </span>-m<span class="w"> </span>pytest<span class="w"> </span><span class="nb">test</span>
+</pre></div>
+</div>
+</section>
 </section>
 
 
@@ -179,6 +253,23 @@
           </div>
         </div>
       </div>
+    
+        <div id="show_right_sidebar">
+            <p><a class="toggle_right_sidebar" href="#"><span class="icon"><</span><span>Page contents<span></a></p>
+        </div>
+
+        <div id="right_sidebar">
+            <p><a class="toggle_right_sidebar" href="#"><span class="icon">></span><span>Page contents:<span></a></p>
+            <div class="page_toc">
+                <ul>
+<li><a class="reference internal" href="#">Installation</a><ul>
+<li><a class="reference internal" href="#heterocl-developers">HeteroCL Developers</a></li>
+</ul>
+</li>
+</ul>
+
+            </div>
+        </div>
     
 
       <div class="clearer"></div>

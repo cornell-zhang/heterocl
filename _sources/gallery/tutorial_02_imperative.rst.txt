@@ -234,9 +234,9 @@ Finally, we build the executable and feed it with Numpy arrays.
  .. code-block:: none
 
     Before sorting:
-    array([15,  2, 25, 13,  9, 42, 39, 32,  5, 17])
+    array([27, 42, 44, 19, 48,  4, 32, 25, 28, 33])
     After sorting:
-    [ 2  5  9 13 15 17 25 32 39 42]
+    [ 4 19 25 27 28 32 33 42 44 48]
 
 
 
@@ -333,11 +333,11 @@ Now we can test the results.
  .. code-block:: none
 
     Input array:
-    array([43,  9, 67, 21, 21, 60, 64, 85,  8, 73])
+    array([67, 17, 46, 51,  5,  1, 38, 63, 96, 91])
     Least-significant bit:
-    array([1, 1, 1, 1, 1, 0, 0, 1, 0, 1])
+    array([1, 1, 0, 1, 1, 1, 0, 1, 0, 1])
     Lower four bits:
-    array([11,  9,  3,  5,  5, 12,  0,  5,  8,  9])
+    array([ 3,  1, 14,  3,  5,  1,  6, 15,  0, 11])
 
 
 
@@ -405,15 +405,15 @@ we need to use imperative DSL. Following is an example.
  .. code-block:: none
 
     Input array:
-    array([13, 14,  6,  3, 15, 14,  4,  7, 10,  3])
+    array([15, 11,  4, 11,  1,  1, 12,  6,  8,  1])
     Before setting the least-significant bit:
-    [39 89 74 78 25 62 61 70 21 47]
+    [25 26  7 87 26 62 72 20 90 38]
     After:
-    array([39, 88, 74, 79, 25, 62, 60, 71, 20, 47])
+    array([25, 27,  6, 87, 27, 63, 72, 20, 90, 39])
     Before setting the lower four bits:
-    [40 11 49 79  1 49 52 45  7 78]
+    [61 22  2 85 58 75 65 64  9 38]
     After:
-    array([45, 14, 54, 67, 15, 62, 52, 39, 10, 67])
+    array([63, 27,  4, 91, 49, 65, 76, 70,  8, 33])
 
 
 

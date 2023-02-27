@@ -264,17 +264,17 @@ void top(
 ) {     // L28
   #pragma HLS array_partition variable=v1 complete dim=3
 
-  l_B_x: for (int x = 0; x &lt; 10; x++) { // L480
-    l_y_outer: for (int y_outer = 0; y_outer &lt; 2; y_outer++) {  // L480
+  l_B_x: for (int x = 0; x &lt; 10; x++) { // L472
+    l_y_outer: for (int y_outer = 0; y_outer &lt; 2; y_outer++) {  // L472
     #pragma HLS pipeline II=1
-      l_y_inner: for (int y_inner = 0; y_inner &lt; 5; y_inner++) {        // L480
-        int v5 = (y_inner + (y_outer * 5));     // L480
+      l_y_inner: for (int y_inner = 0; y_inner &lt; 5; y_inner++) {        // L472
+        int v5 = (y_inner + (y_outer * 5));     // L472
         int32_t v6 = v0[x][v5]; // L28
-        ap_int&lt;33&gt; v7 = v6;     // L480
-        ap_int&lt;33&gt; v8 = 1;      // L480
+        ap_int&lt;33&gt; v7 = v6;     // L472
+        ap_int&lt;33&gt; v8 = 1;      // L472
         ap_int&lt;33&gt; v9 = v7 + v8;        // L28
-        int32_t v10 = v9;       // L480
-        v1[(x + ((v5 / 5) / 2))][((v5 / 5) % 2)][(v5 % 5)] = v10;       // L480
+        int32_t v10 = v9;       // L472
+        v1[(x + ((v5 / 5) / 2))][((v5 / 5) % 2)][(v5 % 5)] = v10;       // L472
       }
     }
   }
@@ -364,21 +364,21 @@ different from the shape of the input tensor. Let’s give some real inputs.</p>
 </pre></div>
 </div>
 <div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Input:
-array([[7, 2, 6, 3, 2, 3],
-       [8, 4, 4, 2, 7, 8],
-       [1, 1, 7, 0, 4, 6],
-       [6, 9, 8, 4, 7, 8],
-       [9, 6, 7, 5, 8, 3],
-       [1, 1, 2, 3, 6, 8]])
+array([[4, 0, 8, 6, 9, 9],
+       [5, 6, 6, 9, 0, 8],
+       [0, 1, 2, 5, 2, 8],
+       [4, 9, 7, 6, 9, 0],
+       [6, 6, 6, 5, 0, 5],
+       [2, 8, 9, 3, 0, 4]])
 Filter:
-array([[8, 8, 6],
-       [7, 4, 8],
-       [7, 8, 2]])
+array([[0, 0, 4],
+       [0, 6, 9],
+       [5, 2, 5]])
 Output:
-array([[241, 205, 233, 208],
-       [317, 246, 273, 284],
-       [325, 299, 313, 293],
-       [330, 299, 321, 312]])
+array([[134, 175, 120, 177],
+       [121, 182, 140, 164],
+       [197, 183, 165, 136],
+       [189, 178, 117,  80]])
 </pre></div>
 </div>
 <p>To analyze the data reuse, let’s take a closer look to the generated IR.
@@ -474,15 +474,15 @@ see the update algorithm described above. Now let’s test the function again.</
 </pre></div>
 </div>
 <div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Output without WB:
-array([[241, 205, 233, 208],
-       [317, 246, 273, 284],
-       [325, 299, 313, 293],
-       [330, 299, 321, 312]])
+array([[134, 175, 120, 177],
+       [121, 182, 140, 164],
+       [197, 183, 165, 136],
+       [189, 178, 117,  80]])
 Output with WB:
-array([[241, 205, 233, 208],
-       [317, 246, 273, 284],
-       [325, 299, 313, 293],
-       [330, 299, 321, 312]])
+array([[134, 175, 120, 177],
+       [121, 182, 140, 164],
+       [197, 183, 165, 136],
+       [189, 178, 117,  80]])
 </pre></div>
 </div>
 <p>You should see the same results with and without the window buffer.</p>
@@ -559,15 +559,15 @@ module {
 }
 
 Output without LB:
-array([[241, 205, 233, 208],
-       [317, 246, 273, 284],
-       [325, 299, 313, 293],
-       [330, 299, 321, 312]])
+array([[134, 175, 120, 177],
+       [121, 182, 140, 164],
+       [197, 183, 165, 136],
+       [189, 178, 117,  80]])
 Output with LB:
-array([[241, 205, 233, 208],
-       [317, 246, 273, 284],
-       [325, 299, 313, 293],
-       [330, 299, 321, 312]])
+array([[134, 175, 120, 177],
+       [121, 182, 140, 164],
+       [197, 183, 165, 136],
+       [189, 178, 117,  80]])
 </pre></div>
 </div>
 <p>Note that the difference between WB and LB is the we reuse at different
@@ -666,15 +666,15 @@ module {
 }
 
 Output without reuse buffers:
-array([[241, 205, 233, 208],
-       [317, 246, 273, 284],
-       [325, 299, 313, 293],
-       [330, 299, 321, 312]])
+array([[134, 175, 120, 177],
+       [121, 182, 140, 164],
+       [197, 183, 165, 136],
+       [189, 178, 117,  80]])
 Output with reuse buffers:
-array([[241, 205, 233, 208],
-       [317, 246, 273, 284],
-       [325, 299, 313, 293],
-       [330, 299, 321, 312]])
+array([[134, 175, 120, 177],
+       [121, 182, 140, 164],
+       [197, 183, 165, 136],
+       [189, 178, 117,  80]])
 </pre></div>
 </div>
 <p>We can see from the IR that the allocation sizes are indeed as expected.</p>
@@ -861,7 +861,7 @@ module {
 }
 </pre></div>
 </div>
-<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> ( 0 minutes  0.358 seconds)</p>
+<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> ( 0 minutes  0.364 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-gallery-tutorial-06-memory-py">
 <div class="sphx-glr-download sphx-glr-download-python docutils container">
 <p><a class="reference download internal" download="" href="../_downloads/18bf76a1f84829838d3c166a41e5fb6d/tutorial_06_memory.py"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Python</span> <span class="pre">source</span> <span class="pre">code:</span> <span class="pre">tutorial_06_memory.py</span></code></a></p>

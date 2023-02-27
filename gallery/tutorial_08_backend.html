@@ -247,16 +247,16 @@ void top(
   #pragma HLS array_partition variable=v0 complete dim=1
   #pragma HLS array_partition variable=v0 complete dim=2
 
-  l_B_y: for (int y = 0; y &lt; 8; y++) {  // L480
-    l_x: for (int x = 0; x &lt; 8; x++) {  // L480
+  l_B_y: for (int y = 0; y &lt; 8; y++) {  // L472
+    l_x: for (int x = 0; x &lt; 8; x++) {  // L472
     #pragma HLS pipeline II=1
       int32_t v4 = v0[y][x];    // L21
       int32_t v5 = v0[(y + 2)][(x + 2)];        // L21
-      ap_int&lt;33&gt; v6 = v4;       // L480
-      ap_int&lt;33&gt; v7 = v5;       // L480
+      ap_int&lt;33&gt; v6 = v4;       // L472
+      ap_int&lt;33&gt; v7 = v5;       // L472
       ap_int&lt;33&gt; v8 = v6 + v7;  // L21
-      ap_int&lt;4&gt; v9 = v8;        // L480
-      v1[y][x] = v9;    // L480
+      ap_int&lt;4&gt; v9 = v8;        // L472
+      v1[y][x] = v9;    // L472
     }
   }
 }
@@ -366,16 +366,16 @@ int main() {
         //
         //    DPC++FPGA/Tutorials/Features/kernel_args_restrict
         h.single_task&lt;Top&gt;([=]() [[intel::kernel_args_restrict]] {
-          for (int v2 = 0; v2 &lt; 8; v2 += 1) {   // L480
+          for (int v2 = 0; v2 &lt; 8; v2 += 1) {   // L472
             [[intel::initiation_interval(1)]]
-            for (int v3 = 0; v3 &lt; 8; v3 += 1) { // L480
+            for (int v3 = 0; v3 &lt; 8; v3 += 1) { // L472
               int32_t v4 = v0[v2][v3];  // L21
               int32_t v5 = v0[(v2 + 2)][(v3 + 2)];      // L21
-              ac_int&lt;33&gt; v6 = v4;       // L480
-              ac_int&lt;33&gt; v7 = v5;       // L480
+              ac_int&lt;33&gt; v6 = v4;       // L472
+              ac_int&lt;33&gt; v7 = v5;       // L472
               ac_int&lt;33&gt; v8 = v6 + v7;  // L21
-              ac_int&lt;4&gt; v9 = v8;        // L480
-              v1[v2][v3] = v9;  // L480
+              ac_int&lt;4&gt; v9 = v8;        // L472
+              v1[v2][v3] = v9;  // L472
             }
           }
 
