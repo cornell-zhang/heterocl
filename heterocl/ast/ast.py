@@ -101,8 +101,6 @@ def simplify(expr):
             return expr
         index = expr.index
         return sp.simplify(simplify(tensor.fcompute(*index)))
-
-    # Start
     elif isinstance(expr, LeftShiftOp):
         lhs = simplify(simplify(expr.lhs))
         rhs = simplify(simplify(expr.rhs))
@@ -141,11 +139,15 @@ def simplify(expr):
             output = lhs >= rhs
         else:
             raise HCLError(f"Unsupported expression type: {type(expr)}, {expr.name}")
-
         if output:
-            return 1
+            return sp.simplify(1)
         else:
-            return 0
+            return sp.simplify(0)
+    elif isinstance(expr, StructGetOp):
+        struct = expr.struct
+        index = struct.index
+        e = struct.tensor.fcompute(*index)[expr.field]
+        return sp.simplify(simplify(e))
     else:
         raise HCLError(f"Unsupported expression type: {type(expr)}")
 

@@ -3,6 +3,7 @@
 
 import heterocl as hcl
 import pytest
+import numpy as np
 from hcl_mlir.exceptions import APIError
 
 
@@ -258,7 +259,18 @@ def test_cmp_ge1():
     assert np_B.asnumpy().tolist() == [0b1, 0b0]
 
 
-# pytest does not execute this part
-# you can run this file directly to test
-# e.g. python test_simplify.py
-if __name__ == "__main__":
+def test_struct_get_op():
+    def kernel(A):
+        lower_idx = 0
+        stype = hcl.Struct({"binary": hcl.Int(8), "upper_idx": hcl.Int(8)})
+        B = hcl.compute(A.shape, lambda x: (A[x], 5), dtype=stype)
+        C = hcl.compute(A.shape, lambda x: (B[x].binary)[lower_idx : (B[x].upper_idx)])
+        return C
+
+    A = hcl.placeholder((2,), "A")
+    s = hcl.create_schedule([A], kernel)
+    f = hcl.build(s)
+    np_A = hcl.asarray([0b11010110, 0b10011100])
+    np_C = hcl.asarray([0, 0])
+    f(np_A, np_C)
+    assert np_C.asnumpy().tolist() == [0b10110, 0b11100]
