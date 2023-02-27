@@ -5,24 +5,24 @@
 
 Computation times
 =================
-**00:01.142** total execution time for **gallery** files:
+**00:01.169** total execution time for **gallery** files:
 
 +-------------------------------------------------------------------------------------+-----------+--------+
-| :ref:`sphx_glr_gallery_tutorial_06_memory.py` (``tutorial_06_memory.py``)           | 00:00.364 | 0.0 MB |
+| :ref:`sphx_glr_gallery_tutorial_06_memory.py` (``tutorial_06_memory.py``)           | 00:00.370 | 0.0 MB |
 +-------------------------------------------------------------------------------------+-----------+--------+
-| :ref:`sphx_glr_gallery_tutorial_07_module.py` (``tutorial_07_module.py``)           | 00:00.213 | 0.0 MB |
+| :ref:`sphx_glr_gallery_tutorial_07_module.py` (``tutorial_07_module.py``)           | 00:00.221 | 0.0 MB |
 +-------------------------------------------------------------------------------------+-----------+--------+
-| :ref:`sphx_glr_gallery_tutorial_02_imperative.py` (``tutorial_02_imperative.py``)   | 00:00.145 | 0.0 MB |
+| :ref:`sphx_glr_gallery_tutorial_02_imperative.py` (``tutorial_02_imperative.py``)   | 00:00.148 | 0.0 MB |
 +-------------------------------------------------------------------------------------+-----------+--------+
-| :ref:`sphx_glr_gallery_tutorial_04_compute.py` (``tutorial_04_compute.py``)         | 00:00.098 | 0.0 MB |
+| :ref:`sphx_glr_gallery_tutorial_04_compute.py` (``tutorial_04_compute.py``)         | 00:00.099 | 0.0 MB |
 +-------------------------------------------------------------------------------------+-----------+--------+
-| :ref:`sphx_glr_gallery_tutorial_05_dtype.py` (``tutorial_05_dtype.py``)             | 00:00.088 | 0.0 MB |
+| :ref:`sphx_glr_gallery_tutorial_05_dtype.py` (``tutorial_05_dtype.py``)             | 00:00.091 | 0.0 MB |
 +-------------------------------------------------------------------------------------+-----------+--------+
-| :ref:`sphx_glr_gallery_tutorial_08_backend.py` (``tutorial_08_backend.py``)         | 00:00.088 | 0.0 MB |
+| :ref:`sphx_glr_gallery_tutorial_08_backend.py` (``tutorial_08_backend.py``)         | 00:00.090 | 0.0 MB |
 +-------------------------------------------------------------------------------------+-----------+--------+
-| :ref:`sphx_glr_gallery_tutorial_01_get_started.py` (``tutorial_01_get_started.py``) | 00:00.078 | 0.0 MB |
+| :ref:`sphx_glr_gallery_tutorial_01_get_started.py` (``tutorial_01_get_started.py``) | 00:00.080 | 0.0 MB |
 +-------------------------------------------------------------------------------------+-----------+--------+
-| :ref:`sphx_glr_gallery_tutorial_03_api.py` (``tutorial_03_api.py``)                 | 00:00.066 | 0.0 MB |
+| :ref:`sphx_glr_gallery_tutorial_03_api.py` (``tutorial_03_api.py``)                 | 00:00.068 | 0.0 MB |
 +-------------------------------------------------------------------------------------+-----------+--------+
 | :ref:`sphx_glr_gallery_tutorial_09_stencil.py` (``tutorial_09_stencil.py``)         | 00:00.002 | 0.0 MB |
 +-------------------------------------------------------------------------------------+-----------+--------+

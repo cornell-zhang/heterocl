@@ -235,11 +235,11 @@ to apply data type customization, we need to use <code class="docutils literal n
 </pre></div>
 </div>
 <div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Before tanh
-[-0.88678271  0.75009519 -0.90339494 -0.42964992  0.3214047  -0.28111354
- -0.21093629  0.3824265  -0.38763213 -0.67207992]
+[ 0.29666233 -0.4033291   0.7289502   0.8241058   0.08204924 -0.25634474
+  0.14037104 -0.98059881 -0.06793999 -0.5573926 ]
 After tanh
-[-0.70980102  0.63520575 -0.71794689 -0.4050287   0.3107765  -0.27393538
- -0.20786251  0.36481288 -0.36931711 -0.58634639]
+[ 0.28825521 -0.38279387  0.6224227   0.67729837  0.08186562 -0.25087348
+  0.13945629 -0.75332499 -0.06783565 -0.50604028]
 </pre></div>
 </div>
 <p>Now let’s use <code class="docutils literal notranslate"><span class="pre">hcl.create_scheme</span></code> to create a quantization scheme. The
@@ -278,18 +278,18 @@ and test it.</p>
 </pre></div>
 </div>
 <div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Without quantization
-[-0.70980102  0.63520575 -0.71794689 -0.4050287   0.3107765  -0.27393538
- -0.20786251  0.36481288 -0.36931711 -0.58634639]
+[ 0.28825521 -0.38279387  0.6224227   0.67729837  0.08186562 -0.25087348
+  0.13945629 -0.75332499 -0.06783565 -0.50604028]
 Quantized to Fixed(10, 8)
-[-0.70703125  0.6328125  -0.71484375 -0.40234375  0.30859375 -0.2734375
- -0.20703125  0.36328125 -0.3671875  -0.5859375 ]
+[ 0.28515625 -0.37890625  0.62109375  0.67578125  0.078125   -0.25
+  0.13671875 -0.75       -0.06640625 -0.50390625]
 </pre></div>
 </div>
 <p>We can double-check this.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">assert</span> <a href="https://numpy.org/doc/stable/reference/generated/numpy.array_equal.html#numpy.array_equal" title="numpy.array_equal" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-function"><span class="n">np</span><span class="o">.</span><span class="n">array_equal</span></a><span class="p">(</span><a href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="numpy.ndarray" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">np_BQ</span></a><span class="p">,</span> <a href="https://numpy.org/doc/stable/reference/generated/numpy.ufunc.html#numpy.ufunc" title="numpy.ufunc" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">np</span><span class="o">.</span><span class="n">trunc</span></a><span class="p">(</span><a href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="numpy.ndarray" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">np_B</span></a> <span class="o">*</span> <span class="mi">256</span><span class="p">)</span> <span class="o">/</span> <span class="mi">256</span><span class="p">)</span>
 </pre></div>
 </div>
-<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> ( 0 minutes  0.088 seconds)</p>
+<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> ( 0 minutes  0.091 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-gallery-tutorial-05-dtype-py">
 <div class="sphx-glr-download sphx-glr-download-python docutils container">
 <p><a class="reference download internal" download="" href="../_downloads/3f9deaf42255b7f3e766235d3d7d41a1/tutorial_05_dtype.py"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Python</span> <span class="pre">source</span> <span class="pre">code:</span> <span class="pre">tutorial_05_dtype.py</span></code></a></p>
