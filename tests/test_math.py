@@ -234,3 +234,4 @@ def test_tanh():
     print(b_golden)
     print(np_b)
     assert np.allclose(np_b, b_golden)
+    
