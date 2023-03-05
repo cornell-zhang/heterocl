@@ -121,6 +121,12 @@ def simplify(expr):
         lhs = simplify(simplify(expr.lhs))
         rhs = simplify(simplify(expr.rhs))
         return sp.simplify(lhs ^ rhs)
+    # elif isinstance(expr, LogicalAnd):
+    #     return 1 # temp
+    # elif isinstance(expr, LogicalOr):
+    #     return 1 # temp
+    # elif isinstance(expr, LogicalXOr):
+    #     return 1 # temp
     elif isinstance(expr, Cmp):
         lhs = simplify(simplify(expr.lhs))
         rhs = simplify(simplify(expr.rhs))
@@ -148,6 +154,11 @@ def simplify(expr):
         index = struct.index
         e = struct.tensor.fcompute(*index)[expr.field]
         return sp.simplify(simplify(e))
+    elif isinstance(expr, SelectOp):
+        if simplify(expr.cond):
+            return sp.simplify(simplify(expr.true_value))
+        else:
+            return sp.simplify(simplify(expr.false_value))
     else:
         raise HCLError(f"Unsupported expression type: {type(expr)}")
 
