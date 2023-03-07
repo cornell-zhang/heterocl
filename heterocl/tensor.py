@@ -5,6 +5,7 @@ import numpy as np
 from hcl_mlir.exceptions import DTypeError
 
 from .types import dtype_to_str, Int, UInt, Float, Fixed, UFixed
+from .utils import make_anywidth_numpy_array
 
 
 class Array:
@@ -81,6 +82,10 @@ class Array:
         return self.np_array
 
     def unwrap(self):
+        if isinstance(self.dtype, (Int, Fixed)):
+            return make_anywidth_numpy_array(self.np_array, self.dtype.bits, True)
+        elif isinstance(self.dtype, (UInt, UFixed)):
+            return make_anywidth_numpy_array(self.np_array, self.dtype.bits, False)
         return self.np_array
 
     def __repr__(self) -> str:

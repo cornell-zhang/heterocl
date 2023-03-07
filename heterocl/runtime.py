@@ -111,7 +111,7 @@ def execute_fpga_backend(target, shell=True):
         raise RuntimeError("Not implemented")
 
 
-def execute_llvm_backend(execution_engine, name, return_num, *argv):
+def execute_llvm_backend_obsolete(execution_engine, name, return_num, *argv):
     """
     - execution_engine: mlir.ExecutionEngine object, created in hcl.build
     - name: str, device top-level function name
@@ -137,6 +137,36 @@ def execute_llvm_backend(execution_engine, name, return_num, *argv):
     # Invoke device top-level function
     execution_engine.invoke(name, *return_pointers, *arg_pointers)
     # Copy output arrays back
-    for i, return_p in enumerate(return_pointers):
-        out_array = rt.ranked_memref_to_numpy(return_p[0])
-        np.copyto(argv[-(len(return_args) - i)].np_array, out_array)
+    # might be unnecessary
+    # for i, return_p in enumerate(return_pointers):
+        # out_array = rt.ranked_memref_to_numpy(return_p[0])
+        # np.copyto(argv[-(len(return_args) - i)].np_array, out_array) # problem here
+
+def execute_llvm_backend(execution_engine, name, return_num, *argv):
+    """
+    Execute LLVM backend. Assume all return args have been moved to 
+    input args. 
+    ----------
+    execution_engine: mlir.ExecutionEngine 
+        JIT object, created in hcl.build
+    name: str
+        device top-level function name
+    argv: list-like object
+        a list of input and output variables
+    """
+    # TODO: remove return_num
+    if not isinstance(argv, list):
+        argv = list(argv)
+    
+    # Unwrap hcl Array to get numpy arrays
+    argv_np = [arg.unwrap() for arg in argv]
+    arg_pointers = []
+    for arg in argv_np:
+        memref = rt.get_ranked_memref_descriptor(arg)
+        arg_pointers.append(ctypes.pointer(ctypes.pointer(memref)))
+    # Invoke device top-level function
+    execution_engine.invoke(name, *arg_pointers)
+    # this part is still necessary
+    # comment out for now
+    # for i, arg_p in enumerate(arg_pointers):
+    #     out_array = rt.ranked_memref_to_numpy(arg_p[0])
