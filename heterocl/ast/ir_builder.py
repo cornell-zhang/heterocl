@@ -1412,7 +1412,7 @@ class IRBuilder:
         if isinstance(op.dtype, (htypes.Int, htypes.UInt)):
             signed = isinstance(op.dtype, htypes.Int)
             val = make_anywidth_numpy_array(op.values, op.dtype.bits, signed)
-            value_attr = DenseElementsAttr.get(val, shape=val.shape, type=dtype)
+            value_attr = DenseElementsAttr.get(val, shape=op.values.shape, type=dtype)
         else:
             val = op.values
             value_attr = DenseElementsAttr.get(val)
