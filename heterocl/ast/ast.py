@@ -121,10 +121,16 @@ def simplify(expr):
         lhs = simplify(simplify(expr.lhs))
         rhs = simplify(simplify(expr.rhs))
         return sp.simplify(lhs ^ rhs)
-    # elif isinstance(expr, LogicalAnd):
-    #     return 1 # temp
-    # elif isinstance(expr, LogicalOr):
-    #     return 1 # temp
+    elif isinstance(expr, CastOp):
+         return immediate_to_constant(expr.expr, expr.loc, expr.dtype)
+    elif isinstance(expr, LogicalAnd):
+        lhs = simplify(simplify(expr.lhs))
+        rhs = simplify(simplify(expr.rhs))
+        return sp.simplify(lhs and rhs)
+    elif isinstance(expr, LogicalOr):
+        lhs = simplify(simplify(expr.lhs))
+        rhs = simplify(simplify(expr.rhs))
+        return sp.simplify(lhs or rhs)
     # elif isinstance(expr, LogicalXOr):
     #     return 1 # temp
     elif isinstance(expr, Cmp):
@@ -149,6 +155,10 @@ def simplify(expr):
             return sp.simplify(1)
         else:
             return sp.simplify(0)
+    elif isinstance(expr, Neg):
+        return sp.simplify(-simplify(expr.expr))
+    # elif isinstance(expr, Invert):
+    #     return sp.simplify(1) # temp
     elif isinstance(expr, StructGetOp):
         struct = expr.struct
         index = struct.index
