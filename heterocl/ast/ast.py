@@ -101,53 +101,51 @@ def simplify(expr):
             return expr
         index = expr.index
         return sp.simplify(simplify(tensor.fcompute(*index)))
-    elif isinstance(expr, LeftShiftOp):
+    if isinstance(expr, LeftShiftOp):
         lhs = simplify(simplify(expr.lhs))
         rhs = simplify(simplify(expr.rhs))
         return sp.simplify(lhs << rhs)
-    elif isinstance(expr, RightShiftOp):
+    if isinstance(expr, RightShiftOp):
         lhs = simplify(simplify(expr.lhs))
         rhs = simplify(simplify(expr.rhs))
         return sp.simplify(lhs >> rhs)
-    elif isinstance(expr, And):
+    if isinstance(expr, And):
         lhs = simplify(simplify(expr.lhs))
         rhs = simplify(simplify(expr.rhs))
         return sp.simplify(lhs & rhs)
-    elif isinstance(expr, Or):
+    if isinstance(expr, Or):
         lhs = simplify(simplify(expr.lhs))
         rhs = simplify(simplify(expr.rhs))
         return sp.simplify(lhs | rhs)
-    elif isinstance(expr, XOr):
+    if isinstance(expr, XOr):
         lhs = simplify(simplify(expr.lhs))
         rhs = simplify(simplify(expr.rhs))
         return sp.simplify(lhs ^ rhs)
-    elif isinstance(expr, CastOp):
-         return immediate_to_constant(expr.expr, expr.loc, expr.dtype)
-    elif isinstance(expr, LogicalAnd):
+    if isinstance(expr, CastOp):
+        return immediate_to_constant(expr.expr, expr.loc, expr.dtype)
+    if isinstance(expr, LogicalAnd):
         lhs = simplify(simplify(expr.lhs))
         rhs = simplify(simplify(expr.rhs))
         return sp.simplify(lhs and rhs)
-    elif isinstance(expr, LogicalOr):
+    if isinstance(expr, LogicalOr):
         lhs = simplify(simplify(expr.lhs))
         rhs = simplify(simplify(expr.rhs))
         return sp.simplify(lhs or rhs)
-    # elif isinstance(expr, LogicalXOr):
-    #     return 1 # temp
-    elif isinstance(expr, Cmp):
+    if isinstance(expr, Cmp):
         lhs = simplify(simplify(expr.lhs))
         rhs = simplify(simplify(expr.rhs))
         op = expr.name
         if op == "lt":
             output = lhs < rhs
-        elif op == "le":
+        if op == "le":
             output = lhs <= rhs
-        elif op == "eq":
+        if op == "eq":
             output = lhs == rhs
-        elif op == "ne":
+        if op == "ne":
             output = lhs != rhs
-        elif op == "gt":
+        if op == "gt":
             output = lhs > rhs
-        elif op == "ge":
+        if op == "ge":
             output = lhs >= rhs
         else:
             raise HCLError(f"Unsupported expression type: {type(expr)}, {expr.name}")
@@ -155,16 +153,14 @@ def simplify(expr):
             return sp.simplify(1)
         else:
             return sp.simplify(0)
-    elif isinstance(expr, Neg):
+    if isinstance(expr, Neg):
         return sp.simplify(-simplify(expr.expr))
-    # elif isinstance(expr, Invert):
-    #     return sp.simplify(1) # temp
-    elif isinstance(expr, StructGetOp):
+    if isinstance(expr, StructGetOp):
         struct = expr.struct
         index = struct.index
         e = struct.tensor.fcompute(*index)[expr.field]
         return sp.simplify(simplify(e))
-    elif isinstance(expr, SelectOp):
+    if isinstance(expr, SelectOp):
         if simplify(expr.cond):
             return sp.simplify(simplify(expr.true_value))
         else:

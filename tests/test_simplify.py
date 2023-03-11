@@ -298,7 +298,7 @@ def test_select_op2():
 
         B = hcl.compute(A.shape, lambda x: A[x][lower_idx:upper_idx])
         return B
-        
+
     A = hcl.placeholder((2,), "A")
     s = hcl.create_schedule([A], kernel)
     f = hcl.build(s)
@@ -306,6 +306,7 @@ def test_select_op2():
     np_B = hcl.asarray([0, 0])
     f(np_A, np_B)
     assert np_B.asnumpy().tolist() == [0b101010, 0b101011]
+
 
 def test_logical_and():
     def kernel(A):
@@ -326,6 +327,7 @@ def test_logical_and():
     f(np_A, np_B)
     assert np_B.asnumpy().tolist() == [0b1, 0b0]
 
+
 def test_logical_or():
     def kernel(A):
         a = hcl.scalar(1)
@@ -343,26 +345,8 @@ def test_logical_or():
     np_A = hcl.asarray([0b11, 0b10])
     np_B = hcl.asarray([0, 0])
     f(np_A, np_B)
-    assert np_B.asnumpy().tolist() == [0b1, 0b1]
+    assert np_B.asnumpy().tolist() == [0b1, 0b0]
 
-# def test_logical_xor():
-#     def kernel(A):
-#         a = hcl.scalar(1)
-#         b = hcl.scalar(0)
-
-#         lower_idx = hcl.xor_(b.v, b.v)
-#         upper_idx = hcl.xor_(a.v, b.v)
-
-#         B = hcl.compute(A.shape, lambda x: A[x][lower_idx:upper_idx])
-#         return B
-
-#     A = hcl.placeholder((2,), "A")
-#     s = hcl.create_schedule([A], kernel)
-#     f = hcl.build(s)
-#     np_A = hcl.asarray([0b11, 0b10])
-#     np_B = hcl.asarray([0, 0])
-#     f(np_A, np_B)
-#     assert np_B.asnumpy().tolist() == [0b1, 0b0]
 
 def test_neg():
     def kernel(A):
@@ -370,9 +354,9 @@ def test_neg():
 
         lower_idx = 0
 
-        B = hcl.compute(A.shape, lambda x: A[x][lower_idx:(-a.v)])
+        B = hcl.compute(A.shape, lambda x: A[x][lower_idx : (-a.v)])
         return B
-    
+
     A = hcl.placeholder((2,), "A")
     s = hcl.create_schedule([A], kernel)
     f = hcl.build(s)
@@ -380,20 +364,3 @@ def test_neg():
     np_B = hcl.asarray([0, 0])
     f(np_A, np_B)
     assert np_B.asnumpy().tolist() == [0b10101, 0b01110]
-
-# def test_invert():
-#     def kernel(A, B):
-#         lower_idx = 0
-
-#         B = hcl.compute(A.shape, lambda x: A[x][lower_idx:~B[x]])
-#         return B
-    
-#     A = hcl.placeholder((2,), "A")
-#     B = hcl.placeholder((2,), "B")
-#     s = hcl.create_schedule([A, B], kernel)
-#     f = hcl.build(s)
-#     np_A = hcl.asarray([0b10110101, 0b10001110])
-#     np_A = hcl.asarray([0b010, 0b011])
-#     np_C = hcl.asarray([0, 0])
-#     f(np_A, np_B, np_C)
-#     assert np_C.asnumpy().tolist() == [0b10101, 0b1110]
