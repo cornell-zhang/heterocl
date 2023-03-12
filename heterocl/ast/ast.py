@@ -69,6 +69,7 @@ def replace_all_uses_with(op, old_tensor, new_tensor):
 
 
 def simplify(expr):
+    # pylint: disable=too-many-return-statements, too-many-branches
     """
     simplifies an expression by replacing all constants with their values
     and compute the result if possible
@@ -151,20 +152,18 @@ def simplify(expr):
             raise HCLError(f"Unsupported expression type: {type(expr)}, {expr.name}")
         if output:
             return sp.simplify(1)
-        else:
-            return sp.simplify(0)
+        return sp.simplify(0)
     if isinstance(expr, Neg):
-        return sp.simplify(-simplify(expr.expr))
+        return sp.simplify(-int(simplify(expr.expr)))
     if isinstance(expr, StructGetOp):
         struct = expr.struct
         index = struct.index
         e = struct.tensor.fcompute(*index)[expr.field]
         return sp.simplify(simplify(e))
-    if isinstance(expr, SelectOp):
+    if isinstance(expr, SelectOp):  # pylint: disable=no-else-return
         if simplify(expr.cond):
             return sp.simplify(simplify(expr.true_value))
-        else:
-            return sp.simplify(simplify(expr.false_value))
+        return sp.simplify(simplify(expr.false_value))
     else:
         raise HCLError(f"Unsupported expression type: {type(expr)}")
 
@@ -439,7 +438,7 @@ class Expr:
     def __bool__(self):
         return self.__nonzero__()
 
-    def equal(self, other):
+    def equal(self, other):  # pylint: disable=no-self-use
         # TODO(Niansong): not sure when this method is called
         # throw an error for now
         raise HCLNotImplementedError("equal is not implemented yet")
@@ -1851,8 +1850,8 @@ class TypeInference:
         res_type = type_rule(true_type, false_type)
         return res_type
 
-    def infer_load(self, expr):
+    def infer_load(self, expr):  # pylint: disable=no-self-use
         return expr.tensor.dtype
 
-    def infer_const(self, expr):
+    def infer_const(self, expr):  # pylint: disable=no-self-use
         return expr.dtype
