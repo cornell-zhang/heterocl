@@ -138,15 +138,15 @@ def simplify(expr):
         op = expr.name
         if op == "lt":
             output = lhs < rhs
-        if op == "le":
+        elif op == "le":
             output = lhs <= rhs
-        if op == "eq":
+        elif op == "eq":
             output = lhs == rhs
-        if op == "ne":
+        elif op == "ne":
             output = lhs != rhs
-        if op == "gt":
+        elif op == "gt":
             output = lhs > rhs
-        if op == "ge":
+        elif op == "ge":
             output = lhs >= rhs
         else:
             raise HCLError(f"Unsupported expression type: {type(expr)}, {expr.name}")
@@ -438,7 +438,8 @@ class Expr:
     def __bool__(self):
         return self.__nonzero__()
 
-    def equal(self, other):  # pylint: disable=no-self-use
+    # pylint: disable=no-self-use
+    def equal(self, other):
         # TODO(Niansong): not sure when this method is called
         # throw an error for now
         raise HCLNotImplementedError("equal is not implemented yet")
@@ -1850,8 +1851,10 @@ class TypeInference:
         res_type = type_rule(true_type, false_type)
         return res_type
 
-    def infer_load(self, expr):  # pylint: disable=no-self-use
+    # pylint: disable=no-self-use
+    def infer_load(self, expr):
         return expr.tensor.dtype
 
-    def infer_const(self, expr):  # pylint: disable=no-self-use
+    # pylint: disable=no-self-use
+    def infer_const(self, expr):
         return expr.dtype
