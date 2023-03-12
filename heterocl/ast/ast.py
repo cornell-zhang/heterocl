@@ -438,7 +438,7 @@ class Expr:
     def __bool__(self):
         return self.__nonzero__()
 
-    # pylint: disable=no-self-use
+    # pylint: disable=no-self-use, bad-option-value, useless-option-value, useless-suppression
     def equal(self, other):
         # TODO(Niansong): not sure when this method is called
         # throw an error for now
@@ -1851,10 +1851,10 @@ class TypeInference:
         res_type = type_rule(true_type, false_type)
         return res_type
 
-    # pylint: disable=no-self-use
+    # pylint: disable=no-self-use, bad-option-value, useless-option-value, useless-suppression
     def infer_load(self, expr):
         return expr.tensor.dtype
 
-    # pylint: disable=no-self-use
+    # pylint: disable=no-self-use, bad-option-value, useless-option-value, useless-suppression
     def infer_const(self, expr):
         return expr.dtype
