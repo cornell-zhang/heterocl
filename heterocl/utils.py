@@ -143,10 +143,6 @@ def make_const_tensor(val, dtype):
             np_dtype = np.int32
         elif dtype.bits <= 64:
             np_dtype = np.int64
-        elif dtype.bits <= 128:
-            np_dtype = np.int128
-        elif dtype.bits <= 256:
-            np_dtype = np.int256
         else:
             raise DTypeError(
                 f"Integer width ({dtype}) too large, not supported by numpy"
@@ -277,7 +273,7 @@ def make_anywidth_numpy_array(val, bitwidth, signed):
                 "formats": (["i1"] if signed else ["u1"])
                 + ["u1"] * (n_bytes - 1),
                 "offsets": list(range(n_bytes)),
-                "itemize": n_bytes,
+                "itemize": n_bytes, # should this be itemsize?
             }
         )
         # -> compose: 6*6*3*i8
