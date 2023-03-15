@@ -124,6 +124,7 @@ class Array:
             # Handle overflow
             sb = 1 << self.dtype.bits
             sb_limit = 1 << (self.dtype.bits - 1)
+            array = array.astype(np.float64)
             array = array * (2**dtype.fracs)
             def cast_func(x):
                 # recursive
@@ -136,9 +137,11 @@ class Array:
                 array = [cast_func(x) for x in array]
             else:
                 array = np.vectorize(cast_func)(array)
+            array = array.astype(np.int64)
         elif isinstance(dtype, UFixed):
             # Handle overflow
             sb = 1 << self.dtype.bits
+            array = array.astype(np.float64)
             array = array * (2**dtype.fracs)
             def cast_func(x):
                 # recursive
@@ -150,6 +153,7 @@ class Array:
                 array = [cast_func(x) for x in array]
             else:
                 array = np.vectorize(cast_func)(array)
+            array = array.astype(np.int64)
         else:
             raise DTypeError("Type error: unrecognized type: " + str(self.dtype))
         return array
