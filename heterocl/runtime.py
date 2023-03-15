@@ -7,7 +7,7 @@ import re
 import subprocess
 import ctypes
 import time
-import numpy as np
+import warnings
 
 from hcl_mlir import runtime as rt
 from .report import parse_xml
@@ -15,8 +15,6 @@ from .report import parse_xml
 # Filter out the warning from numpy when using ctypes array as numpy array.
 # This is a Python bug, see:
 # https://stackoverflow.com/questions/4964101/pep-3118-warning-when-using-ctypes-array-as-numpy-array
-import warnings
-
 warnings.filterwarnings(
     "ignore",
     category=RuntimeWarning,
@@ -122,39 +120,7 @@ def execute_fpga_backend(target, shell=True):
         raise RuntimeError("Not implemented")
 
 
-def execute_llvm_backend_obsolete(execution_engine, name, return_num, *argv):
-    """
-    - execution_engine: mlir.ExecutionEngine object, created in hcl.build
-    - name: str, device top-level function name
-    - return_num: int, the number of return values
-    - argv: list-like object, a list of input and output variables
-    """
-    if not isinstance(argv, list):
-        argv = list(argv)
-    # Unwrap hcl Array to get numpy arrays
-    argv_np = [arg.unwrap() for arg in argv]
-    # Extract output arrays
-    return_args = argv_np[-return_num:]
-    # Convert output variables from numpy arrays to memref pointers
-    return_pointers = []
-    for arg in return_args:
-        memref = rt.get_ranked_memref_descriptor(arg)
-        return_pointers.append(ctypes.pointer(ctypes.pointer(memref)))
-    # Convert input variables from numpy arrays to memref pointers
-    arg_pointers = []
-    for arg in argv_np[0:-return_num]:
-        memref = rt.get_ranked_memref_descriptor(arg)
-        arg_pointers.append(ctypes.pointer(ctypes.pointer(memref)))
-    # Invoke device top-level function
-    execution_engine.invoke(name, *return_pointers, *arg_pointers)
-    # Copy output arrays back
-    # might be unnecessary
-    # for i, return_p in enumerate(return_pointers):
-    # out_array = rt.ranked_memref_to_numpy(return_p[0])
-    # np.copyto(argv[-(len(return_args) - i)].np_array, out_array) # problem here
-
-
-def execute_llvm_backend(execution_engine, name, return_num, *argv):
+def execute_llvm_backend(execution_engine, name, *argv):
     """
     Execute LLVM backend. Assume all return args have been moved to
     input args.
@@ -166,7 +132,6 @@ def execute_llvm_backend(execution_engine, name, return_num, *argv):
     argv: list-like object
         a list of input and output variables
     """
-    # TODO: remove return_num
     if not isinstance(argv, list):
         argv = list(argv)
 
@@ -178,11 +143,3 @@ def execute_llvm_backend(execution_engine, name, return_num, *argv):
         arg_pointers.append(ctypes.pointer(ctypes.pointer(memref)))
     # Invoke device top-level function
     execution_engine.invoke(name, *arg_pointers)
-    # for i, arg_p in enumerate(arg_pointers):
-    # out_array = rt.ranked_memref_to_numpy(arg_p[0])
-    # if out_array element type has one byte,
-    # ranked_memref_to_numpy will automatically unpack it
-    # if argv[i].np_array.dtype.itemsize == 1:
-    #     np.copyto(argv[i].np_array['f0'], out_array)
-    # else:
-    #     np.copyto(argv[i].np_array, out_array) # target, source

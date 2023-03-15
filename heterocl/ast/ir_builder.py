@@ -7,8 +7,6 @@
 
 # Import MLIR dialects
 # Naming rule: import dialect as dialect_d
-import numpy as np
-
 from hcl_mlir.dialects import (
     func as func_d,
     hcl as hcl_d,
@@ -1408,10 +1406,8 @@ class IRBuilder:
     def build_constant_tensor_op(self, op: ast.ConstantTensorOp, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         dtype = hcl_dtype_to_mlir(op.dtype, signless=True)
-        shape = op.values.shape
         if isinstance(op.dtype, (htypes.Int, htypes.UInt)):
-            signed = isinstance(op.dtype, htypes.Int)
-            val = make_anywidth_numpy_array(op.values, op.dtype.bits, signed)
+            val = make_anywidth_numpy_array(op.values, op.dtype.bits)
             value_attr = DenseElementsAttr.get(val, shape=op.values.shape, type=dtype)
         else:
             val = op.values

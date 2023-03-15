@@ -217,7 +217,7 @@ def get_max_value(dtype):
     raise DTypeError(f"Unrecognized data type: {dtype}")
 
 
-def make_anywidth_numpy_array(val, bitwidth, signed):
+def make_anywidth_numpy_array(val, bitwidth):
     """
     Converts a numpy array to any target bitwidth.
     ----------------
@@ -247,6 +247,8 @@ def make_anywidth_numpy_array(val, bitwidth, signed):
     # numpy input: 6*6*i64
     # 1. Decompose the original i32 or i64 array into a structured array of uint8
     #  -> decompose: 6*6*8*i8
+    # pylint: disable=no-else-return
+    # I think this if-else makes the code more readable
     if bitwidth == 1:
         return np.packbits(val, axis=None, bitorder="little")
     else:
@@ -270,7 +272,6 @@ def make_anywidth_numpy_array(val, bitwidth, signed):
         new_dtype = np.dtype(
             {
                 "names": [f"f{i}" for i in range(n_bytes)],
-                # "formats": ["u1"] * (n_bytes - 1) + (["i1"] if signed else ["u1"]),
                 "formats": ["u1"] * n_bytes,
                 "offsets": list(range(n_bytes)),
                 "itemsize": n_bytes,

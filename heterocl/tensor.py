@@ -1,8 +1,8 @@
 # Copyright HeteroCL authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-import numpy as np
 import math
+import numpy as np
 from hcl_mlir.exceptions import DTypeError, APIError, DTypeWarning
 
 from .types import dtype_to_str, Int, UInt, Float, Fixed, UFixed
@@ -36,19 +36,17 @@ class Array:
         # with each field being a byte.
         self.np_array = self._handle_overflow(array, dtype)
         if isinstance(dtype, (Int, UInt)):
-            signed = isinstance(dtype, Int)
             # closest power of 2
             bitwidth = 1 << (self.dtype.bits - 1).bit_length()
-            if bitwidth < 8:
-                bitwidth = 8
-            # this is to be compliant with MLIR's anywidth type representation
+            bitwidth = max(bitwidth, 8)
+            # this is to be compliant with MLIR's anywidth int type alignment
             # e.g. i1-i8 -> int8
             #      i9-i16 -> int16
             #      i17-i32 -> int32
             #      i33-i64 -> int64
             #      i65-i128 -> int128
             #      i129-i256 -> int256
-            self.np_array = make_anywidth_numpy_array(self.np_array, bitwidth, signed)
+            self.np_array = make_anywidth_numpy_array(self.np_array, bitwidth)
 
     def asnumpy(self):
         """
@@ -56,6 +54,7 @@ class Array:
         If the bitwidth is wider than 64, the result will be a python list.
         Otherwise, return a numpy array.
         """
+        # pylint: disable=no-else-return
         if isinstance(self.dtype, Float):
             hcl_dtype_str = dtype_to_str(self.dtype)
             np_dtype = np.dtype(hcl_dtype_str)
@@ -65,13 +64,13 @@ class Array:
             if self.dtype.bits > 64:
                 DTypeWarning(
                     f"The bitwidth of target type is wider than 64 ({self.dtype}), .asnumpy() returns a python list"
-                )
+                ).warn()
             return self._struct_np_array_to_int()
         elif isinstance(self.dtype, UInt):
             if self.dtype.bits > 64:
                 DTypeWarning(
                     f"The bitwidth of target type is wider than 64 ({self.dtype}), .asnumpy() returns a python list"
-                )
+                ).warn()
             return self._struct_np_array_to_int()
         # TODO(Niansong): fixed/ufixed does not go through struct_np_array_to_int for now
         # because a change in IR is needed to support this, leaving it to another PR
@@ -79,7 +78,7 @@ class Array:
             if self.dtype.bits > 64:
                 DTypeWarning(
                     f"The bitwidth of target type is wider than 64 ({self.dtype}), .asnumpy() returns a python list"
-                )
+                ).warn()
             # base_array = self._struct_np_array_to_int()
             # return base_array.astype(np.float64) / float(2 ** (self.dtype.fracs))
             return self.np_array.astype(np.float64) / float(2 ** (self.dtype.fracs))
@@ -87,7 +86,7 @@ class Array:
             if self.dtype.bits > 64:
                 DTypeWarning(
                     f"The bitwidth of target type is wider than 64 ({self.dtype}), .asnumpy() returns a python list"
-                )
+                ).warn()
             # base_array = self._struct_np_array_to_int()
             # return base_array.astype(np.float64) / float(2 ** (self.dtype.fracs))
             return self.np_array.astype(np.float64) / float(2 ** (self.dtype.fracs))
@@ -196,16 +195,15 @@ class Array:
             # concatenate the tuple
             # each element is a byte
             byte_str = b""
-            for i in range(len(x)):
-                byte_str += x[i].to_bytes(1, byteorder="little", signed=False)
+            for byte in x:
+                byte_str += byte.to_bytes(1, byteorder="little", signed=False)
             value = int.from_bytes(byte_str, byteorder="little", signed=signed)
             return value
 
         pylist = to_int(pylist)
         if self.dtype.bits <= 64:
             return np.array(pylist, dtype=np.int64)
-        else:
-            return pylist
+        return pylist
 
     def __repr__(self) -> str:
         return self.asnumpy().__repr__()
