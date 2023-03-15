@@ -234,6 +234,8 @@ def make_anywidth_numpy_array(val, bitwidth, signed):
         numpy array with the target bitwidth
     """
     shape = val.shape
+    sign_array = val > 0
+    avail_bytes = val.itemsize # number of bytes of each element
     # The following code has several steps to convert the numpy array to have
     # the correct data type in order to create an MLIR constant tensor.
     # Since MLIR-NumPy Python interface only supports byte-addressable data types,
@@ -266,18 +268,24 @@ def make_anywidth_numpy_array(val, bitwidth, signed):
         # 2. Compose the uint8 array into a structured array of target bitwidth
         # This is done by taking the first several bytes of the uint8 array
         # "u1" means one unsigned byte, and "i1" means one signed byte
+        # f0 is LSB, fn is MSB
         n_bytes = int(np.ceil(bitwidth / 8))
         new_dtype = np.dtype(
             {
                 "names": [f"f{i}" for i in range(n_bytes)],
-                "formats": (["i1"] if signed else ["u1"])
-                + ["u1"] * (n_bytes - 1),
+                "formats": ["u1"] * (n_bytes - 1) + (["i1"] if signed else ["u1"]),
                 "offsets": list(range(n_bytes)),
-                "itemsize": n_bytes, # should this be itemsize?
+                "itemsize": n_bytes,
             }
         )
+        # sometimes the available bytes are not enough to represent the target bitwidth
+        # so that we need to pad the array
+        _bytes = [val[f"f{i}"] for i in range(min(avail_bytes, n_bytes))]
+        if avail_bytes < n_bytes:
+            padding = np.where(sign_array, 0x00, 0xFF).astype(np.uint8)
+            _bytes += [padding] * (n_bytes - avail_bytes)
         # -> compose: 6*6*3*i8
-        val = np.stack([val[f"f{i}"] for i in range(n_bytes)], axis=-1)
+        val = np.stack(_bytes, axis=-1)
         # -> flatten: 108*i8
         val = val.flatten()
         # -> view: 36*i24

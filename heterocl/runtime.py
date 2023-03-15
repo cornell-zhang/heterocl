@@ -172,20 +172,6 @@ def execute_llvm_backend(execution_engine, name, return_num, *argv):
         arg_pointers.append(ctypes.pointer(ctypes.pointer(memref)))
     # Invoke device top-level function
     execution_engine.invoke(name, *arg_pointers)
-    # this part is still necessary
-    # comment out for now
-    # print(arg_pointers[0][0][0].aligned)
-    # print(f"is ctypes._Pointer: {isinstance(arg_pointers[0][0][0].aligned, ctypes._Pointer)}")
-    # print(arg_pointers[1][0][0].aligned)
-    # print(f"is ctypes._Pointer: {isinstance(arg_pointers[1][0][0].aligned, ctypes._Pointer)}")
     for i, arg_p in enumerate(arg_pointers):
-        np_arr = np.ctypeslib.as_array(
-            arg_p[0][0].aligned, shape=arg_p[0][0].shape)
-        strided_arr = np.lib.stride_tricks.as_strided(
-            np_arr,
-            np.ctypeslib.as_array(arg_p[0][0].shape),
-            np.ctypeslib.as_array(arg_p[0][0].strides) * np_arr.itemsize,
-        )
-        out_array = strided_arr
-        # out_array = rt.ranked_memref_to_numpy(arg_p[0]) # can confirm that it works with any bitwidth array
+        out_array = rt.ranked_memref_to_numpy(arg_p[0])
         np.copyto(argv[i].np_array, out_array) # target, source

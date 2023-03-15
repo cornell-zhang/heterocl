@@ -64,21 +64,22 @@ class Array:
             if self.dtype.bits > 64:
                 DTypeWarning(f"The bitwidth of target type is wider than 64 ({self.dtype}), .asnumpy() returns a python list")
             return self._struct_np_array_to_int()
-
-        if isinstance(self.dtype, (Fixed, UFixed)):
-            if isinstance(self.dtype, Fixed):
-                res_array = self.np_array.astype(np.int64)
-            else:
-                res_array = self.np_array
-            res_array = res_array.astype(np.float64) / float(2 ** (self.dtype.fracs))
-            return res_array
-        if isinstance(self.dtype, Int):
-            res_array = self.np_array.astype(np.int64)
-            return res_array
-        if isinstance(self.dtype, Float):
-            res_array = self.np_array.astype(float)
-            return res_array
-        return self.np_array
+        elif isinstance(self.dtype, UInt):
+            if self.dtype.bits > 64:
+                DTypeWarning(f"The bitwidth of target type is wider than 64 ({self.dtype}), .asnumpy() returns a python list")
+            return self._struct_np_array_to_int()
+        elif isinstance(self.dtype, Fixed):
+            if self.dtype.bits > 64:
+                DTypeWarning(f"The bitwidth of target type is wider than 64 ({self.dtype}), .asnumpy() returns a python list")
+            base_array = self._struct_np_array_to_int()
+            return base_array.astype(np.float64) / float(2 ** (self.dtype.fracs))
+        elif isinstance(self.dtype, UFixed):
+            if self.dtype.bits > 64:
+                DTypeWarning(f"The bitwidth of target type is wider than 64 ({self.dtype}), .asnumpy() returns a python list")
+            base_array = self._struct_np_array_to_int()
+            return base_array.astype(np.float64) / float(2 ** (self.dtype.fracs))
+        else:
+            raise DTypeError(f"Unsupported data type {self.dtype}")
 
     def unwrap(self):
         return self.np_array
@@ -100,12 +101,12 @@ class Array:
         elif isinstance(dtype, Int):
             sb = 1 << self.dtype.bits
             sb_limit = 1 << (self.dtype.bits - 1)
-            array = array % sb # cap the value to the max value of the bitwidth
             def cast_func(x):
                 # recursive
                 if isinstance(x, list):
                     return [cast_func(y) for y in x]
                 # signed integer overflow function: wrap mode
+                x = x % sb # cap the value to the max value of the bitwidth
                 return x if x < sb_limit else x - sb
             if isinstance(array, list):
                 array = [cast_func(x) for x in array] # TODO: this should be tested independently
@@ -156,17 +157,27 @@ class Array:
         def to_int(x):
             if isinstance(x, list):
                 return [to_int(y) for y in x]
+            signed = isinstance(self.dtype, (Int, Fixed))
+            # turn x from tuple to list
+            x = list(x)
+            # find MSB
+            byte_idx = (self.dtype.bits - 1) // 8
+            bit_idx = (self.dtype.bits - 1) % 8
+            msb = (x[byte_idx] & (1 << bit_idx)) > 0
+            # sign extension
+            if signed and msb:
+                x[byte_idx] |= ((0xff << bit_idx) & 0xff)
+                for i in range(byte_idx + 1, len(x)):
+                    x[i] = 0xff
             # concatenate the tuple
             # each element is a byte
-            signed = isinstance(self.dtype, (Int, Fixed))
             byte_str = b''
-            byte_str += x[0].to_bytes(1, byteorder='little', signed=signed)
-            for i in range(1, len(x)):
+            for i in range(len(x) - 1):
+                # little endian, first x-1 elements are unsigned bytes
                 byte_str += x[i].to_bytes(1, byteorder='little', signed=False)
+            # last element is signed
+            byte_str += x[-1].to_bytes(1, byteorder='little', signed=signed)
             value = int.from_bytes(byte_str, byteorder='little', signed=signed)
-            # handle signed negative int: equivalent to sign extension
-            if signed and value >= (1 << (self.dtype.bits - 1)):
-                value -= (1 << self.dtype.bits)
             return value
         pylist = to_int(pylist)
         if self.dtype.bits <= 64:
