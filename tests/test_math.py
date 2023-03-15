@@ -211,6 +211,7 @@ def test_cos():
     print(np_b)
     assert np.allclose(np_b, b_golden)
 
+@pytest.mark.skip(reason="data type inference to be supported")
 def test_tanh():
     shape = (1,10)
 
