@@ -235,7 +235,7 @@ def make_anywidth_numpy_array(val, bitwidth, signed):
     """
     shape = val.shape
     sign_array = val > 0
-    avail_bytes = val.itemsize # number of bytes of each element
+    avail_bytes = val.itemsize  # number of bytes of each element
     # The following code has several steps to convert the numpy array to have
     # the correct data type in order to create an MLIR constant tensor.
     # Since MLIR-NumPy Python interface only supports byte-addressable data types,
@@ -258,10 +258,7 @@ def make_anywidth_numpy_array(val, bitwidth, signed):
         decomposed_np_dtype = np.dtype(
             (
                 val.dtype,
-                {
-                    f"f{i}": (np.uint8, i)
-                    for i in range(val.dtype.itemsize)
-                },
+                {f"f{i}": (np.uint8, i) for i in range(val.dtype.itemsize)},
             )
         )
         val = val.view(decomposed_np_dtype)

@@ -16,7 +16,12 @@ from .report import parse_xml
 # This is a Python bug, see:
 # https://stackoverflow.com/questions/4964101/pep-3118-warning-when-using-ctypes-array-as-numpy-array
 import warnings
-warnings.filterwarnings("ignore", category=RuntimeWarning, message="A builtin ctypes object gave a PEP3118 format string that does not match its itemsize*")
+
+warnings.filterwarnings(
+    "ignore",
+    category=RuntimeWarning,
+    message="A builtin ctypes object gave a PEP3118 format string that does not match its itemsize*",
+)
 
 
 def run_process(cmd, pattern=None):
@@ -145,15 +150,16 @@ def execute_llvm_backend_obsolete(execution_engine, name, return_num, *argv):
     # Copy output arrays back
     # might be unnecessary
     # for i, return_p in enumerate(return_pointers):
-        # out_array = rt.ranked_memref_to_numpy(return_p[0])
-        # np.copyto(argv[-(len(return_args) - i)].np_array, out_array) # problem here
+    # out_array = rt.ranked_memref_to_numpy(return_p[0])
+    # np.copyto(argv[-(len(return_args) - i)].np_array, out_array) # problem here
+
 
 def execute_llvm_backend(execution_engine, name, return_num, *argv):
     """
-    Execute LLVM backend. Assume all return args have been moved to 
-    input args. 
+    Execute LLVM backend. Assume all return args have been moved to
+    input args.
     ----------
-    execution_engine: mlir.ExecutionEngine 
+    execution_engine: mlir.ExecutionEngine
         JIT object, created in hcl.build
     name: str
         device top-level function name
@@ -163,7 +169,7 @@ def execute_llvm_backend(execution_engine, name, return_num, *argv):
     # TODO: remove return_num
     if not isinstance(argv, list):
         argv = list(argv)
-    
+
     # Unwrap hcl Array to get numpy arrays
     argv_np = [arg.unwrap() for arg in argv]
     arg_pointers = []
@@ -173,10 +179,10 @@ def execute_llvm_backend(execution_engine, name, return_num, *argv):
     # Invoke device top-level function
     execution_engine.invoke(name, *arg_pointers)
     # for i, arg_p in enumerate(arg_pointers):
-        # out_array = rt.ranked_memref_to_numpy(arg_p[0])
-        # if out_array element type has one byte, 
-        # ranked_memref_to_numpy will automatically unpack it
-        # if argv[i].np_array.dtype.itemsize == 1:
-        #     np.copyto(argv[i].np_array['f0'], out_array)
-        # else:
-        #     np.copyto(argv[i].np_array, out_array) # target, source
+    # out_array = rt.ranked_memref_to_numpy(arg_p[0])
+    # if out_array element type has one byte,
+    # ranked_memref_to_numpy will automatically unpack it
+    # if argv[i].np_array.dtype.itemsize == 1:
+    #     np.copyto(argv[i].np_array['f0'], out_array)
+    # else:
+    #     np.copyto(argv[i].np_array, out_array) # target, source

@@ -39,7 +39,8 @@ class Array:
             signed = isinstance(dtype, Int)
             # closest power of 2
             bitwidth = 1 << (self.dtype.bits - 1).bit_length()
-            if bitwidth < 8: bitwidth = 8
+            if bitwidth < 8:
+                bitwidth = 8
             # this is to be compliant with MLIR's anywidth type representation
             # e.g. i1-i8 -> int8
             #      i9-i16 -> int16
@@ -48,7 +49,7 @@ class Array:
             #      i65-i128 -> int128
             #      i129-i256 -> int256
             self.np_array = make_anywidth_numpy_array(self.np_array, bitwidth, signed)
-    
+
     def asnumpy(self):
         """
         Convert HeteroCL array to numpy array / python list.
@@ -62,23 +63,31 @@ class Array:
             return res_array
         elif isinstance(self.dtype, Int):
             if self.dtype.bits > 64:
-                DTypeWarning(f"The bitwidth of target type is wider than 64 ({self.dtype}), .asnumpy() returns a python list")
+                DTypeWarning(
+                    f"The bitwidth of target type is wider than 64 ({self.dtype}), .asnumpy() returns a python list"
+                )
             return self._struct_np_array_to_int()
         elif isinstance(self.dtype, UInt):
             if self.dtype.bits > 64:
-                DTypeWarning(f"The bitwidth of target type is wider than 64 ({self.dtype}), .asnumpy() returns a python list")
+                DTypeWarning(
+                    f"The bitwidth of target type is wider than 64 ({self.dtype}), .asnumpy() returns a python list"
+                )
             return self._struct_np_array_to_int()
-        #TODO(Niansong): fixed/ufixed does not go through struct_np_array_to_int for now
+        # TODO(Niansong): fixed/ufixed does not go through struct_np_array_to_int for now
         # because a change in IR is needed to support this, leaving it to another PR
         elif isinstance(self.dtype, Fixed):
             if self.dtype.bits > 64:
-                DTypeWarning(f"The bitwidth of target type is wider than 64 ({self.dtype}), .asnumpy() returns a python list")
+                DTypeWarning(
+                    f"The bitwidth of target type is wider than 64 ({self.dtype}), .asnumpy() returns a python list"
+                )
             # base_array = self._struct_np_array_to_int()
             # return base_array.astype(np.float64) / float(2 ** (self.dtype.fracs))
             return self.np_array.astype(np.float64) / float(2 ** (self.dtype.fracs))
         elif isinstance(self.dtype, UFixed):
             if self.dtype.bits > 64:
-                DTypeWarning(f"The bitwidth of target type is wider than 64 ({self.dtype}), .asnumpy() returns a python list")
+                DTypeWarning(
+                    f"The bitwidth of target type is wider than 64 ({self.dtype}), .asnumpy() returns a python list"
+                )
             # base_array = self._struct_np_array_to_int()
             # return base_array.astype(np.float64) / float(2 ** (self.dtype.fracs))
             return self.np_array.astype(np.float64) / float(2 ** (self.dtype.fracs))
@@ -87,7 +96,6 @@ class Array:
 
     def unwrap(self):
         return self.np_array
-
 
     def _handle_overflow(self, array, dtype):
         """
@@ -105,15 +113,19 @@ class Array:
         elif isinstance(dtype, Int):
             sb = 1 << self.dtype.bits
             sb_limit = 1 << (self.dtype.bits - 1)
+
             def cast_func(x):
                 # recursive
                 if isinstance(x, list):
                     return [cast_func(y) for y in x]
                 # signed integer overflow function: wrap mode
-                x = x % sb # cap the value to the max value of the bitwidth
+                x = x % sb  # cap the value to the max value of the bitwidth
                 return x if x < sb_limit else x - sb
+
             if isinstance(array, list):
-                array = [cast_func(x) for x in array] # TODO: this should be tested independently
+                array = [
+                    cast_func(x) for x in array
+                ]  # TODO: this should be tested independently
             else:
                 array = np.vectorize(cast_func)(array)
         elif isinstance(dtype, UInt):
@@ -126,13 +138,15 @@ class Array:
             sb_limit = 1 << (self.dtype.bits - 1)
             array = array.astype(np.float64)
             array = array * (2**dtype.fracs)
+
             def cast_func(x):
                 # recursive
                 if isinstance(x, list):
                     return [cast_func(y) for y in x]
-                x = math.trunc(x) % sb # rounds towards zero
+                x = math.trunc(x) % sb  # rounds towards zero
                 # signed integer overflow function: wrap mode
                 return x if x < sb_limit else x - sb
+
             if isinstance(array, list):
                 array = [cast_func(x) for x in array]
             else:
@@ -143,12 +157,14 @@ class Array:
             sb = 1 << self.dtype.bits
             array = array.astype(np.float64)
             array = array * (2**dtype.fracs)
+
             def cast_func(x):
                 # recursive
                 if isinstance(x, list):
                     return [cast_func(y) for y in x]
-                x = math.trunc(x) % sb # rounds towards zero
+                x = math.trunc(x) % sb  # rounds towards zero
                 return x
+
             if isinstance(array, list):
                 array = [cast_func(x) for x in array]
             else:
@@ -157,10 +173,10 @@ class Array:
         else:
             raise DTypeError("Type error: unrecognized type: " + str(self.dtype))
         return array
-    
 
     def _struct_np_array_to_int(self):
         pylist = self.np_array.tolist()
+
         # each element is a tuple
         def to_int(x):
             if isinstance(x, list):
@@ -174,16 +190,17 @@ class Array:
             msb = (x[byte_idx] & (1 << bit_idx)) > 0
             # sign extension
             if signed and msb:
-                x[byte_idx] |= ((0xff << bit_idx) & 0xff)
+                x[byte_idx] |= (0xFF << bit_idx) & 0xFF
                 for i in range(byte_idx + 1, len(x)):
-                    x[i] = 0xff
+                    x[i] = 0xFF
             # concatenate the tuple
             # each element is a byte
-            byte_str = b''
+            byte_str = b""
             for i in range(len(x)):
-                byte_str += x[i].to_bytes(1, byteorder='little', signed=False)
-            value = int.from_bytes(byte_str, byteorder='little', signed=signed)
+                byte_str += x[i].to_bytes(1, byteorder="little", signed=False)
+            value = int.from_bytes(byte_str, byteorder="little", signed=signed)
             return value
+
         pylist = to_int(pylist)
         if self.dtype.bits <= 64:
             return np.array(pylist, dtype=np.int64)
