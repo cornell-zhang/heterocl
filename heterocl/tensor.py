@@ -126,7 +126,7 @@ class Array:
                     cast_func(x) for x in array
                 ]  # TODO: this should be tested independently
             else:
-                array = np.vectorize(cast_func)(array)
+                array = np.vectorize(cast_func)(array).astype(np.int64)
         elif isinstance(dtype, UInt):
             # Handle overflow
             sb = 1 << self.dtype.bits
@@ -149,8 +149,7 @@ class Array:
             if isinstance(array, list):
                 array = [cast_func(x) for x in array]
             else:
-                array = np.vectorize(cast_func)(array)
-            array = array.astype(np.int64)
+                array = np.vectorize(cast_func)(array).astype(np.int64)
         elif isinstance(dtype, UFixed):
             # Handle overflow
             sb = 1 << self.dtype.bits
@@ -167,8 +166,7 @@ class Array:
             if isinstance(array, list):
                 array = [cast_func(x) for x in array]
             else:
-                array = np.vectorize(cast_func)(array)
-            array = array.astype(np.int64)
+                array = np.vectorize(cast_func)(array).astype(np.int64)
         else:
             raise DTypeError("Type error: unrecognized type: " + str(self.dtype))
         return array
