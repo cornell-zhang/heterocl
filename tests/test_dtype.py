@@ -671,5 +671,35 @@ def test_int_to_fixed_cast():
                 assert False, "test failed, see failed test case above"
 
 
+def test_irregular_bitwidth_input():
+    def test_int(dtype):
+        hcl.init(dtype)
+        A = hcl.placeholder((10,), "A", dtype=dtype)
+        B = hcl.compute(A.shape, lambda *args: A[args] + 1, "B")
+        s = hcl.create_schedule([A, B])
+        f = hcl.build(s)
+        # A_np = np.random.randint(-10, 10, A.shape)
+        A_np = np.zeros(A.shape)
+        A_hcl = hcl.asarray(A_np, dtype=dtype)
+        B_hcl = hcl.asarray(np.zeros(A.shape), dtype=dtype)
+        f(A_hcl, B_hcl)
+        B_np = B_hcl.asnumpy()
+        if dtype.bits <= 64:
+            golden = hcl.asarray(A_np + 1, dtype=dtype).asnumpy()
+            assert np.allclose(golden, B_np)
+        else:
+            # B_np is a list
+            golden = [x + 1 for x in A_np.tolist()]
+            for res, g in zip(B_np, golden):
+                if res != g:
+                    print(f"res: {res}, hex: {hex(res)}\n")
+                    print(f"g: {g}, hex: {hex(g)}\n")
+                assert res == g
+
+    test_dtypes = [hcl.Int(2), hcl.Int(20), hcl.Int(63), hcl.Int(255), hcl.Int(512)]
+    for dtype in test_dtypes:
+        test_int(dtype)
+
+
 if __name__ == "__main__":
     pytest.main([__file__])

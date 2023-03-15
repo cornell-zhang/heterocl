@@ -234,7 +234,7 @@ def make_anywidth_numpy_array(val, bitwidth):
         numpy array with the target bitwidth
     """
     shape = val.shape
-    sign_array = val > 0
+    sign_array = val >= 0
     avail_bytes = val.itemsize  # number of bytes of each element
     # The following code has several steps to convert the numpy array to have
     # the correct data type in order to create an MLIR constant tensor.
