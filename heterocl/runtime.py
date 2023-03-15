@@ -12,6 +12,12 @@ import numpy as np
 from hcl_mlir import runtime as rt
 from .report import parse_xml
 
+# Filter out the warning from numpy when using ctypes array as numpy array.
+# This is a Python bug, see:
+# https://stackoverflow.com/questions/4964101/pep-3118-warning-when-using-ctypes-array-as-numpy-array
+import warnings
+warnings.filterwarnings("ignore", category=RuntimeWarning, message="A builtin ctypes object gave a PEP3118 format string that does not match its itemsize*")
+
 
 def run_process(cmd, pattern=None):
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
@@ -168,5 +174,18 @@ def execute_llvm_backend(execution_engine, name, return_num, *argv):
     execution_engine.invoke(name, *arg_pointers)
     # this part is still necessary
     # comment out for now
-    # for i, arg_p in enumerate(arg_pointers):
-    #     out_array = rt.ranked_memref_to_numpy(arg_p[0])
+    # print(arg_pointers[0][0][0].aligned)
+    # print(f"is ctypes._Pointer: {isinstance(arg_pointers[0][0][0].aligned, ctypes._Pointer)}")
+    # print(arg_pointers[1][0][0].aligned)
+    # print(f"is ctypes._Pointer: {isinstance(arg_pointers[1][0][0].aligned, ctypes._Pointer)}")
+    for i, arg_p in enumerate(arg_pointers):
+        np_arr = np.ctypeslib.as_array(
+            arg_p[0][0].aligned, shape=arg_p[0][0].shape)
+        strided_arr = np.lib.stride_tricks.as_strided(
+            np_arr,
+            np.ctypeslib.as_array(arg_p[0][0].shape),
+            np.ctypeslib.as_array(arg_p[0][0].strides) * np_arr.itemsize,
+        )
+        out_array = strided_arr
+        # out_array = rt.ranked_memref_to_numpy(arg_p[0]) # can confirm that it works with any bitwidth array
+        np.copyto(argv[i].np_array, out_array) # target, source
