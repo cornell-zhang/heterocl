@@ -176,11 +176,8 @@ class Array:
             # concatenate the tuple
             # each element is a byte
             byte_str = b''
-            for i in range(len(x) - 1):
-                # little endian, first x-1 elements are unsigned bytes
+            for i in range(len(x)):
                 byte_str += x[i].to_bytes(1, byteorder='little', signed=False)
-            # last element is signed
-            byte_str += x[-1].to_bytes(1, byteorder='little', signed=signed)
             value = int.from_bytes(byte_str, byteorder='little', signed=signed)
             return value
         pylist = to_int(pylist)

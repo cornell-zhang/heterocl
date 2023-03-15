@@ -273,7 +273,8 @@ def make_anywidth_numpy_array(val, bitwidth, signed):
         new_dtype = np.dtype(
             {
                 "names": [f"f{i}" for i in range(n_bytes)],
-                "formats": ["u1"] * (n_bytes - 1) + (["i1"] if signed else ["u1"]),
+                # "formats": ["u1"] * (n_bytes - 1) + (["i1"] if signed else ["u1"]),
+                "formats": ["u1"] * n_bytes,
                 "offsets": list(range(n_bytes)),
                 "itemsize": n_bytes,
             }
