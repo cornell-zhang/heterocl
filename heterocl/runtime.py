@@ -172,6 +172,11 @@ def execute_llvm_backend(execution_engine, name, return_num, *argv):
         arg_pointers.append(ctypes.pointer(ctypes.pointer(memref)))
     # Invoke device top-level function
     execution_engine.invoke(name, *arg_pointers)
-    for i, arg_p in enumerate(arg_pointers):
-        out_array = rt.ranked_memref_to_numpy(arg_p[0])
-        np.copyto(argv[i].np_array, out_array) # target, source
+    # for i, arg_p in enumerate(arg_pointers):
+        # out_array = rt.ranked_memref_to_numpy(arg_p[0])
+        # if out_array element type has one byte, 
+        # ranked_memref_to_numpy will automatically unpack it
+        # if argv[i].np_array.dtype.itemsize == 1:
+        #     np.copyto(argv[i].np_array['f0'], out_array)
+        # else:
+        #     np.copyto(argv[i].np_array, out_array) # target, source
