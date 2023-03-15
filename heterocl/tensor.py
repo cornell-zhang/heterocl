@@ -35,8 +35,8 @@ class Array:
         # For int, uint, fixed, ufixed, self.np_array is a struct type numpy array
         # with each field being a byte.
         self.np_array = self._handle_overflow(array, dtype)
-        if not isinstance(dtype, Float):
-            signed = isinstance(dtype, Int) or isinstance(dtype, Fixed)
+        if isinstance(dtype, (Int, UInt)):
+            signed = isinstance(dtype, Int)
             # closest power of 2
             bitwidth = 1 << (self.dtype.bits - 1).bit_length()
             if bitwidth < 8: bitwidth = 8
@@ -68,16 +68,20 @@ class Array:
             if self.dtype.bits > 64:
                 DTypeWarning(f"The bitwidth of target type is wider than 64 ({self.dtype}), .asnumpy() returns a python list")
             return self._struct_np_array_to_int()
+        #TODO(Niansong): fixed/ufixed does not go through struct_np_array_to_int for now
+        # because a change in IR is needed to support this, leaving it to another PR
         elif isinstance(self.dtype, Fixed):
             if self.dtype.bits > 64:
                 DTypeWarning(f"The bitwidth of target type is wider than 64 ({self.dtype}), .asnumpy() returns a python list")
-            base_array = self._struct_np_array_to_int()
-            return base_array.astype(np.float64) / float(2 ** (self.dtype.fracs))
+            # base_array = self._struct_np_array_to_int()
+            # return base_array.astype(np.float64) / float(2 ** (self.dtype.fracs))
+            return self.np_array.astype(np.float64) / float(2 ** (self.dtype.fracs))
         elif isinstance(self.dtype, UFixed):
             if self.dtype.bits > 64:
                 DTypeWarning(f"The bitwidth of target type is wider than 64 ({self.dtype}), .asnumpy() returns a python list")
-            base_array = self._struct_np_array_to_int()
-            return base_array.astype(np.float64) / float(2 ** (self.dtype.fracs))
+            # base_array = self._struct_np_array_to_int()
+            # return base_array.astype(np.float64) / float(2 ** (self.dtype.fracs))
+            return self.np_array.astype(np.float64) / float(2 ** (self.dtype.fracs))
         else:
             raise DTypeError(f"Unsupported data type {self.dtype}")
 
