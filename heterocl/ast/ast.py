@@ -75,10 +75,9 @@ def simplify(expr):
     and compute the result if possible
     Only supports affine expressions on integers and floats
     """
-
     if isinstance(expr, (int, float)):
         return expr
-    if isinstance(expr, sp.numbers.Integer):
+    if isinstance(expr, sp.core.numbers.Integer):
         return int(expr)
     if isinstance(expr, ConstantOp):
         return expr.value
