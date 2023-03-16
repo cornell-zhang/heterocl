@@ -212,7 +212,7 @@ def get_op_class(op, typ):
     if isinstance(op, ast.MathTanhOp):
         if isinstance(typ, htypes.Float):
             return math_d.TanhOp
-        raise APIError(f"Unsupported type for MathTanOp: {typ}")
+        raise APIError(f"Unsupported type for MathTanhOp: {typ}")
     raise APIError(f"Unsupported op in get_op_class: {op}")
 
 
