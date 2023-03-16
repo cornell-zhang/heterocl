@@ -633,7 +633,7 @@ class BitCastOp(UnaryOp):
         super().__init__("bit_cast", expr, loc)
         self.dtype = dtype
 
-
+@register_type_rules(intrin_rule)
 class MathExpOp(UnaryOp):
     """Mathematical exponential operation."""
 
@@ -674,7 +674,7 @@ class MathLog10Op(UnaryOp):
         super().__init__("log10", expr, loc)
         self.dtype = self.tinf_engine.infer(self)
 
-
+@register_type_rules(intrin_rule)
 class MathSqrtOp(UnaryOp):
     """Mathematical square root operation."""
 
@@ -682,7 +682,7 @@ class MathSqrtOp(UnaryOp):
         super().__init__("sqrt", expr, loc)
         self.dtype = self.tinf_engine.infer(self)
 
-
+@register_type_rules(intrin_rule)
 class MathSinOp(UnaryOp):
     """Mathematical sine operation."""
 
@@ -690,7 +690,7 @@ class MathSinOp(UnaryOp):
         super().__init__("sin", expr, loc)
         self.dtype = self.tinf_engine.infer(self)
 
-
+@register_type_rules(intrin_rule)
 class MathCosOp(UnaryOp):
     """Mathematical cosine operation."""
 
@@ -698,7 +698,7 @@ class MathCosOp(UnaryOp):
         super().__init__("cos", expr, loc)
         self.dtype = self.tinf_engine.infer(self)
 
-
+@register_type_rules(intrin_rule)
 class MathTanhOp(UnaryOp):
     """Mathematical tangent operation."""
 
