@@ -41,7 +41,7 @@ class Type:
             return False
         other = dtype_to_hcl(other)
         # check if self and other are the same type
-        if not isinstance(self, type(other)):
+        if not type(self) is type(other):
             return False
         return other.bits == self.bits and other.fracs == self.fracs
 
