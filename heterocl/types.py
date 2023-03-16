@@ -40,6 +40,9 @@ class Type:
         if other is None:
             return False
         other = dtype_to_hcl(other)
+        # check if self and other are the same type
+        if not isinstance(self, type(other)):
+            return False
         return other.bits == self.bits and other.fracs == self.fracs
 
 
@@ -69,6 +72,16 @@ class Index(UInt):
 
 class Float(Type):
     """Floating points"""
+
+    def __init__(self, bits=32):
+        if bits == 32:
+            super().__init__(bits=32, fracs=23)
+            self.exponent = 8
+        elif bits == 64:
+            super().__init__(bits=64, fracs=52)
+            self.exponent = 11
+        else:
+            raise APIError("Unsupported floating point type")
 
     def __repr__(self):
         return "Float(" + str(self.bits) + ")"
