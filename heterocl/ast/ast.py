@@ -24,6 +24,7 @@ from .type_rules import (
     pow_rule,
     shift_rule,
     select_rule,
+    intrin_rule,
 )
 from ..types import Int, UInt, Index, Float, Struct, dtype_to_str
 
@@ -649,7 +650,7 @@ class MathPowOp(BinaryOp):
         super().__init__("pow", lhs, rhs, loc)
         self.dtype = self.tinf_engine.infer(self)
 
-
+@register_type_rules(intrin_rule)
 class MathLogOp(UnaryOp):
     """Mathematical log operation."""
 
@@ -657,7 +658,7 @@ class MathLogOp(UnaryOp):
         super().__init__("log", expr, loc)
         self.dtype = self.tinf_engine.infer(self)
 
-
+@register_type_rules(intrin_rule)
 class MathLog2Op(UnaryOp):
     """Mathematical log2 operation."""
 
@@ -665,7 +666,7 @@ class MathLog2Op(UnaryOp):
         super().__init__("log2", expr, loc)
         self.dtype = self.tinf_engine.infer(self)
 
-
+@register_type_rules(intrin_rule)
 class MathLog10Op(UnaryOp):
     """Mathematical log10 operation."""
 
@@ -1751,8 +1752,8 @@ class TypeInference:
             return self.infer(expr.rets[0])
         if isinstance(expr, Neg):
             return self.infer(expr.expr)
-        if isinstance(expr, MathTanhOp):
-            return Float(64)
+        if isinstance(expr, (MathTanhOp, MathLogOp, MathLog2Op, MathLog10Op)):
+            return self.infer_unary(expr)
         raise APIError(
             f"Type inference not defined for expression of type: {type(expr)}"
         )
@@ -1772,6 +1773,15 @@ class TypeInference:
             if res_type.bits > 128:
                 DTypeWarning("Modulo only supports integer <= 128 bits").warn()
                 res_type = Int(128) if isinstance(res_type, Int) else UInt(128)
+        return res_type
+    
+    def infer_unary(self, expr):
+        input_type = self.infer(expr.expr)
+        if isinstance(input_type, tuple):
+            input_type = input_type[-1]
+        # find the rule set based on the operation type
+        type_rule = get_type_rules(type(expr))
+        res_type = type_rule(input_type)
         return res_type
 
     def infer_select(self, expr):

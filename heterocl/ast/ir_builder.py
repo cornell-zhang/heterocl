@@ -254,6 +254,8 @@ class IRBuilder:
             self.build_binary_op(op, ip)
         elif isinstance(op, ast.MathTanhOp):
             self.build_math_tanh_op(op, ip)
+        elif isinstance(op, ast.MathLog2Op): # TODO: merge
+            self.build_math_log2_op(op, ip)
         elif isinstance(op, ast.BitCastOp):
             self.build_bitcast_op(op, ip)
         elif isinstance(op, ast.LoadOp):
@@ -666,6 +668,15 @@ class IRBuilder:
         tanh_op = math_d.TanhOp(casted.result, ip=ip, loc=loc)
         op.result = tanh_op.result
         op.ir_op = tanh_op
+
+    def build_math_log2_op(self, op: ast.MathLog2Op, ip):
+        loc = Location.file(op.loc.filename, op.loc.lineno, 0)
+        self.build_visitor(op.expr, ip)
+        casted = ast.CastOp(op.expr, op.dtype, loc)
+        self.build_visitor(casted, ip)
+        log2_op = math_d.Log2Op(casted.result, ip=ip, loc=loc)
+        op.result = log2_op.result
+        op.ir_op = log2_op
 
     def build_neg_op(self, op, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)

@@ -541,3 +541,15 @@ def pow_rule():
         (Float, UInt): lambda t1, t2: t1 if isinstance(t1, Float) else t2,
     }
     return TypeRule([int_rules, float_rules])
+
+
+def intrin_rule():
+    unaryrules = {
+        (Float,): lambda t1: t1,
+        (Int,): lambda t1: Float(64),
+        (UInt,): lambda t1: Float(64),
+        (Index,): lambda t1: Float(64),
+        (Fixed,): lambda t1: Float(64),
+        (UFixed,): lambda t1: Float(64),
+    }
+    return TypeRule([unaryrules])
