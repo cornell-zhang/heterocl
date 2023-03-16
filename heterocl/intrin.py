@@ -5,6 +5,7 @@ from .ast import ast
 from .utils import get_src_loc
 from hcl_mlir.exceptions import MLIRLimitationError
 
+
 def exp(x):
     filename, lineno = get_src_loc()
     loc = ast.Location(filename, lineno)
@@ -52,11 +53,15 @@ def cos(x):
     loc = ast.Location(filename, lineno)
     return ast.MathCosOp(x, loc)
 
+
 def tan(x):
-    raise MLIRLimitationError("LLVM 15.0 does not support math.tan lowering. Please write tan as sin/cos for now. tan will be added in future releases.")
+    raise MLIRLimitationError(
+        "LLVM 15.0 does not support math.tan lowering. Please write tan as sin/cos for now. tan will be added in future releases."
+    )
     filename, lineno = get_src_loc()
     loc = ast.Location(filename, lineno)
     return ast.MathTanOp(x, loc)
+
 
 def tanh(x):
     filename, lineno = get_src_loc()

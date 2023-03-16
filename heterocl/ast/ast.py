@@ -633,6 +633,7 @@ class BitCastOp(UnaryOp):
         super().__init__("bit_cast", expr, loc)
         self.dtype = dtype
 
+
 @register_type_rules(intrin_rule)
 class MathExpOp(UnaryOp):
     """Mathematical exponential operation."""
@@ -650,6 +651,7 @@ class MathPowOp(BinaryOp):
         super().__init__("pow", lhs, rhs, loc)
         self.dtype = self.tinf_engine.infer(self)
 
+
 @register_type_rules(intrin_rule)
 class MathLogOp(UnaryOp):
     """Mathematical log operation."""
@@ -657,6 +659,7 @@ class MathLogOp(UnaryOp):
     def __init__(self, expr, loc):
         super().__init__("log", expr, loc)
         self.dtype = self.tinf_engine.infer(self)
+
 
 @register_type_rules(intrin_rule)
 class MathLog2Op(UnaryOp):
@@ -666,6 +669,7 @@ class MathLog2Op(UnaryOp):
         super().__init__("log2", expr, loc)
         self.dtype = self.tinf_engine.infer(self)
 
+
 @register_type_rules(intrin_rule)
 class MathLog10Op(UnaryOp):
     """Mathematical log10 operation."""
@@ -673,6 +677,7 @@ class MathLog10Op(UnaryOp):
     def __init__(self, expr, loc):
         super().__init__("log10", expr, loc)
         self.dtype = self.tinf_engine.infer(self)
+
 
 @register_type_rules(intrin_rule)
 class MathSqrtOp(UnaryOp):
@@ -682,6 +687,7 @@ class MathSqrtOp(UnaryOp):
         super().__init__("sqrt", expr, loc)
         self.dtype = self.tinf_engine.infer(self)
 
+
 @register_type_rules(intrin_rule)
 class MathSinOp(UnaryOp):
     """Mathematical sine operation."""
@@ -689,6 +695,7 @@ class MathSinOp(UnaryOp):
     def __init__(self, expr, loc):
         super().__init__("sin", expr, loc)
         self.dtype = self.tinf_engine.infer(self)
+
 
 @register_type_rules(intrin_rule)
 class MathCosOp(UnaryOp):
@@ -698,6 +705,7 @@ class MathCosOp(UnaryOp):
         super().__init__("cos", expr, loc)
         self.dtype = self.tinf_engine.infer(self)
 
+
 @register_type_rules(intrin_rule)
 class MathTanOp(UnaryOp):
     """Mathematical tangent operation."""
@@ -705,6 +713,7 @@ class MathTanOp(UnaryOp):
     def __init__(self, expr, loc):
         super().__init__("tan", expr, loc)
         self.dtype = self.tinf_engine.infer(self)
+
 
 @register_type_rules(intrin_rule)
 class MathTanhOp(UnaryOp):
@@ -1761,14 +1770,23 @@ class TypeInference:
         if isinstance(expr, Neg):
             return self.infer(expr.expr)
         # math ops
-        if isinstance(expr, (
-            MathExpOp, MathPowOp, MathLogOp,
-            MathLog2Op, MathLog10Op, MathSqrtOp,
-            MathSinOp, MathCosOp, MathTanOp,
-            MathTanhOp,
-        )):
+        if isinstance(
+            expr,
+            (
+                MathExpOp,
+                MathPowOp,
+                MathLogOp,
+                MathLog2Op,
+                MathLog10Op,
+                MathSqrtOp,
+                MathSinOp,
+                MathCosOp,
+                MathTanOp,
+                MathTanhOp,
+            ),
+        ):
             return self.infer_math(expr)
-        
+
         raise APIError(
             f"Type inference method not defined for expression of type: {type(expr)} in TypeInference.infer"
         )
@@ -1789,7 +1807,7 @@ class TypeInference:
                 DTypeWarning("Modulo only supports integer <= 128 bits").warn()
                 res_type = Int(128) if isinstance(res_type, Int) else UInt(128)
         return res_type
-    
+
     def infer_math(self, expr):
         input_type = self.infer(expr.expr)
         if isinstance(input_type, tuple):

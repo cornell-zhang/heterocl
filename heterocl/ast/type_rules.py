@@ -536,30 +536,27 @@ def pow_rule():
         (Int, Index): select_float,
         (Int, Fixed): select_float,
         (Int, UFixed): select_float,
-        (Int, Float): select_float
+        (Int, Float): select_float,
     }
     uint_rule = {
         (UInt, UInt): select_float,
         (UInt, Index): select_float,
         (UInt, Fixed): select_float,
         (UInt, UFixed): select_float,
-        (UInt, Float): select_float
+        (UInt, Float): select_float,
     }
     index_rule = {
         (Index, Index): select_float,
         (Index, Fixed): select_float,
         (Index, UFixed): select_float,
-        (Index, Float): select_float
+        (Index, Float): select_float,
     }
     fixed_rule = {
         (Fixed, Fixed): select_float,
         (Fixed, UFixed): select_float,
-        (Fixed, Float): select_float
+        (Fixed, Float): select_float,
     }
-    ufixed_rule = {
-        (UFixed, UFixed): select_float,
-        (UFixed, Float): select_float
-    }
+    ufixed_rule = {(UFixed, UFixed): select_float, (UFixed, Float): select_float}
     float_rule = {
         (Float, Float): lambda t1, t2: Float(max(t1.bits, t2.bits)),
     }
@@ -574,7 +571,7 @@ def pow_rule():
 
 
 def intrin_rule():
-    # covers: 
+    # covers:
     # expr, log, log2, log10, sqrt,
     # sin, cos, tanh
     unaryrules = {

@@ -292,13 +292,22 @@ class IRBuilder:
             self.build_cmp_op(op, ip)
         elif isinstance(op, ast.BinaryOp):
             self.build_binary_op(op, ip)
-        elif isinstance(op, (
-            ast.MathExpOp, ast.MathPowOp, ast.MathLogOp,
-            ast.MathLog2Op, ast.MathLog10Op, ast.MathSqrtOp,
-            ast.MathSinOp, ast.MathCosOp, ast.MathTanOp,
-            ast.MathTanhOp,
-            # ast.PowOp is covered by build_binary_op
-        )):
+        elif isinstance(
+            op,
+            (
+                ast.MathExpOp,
+                ast.MathPowOp,
+                ast.MathLogOp,
+                ast.MathLog2Op,
+                ast.MathLog10Op,
+                ast.MathSqrtOp,
+                ast.MathSinOp,
+                ast.MathCosOp,
+                ast.MathTanOp,
+                ast.MathTanhOp,
+                # ast.PowOp is covered by build_binary_op
+            ),
+        ):
             self.build_math_op(op, ip)
         elif isinstance(op, ast.BitCastOp):
             self.build_bitcast_op(op, ip)
