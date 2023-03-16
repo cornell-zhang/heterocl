@@ -173,6 +173,46 @@ def get_op_class(op, typ):
         if isinstance(typ, htypes.UInt):
             return arith_d.ShRUIOp
         raise APIError(f"Unsupported type for RightShiftOp: {typ}")
+    if isinstance(op, ast.MathExpOp):
+        if isinstance(typ, htypes.Float):
+            return math_d.ExpOp
+        raise APIError(f"Unsupported type for MathExpOp: {typ}")
+    if isinstance(op, ast.MathPowOp):
+        if isinstance(typ, htypes.Float):
+            return math_d.PowFOp
+        raise APIError(f"Unsupported type for MathPowOp: {typ}")
+    if isinstance(op, ast.MathLogOp):
+        if isinstance(typ, htypes.Float):
+            return math_d.LogOp
+        raise APIError(f"Unsupported type for MathLogOp: {typ}")
+    if isinstance(op, ast.MathLog2Op):
+        if isinstance(typ, htypes.Float):
+            return math_d.Log2Op
+        raise APIError(f"Unsupported type for MathLog2Op: {typ}")
+    if isinstance(op, ast.MathLog10Op):
+        if isinstance(typ, htypes.Float):
+            return math_d.Log10Op
+        raise APIError(f"Unsupported type for MathLog10Op: {typ}")
+    if isinstance(op, ast.MathSqrtOp):
+        if isinstance(typ, htypes.Float):
+            return math_d.SqrtOp
+        raise APIError(f"Unsupported type for MathSqrtOp: {typ}")
+    if isinstance(op, ast.MathSinOp):
+        if isinstance(typ, htypes.Float):
+            return math_d.SinOp
+        raise APIError(f"Unsupported type for MathSinOp: {typ}")
+    if isinstance(op, ast.MathCosOp):
+        if isinstance(typ, htypes.Float):
+            return math_d.CosOp
+        raise APIError(f"Unsupported type for MathCosOp: {typ}")
+    if isinstance(op, ast.MathTanOp):
+        if isinstance(typ, htypes.Float):
+            return math_d.TanOp
+        raise APIError(f"Unsupported type for MathTanOp: {typ}")
+    if isinstance(op, ast.MathTanhOp):
+        if isinstance(typ, htypes.Float):
+            return math_d.TanhOp
+        raise APIError(f"Unsupported type for MathTanhOp: {typ}")
     raise APIError(f"Unsupported op in get_op_class: {op}")
 
 
@@ -252,8 +292,23 @@ class IRBuilder:
             self.build_cmp_op(op, ip)
         elif isinstance(op, ast.BinaryOp):
             self.build_binary_op(op, ip)
-        elif isinstance(op, ast.MathTanhOp):
-            self.build_math_tanh_op(op, ip)
+        elif isinstance(
+            op,
+            (
+                ast.MathExpOp,
+                ast.MathPowOp,
+                ast.MathLogOp,
+                ast.MathLog2Op,
+                ast.MathLog10Op,
+                ast.MathSqrtOp,
+                ast.MathSinOp,
+                ast.MathCosOp,
+                ast.MathTanOp,
+                ast.MathTanhOp,
+                # ast.PowOp is covered by build_binary_op
+            ),
+        ):
+            self.build_math_op(op, ip)
         elif isinstance(op, ast.BitCastOp):
             self.build_bitcast_op(op, ip)
         elif isinstance(op, ast.LoadOp):
@@ -658,14 +713,15 @@ class IRBuilder:
             op.result = select.result
             op.ir_op = select
 
-    def build_math_tanh_op(self, op: ast.MathTanhOp, ip):
+    def build_math_op(self, op, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         self.build_visitor(op.expr, ip)
-        casted = ast.CastOp(op.expr, htypes.Float(64), loc)
+        casted = ast.CastOp(op.expr, op.dtype, loc)
         self.build_visitor(casted, ip)
-        tanh_op = math_d.TanhOp(casted.result, ip=ip, loc=loc)
-        op.result = tanh_op.result
-        op.ir_op = tanh_op
+        op_class = get_op_class(op, op.dtype)
+        math_op = op_class(casted.result, ip=ip, loc=loc)
+        op.result = math_op.result
+        op.ir_op = math_op
 
     def build_neg_op(self, op, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
