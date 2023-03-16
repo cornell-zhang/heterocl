@@ -529,7 +529,11 @@ def logic_op_rule():
 
 
 def pow_rule():
-    select_float = lambda t1, t2: Float(32) if t1.bits <= 32 else Float(64)
+    def select_float(t1, _):
+        if t1.bits <= 32:
+            return Float(32)
+        return Float(64)
+
     int_rule = {
         (Int, Int): select_float,
         (Int, UInt): select_float,
