@@ -367,7 +367,7 @@ def build_llvm(schedule, top_func_name="top"):
             os.path.join(lib_path, "libmlir_runner_utils.so"),
             os.path.join(lib_path, "libmlir_c_runner_utils.so"),
         ]
-        opt_level = 1
+        opt_level = 3
         if shared_libs is not None:
             execution_engine = ExecutionEngine(
                 module, opt_level=opt_level, shared_libs=shared_libs
