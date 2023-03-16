@@ -52,6 +52,10 @@ def cos(x):
     loc = ast.Location(filename, lineno)
     return ast.MathCosOp(x, loc)
 
+def tan(x):
+    filename, lineno = get_src_loc()
+    loc = ast.Location(filename, lineno)
+    return ast.MathTanOp(x, loc)
 
 def tanh(x):
     filename, lineno = get_src_loc()

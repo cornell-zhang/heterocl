@@ -699,8 +699,16 @@ class MathCosOp(UnaryOp):
         self.dtype = self.tinf_engine.infer(self)
 
 @register_type_rules(intrin_rule)
-class MathTanhOp(UnaryOp):
+class MathTanOp(UnaryOp):
     """Mathematical tangent operation."""
+
+    def __init__(self, expr, loc):
+        super().__init__("tan", expr, loc)
+        self.dtype = self.tinf_engine.infer(self)
+
+@register_type_rules(intrin_rule)
+class MathTanhOp(UnaryOp):
+    """Mathematical hyperbolic tangent operation."""
 
     def __init__(self, expr, loc):
         super().__init__("tanh", expr, loc)
