@@ -1760,10 +1760,17 @@ class TypeInference:
             return self.infer(expr.rets[0])
         if isinstance(expr, Neg):
             return self.infer(expr.expr)
-        if isinstance(expr, (MathTanhOp, MathLogOp, MathLog2Op, MathLog10Op)):
-            return self.infer_unary(expr)
+        # math ops
+        if isinstance(expr, (
+            MathExpOp, MathPowOp, MathLogOp,
+            MathLog2Op, MathLog10Op, MathSqrtOp,
+            MathSinOp, MathCosOp, MathTanOp,
+            MathTanhOp,
+        )):
+            return self.infer_math(expr)
+        
         raise APIError(
-            f"Type inference not defined for expression of type: {type(expr)}"
+            f"Type inference method not defined for expression of type: {type(expr)} in TypeInference.infer"
         )
 
     def infer_binary(self, expr):
@@ -1783,7 +1790,7 @@ class TypeInference:
                 res_type = Int(128) if isinstance(res_type, Int) else UInt(128)
         return res_type
     
-    def infer_unary(self, expr):
+    def infer_math(self, expr):
         input_type = self.infer(expr.expr)
         if isinstance(input_type, tuple):
             input_type = input_type[-1]
