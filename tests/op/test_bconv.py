@@ -380,3 +380,64 @@ def test_packed_bconv_nhwc_threshold_bufferat():
 
     assert np.array_equal(np_B, hcl_B.asnumpy())
     assert np.array_equal(packed_C, hcl_C.asnumpy())
+
+
+def test_bconv2D_nchw_const_tensor():
+    bs = 4
+    ic, oc = 6, 16
+    ih, iw = 8, 8
+    kh, kw = 3, 3
+    oh, ow = ih - kh + 1, iw - kw + 1
+    hcl.init(hcl.UInt(1))
+    A = hcl.placeholder((bs, ic, ih, iw))
+    F = hcl.placeholder((oc, ic, kh, kw))
+    np_B = np.random.randint(0, 2, size=(oc, ic, kh, kw))
+
+    def conv(A):
+        rc = hcl.reduce_axis(0, ic)
+        rh = hcl.reduce_axis(0, kh)
+        rw = hcl.reduce_axis(0, kw)
+        L = ic * kh * kw
+        F = hcl.const_tensor(np_B, "F", hcl.UInt(1))
+        B = hcl.compute(
+            (bs, oc, oh, ow),
+            lambda n, c, h, w: L
+            - (
+                hcl.sum(
+                    A[n, rc, h + rh, w + rw] ^ F[c, rc, rh, rw],
+                    axis=[rc, rh, rw],
+                    dtype=hcl.Int(32),
+                )
+                << 1
+            ),
+            name="B",
+            dtype=hcl.Int(32),
+        )
+        return B
+
+    s = hcl.create_schedule([A], conv)
+    B = conv.B
+    LB = s.reuse_at(A, s[B], B.axis[2])
+    WB = s.reuse_at(LB, s[B], B.axis[3])
+    f = hcl.build(s)
+
+    np_A = np.random.randint(0, 2, size=(bs, ic, ih, iw))
+    np_C = np.zeros((bs, oc, oh, ow), dtype="int")
+
+    for n in range(0, bs):
+        for c in range(0, oc):
+            for y in range(0, oh):
+                for x in range(0, ow):
+                    for rc in range(0, ic):
+                        for rh in range(0, kh):
+                            for rw in range(0, kw):
+                                np_C[n][c][y][x] += 1 - 2 * (
+                                    np_A[n][rc][y + rh][x + rw] ^ np_B[c][rc][rh][rw]
+                                )
+
+    hcl_A = hcl.asarray(np_A, dtype=hcl.UInt(1))
+    hcl_C = hcl.asarray(np_C, dtype=hcl.Int(32))
+
+    f(hcl_A, hcl_C)
+
+    assert np.array_equal(np_C, hcl_C.asnumpy())

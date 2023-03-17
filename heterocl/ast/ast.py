@@ -24,6 +24,7 @@ from .type_rules import (
     pow_rule,
     shift_rule,
     select_rule,
+    intrin_rule,
 )
 from ..types import Int, UInt, Index, Float, Struct, dtype_to_str
 
@@ -699,6 +700,7 @@ class BitCastOp(UnaryOp):
         self.dtype = dtype
 
 
+@register_type_rules(intrin_rule)
 class MathExpOp(UnaryOp):
     """Mathematical exponential operation."""
 
@@ -716,6 +718,7 @@ class MathPowOp(BinaryOp):
         self.dtype = self.tinf_engine.infer(self)
 
 
+@register_type_rules(intrin_rule)
 class MathLogOp(UnaryOp):
     """Mathematical log operation."""
 
@@ -724,6 +727,7 @@ class MathLogOp(UnaryOp):
         self.dtype = self.tinf_engine.infer(self)
 
 
+@register_type_rules(intrin_rule)
 class MathLog2Op(UnaryOp):
     """Mathematical log2 operation."""
 
@@ -732,6 +736,7 @@ class MathLog2Op(UnaryOp):
         self.dtype = self.tinf_engine.infer(self)
 
 
+@register_type_rules(intrin_rule)
 class MathLog10Op(UnaryOp):
     """Mathematical log10 operation."""
 
@@ -740,6 +745,7 @@ class MathLog10Op(UnaryOp):
         self.dtype = self.tinf_engine.infer(self)
 
 
+@register_type_rules(intrin_rule)
 class MathSqrtOp(UnaryOp):
     """Mathematical square root operation."""
 
@@ -748,6 +754,7 @@ class MathSqrtOp(UnaryOp):
         self.dtype = self.tinf_engine.infer(self)
 
 
+@register_type_rules(intrin_rule)
 class MathSinOp(UnaryOp):
     """Mathematical sine operation."""
 
@@ -756,6 +763,7 @@ class MathSinOp(UnaryOp):
         self.dtype = self.tinf_engine.infer(self)
 
 
+@register_type_rules(intrin_rule)
 class MathCosOp(UnaryOp):
     """Mathematical cosine operation."""
 
@@ -764,8 +772,18 @@ class MathCosOp(UnaryOp):
         self.dtype = self.tinf_engine.infer(self)
 
 
-class MathTanhOp(UnaryOp):
+@register_type_rules(intrin_rule)
+class MathTanOp(UnaryOp):
     """Mathematical tangent operation."""
+
+    def __init__(self, expr, loc):
+        super().__init__("tan", expr, loc)
+        self.dtype = self.tinf_engine.infer(self)
+
+
+@register_type_rules(intrin_rule)
+class MathTanhOp(UnaryOp):
+    """Mathematical hyperbolic tangent operation."""
 
     def __init__(self, expr, loc):
         super().__init__("tanh", expr, loc)
@@ -839,9 +857,7 @@ class ConstantTensorOp(Expr):
     def __repr__(self):
         code_str = ""
         code_str += print_indent(code_str, self.level)
-        code_str += (
-            f"{self.name} = constant_tensor({self.values.shape}, {self.values.dtype})"
-        )
+        code_str += f"{self.name} = constant_tensor({self.values.shape}, {self.dtype})"
         return code_str
 
 
@@ -1819,10 +1835,26 @@ class TypeInference:
             return self.infer(expr.rets[0])
         if isinstance(expr, Neg):
             return self.infer(expr.expr)
-        if isinstance(expr, MathTanhOp):
-            return Float(64)
+        # math ops
+        if isinstance(
+            expr,
+            (
+                MathExpOp,
+                MathPowOp,
+                MathLogOp,
+                MathLog2Op,
+                MathLog10Op,
+                MathSqrtOp,
+                MathSinOp,
+                MathCosOp,
+                MathTanOp,
+                MathTanhOp,
+            ),
+        ):
+            return self.infer_math(expr)
+
         raise APIError(
-            f"Type inference not defined for expression of type: {type(expr)}"
+            f"Type inference method not defined for expression of type: {type(expr)} in TypeInference.infer"
         )
 
     def infer_binary(self, expr):
@@ -1840,6 +1872,15 @@ class TypeInference:
             if res_type.bits > 128:
                 DTypeWarning("Modulo only supports integer <= 128 bits").warn()
                 res_type = Int(128) if isinstance(res_type, Int) else UInt(128)
+        return res_type
+
+    def infer_math(self, expr):
+        input_type = self.infer(expr.expr)
+        if isinstance(input_type, tuple):
+            input_type = input_type[-1]
+        # find the rule set based on the operation type
+        type_rule = get_type_rules(type(expr))
+        res_type = type_rule(input_type)
         return res_type
 
     def infer_select(self, expr):

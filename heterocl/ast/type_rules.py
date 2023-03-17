@@ -529,15 +529,61 @@ def logic_op_rule():
 
 
 def pow_rule():
-    int_rules = {
-        (Int, Int): lambda t1, t2: Float(64),
-        (Int, UInt): lambda t1, t2: Float(64),
-        (Int, Index): lambda t1, t2: Float(64),
-        (UInt, UInt): lambda t1, t2: Float(64),
+    def select_float(t1, _):
+        if t1.bits <= 32:
+            return Float(32)
+        return Float(64)
+
+    int_rule = {
+        (Int, Int): select_float,
+        (Int, UInt): select_float,
+        (Int, Index): select_float,
+        (Int, Fixed): select_float,
+        (Int, UFixed): select_float,
+        (Int, Float): select_float,
     }
-    float_rules = {
+    uint_rule = {
+        (UInt, UInt): select_float,
+        (UInt, Index): select_float,
+        (UInt, Fixed): select_float,
+        (UInt, UFixed): select_float,
+        (UInt, Float): select_float,
+    }
+    index_rule = {
+        (Index, Index): select_float,
+        (Index, Fixed): select_float,
+        (Index, UFixed): select_float,
+        (Index, Float): select_float,
+    }
+    fixed_rule = {
+        (Fixed, Fixed): select_float,
+        (Fixed, UFixed): select_float,
+        (Fixed, Float): select_float,
+    }
+    ufixed_rule = {(UFixed, UFixed): select_float, (UFixed, Float): select_float}
+    float_rule = {
         (Float, Float): lambda t1, t2: Float(max(t1.bits, t2.bits)),
-        (Float, Int): lambda t1, t2: t1 if isinstance(t1, Float) else t2,
-        (Float, UInt): lambda t1, t2: t1 if isinstance(t1, Float) else t2,
     }
-    return TypeRule([int_rules, float_rules])
+    # Commutative=True here doesn't mean that power operation is commutative.
+    # It means that the type rule is commutative, to reduce the number of rules.
+    # e.g. hcl.power(a, b) and hcl.power(b, a) will have the same type rule.
+    # because MLIR math op in LLVM 15 only has float pow op.
+    return TypeRule(
+        [int_rule, uint_rule, index_rule, fixed_rule, ufixed_rule, float_rule],
+        commutative=True,
+    )
+
+
+def intrin_rule():
+    # covers:
+    # expr, log, log2, log10, sqrt,
+    # sin, cos, tanh
+    unaryrules = {
+        (Float,): lambda t: t,
+        (Int,): lambda t: Float(32) if t.bits <= 32 else Float(64),
+        (UInt,): lambda t: Float(32) if t.bits <= 32 else Float(64),
+        (Index,): lambda t: Float(32) if t.bits <= 32 else Float(64),
+        (Fixed,): lambda t: Float(32) if t.bits <= 32 else Float(64),
+        (UFixed,): lambda t: Float(32) if t.bits <= 32 else Float(64),
+    }
+    return TypeRule([unaryrules])

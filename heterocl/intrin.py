@@ -1,6 +1,8 @@
 # Copyright HeteroCL authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+from hcl_mlir.exceptions import MLIRLimitationError
+
 from .ast import ast
 from .utils import get_src_loc
 
@@ -51,6 +53,16 @@ def cos(x):
     filename, lineno = get_src_loc()
     loc = ast.Location(filename, lineno)
     return ast.MathCosOp(x, loc)
+
+
+def tan(x):
+    raise MLIRLimitationError(
+        "LLVM 15.0 does not support math.tan lowering."
+        + " Please write tan as sin/cos for now. tan will be added in future releases."
+    )
+    # filename, lineno = get_src_loc()
+    # loc = ast.Location(filename, lineno)
+    # return ast.MathTanOp(x, loc)
 
 
 def tanh(x):

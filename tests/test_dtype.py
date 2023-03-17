@@ -6,6 +6,28 @@ import numpy as np
 import pytest
 
 
+def test_type_comparison():
+    # float type attributes
+    assert hcl.Float(32).fracs == 23
+    assert hcl.Float(32).exponent == 8
+    assert hcl.Float(32).bits == 32
+    assert hcl.Float(64).fracs == 52
+    assert hcl.Float(64).exponent == 11
+    assert hcl.Float(64).bits == 64
+    # type comparision
+    list_of_types = [hcl.Float(32), hcl.Float(64)]
+    list_of_types += [hcl.Int(i) for i in range(2, 66, 4)]
+    list_of_types += [hcl.UInt(i) for i in range(2, 66, 4)]
+    list_of_types += [hcl.Fixed(i, i - 2) for i in range(2, 66, 4)]
+    list_of_types += [hcl.UFixed(i, i - 2) for i in range(2, 66, 4)]
+    for i in range(len(list_of_types)):
+        for j in range(len(list_of_types)):
+            if i == j:
+                assert list_of_types[i] == list_of_types[j]
+            else:
+                assert list_of_types[i] != list_of_types[j]
+
+
 def test_dtype_basic_uint():
     def _test_dtype(dtype):
         hcl.init(dtype)

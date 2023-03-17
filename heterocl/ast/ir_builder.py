@@ -7,6 +7,8 @@
 
 # Import MLIR dialects
 # Naming rule: import dialect as dialect_d
+import numpy as np
+
 from hcl_mlir.dialects import (
     func as func_d,
     hcl as hcl_d,
@@ -171,6 +173,46 @@ def get_op_class(op, typ):
         if isinstance(typ, htypes.UInt):
             return arith_d.ShRUIOp
         raise APIError(f"Unsupported type for RightShiftOp: {typ}")
+    if isinstance(op, ast.MathExpOp):
+        if isinstance(typ, htypes.Float):
+            return math_d.ExpOp
+        raise APIError(f"Unsupported type for MathExpOp: {typ}")
+    if isinstance(op, ast.MathPowOp):
+        if isinstance(typ, htypes.Float):
+            return math_d.PowFOp
+        raise APIError(f"Unsupported type for MathPowOp: {typ}")
+    if isinstance(op, ast.MathLogOp):
+        if isinstance(typ, htypes.Float):
+            return math_d.LogOp
+        raise APIError(f"Unsupported type for MathLogOp: {typ}")
+    if isinstance(op, ast.MathLog2Op):
+        if isinstance(typ, htypes.Float):
+            return math_d.Log2Op
+        raise APIError(f"Unsupported type for MathLog2Op: {typ}")
+    if isinstance(op, ast.MathLog10Op):
+        if isinstance(typ, htypes.Float):
+            return math_d.Log10Op
+        raise APIError(f"Unsupported type for MathLog10Op: {typ}")
+    if isinstance(op, ast.MathSqrtOp):
+        if isinstance(typ, htypes.Float):
+            return math_d.SqrtOp
+        raise APIError(f"Unsupported type for MathSqrtOp: {typ}")
+    if isinstance(op, ast.MathSinOp):
+        if isinstance(typ, htypes.Float):
+            return math_d.SinOp
+        raise APIError(f"Unsupported type for MathSinOp: {typ}")
+    if isinstance(op, ast.MathCosOp):
+        if isinstance(typ, htypes.Float):
+            return math_d.CosOp
+        raise APIError(f"Unsupported type for MathCosOp: {typ}")
+    if isinstance(op, ast.MathTanOp):
+        if isinstance(typ, htypes.Float):
+            return math_d.TanOp
+        raise APIError(f"Unsupported type for MathTanOp: {typ}")
+    if isinstance(op, ast.MathTanhOp):
+        if isinstance(typ, htypes.Float):
+            return math_d.TanhOp
+        raise APIError(f"Unsupported type for MathTanhOp: {typ}")
     raise APIError(f"Unsupported op in get_op_class: {op}")
 
 
@@ -250,8 +292,23 @@ class IRBuilder:
             self.build_cmp_op(op, ip)
         elif isinstance(op, ast.BinaryOp):
             self.build_binary_op(op, ip)
-        elif isinstance(op, ast.MathTanhOp):
-            self.build_math_tanh_op(op, ip)
+        elif isinstance(
+            op,
+            (
+                ast.MathExpOp,
+                ast.MathPowOp,
+                ast.MathLogOp,
+                ast.MathLog2Op,
+                ast.MathLog10Op,
+                ast.MathSqrtOp,
+                ast.MathSinOp,
+                ast.MathCosOp,
+                ast.MathTanOp,
+                ast.MathTanhOp,
+                # ast.PowOp is covered by build_binary_op
+            ),
+        ):
+            self.build_math_op(op, ip)
         elif isinstance(op, ast.BitCastOp):
             self.build_bitcast_op(op, ip)
         elif isinstance(op, ast.LoadOp):
@@ -656,14 +713,15 @@ class IRBuilder:
             op.result = select.result
             op.ir_op = select
 
-    def build_math_tanh_op(self, op: ast.MathTanhOp, ip):
+    def build_math_op(self, op, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         self.build_visitor(op.expr, ip)
-        casted = ast.CastOp(op.expr, htypes.Float(64), loc)
+        casted = ast.CastOp(op.expr, op.dtype, loc)
         self.build_visitor(casted, ip)
-        tanh_op = math_d.TanhOp(casted.result, ip=ip, loc=loc)
-        op.result = tanh_op.result
-        op.ir_op = tanh_op
+        op_class = get_op_class(op, op.dtype)
+        math_op = op_class(casted.result, ip=ip, loc=loc)
+        op.result = math_op.result
+        op.ir_op = math_op
 
     def build_neg_op(self, op, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
@@ -1406,8 +1464,66 @@ class IRBuilder:
     def build_constant_tensor_op(self, op: ast.ConstantTensorOp, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         dtype = hcl_dtype_to_mlir(op.dtype, signless=True)
-        val = op.values
-        value_attr = DenseElementsAttr.get(val)
+        shape = op.values.shape
+        if isinstance(op.dtype, (htypes.Int, htypes.UInt)):
+            # The following code has several steps to convert the numpy array to have
+            # the correct data type in order to create an MLIR constant tensor.
+            # Since MLIR-NumPy Python interface only supports byte-addressable data types,
+            # we need to change the data type of the array to have the minimum number of bytes
+            # that can represent the target bitwidth.
+            # e.g., hcl.const_tensor(arr, dtype=hcl.Int(20)) (6*6 array)
+            #       which requires 20 bits (3 bytes) to represent each element
+            # declaration: 6*6*i20
+            # numpy input: 6*6*i64
+            # 1. Decompose the original i32 or i64 array into a structured array of uint8
+            #  -> decompose: 6*6*8*i8
+            if op.dtype.bits == 1:
+                val = op.values
+                array = np.packbits(val, axis=None, bitorder="little")
+                value_attr = DenseElementsAttr.get(array, shape=val.shape, type=dtype)
+            else:
+                # Here we construct a customized NumPy dtype, "f0", "f1", "f2", etc.
+                # are the field names, and the entire data type is `op.values.dtype`.
+                # This can be viewed as a `union` type in C/C++.
+                # Please refer to the documentation for more details:
+                # https://numpy.org/doc/stable/reference/arrays.dtypes.html#specifying-and-constructing-data-types
+                decomposed_np_dtype = np.dtype(
+                    (
+                        op.values.dtype,
+                        {
+                            f"f{i}": (np.uint8, i)
+                            for i in range(op.values.dtype.itemsize)
+                        },
+                    )
+                )
+                val = op.values.view(decomposed_np_dtype)
+                # 2. Compose the uint8 array into a structured array of target bitwidth
+                # This is done by taking the first several bytes of the uint8 array
+                # "u1" means one unsigned byte, and "i1" means one signed byte
+                n_bytes = int(np.ceil(dtype.width / 8))
+                new_dtype = np.dtype(
+                    {
+                        "names": [f"f{i}" for i in range(n_bytes)],
+                        "formats": (["i1"] if isinstance(dtype, htypes.Int) else ["u1"])
+                        + ["u1"] * (n_bytes - 1),
+                        "offsets": list(range(n_bytes)),
+                        "itemize": n_bytes,
+                    }
+                )
+                # -> compose: 6*6*3*i8
+                val = np.stack([val[f"f{i}"] for i in range(n_bytes)], axis=-1)
+                # -> flatten: 108*i8
+                val = val.flatten()
+                # -> view: 36*i24
+                val = val.view(np.dtype(new_dtype))
+                # -> reshape: 6*6*i24
+                val = val.reshape(shape)
+                # Pass in the numpy array to get the MLIR attribute
+                # -> result: 6*6*i20
+                value_attr = DenseElementsAttr.get(val, shape=val.shape, type=dtype)
+        else:
+            val = op.values
+            value_attr = DenseElementsAttr.get(val)
         sym_name = StringAttr.get(op.name)
         sym_visibility = StringAttr.get("private")
         if isinstance(op.dtype, (htypes.Fixed, htypes.UFixed)):
@@ -1422,7 +1538,7 @@ class IRBuilder:
             initial_value=value_attr,
             constant=True,
             alignment=None,
-            ip=InsertionPoint(self.module.body),
+            ip=InsertionPoint(self._ast.top_func.ir_op),
             loc=loc,
         )
         const_tensor.attributes["constant"] = UnitAttr.get()
