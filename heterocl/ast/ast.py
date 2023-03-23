@@ -69,6 +69,15 @@ def replace_all_uses_with(op, old_tensor, new_tensor):
             replace_all_uses_with(value, old_tensor, new_tensor)
 
 
+# Unwrap sympy integer or float into python integer or float
+def unwrap_sp(expr):
+    if isinstance(expr, sp.core.numbers.Integer):
+        return int(expr)
+    if isinstance(expr, sp.core.numbers.Float):
+        return float(expr)
+    return expr
+
+
 def simplify(expr):
     # pylint: disable=too-many-return-statements, too-many-branches
     """
@@ -103,38 +112,38 @@ def simplify(expr):
         index = expr.index
         return sp.simplify(simplify(tensor.fcompute(*index)))
     if isinstance(expr, LeftShiftOp):
-        lhs = simplify(simplify(expr.lhs))
-        rhs = simplify(simplify(expr.rhs))
+        lhs = unwrap_sp(simplify(expr.lhs))
+        rhs = unwrap_sp(simplify(expr.rhs))
         return sp.simplify(lhs << rhs)
     if isinstance(expr, RightShiftOp):
-        lhs = simplify(simplify(expr.lhs))
-        rhs = simplify(simplify(expr.rhs))
+        lhs = unwrap_sp(simplify(expr.lhs))
+        rhs = unwrap_sp(simplify(expr.rhs))
         return sp.simplify(lhs >> rhs)
     if isinstance(expr, And):
-        lhs = simplify(simplify(expr.lhs))
-        rhs = simplify(simplify(expr.rhs))
+        lhs = unwrap_sp(simplify(expr.lhs))
+        rhs = unwrap_sp(simplify(expr.rhs))
         return sp.simplify(lhs & rhs)
     if isinstance(expr, Or):
-        lhs = simplify(simplify(expr.lhs))
-        rhs = simplify(simplify(expr.rhs))
+        lhs = unwrap_sp(simplify(expr.lhs))
+        rhs = unwrap_sp(simplify(expr.rhs))
         return sp.simplify(lhs | rhs)
     if isinstance(expr, XOr):
-        lhs = simplify(simplify(expr.lhs))
-        rhs = simplify(simplify(expr.rhs))
+        lhs = unwrap_sp(simplify(expr.lhs))
+        rhs = unwrap_sp(simplify(expr.rhs))
         return sp.simplify(lhs ^ rhs)
     if isinstance(expr, CastOp):
-        return immediate_to_constant(expr.expr, expr.loc, expr.dtype)
+        return simplify(expr.expr)
     if isinstance(expr, LogicalAnd):
-        lhs = simplify(simplify(expr.lhs))
-        rhs = simplify(simplify(expr.rhs))
+        lhs = unwrap_sp(simplify(expr.lhs))
+        rhs = unwrap_sp(simplify(expr.rhs))
         return sp.simplify(lhs and rhs)
     if isinstance(expr, LogicalOr):
-        lhs = simplify(simplify(expr.lhs))
-        rhs = simplify(simplify(expr.rhs))
+        lhs = unwrap_sp(simplify(expr.lhs))
+        rhs = unwrap_sp(simplify(expr.rhs))
         return sp.simplify(lhs or rhs)
     if isinstance(expr, Cmp):
-        lhs = simplify(simplify(expr.lhs))
-        rhs = simplify(simplify(expr.rhs))
+        lhs = unwrap_sp(simplify(expr.lhs))
+        rhs = unwrap_sp(simplify(expr.rhs))
         op = expr.name
         if op == "lt":
             output = lhs < rhs
@@ -154,7 +163,7 @@ def simplify(expr):
             return sp.simplify(1)
         return sp.simplify(0)
     if isinstance(expr, Neg):
-        return sp.simplify(-int(simplify(expr.expr)))
+        return sp.simplify(-unwrap_sp(simplify(expr.expr)))
     if isinstance(expr, StructGetOp):
         struct = expr.struct
         index = struct.index
