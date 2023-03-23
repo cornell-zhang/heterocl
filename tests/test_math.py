@@ -2,20 +2,17 @@ import heterocl as hcl
 import numpy as np
 import pytest
 
-@pytest.mark.skip(reason="data type inference to be supported")
 def test_exp():
     shape = (1,10)
     test_dtype = hcl.Int(32)
 
     def loop_body(data):
-        # return hcl.compute(
-        #     shape, 
-        #     lambda x,y: hcl.exp(data[x,y]),
-        #     name="loop_body",
-        #     dtype=test_dtype,
-        #  )
-        return hcl.compute(shape, lambda x,y: data[x][y], "loop_body",dtype=test_dtype)
-
+        return hcl.compute(
+            shape, 
+            lambda x,y: hcl.exp(data[x,y]),
+            name="loop_body",
+            dtype=test_dtype,
+         )
 
     A = hcl.placeholder(shape, "A", dtype=test_dtype)
     s = hcl.create_schedule([A], loop_body)
@@ -59,13 +56,11 @@ def test_power():
             c_golden[i,j] = np.power(np_a[i,j],np_b[i,j])
     assert np.allclose(np_c, c_golden)
 
-@pytest.mark.skip(reason="data type inference to be supported")
 def test_log():
     shape = (1,10)
 
     def loop_body(data):
-        # return hcl.compute(shape, lambda x,y: hcl.log(data[x,y]), "loop_body")
-        return hcl.compute(shape, lambda x,y: data[x][y], "loop_body")
+        return hcl.compute(shape, lambda x,y: hcl.log(data[x,y]), "loop_body")
 
     A = hcl.placeholder(shape, "A")
     s = hcl.create_schedule([A], loop_body)
@@ -84,14 +79,11 @@ def test_log():
     print(np_b)
     assert np.allclose(np_b, b_golden)
 
-@pytest.mark.skip(reason="data type inference to be supported")
 def test_log2():
     shape = (1,10)
 
     def loop_body(data):
-        # return hcl.compute(shape, lambda x,y: hcl.log2(data[x,y]), "loop_body")
-        return hcl.compute(shape, lambda x,y: data[x][y], "loop_body")
-
+        return hcl.compute(shape, lambda x,y: hcl.log2(data[x,y]), "loop_body")
 
     A = hcl.placeholder(shape, "A")
     s = hcl.create_schedule([A], loop_body)
@@ -110,13 +102,11 @@ def test_log2():
     print(np_b)
     assert np.allclose(np_b, b_golden)
 
-@pytest.mark.skip(reason="data type inference to be supported")
 def test_log10():
     shape = (1,10)
 
     def loop_body(data):
-        # return hcl.compute(shape, lambda x,y: hcl.log10(data[x,y]), "loop_body")
-        return hcl.compute(shape, lambda x,y: data[x][y], "loop_body")
+        return hcl.compute(shape, lambda x,y: hcl.log10(data[x,y]), "loop_body")
 
     A = hcl.placeholder(shape, "A")
     s = hcl.create_schedule([A], loop_body)
@@ -135,14 +125,11 @@ def test_log10():
     print(np_b)
     assert np.allclose(np_b, b_golden)
 
-@pytest.mark.skip(reason="data type inference to be supported")
 def test_sqrt():
     shape = (1,10)
 
     def loop_body(data):
-        # return hcl.compute(shape, lambda x,y: hcl.sqrt(data[x,y]), "loop_body")
-        return hcl.compute(shape, lambda x,y: data[x][y], "loop_body")
-
+        return hcl.compute(shape, lambda x,y: hcl.sqrt(data[x,y]), "loop_body")
 
     A = hcl.placeholder(shape, "A")
     s = hcl.create_schedule([A], loop_body)
@@ -161,13 +148,11 @@ def test_sqrt():
     print(np_b)
     assert np.allclose(np_b, b_golden)
 
-@pytest.mark.skip(reason="data type inference to be supported")
 def test_sin():
     shape = (1,10)
 
     def loop_body(data):
-        # return hcl.compute(shape, lambda x,y: hcl.sin(data[x,y]), "loop_body")
-        return hcl.compute(shape, lambda x,y: data[x][y], "loop_body")
+        return hcl.compute(shape, lambda x,y: hcl.sin(data[x,y]), "loop_body")
 
     A = hcl.placeholder(shape, "A")
     s = hcl.create_schedule([A], loop_body)
@@ -186,13 +171,11 @@ def test_sin():
     print(np_b)
     assert np.allclose(np_b, b_golden)
 
-@pytest.mark.skip(reason="data type inference to be supported")
 def test_cos():
     shape = (1,10)
 
     def loop_body(data):
-        # return hcl.compute(shape, lambda x,y: hcl.cos(data[x,y]), "loop_body")
-        return hcl.compute(shape, lambda x,y: data[x][y], "loop_body")
+        return hcl.compute(shape, lambda x,y: hcl.cos(data[x,y]), "loop_body")
 
     A = hcl.placeholder(shape, "A")
     s = hcl.create_schedule([A], loop_body)
@@ -211,13 +194,11 @@ def test_cos():
     print(np_b)
     assert np.allclose(np_b, b_golden)
 
-@pytest.mark.skip(reason="data type inference to be supported")
 def test_tanh():
     shape = (1,10)
 
     def loop_body(data):
         return hcl.compute(shape, lambda x,y: hcl.tanh(data[x,y]), "loop_body")
-        # return hcl.compute(shape, lambda x,y: data[x][y], "loop_body")
 
     A = hcl.placeholder(shape, "A")
     s = hcl.create_schedule([A], loop_body)
@@ -235,4 +216,3 @@ def test_tanh():
     print(b_golden)
     print(np_b)
     assert np.allclose(np_b, b_golden)
-    
