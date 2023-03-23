@@ -69,7 +69,17 @@ def replace_all_uses_with(op, old_tensor, new_tensor):
             replace_all_uses_with(value, old_tensor, new_tensor)
 
 
+# Unwrap sympy integer or float into python integer or float
+def unwrap_sp(expr):
+    if isinstance(expr, sp.core.numbers.Integer):
+        return int(expr)
+    if isinstance(expr, sp.core.numbers.Float):
+        return float(expr)
+    return expr
+
+
 def simplify(expr):
+    # pylint: disable=too-many-return-statements, too-many-branches
     """
     simplifies an expression by replacing all constants with their values
     and compute the result if possible
@@ -77,6 +87,8 @@ def simplify(expr):
     """
     if isinstance(expr, (int, float)):
         return expr
+    if isinstance(expr, sp.core.numbers.Integer):
+        return int(expr)
     if isinstance(expr, ConstantOp):
         return expr.value
     if isinstance(expr, IterVar):
@@ -99,7 +111,70 @@ def simplify(expr):
             return expr
         index = expr.index
         return sp.simplify(simplify(tensor.fcompute(*index)))
-    raise HCLError(f"Unsupported expression type: {type(expr)}")
+    if isinstance(expr, LeftShiftOp):
+        lhs = unwrap_sp(simplify(expr.lhs))
+        rhs = unwrap_sp(simplify(expr.rhs))
+        return sp.simplify(lhs << rhs)
+    if isinstance(expr, RightShiftOp):
+        lhs = unwrap_sp(simplify(expr.lhs))
+        rhs = unwrap_sp(simplify(expr.rhs))
+        return sp.simplify(lhs >> rhs)
+    if isinstance(expr, And):
+        lhs = unwrap_sp(simplify(expr.lhs))
+        rhs = unwrap_sp(simplify(expr.rhs))
+        return sp.simplify(lhs & rhs)
+    if isinstance(expr, Or):
+        lhs = unwrap_sp(simplify(expr.lhs))
+        rhs = unwrap_sp(simplify(expr.rhs))
+        return sp.simplify(lhs | rhs)
+    if isinstance(expr, XOr):
+        lhs = unwrap_sp(simplify(expr.lhs))
+        rhs = unwrap_sp(simplify(expr.rhs))
+        return sp.simplify(lhs ^ rhs)
+    if isinstance(expr, CastOp):
+        return simplify(expr.expr)
+    if isinstance(expr, LogicalAnd):
+        lhs = unwrap_sp(simplify(expr.lhs))
+        rhs = unwrap_sp(simplify(expr.rhs))
+        return sp.simplify(lhs and rhs)
+    if isinstance(expr, LogicalOr):
+        lhs = unwrap_sp(simplify(expr.lhs))
+        rhs = unwrap_sp(simplify(expr.rhs))
+        return sp.simplify(lhs or rhs)
+    if isinstance(expr, Cmp):
+        lhs = unwrap_sp(simplify(expr.lhs))
+        rhs = unwrap_sp(simplify(expr.rhs))
+        op = expr.name
+        if op == "lt":
+            output = lhs < rhs
+        elif op == "le":
+            output = lhs <= rhs
+        elif op == "eq":
+            output = lhs == rhs
+        elif op == "ne":
+            output = lhs != rhs
+        elif op == "gt":
+            output = lhs > rhs
+        elif op == "ge":
+            output = lhs >= rhs
+        else:
+            raise HCLError(f"Unsupported expression type: {type(expr)}, {expr.name}")
+        if output:
+            return sp.simplify(1)
+        return sp.simplify(0)
+    if isinstance(expr, Neg):
+        return sp.simplify(-unwrap_sp(simplify(expr.expr)))
+    if isinstance(expr, StructGetOp):
+        struct = expr.struct
+        index = struct.index
+        e = struct.tensor.fcompute(*index)[expr.field]
+        return sp.simplify(simplify(e))
+    if isinstance(expr, SelectOp):  # pylint: disable=no-else-return
+        if simplify(expr.cond):
+            return sp.simplify(simplify(expr.true_value))
+        return sp.simplify(simplify(expr.false_value))
+    else:
+        raise HCLError(f"Unsupported expression type: {type(expr)}")
 
 
 class Location:
