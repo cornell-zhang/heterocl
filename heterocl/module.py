@@ -110,7 +110,7 @@ class HCLModule:
                                 argv[len(op.arguments) + i].np_array = np.pad(
                                     argv[len(op.arguments) + i].np_array, pad_shape
                                 )
-            execute_llvm_backend(self.src, self.name, self.return_num, *argv)
+            execute_llvm_backend(self.src, self.name, *argv)
             for res, shape in original_results:
                 slicing = []
                 for s in shape:

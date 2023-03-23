@@ -337,13 +337,12 @@ def build_llvm(schedule, top_func_name="top"):
         hcl_d.lower_composite_type(module)
         hcl_d.lower_fixed_to_int(module)
         hcl_d.lower_print_ops(module)
-        hcl_d.lower_anywidth_int(module)
+        # hcl_d.lower_anywidth_int(module)
         # Note: lower_any_width_int should precede
         # move_return_to_input, because it uses input/output
         # type hints.
         hcl_d.move_return_to_input(module)
         hcl_d.lower_bit_ops(module)
-        # print(module)
         hcl_d.legalize_cast(module)
         hcl_d.remove_stride_map(module)
         pipeline = "lower-affine,func.func(buffer-loop-hoisting)"

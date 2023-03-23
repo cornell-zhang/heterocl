@@ -143,10 +143,6 @@ def make_const_tensor(val, dtype):
             np_dtype = np.int32
         elif dtype.bits <= 64:
             np_dtype = np.int64
-        elif dtype.bits <= 128:
-            np_dtype = np.int128
-        elif dtype.bits <= 256:
-            np_dtype = np.int256
         else:
             raise DTypeError(
                 f"Integer width ({dtype}) too large, not supported by numpy"
@@ -219,3 +215,80 @@ def get_max_value(dtype):
     if isinstance(dtype, UFixed):
         return (1 << dtype.bits) - 1
     raise DTypeError(f"Unrecognized data type: {dtype}")
+
+
+def make_anywidth_numpy_array(val, bitwidth):
+    """
+    Converts a numpy array to any target bitwidth.
+    ----------------
+    Parameters:
+    val: numpy.ndarray
+        numpy array, can be any numpy native bitwidth, e.g. np.int64
+    bitwidth: int
+        target bitwidth e.g. 9, 31, 198
+    signed: True or False
+        whether the values in the array are signed or unsigned
+    ----------------
+    Returns:
+    numpy.ndarray
+        numpy array with the target bitwidth
+    """
+    shape = val.shape
+    sign_array = val >= 0
+    avail_bytes = val.itemsize  # number of bytes of each element
+    # The following code has several steps to convert the numpy array to have
+    # the correct data type in order to create an MLIR constant tensor.
+    # Since MLIR-NumPy Python interface only supports byte-addressable data types,
+    # we need to change the data type of the array to have the minimum number of bytes
+    # that can represent the target bitwidth.
+    # e.g., hcl.const_tensor(arr, dtype=hcl.Int(20)) (6*6 array)
+    #       which requires 20 bits (3 bytes) to represent each element
+    # declaration: 6*6*i20
+    # numpy input: 6*6*i64
+    # 1. Decompose the original i32 or i64 array into a structured array of uint8
+    #  -> decompose: 6*6*8*i8
+    # pylint: disable=no-else-return
+    # I think this if-else makes the code more readable
+    if bitwidth == 1:
+        return np.packbits(val, axis=None, bitorder="little")
+    else:
+        # Here we construct a customized NumPy dtype, "f0", "f1", "f2", etc.
+        # are the field names, and the entire data type is `op.values.dtype`.
+        # This can be viewed as a `union` type in C/C++.
+        # Please refer to the documentation for more details:
+        # https://numpy.org/doc/stable/reference/arrays.dtypes.html#specifying-and-constructing-data-types
+        decomposed_np_dtype = np.dtype(
+            (
+                val.dtype,
+                {f"f{i}": (np.uint8, i) for i in range(val.dtype.itemsize)},
+            )
+        )
+        val = val.view(decomposed_np_dtype)
+        # 2. Compose the uint8 array into a structured array of target bitwidth
+        # This is done by taking the first several bytes of the uint8 array
+        # "u1" means one unsigned byte, and "i1" means one signed byte
+        # f0 is LSB, fn is MSB
+        n_bytes = int(np.ceil(bitwidth / 8))
+        new_dtype = np.dtype(
+            {
+                "names": [f"f{i}" for i in range(n_bytes)],
+                "formats": ["u1"] * n_bytes,
+                "offsets": list(range(n_bytes)),
+                "itemsize": n_bytes,
+            }
+        )
+        # sometimes the available bytes are not enough to represent the target bitwidth
+        # so that we need to pad the array
+        _bytes = [val[f"f{i}"] for i in range(min(avail_bytes, n_bytes))]
+        if avail_bytes < n_bytes:
+            padding = np.where(sign_array, 0x00, 0xFF).astype(np.uint8)
+            _bytes += [padding] * (n_bytes - avail_bytes)
+        # -> compose: 6*6*3*i8
+        val = np.stack(_bytes, axis=-1)
+        # -> flatten: 108*i8
+        val = val.flatten()
+        # -> view: 36*i24
+        val = val.view(np.dtype(new_dtype))
+        # -> reshape: 6*6*i24
+        val = val.reshape(shape)
+        return val
