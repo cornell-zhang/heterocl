@@ -1,18 +1,22 @@
+# Copyright HeteroCL authors. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 import heterocl as hcl
 import numpy as np
 import pytest
 
+
 def test_exp():
-    shape = (1,10)
+    shape = (1, 10)
     test_dtype = hcl.Int(32)
 
     def loop_body(data):
         return hcl.compute(
-            shape, 
-            lambda x,y: hcl.exp(data[x,y]),
+            shape,
+            lambda x, y: hcl.exp(data[x, y]),
             name="loop_body",
             dtype=test_dtype,
-         )
+        )
 
     A = hcl.placeholder(shape, "A", dtype=test_dtype)
     s = hcl.create_schedule([A], loop_body)
@@ -26,17 +30,20 @@ def test_exp():
     b_golden = np.zeros(shape)
     for i in range(shape[0]):
         for j in range(shape[1]):
-            b_golden[i,j] = np.exp(np_a[i,j])
+            b_golden[i, j] = np.exp(np_a[i, j])
 
     print(b_golden)
     print(np_b)
     assert np.allclose(np_b, b_golden)
 
+
 def test_power():
-    shape = (1,10)
+    shape = (1, 10)
 
     def loop_body(data, power):
-        return hcl.compute(shape, lambda x,y: hcl.power(data[x,y],power[x,y]), "loop_body")
+        return hcl.compute(
+            shape, lambda x, y: hcl.power(data[x, y], power[x, y]), "loop_body"
+        )
 
     A = hcl.placeholder(shape, "A")
     B = hcl.placeholder(shape, "B")
@@ -53,14 +60,15 @@ def test_power():
     c_golden = np.zeros(shape)
     for i in range(shape[0]):
         for j in range(shape[1]):
-            c_golden[i,j] = np.power(np_a[i,j],np_b[i,j])
+            c_golden[i, j] = np.power(np_a[i, j], np_b[i, j])
     assert np.allclose(np_c, c_golden)
 
+
 def test_log():
-    shape = (1,10)
+    shape = (1, 10)
 
     def loop_body(data):
-        return hcl.compute(shape, lambda x,y: hcl.log(data[x,y]), "loop_body")
+        return hcl.compute(shape, lambda x, y: hcl.log(data[x, y]), "loop_body")
 
     A = hcl.placeholder(shape, "A")
     s = hcl.create_schedule([A], loop_body)
@@ -74,16 +82,17 @@ def test_log():
     b_golden = np.zeros(shape)
     for i in range(shape[0]):
         for j in range(shape[1]):
-            b_golden[i,j] = np.log(np_a[i,j])
+            b_golden[i, j] = np.log(np_a[i, j])
     print(b_golden)
     print(np_b)
     assert np.allclose(np_b, b_golden)
+
 
 def test_log2():
-    shape = (1,10)
+    shape = (1, 10)
 
     def loop_body(data):
-        return hcl.compute(shape, lambda x,y: hcl.log2(data[x,y]), "loop_body")
+        return hcl.compute(shape, lambda x, y: hcl.log2(data[x, y]), "loop_body")
 
     A = hcl.placeholder(shape, "A")
     s = hcl.create_schedule([A], loop_body)
@@ -97,16 +106,17 @@ def test_log2():
     b_golden = np.zeros(shape)
     for i in range(shape[0]):
         for j in range(shape[1]):
-            b_golden[i,j] = np.log2(np_a[i,j])
+            b_golden[i, j] = np.log2(np_a[i, j])
     print(b_golden)
     print(np_b)
     assert np.allclose(np_b, b_golden)
+
 
 def test_log10():
-    shape = (1,10)
+    shape = (1, 10)
 
     def loop_body(data):
-        return hcl.compute(shape, lambda x,y: hcl.log10(data[x,y]), "loop_body")
+        return hcl.compute(shape, lambda x, y: hcl.log10(data[x, y]), "loop_body")
 
     A = hcl.placeholder(shape, "A")
     s = hcl.create_schedule([A], loop_body)
@@ -120,16 +130,17 @@ def test_log10():
     b_golden = np.zeros(shape)
     for i in range(shape[0]):
         for j in range(shape[1]):
-            b_golden[i,j] = np.log10(np_a[i,j])
+            b_golden[i, j] = np.log10(np_a[i, j])
     print(b_golden)
     print(np_b)
     assert np.allclose(np_b, b_golden)
 
+
 def test_sqrt():
-    shape = (1,10)
+    shape = (1, 10)
 
     def loop_body(data):
-        return hcl.compute(shape, lambda x,y: hcl.sqrt(data[x,y]), "loop_body")
+        return hcl.compute(shape, lambda x, y: hcl.sqrt(data[x, y]), "loop_body")
 
     A = hcl.placeholder(shape, "A")
     s = hcl.create_schedule([A], loop_body)
@@ -143,16 +154,17 @@ def test_sqrt():
     b_golden = np.zeros(shape)
     for i in range(shape[0]):
         for j in range(shape[1]):
-            b_golden[i,j] = np.sqrt(np_a[i,j])
+            b_golden[i, j] = np.sqrt(np_a[i, j])
     print(b_golden)
     print(np_b)
     assert np.allclose(np_b, b_golden)
+
 
 def test_sin():
-    shape = (1,10)
+    shape = (1, 10)
 
     def loop_body(data):
-        return hcl.compute(shape, lambda x,y: hcl.sin(data[x,y]), "loop_body")
+        return hcl.compute(shape, lambda x, y: hcl.sin(data[x, y]), "loop_body")
 
     A = hcl.placeholder(shape, "A")
     s = hcl.create_schedule([A], loop_body)
@@ -166,16 +178,17 @@ def test_sin():
     b_golden = np.zeros(shape)
     for i in range(shape[0]):
         for j in range(shape[1]):
-            b_golden[i,j] = np.sin(np_a[i,j])
+            b_golden[i, j] = np.sin(np_a[i, j])
     print(b_golden)
     print(np_b)
     assert np.allclose(np_b, b_golden)
+
 
 def test_cos():
-    shape = (1,10)
+    shape = (1, 10)
 
     def loop_body(data):
-        return hcl.compute(shape, lambda x,y: hcl.cos(data[x,y]), "loop_body")
+        return hcl.compute(shape, lambda x, y: hcl.cos(data[x, y]), "loop_body")
 
     A = hcl.placeholder(shape, "A")
     s = hcl.create_schedule([A], loop_body)
@@ -189,16 +202,17 @@ def test_cos():
     b_golden = np.zeros(shape)
     for i in range(shape[0]):
         for j in range(shape[1]):
-            b_golden[i,j] = np.cos(np_a[i,j])
+            b_golden[i, j] = np.cos(np_a[i, j])
     print(b_golden)
     print(np_b)
     assert np.allclose(np_b, b_golden)
 
+
 def test_tanh():
-    shape = (1,10)
+    shape = (1, 10)
 
     def loop_body(data):
-        return hcl.compute(shape, lambda x,y: hcl.tanh(data[x,y]), "loop_body")
+        return hcl.compute(shape, lambda x, y: hcl.tanh(data[x, y]), "loop_body")
 
     A = hcl.placeholder(shape, "A")
     s = hcl.create_schedule([A], loop_body)
@@ -212,7 +226,7 @@ def test_tanh():
     b_golden = np.zeros(shape)
     for i in range(shape[0]):
         for j in range(shape[1]):
-            b_golden[i,j] = np.tanh(np_a[i,j])
+            b_golden[i, j] = np.tanh(np_a[i, j])
     print(b_golden)
     print(np_b)
     assert np.allclose(np_b, b_golden)
