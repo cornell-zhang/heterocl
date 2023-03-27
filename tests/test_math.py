@@ -125,7 +125,7 @@ def test_log10():
     s = hcl.create_schedule([A], loop_body)
     f = hcl.build(s)
 
-    np_a = np.random.randint(1,10, size=shape)
+    np_a = np.random.randint(0,10, size=shape)
     hcl_A = hcl.asarray(np_a, dtype=test_dtype)
     hcl_B = hcl.asarray(np.zeros(shape), dtype=test_dtype)
     f(hcl_A, hcl_B)
