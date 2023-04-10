@@ -1,9 +1,8 @@
 # Copyright HeteroCL authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-import heterocl as hcl
 import numpy as np
-import pytest
+import heterocl as hcl
 
 
 def test_exp():
@@ -69,13 +68,15 @@ def test_log():
     test_dtype = hcl.Float(32)
 
     def loop_body(data):
-        return hcl.compute(shape, lambda x, y: hcl.log(data[x, y]), "loop_body", dtype=test_dtype)
+        return hcl.compute(
+            shape, lambda x, y: hcl.log(data[x, y]), "loop_body", dtype=test_dtype
+        )
 
     A = hcl.placeholder(shape, "A", dtype=test_dtype)
     s = hcl.create_schedule([A], loop_body)
     f = hcl.build(s)
 
-    np_a = np.random.randint(1,10, size=shape)
+    np_a = np.random.randint(1, 10, size=shape)
     hcl_A = hcl.asarray(np_a, dtype=test_dtype)
     hcl_B = hcl.asarray(np.zeros(shape), dtype=test_dtype)
     f(hcl_A, hcl_B)
@@ -94,13 +95,15 @@ def test_log2():
     test_dtype = hcl.Float(32)
 
     def loop_body(data):
-        return hcl.compute(shape, lambda x, y: hcl.log2(data[x, y]), "loop_body", dtype=test_dtype)
+        return hcl.compute(
+            shape, lambda x, y: hcl.log2(data[x, y]), "loop_body", dtype=test_dtype
+        )
 
     A = hcl.placeholder(shape, "A", dtype=test_dtype)
     s = hcl.create_schedule([A], loop_body)
     f = hcl.build(s)
 
-    np_a = np.random.randint(1,10, size=shape)
+    np_a = np.random.randint(1, 10, size=shape)
     hcl_A = hcl.asarray(np_a, dtype=test_dtype)
     hcl_B = hcl.asarray(np.zeros(shape), dtype=test_dtype)
     f(hcl_A, hcl_B)
@@ -119,13 +122,15 @@ def test_log10():
     test_dtype = hcl.Float(32)
 
     def loop_body(data):
-        return hcl.compute(shape, lambda x, y: hcl.log10(data[x, y]), "loop_body", dtype=test_dtype)
+        return hcl.compute(
+            shape, lambda x, y: hcl.log10(data[x, y]), "loop_body", dtype=test_dtype
+        )
 
     A = hcl.placeholder(shape, "A", dtype=test_dtype)
     s = hcl.create_schedule([A], loop_body)
     f = hcl.build(s)
 
-    np_a = np.random.randint(0,10, size=shape)
+    np_a = np.random.randint(0, 10, size=shape)
     hcl_A = hcl.asarray(np_a, dtype=test_dtype)
     hcl_B = hcl.asarray(np.zeros(shape), dtype=test_dtype)
     f(hcl_A, hcl_B)
@@ -144,7 +149,9 @@ def test_sqrt():
     test_dtype = hcl.Float(32)
 
     def loop_body(data):
-        return hcl.compute(shape, lambda x, y: hcl.sqrt(data[x, y]), "loop_body", dtype=test_dtype)
+        return hcl.compute(
+            shape, lambda x, y: hcl.sqrt(data[x, y]), "loop_body", dtype=test_dtype
+        )
 
     A = hcl.placeholder(shape, "A", dtype=test_dtype)
     s = hcl.create_schedule([A], loop_body)
@@ -169,7 +176,9 @@ def test_sin():
     test_dtype = hcl.Float(32)
 
     def loop_body(data):
-        return hcl.compute(shape, lambda x, y: hcl.sin(data[x, y]), "loop_body", dtype=test_dtype)
+        return hcl.compute(
+            shape, lambda x, y: hcl.sin(data[x, y]), "loop_body", dtype=test_dtype
+        )
 
     A = hcl.placeholder(shape, "A", dtype=test_dtype)
     s = hcl.create_schedule([A], loop_body)
@@ -195,7 +204,8 @@ def test_cos():
 
     def loop_body(data):
         return hcl.compute(
-            shape, lambda x, y: hcl.cos(data[x, y]), "loop_body", dtype=test_dtype)
+            shape, lambda x, y: hcl.cos(data[x, y]), "loop_body", dtype=test_dtype
+        )
 
     A = hcl.placeholder(shape, "A", dtype=test_dtype)
     s = hcl.create_schedule([A], loop_body)
@@ -214,12 +224,15 @@ def test_cos():
     print(np_b)
     assert np.allclose(np_b, b_golden)
 
+
 def test_tanh():
     shape = (1, 10)
     test_dtype = hcl.Float(32)
 
     def loop_body(data):
-        return hcl.compute(shape, lambda x, y: hcl.tanh(data[x, y]), "loop_body", dtype=test_dtype)
+        return hcl.compute(
+            shape, lambda x, y: hcl.tanh(data[x, y]), "loop_body", dtype=test_dtype
+        )
 
     A = hcl.placeholder(shape, "A", dtype=test_dtype)
     s = hcl.create_schedule([A], loop_body)
