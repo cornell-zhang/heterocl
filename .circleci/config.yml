@@ -44,7 +44,7 @@ jobs:
       - run:
           name: Formatting Check
           command: |
-            python3 -m pip install black pylint
+            python3 -m pip install black==23.1.0 pylint==2.17.1
             bash ./.circleci/task_lint.sh
       - run: 
           name: HeteroCL Tests
