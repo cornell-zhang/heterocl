@@ -9,6 +9,7 @@ from hcl_mlir.exceptions import (
     TensorError,
     HCLNotImplementedError,
     HCLValueError,
+    DTypeError,
     DTypeWarning,
 )
 
@@ -951,6 +952,20 @@ class GetSliceOp(Expr):
         self.expr = expr
         self.start = immediate_to_constant(start, loc, Index())
         self.end = immediate_to_constant(end, loc, Index())
+        # using fixed point or float bound is considered unsafe
+        # throw error and prompt for explicit cast
+        if not isinstance(self.start.dtype, (Int, UInt, Index)):
+            raise DTypeError(
+                f"Start index {self.start} of {self} must be an integer or index."
+                + f"Got {type(self.start)} instead."
+                + " Please cast it explicitly with hcl.cast(dtype, expr)."
+            )
+        if not isinstance(self.end.dtype, (Int, UInt, Index)):
+            raise DTypeError(
+                f"End index {self.end} of {self} must be an integer or index."
+                + f"Got {type(self.end)} instead."
+                + " Please cast it explicitly with hcl.cast(dtype, expr)."
+            )
         bitwidth = self.end - self.start + 1
         bitwidth = simplify(bitwidth)
         if bitwidth.is_constant():
@@ -973,6 +988,20 @@ class SetSliceOp(Operation):
         self.expr = expr
         self.start = immediate_to_constant(start, loc, Index())
         self.end = immediate_to_constant(end, loc, Index())
+        # using fixed point or float bound is considered unsafe
+        # throw error and prompt for explicit cast
+        if not isinstance(self.start.dtype, (Int, UInt, Index)):
+            raise DTypeError(
+                f"Start index {self.start} of {self} must be an integer or index."
+                + f"Got {type(self.start)} instead."
+                + " Please cast it explicitly with hcl.cast(dtype, expr)."
+            )
+        if not isinstance(self.end.dtype, (Int, UInt, Index)):
+            raise DTypeError(
+                f"End index {self.end} of {self} must be an integer or index."
+                + f"Got {type(self.end)} instead."
+                + " Please cast it explicitly with hcl.cast(dtype, expr)."
+            )
         self.value = immediate_to_constant(value, loc)
         self.level = len(scope)
 
@@ -1014,6 +1043,16 @@ class TensorSlice(Expr):
     def __getitem__(self, indices):
         if not isinstance(indices, tuple):
             indices = (indices,)
+        # check indices dtype
+        for index in indices:
+            if isinstance(index, (int, slice)):
+                continue
+            if not isinstance(index.dtype, (UInt, Int, Index)):
+                raise DTypeError(
+                    f"Index {index} of {self} must be an integer or index."
+                    + f"Got {type(index)} instead."
+                    + " Please cast it explicitly with hcl.cast(dtype, expr)."
+                )
         if len(self.indices + indices) < len(self.full_shape):
             return TensorSlice(
                 self.full_shape,
@@ -1036,6 +1075,16 @@ class TensorSlice(Expr):
     def __setitem__(self, indices, expr):
         if not isinstance(indices, tuple):
             indices = (indices,)
+        # check indices dtype
+        for index in indices:
+            if isinstance(index, (int, slice)):
+                continue
+            if not isinstance(index.dtype, (UInt, Int, Index)):
+                raise DTypeError(
+                    f"Index {index} of {self} must be an integer or index."
+                    + f"Got {type(index)} instead."
+                    + " Please cast it explicitly with hcl.cast(dtype, expr)."
+                )
         if len(self.indices + indices) < len(self.full_shape):
             raise HCLNotImplementedError("Writing to a slice of tensor is not allowed.")
         if len(self.indices + indices) == len(self.full_shape):
@@ -1091,6 +1140,16 @@ class AllocOp(Expr):
     def __getitem__(self, indices):
         if not isinstance(indices, tuple):
             indices = (indices,)
+        # check indices dtype
+        for index in indices:
+            if isinstance(index, (int, slice)):
+                continue
+            if not isinstance(index.dtype, (UInt, Int, Index)):
+                raise DTypeError(
+                    f"Index {index} of {self} must be an integer or index."
+                    + f"Got {type(index)} instead."
+                    + " Please cast it explicitly with hcl.cast(dtype, expr)."
+                )
         # if we are slicing tensor
         if len(indices) < len(self.shape):
             return TensorSlice(
@@ -1115,6 +1174,16 @@ class AllocOp(Expr):
     def __setitem__(self, indices, value):
         if not isinstance(indices, tuple):
             indices = (indices,)
+        # check indices dtype
+        for index in indices:
+            if isinstance(index, (int, slice)):
+                continue
+            if not isinstance(index.dtype, (UInt, Int, Index)):
+                raise DTypeError(
+                    f"Index {index} of {self} must be an integer or index."
+                    + f"Got {type(index)} instead."
+                    + " Please cast it explicitly with hcl.cast(dtype, expr)."
+                )
         if len(indices) < len(self.shape):
             raise HCLNotImplementedError("Writing to a slice of tensor is not allowed.")
         if len(indices) == len(self.shape):
