@@ -693,5 +693,22 @@ def test_int_to_fixed_cast():
                 assert False, "test failed, see failed test case above"
 
 
+def test_fp_to_index_cast():
+    def kernel(A):
+        a = hcl.scalar(0)
+        b = hcl.scalar(2)
+        idx = hcl.power(b.v, a.v)
+        B = hcl.compute((1,), lambda _: A[idx])
+        return B
+
+    A = hcl.placeholder((2,), "A")
+    s = hcl.create_schedule([A], kernel)
+    f = hcl.build(s)
+    np_A = hcl.asarray([0b10101100, 0b01100101])
+    np_B = hcl.asarray([0])
+    f(np_A, np_B)
+    assert np_B.asnumpy().tolist() == [0b01100101]
+
+
 if __name__ == "__main__":
     pytest.main([__file__])
