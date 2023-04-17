@@ -11,3 +11,4 @@ pandas
 imageio
 psutil
 sympy
+attrs
