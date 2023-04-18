@@ -1032,6 +1032,13 @@ class IRBuilder:
             CastOpClass = arith_d.UIToFPOp
         elif isinstance(src_type, htypes.Float) and isinstance(res_type, htypes.Int):
             CastOpClass = arith_d.FPToSIOp
+        elif isinstance(src_type, htypes.Float) and isinstance(res_type, htypes.Index):
+            # FP to Index is not supported in MLIR
+            # we need to cast to UInt first, then cast to Index
+            cast_to_uint = ast.CastOp(op.expr, htypes.UInt(res_type.bits), op.loc)
+            self.build_cast_op(cast_to_uint, ip)  # build cast to uint
+            op.expr = cast_to_uint  # replace expr with cast to uint
+            CastOpClass = arith_d.IndexCastOp  # proceed to build cast to index
         elif isinstance(src_type, htypes.Float) and isinstance(res_type, htypes.UInt):
             CastOpClass = arith_d.FPToUIOp
         elif isinstance(src_type, (htypes.Int, htypes.UInt)) and isinstance(
