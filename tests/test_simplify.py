@@ -366,152 +366,221 @@ def test_neg():
     assert np_B.asnumpy().tolist() == [0b10101, 0b01110]
 
 
-# def test_math_exp():
-#     def kernel(A):
-#         lower_idx = hcl.exp(0)
+def test_math_exp():
+    def kernel(A):
+        lower_idx = hcl.exp(0)
+        lower_idx = hcl.cast(hcl.Index(), lower_idx)
+        upper_idx = hcl.exp(1.5)
+        upper_idx = hcl.cast(hcl.Index(), upper_idx)  # e^1.5 ~4.482 -> 4
 
-#         B = hcl.compute(A.shape, lambda x: A[x][lower_idx:4])
-#         return B
+        B = hcl.compute(A.shape, lambda x: A[x][lower_idx:upper_idx])
+        return B
 
-#     A = hcl.placeholder((2,), "A")
-#     s = hcl.create_schedule([A], kernel)
-#     f = hcl.build(s)
-#     np_A = hcl.asarray([0b10101100, 0b01100101])
-#     np_B = hcl.asarray([0, 0])
-#     f(np_A, np_B)
-#     assert np_B.asnumpy().tolist() == [0b110, 0b010]
-
-
-# def test_math_pow():
-#     def kernel(A):
-#         a = hcl.scalar(0)
-#         b = hcl.scalar(2)
-
-#         lower_idx = hcl.cast(hcl.Index(), hcl.power(b.v, a.v))
-#         upper_idx = hcl.cast(hcl.Index(), hcl.power(b.v, b.v)) # workaround doesn't work
-
-#         B = hcl.compute(A.shape, lambda x: A[x][lower_idx:upper_idx])
-#         return B
-    
-#     A = hcl.placeholder((2,), "A")
-#     s = hcl.create_schedule([A], kernel)
-#     f = hcl.build(s)
-#     np_A = hcl.asarray([0b10101100, 0b01100101])
-#     np_B = hcl.asarray([0, 0])
-#     f(np_A, np_B)
-#     assert np_B.asnumpy().tolist() == [0b1100, 0b0101]
+    A = hcl.placeholder((2,), "A")
+    s = hcl.create_schedule([A], kernel)
+    f = hcl.build(s)
+    np_A = hcl.asarray([0b10101100, 0b01100101])
+    np_B = hcl.asarray([0, 0])
+    f(np_A, np_B)
+    assert np_B.asnumpy().tolist() == [0b110, 0b010]
 
 
-# def test_math_log():
-#     def kernel(A):
-#         a = hcl.scalar(1)
+def test_math_pow():
+    def kernel(A):
+        a = hcl.scalar(0)
+        b = hcl.scalar(2)
 
-#         lower_idx = hcl.log(a.v)
+        lower_idx = hcl.power(b.v, a.v)
+        lower_idx = hcl.cast(hcl.Index(), lower_idx)
+        upper_idx = hcl.power(b.v, b.v)
+        upper_idx = hcl.cast(hcl.Index(), upper_idx)
 
-#         B = hcl.compute(A.shape, lambda x: A[x][lower_idx:5])
-#         return B
+        B = hcl.compute(A.shape, lambda x: A[x][lower_idx:upper_idx])
+        return B
 
-#     A = hcl.placeholder((2,), "A")
-#     s = hcl.create_schedule([A], kernel)
-#     f = hcl.build(s)
-#     np_A = hcl.asarray([0b01001111, 0b11011110])
-#     np_B = hcl.asarray([0, 0])
-#     f(np_A, np_B)
-#     assert np_B.asnumpy().tolist() == [0b01111, 0b11110]
-
-
-# def test_math_log2():
-#     def kernel(A):
-#         a = hcl.scalar(16)
-
-#         lower_idx = hcl.log2(1)
-#         upper_idx = hcl.log2(a.v)
-
-#         B = hcl.compute(A.shape, lambda x: A[x][lower_idx:upper_idx])
-#         return B
-    
-#     A = hcl.placeholder((2,), "A")
-#     s = hcl.create_schedule([A], kernel)
-#     f = hcl.build(s)
-#     np_A = hcl.asarray([0b00001010, 0b11101110])
-#     np_B = hcl.asarray([0, 0])
-#     f(np_A, np_B)
-#     assert np_B.asnumpy().tolist() == [0b101, 0b111]
+    A = hcl.placeholder((2,), "A")
+    s = hcl.create_schedule([A], kernel)
+    f = hcl.build(s)
+    np_A = hcl.asarray([0b10101100, 0b01100101])
+    np_B = hcl.asarray([0, 0])
+    f(np_A, np_B)
+    assert np_B.asnumpy().tolist() == [0b110, 0b010]
 
 
-# def test_math_log10():
-#     def kernel(A):
-#         a = hcl.scalar(10)
-#         b = hcl.scalar(10000)
+def test_math_log_op():
+    def kernel(A):
+        a = hcl.scalar(1)
 
-#         lower_idx = hcl.log10(a.v)
-#         upper_idx = hcl.log10(b.v)
+        lower_idx = hcl.log(a.v)
+        lower_idx = hcl.cast(hcl.Index(), lower_idx)
+        upper_idx = hcl.log(12)
+        upper_idx = hcl.cast(hcl.Index(), upper_idx) + 3
 
-#         B = hcl.compute(A.shape, lambda x: A[x][lower_idx:upper_idx])
-#         return B
+        B = hcl.compute(A.shape, lambda x: A[x][lower_idx:upper_idx])
+        return B
 
-#     A = hcl.placeholder((2,), "A")
-#     s = hcl.create_schedule([A], kernel)
-#     f = hcl.build(s)
-#     np_A = hcl.asarray([0b01111100, 0b01001010])
-#     np_B = hcl.asarray([0, 0])
-#     f(np_A, np_B)
-#     assert np_B.asnumpy().tolist() == [0b110, 0b101]
-
-
-# def test_math_sqrt():
-#     def kernel(A):
-#         a = hcl.scalar(25)
-
-#         upper_idx = hcl.sqrt(a.v)
-
-#         B = hcl.compute(A.shape, lambda x: A[x][0:upper_idx])
-#         return B
-
-#     A = hcl.placeholder((2,), "A")
-#     s = hcl.create_schedule([A], kernel)
-#     f = hcl.build(s)
-#     np_A = hcl.asarray([0b10011101, 0b01001010])
-#     np_B = hcl.asarray([0, 0])
-#     f(np_A, np_B)
-#     assert np_B.asnumpy().tolist() == [0b11101, 0b01010]
+    A = hcl.placeholder((2,), "A")
+    s = hcl.create_schedule([A], kernel)
+    f = hcl.build(s)
+    np_A = hcl.asarray([0b01001111, 0b11101110])
+    np_B = hcl.asarray([0, 0])
+    f(np_A, np_B)
+    assert np_B.asnumpy().tolist() == [0b01111, 0b01110]
 
 
-# def test_math_sin():
-#     def kernel(A):
-#         lower_idx = hcl.sin(0)
-        
-#         B = hcl.compute(A.shape, lambda x: A[x][lower_idx:3])
-#         return B
+def test_math_log2_op():
+    def kernel(A):
+        a = hcl.scalar(16)
 
-#     A = hcl.placeholder((2,), "A")
-#     s = hcl.create_schedule([A], kernel)
-#     f = hcl.build(s)
-#     np_A = hcl.asarray([0b10011101, 0b10110001])
-#     np_B = hcl.asarray([0, 0])
-#     f(np_A, np_B)
-#     assert np_B.asnumpy().tolist() == [0b101, 0b001]
+        lower_idx = hcl.log2(2)
+        lower_idx = hcl.cast(hcl.Index(), lower_idx)
+        upper_idx = hcl.log2(a.v)
+        upper_idx = hcl.cast(hcl.Index(), upper_idx)
+
+        B = hcl.compute(A.shape, lambda x: A[x][lower_idx:upper_idx])
+        return B
+
+    A = hcl.placeholder((2,), "A")
+    s = hcl.create_schedule([A], kernel)
+    f = hcl.build(s)
+    np_A = hcl.asarray([0b00001010, 0b11101110])
+    np_B = hcl.asarray([0, 0])
+    f(np_A, np_B)
+    assert np_B.asnumpy().tolist() == [0b101, 0b111]
 
 
-# def test_math_cos():
-#     def kernel(A):
-#         lower_idx = hcl.cos(0)
+def test_math_log10_op():
+    def kernel(A):
+        a = hcl.scalar(10)
+        b = hcl.scalar(10000)
 
-#         B = hcl.compute(A.shape, lambda x: A[x][lower_idx:4])
-#         return B
+        lower_idx = hcl.log10(a.v)
+        lower_idx = hcl.cast(hcl.Index(), lower_idx)
+        upper_idx = hcl.log10(b.v)
+        upper_idx = hcl.cast(hcl.Index(), upper_idx)
 
-#     A = hcl.placeholder((2,), "A")
-#     s = hcl.create_schedule([A], kernel)
-#     f = hcl.build(s)
-#     np_A = hcl.asarray([0b10011101, 0b10110001])
-#     np_B = hcl.asarray([0, 0])
-#     f(np_A, np_B)
-#     assert np_B.asnumpy().tolist() == [0b110, 0b000]
+        B = hcl.compute(A.shape, lambda x: A[x][lower_idx:upper_idx])
+        return B
 
+    A = hcl.placeholder((2,), "A")
+    s = hcl.create_schedule([A], kernel)
+    f = hcl.build(s)
+    np_A = hcl.asarray([0b01111100, 0b01001010])
+    np_B = hcl.asarray([0, 0])
+    f(np_A, np_B)
+    assert np_B.asnumpy().tolist() == [0b110, 0b101]
+
+
+def test_math_sqrt1():
+    def kernel(A):
+        a = hcl.scalar(25)
+
+        upper_idx = hcl.sqrt(a.v)
+        upper_idx = hcl.cast(hcl.Index(), upper_idx)
+
+        B = hcl.compute(A.shape, lambda x: A[x][0:upper_idx])
+        return B
+
+    A = hcl.placeholder((2,), "A")
+    s = hcl.create_schedule([A], kernel)
+    f = hcl.build(s)
+    np_A = hcl.asarray([0b10011101, 0b01001010])
+    np_B = hcl.asarray([0, 0])
+    f(np_A, np_B)
+    assert np_B.asnumpy().tolist() == [0b11101, 0b01010]
+
+
+def test_math_sqrt2():
+    def kernel(A):
+        upper_idx = hcl.sqrt(30)
+        upper_idx = hcl.cast(hcl.Index(), upper_idx)  # sqrt(30) ~ 5.477 -> 5
+
+        B = hcl.compute(A.shape, lambda x: A[x][0:upper_idx])
+        return B
+
+    A = hcl.placeholder((2,), "A")
+    s = hcl.create_schedule([A], kernel)
+    f = hcl.build(s)
+    np_A = hcl.asarray([0b10011101, 0b01001010])
+    np_B = hcl.asarray([0, 0])
+    f(np_A, np_B)
+    assert np_B.asnumpy().tolist() == [0b11101, 0b01010]
+
+
+def test_math_sin1():
+    def kernel(A):
+        lower_idx = hcl.sin(0)
+        lower_idx = hcl.cast(hcl.Index(), lower_idx)
+
+        B = hcl.compute(A.shape, lambda x: A[x][lower_idx:3])
+        return B
+
+    A = hcl.placeholder((2,), "A")
+    s = hcl.create_schedule([A], kernel)
+    f = hcl.build(s)
+    np_A = hcl.asarray([0b10011101, 0b10110001])
+    np_B = hcl.asarray([0, 0])
+    f(np_A, np_B)
+    assert np_B.asnumpy().tolist() == [0b101, 0b001]
+
+
+def test_math_sin2():
+    def kernel(A):
+        lower_idx = hcl.sin(np.pi / 2)
+        lower_idx = hcl.cast(hcl.Index(), lower_idx)
+
+        B = hcl.compute(A.shape, lambda x: A[x][lower_idx:5])
+        return B
+
+    A = hcl.placeholder((2,), "A")
+    s = hcl.create_schedule([A], kernel)
+    f = hcl.build(s)
+    np_A = hcl.asarray([0b10011101, 0b10110001])
+    np_B = hcl.asarray([0, 0])
+    f(np_A, np_B)
+    assert np_B.asnumpy().tolist() == [0b1110, 0b1000]
+
+
+def test_math_cos1():
+    def kernel(A):
+        lower_idx = hcl.cos(0)
+        lower_idx = hcl.cast(hcl.Index(), lower_idx)
+
+        B = hcl.compute(A.shape, lambda x: A[x][lower_idx:4])
+        return B
+
+    A = hcl.placeholder((2,), "A")
+    s = hcl.create_schedule([A], kernel)
+    f = hcl.build(s)
+    np_A = hcl.asarray([0b10011101, 0b10110001])
+    np_B = hcl.asarray([0, 0])
+    f(np_A, np_B)
+    assert np_B.asnumpy().tolist() == [0b110, 0b000]
+
+
+def test_math_cos2():
+    def kernel(A):
+        lower_idx = hcl.cos(np.pi / 2)
+        lower_idx = hcl.cast(hcl.Index(), lower_idx)
+
+        B = hcl.compute(A.shape, lambda x: A[x][lower_idx:4])
+        return B
+
+    A = hcl.placeholder((2,), "A")
+    s = hcl.create_schedule([A], kernel)
+    f = hcl.build(s)
+    np_A = hcl.asarray([0b10011101, 0b10110001])
+    np_B = hcl.asarray([0, 0])
+    f(np_A, np_B)
+    assert np_B.asnumpy().tolist() == [0b1101, 0b0001]
+
+
+# hcl.tan() not supported yet
 
 # def test_math_tan():
 #     def kernel(A):
 #         lower_idx = hcl.tan(0)
+#         lower_idx = hcl.cast(hcl.Index(), lower_idx)
 
 #         B = hcl.compute(A.shape, lambda x: A[x][lower_idx:4])
 #         return B
@@ -523,3 +592,39 @@ def test_neg():
 #     np_B = hcl.asarray([0, 0])
 #     f(np_A, np_B)
 #     assert np_B.asnumpy().tolist() == [0b1101, 0b1100]
+
+
+def test_math_tanh1():
+    def kernel(A):
+        lower_idx = hcl.tanh(0)
+        lower_idx = hcl.cast(hcl.Index(), lower_idx)
+
+        B = hcl.compute(A.shape, lambda x: A[x][lower_idx:4])
+        return B
+
+    A = hcl.placeholder((2,), "A")
+    s = hcl.create_schedule([A], kernel)
+    f = hcl.build(s)
+    np_A = hcl.asarray([0b10101010, 0b11001011])
+    np_B = hcl.asarray([0, 0])
+    f(np_A, np_B)
+    assert np_B.asnumpy().tolist() == [0b1010, 0b1011]
+
+
+def test_math_tanh2():
+    def kernel(A):
+        a = hcl.scalar(8)
+
+        lower_idx = hcl.tanh(a.v)
+        lower_idx = hcl.cast(hcl.Index(), lower_idx)
+
+        B = hcl.compute(A.shape, lambda x: A[x][lower_idx:4])
+        return B
+
+    A = hcl.placeholder((2,), "A")
+    s = hcl.create_schedule([A], kernel)
+    f = hcl.build(s)
+    np_A = hcl.asarray([0b10101011, 0b11001011])
+    np_B = hcl.asarray([0, 0])
+    f(np_A, np_B)
+    assert np_B.asnumpy().tolist() == [0b101, 0b101]
