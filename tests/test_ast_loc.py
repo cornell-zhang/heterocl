@@ -201,13 +201,15 @@ import pytest
 #     s = hcl.create_schedule([A], loop_body)
 #     f = hcl.build(s)
 
+
 def test_for():
-    shape = (1,10)
-    def dsl_loop(x,y):
-        D = hcl.for_(x,y)
+    shape = (1, 10)
+
+    def dsl_loop(x, y):
+        D = hcl.for_(x, y)
         print(dir(D))
         print(D.__ne__)
-        assert np.equal(str(D),"dsl.py:70")
+        assert np.equal(str(D), "dsl.py:70")
         return D
 
     def loop_body(x):
@@ -218,13 +220,15 @@ def test_for():
     s = hcl.create_schedule([A], loop_body)
     f = hcl.build(s)
 
+
 @pytest.mark.skip(reason="No loc attribute")
 def test_if():
-    shape = (1,10)
+    shape = (1, 10)
+
     def dsl_loop(x):
         D = hcl.if_(x > 0)
         print(dir(D))
-        assert np.equal(str(D),"dsl.py:84")
+        assert np.equal(str(D), "dsl.py:84")
         return D
 
     def loop_body(x):
@@ -235,13 +239,15 @@ def test_if():
     s = hcl.create_schedule([A], loop_body)
     f = hcl.build(s)
 
+
 @pytest.mark.skip(reason="Doesn't work")
 def test_else():
-    shape = (1,10)
+    shape = (1, 10)
+
     def dsl_loop():
         D = hcl.else_()
         print(D._exit_cb)
-        assert np.equal(str(D),"dsl.py:97")
+        assert np.equal(str(D), "dsl.py:97")
         return D
 
     def loop_body(x):
@@ -251,6 +257,7 @@ def test_else():
     A = hcl.placeholder(shape, "A")
     s = hcl.create_schedule([A], loop_body)
     f = hcl.build(s)
+
 
 # def test_elif():
 #     shape = (1,10)

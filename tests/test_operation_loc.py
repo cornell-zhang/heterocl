@@ -5,12 +5,16 @@ import heterocl as hcl
 import numpy as np
 import pytest
 
+
 def test_compute():
-    shape = (1,10)
+    shape = (1, 10)
+
     def loop_body(data, power):
-        E = hcl.compute(shape, lambda x,y: hcl.power(data[x,y],power[x,y]), "loop_body")
+        E = hcl.compute(
+            shape, lambda x, y: hcl.power(data[x, y], power[x, y]), "loop_body"
+        )
         print(E.loc)
-        assert np.equal(str(E.loc),"operation.py:472")
+        assert np.equal(str(E.loc), "operation.py:472")
 
         return E
 
@@ -22,4 +26,6 @@ def test_compute():
     print(A.loc)
     print(B.loc)
 
-    assert np.equal(str(A.loc),"test_ast_loc.py:21") and np.equal(str(B.loc),"test_ast_loc.py:22")
+    assert np.equal(str(A.loc), "test_ast_loc.py:21") and np.equal(
+        str(B.loc), "test_ast_loc.py:22"
+    )
