@@ -180,7 +180,7 @@ def simplify(expr):
     if isinstance(expr, MathPowOp):
         lhs = unwrap_sp(simplify(expr.lhs))
         rhs = unwrap_sp(simplify(expr.rhs))
-        return sp.simplify(lhs**rhs)
+        return sp.Pow(lhs, rhs)
     if isinstance(expr, MathLogOp):
         expr = unwrap_sp(simplify(expr.expr))
         return sp.log(expr)
