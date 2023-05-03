@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import heterocl as hcl
+from hcl_mlir import DTypeError
 import numpy as np
 import pytest
 
@@ -691,6 +692,48 @@ def test_int_to_fixed_cast():
                 print("A_np: ", A_np)
                 print("C_np: ", C_np)
                 assert False, "test failed, see failed test case above"
+
+
+def test_expected_fp_as_index_error():
+    def fp_as_slice_idx(A):
+        a = hcl.scalar(0)
+        b = hcl.scalar(2)
+        idx = hcl.power(b.v, a.v)
+        # idx is float, should raise DTypeError when used as index
+        B = hcl.compute((1,), lambda _: A[idx])
+        return B
+
+    def fp_as_bit_idx(A):
+        start = hcl.scalar(0, dtype=hcl.Float())
+        end = hcl.scalar(2, dtype=hcl.Float())
+        B = hcl.compute((1,), lambda _: A[0][start.v : end.v])
+        return B
+
+    with pytest.raises(DTypeError):
+        A = hcl.placeholder((2,), "A")
+        hcl.customize([A], fp_as_slice_idx)
+
+    with pytest.raises(DTypeError):
+        A = hcl.placeholder((1,), "A", dtype=hcl.UInt(32))
+        hcl.customize([A], fp_as_bit_idx)
+
+
+def test_fp_to_index_cast():
+    def kernel(A):
+        a = hcl.scalar(0)
+        b = hcl.scalar(2)
+        idx = hcl.power(b.v, a.v)
+        idx = hcl.cast(hcl.Index(), idx)
+        B = hcl.compute((1,), lambda _: A[idx])
+        return B
+
+    A = hcl.placeholder((2,), "A")
+    s = hcl.create_schedule([A], kernel)
+    f = hcl.build(s)
+    np_A = hcl.asarray([0b10101100, 0b01100101])
+    np_B = hcl.asarray([0])
+    f(np_A, np_B)
+    assert np_B.asnumpy().tolist() == [0b01100101]
 
 
 if __name__ == "__main__":
