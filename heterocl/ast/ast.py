@@ -202,7 +202,7 @@ def simplify(expr):
     # if isinstance(expr, MathTanOp):
     #     expr = unwrap_sp(simplify(expr.expr))
     #     return sp.tan(expr)
-    if isinstance(expr, MathTanhOp): # pylint: disable=no-else-return
+    if isinstance(expr, MathTanhOp):  # pylint: disable=no-else-return
         expr = unwrap_sp(simplify(expr.expr))
         return sp.tanh(expr)
     else:
