@@ -31,8 +31,6 @@ def test_exp():
         for j in range(shape[1]):
             b_golden[i, j] = np.exp(np_a[i, j])
 
-    print(b_golden)
-    print(np_b)
     assert np.allclose(np_b, b_golden)
 
 
@@ -85,8 +83,7 @@ def test_log():
     for i in range(shape[0]):
         for j in range(shape[1]):
             b_golden[i, j] = np.log(np_a[i, j])
-    print(b_golden)
-    print(np_b)
+
     assert np.allclose(np_b, b_golden)
 
 
@@ -112,8 +109,7 @@ def test_log2():
     for i in range(shape[0]):
         for j in range(shape[1]):
             b_golden[i, j] = np.log2(np_a[i, j])
-    print(b_golden)
-    print(np_b)
+
     assert np.allclose(np_b, b_golden)
 
 
@@ -139,8 +135,7 @@ def test_log10():
     for i in range(shape[0]):
         for j in range(shape[1]):
             b_golden[i, j] = np.log10(np_a[i, j])
-    print(b_golden)
-    print(np_b)
+
     assert np.allclose(np_b, b_golden)
 
 
@@ -166,8 +161,7 @@ def test_sqrt():
     for i in range(shape[0]):
         for j in range(shape[1]):
             b_golden[i, j] = np.sqrt(np_a[i, j])
-    print(b_golden)
-    print(np_b)
+
     assert np.allclose(np_b, b_golden)
 
 
@@ -193,8 +187,7 @@ def test_sin():
     for i in range(shape[0]):
         for j in range(shape[1]):
             b_golden[i, j] = np.sin(np_a[i, j])
-    print(b_golden)
-    print(np_b)
+
     assert np.allclose(np_b, b_golden)
 
 
@@ -220,8 +213,7 @@ def test_cos():
     for i in range(shape[0]):
         for j in range(shape[1]):
             b_golden[i, j] = np.cos(np_a[i, j])
-    print(b_golden)
-    print(np_b)
+
     assert np.allclose(np_b, b_golden)
 
 
@@ -247,6 +239,5 @@ def test_tanh():
     for i in range(shape[0]):
         for j in range(shape[1]):
             b_golden[i, j] = np.tanh(np_a[i, j])
-    print(b_golden)
-    print(np_b)
+
     assert np.allclose(np_b, b_golden)
