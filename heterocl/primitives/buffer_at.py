@@ -45,5 +45,5 @@ class BufferAtPrimitive(Primitive):
             memref_type, op.target.result, op.axis.result, ip=ip, loc=loc
         )
         op.ir_op = hcl_buffer_at_op
-        op.result = hcl_buffer_at_op.resultå
+        op.result = hcl_buffer_at_op.result
         return buffer_at_op
