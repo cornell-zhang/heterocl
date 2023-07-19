@@ -17,7 +17,6 @@ from ..ast import ast
 from ..ast.ir_builder import IRBuilder
 from ..utils import get_src_loc, hcl_dtype_to_mlir
 from .base import Primitive, register_primitive
-from ..context import get_context, get_location
 
 
 @register_primitive()

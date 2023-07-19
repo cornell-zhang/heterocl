@@ -1,5 +1,6 @@
 # Copyright HeteroCL authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
+# pylint: disable=no-name-in-module, no-value-for-parameter
 
 import hcl_mlir
 from hcl_mlir import UnitAttr, StringAttr, InsertionPoint, MemRefType
