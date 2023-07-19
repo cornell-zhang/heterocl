@@ -4,10 +4,16 @@
 from hcl_mlir.exceptions import (
     APIError,
 )
-
+from hcl_mlir.ir import (
+    Location,
+    InsertionPoint,
+)
+from hcl_mlir.dialects import hcl as hcl_d
 from ..ast import ast
+from ..ast.ir_builder import IRBuilder
 from ..utils import get_src_loc
 from .base import Primitive, register_primitive
+from ..context import get_context, get_location
 
 
 @register_primitive()
@@ -32,3 +38,13 @@ class ReorderPrimitive(Primitive):
         loc = ast.Location(filename, lineno)
         reorder_op = ast.ReorderOp(args, loc)
         sch.ast.top_func.body.append(reorder_op)
+        op = reorder_op
+        with get_context(), get_location():
+            loc = Location.file(op.loc.filename, op.loc.lineno, 0)
+            ir_builder = IRBuilder(sch._ast)
+            ip = InsertionPoint.at_block_terminator(sch.top_func.entry_block)
+            for arg in op.args:
+                ir_builder.build_visitor(arg, ip)
+            arg_results = [arg.result for arg in op.args]
+            reorder_op = hcl_d.ReorderOp(arg_results, ip=ip, loc=loc)
+        op.ir_op = reorder_op

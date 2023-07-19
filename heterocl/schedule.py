@@ -8,13 +8,27 @@ from hcl_mlir.exceptions import (
     APIError,
     HCLDeprecationWarning,
 )
-
+from hcl_mlir.ir import (
+    Location,
+    InsertionPoint,
+    IntegerAttr,
+    IntegerType,
+    UnitAttr,
+    StringAttr,
+)
+from hcl_mlir.dialects import hcl as hcl_d
 from .dfg import DataflowGraph
 from .context import UniqueName
 from .devices import Device, DevMemoryPair
 from .utils import get_src_loc
 from .ast import ast
+from .ast.ir_builder import IRBuilder
 from .primitives.base import PRIMITIVES, STAGE_PRIMITIVES
+from .passes.pass_manager import PassManager as ast_pass_manager
+from .passes.nest_if import NestElseIf
+from .passes.promote_func import PromoteFunc
+from .context import set_context, get_context, exit_context, get_location
+from .ast.ir_builder import IRBuilder
 
 
 def _build_ast(inputs, func=None, name=""):
@@ -66,6 +80,20 @@ def _build_schedule(_ast, inputs, func, name):
     create_dfg_pass.apply()
 
     s._dfg = create_dfg_pass.dfg
+
+    # HeteroCL Transformation Pipeline
+    ast_pm = ast_pass_manager()
+    ast_pm.add_pass(NestElseIf)
+    ast_pm.add_pass(PromoteFunc)
+    device_agnostic_ast = ast_pm.run(s.ast)
+    s._ast = device_agnostic_ast
+    # Build MLIR IR
+    set_context()
+    agnostic_ir_builder = IRBuilder(device_agnostic_ast)
+    agnostic_ir_builder.build()
+    s._module = agnostic_ir_builder.module
+    s._top_func = agnostic_ir_builder.top_func
+    exit_context()
     return s
 
 
@@ -197,8 +225,28 @@ class Schedule:
             self.ast.top_func.body.append(inter_kernel_to_op)
             # outline both stages
             src = Stage.lookup(tensor.name)
-            self.outline(src)
+            op = inter_kernel_to_op
+            with get_context(), get_location():
+                loc = Location.file(op.loc.filename, op.loc.lineno, 0)
+                ir_builder = IRBuilder(self._ast)
+                ip = InsertionPoint.at_block_terminator(self.top_func.entry_block)
+                ir_builder.build_visitor(op.tensor, ip)
+                ir_builder.build_visitor(op.stage, ip)
+                i32 = IntegerType.get_signless(32)
+                fifo_depth = IntegerAttr.get(i32, op.fifo_depth)
+                top_func = self._ast.top_func.ir_op
+                assert top_func is not None
+                top_func.attributes["dataflow"] = UnitAttr.get()
+                to_op = hcl_d.InterKernelToOp(
+                    op.tensor.result,
+                    op.stage.result,
+                    fifo_depth=fifo_depth,
+                    ip=ip,
+                    loc=loc,
+                )
+                op.ir_op = to_op
             self.outline(dst)
+            self.outline(src)
 
     def outline(self, *stage_list, unify=False):
         """Outline stages as a function
@@ -224,6 +272,20 @@ class Schedule:
                 outline_op.unify = results[0].name
             else:
                 results.append(StageFunction(names))
+            op = outline_op
+            with get_context(), get_location():
+                loc = Location.file(op.loc.filename, op.loc.lineno, 0)
+                ir_builder = IRBuilder(self._ast)
+                ip = InsertionPoint.at_block_terminator(self.top_func.entry_block)
+                for stage_hdl in op.stage_hdls:
+                    ir_builder.build_visitor(stage_hdl, ip)
+                hdl_results = [hdl.result for hdl in op.stage_hdls]
+                outline_op = hcl_d.OutlineOp(hdl_results, ip=ip, loc=loc)
+                if op.unify is not None:
+                    outline_op.attributes["unify"] = StringAttr.get(op.unify)
+                if op.axis is not None:
+                    outline_op.attributes["axis"] = StringAttr.get(op.axis)
+                op.ir_op = outline_op
         return results if len(results) > 1 else results[0]
 
 
@@ -306,6 +368,19 @@ class Stage:
         if unify is not None:
             outline_op.unify = unify.name
             return unify
+        op = outline_op
+        with get_context(), get_location():
+            loc = Location.file(op.loc.filename, op.loc.lineno, 0)
+            for stage_hdl in op.stage_hdls:
+                self.build_visitor(stage_hdl, ip)
+            hdl_results = [hdl.result for hdl in op.stage_hdls]
+            ip = InsertionPoint.at_block_terminator(self.top_func.entry_block)
+            outline_op = hcl_d.OutlineOp(hdl_results, ip=ip, loc=loc)
+            if op.unify is not None:
+                outline_op.attributes["unify"] = StringAttr.get(op.unify)
+            if op.axis is not None:
+                outline_op.attributes["axis"] = StringAttr.get(op.axis)
+            op.ir_op = outline_op
         return StageFunction(stage.name)
 
 

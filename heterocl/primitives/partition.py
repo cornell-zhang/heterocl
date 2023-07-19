@@ -5,10 +5,18 @@ from hcl_mlir.exceptions import (
     HCLValueError,
     APIError,
 )
-
+from hcl_mlir.ir import (
+    Location,
+    InsertionPoint,
+    IntegerType,
+    IntegerAttr,
+)
+from hcl_mlir.dialects import hcl as hcl_d
 from ..ast import ast
+from ..ast.ir_builder import IRBuilder
 from ..utils import get_src_loc
 from .base import Primitive, register_primitive
+from ..context import get_context, get_location
 
 
 class Partition:
@@ -45,3 +53,26 @@ class ParitionPrimitive(Primitive):
             raise HCLValueError("Not supported partition type")
         partition_op = ast.PartitionOp(target, partition_type, dim, factor, loc)
         sch.ast.top_func.body.append(partition_op)
+        op = partition_op
+        with get_context(), get_location():
+            loc = Location.file(op.loc.filename, op.loc.lineno, 0)
+            i32 = IntegerType.get_signless(32)
+            ui32 = IntegerType.get_unsigned(32)
+            partition_type = IntegerAttr.get(i32, op.kind)
+            dim = IntegerAttr.get(ui32, op.dim)
+            factor = IntegerAttr.get(ui32, op.factor)
+            ir_builder = IRBuilder(sch._ast)
+            # Be careful, since arg.result has been removed when building func op
+            if op.tensor.result is None:
+                op.tensor.result = op.tensor.prev_result
+            ip = InsertionPoint.at_block_terminator(sch.top_func.entry_block)
+            ir_builder.build_visitor(op.tensor, ip)
+            partition_op = hcl_d.PartitionOp(
+                op.tensor.result,
+                partition_kind=partition_type,
+                dim=dim,
+                factor=factor,
+                ip=ip,
+                loc=loc,
+            )
+            op.ir_op = partition_op

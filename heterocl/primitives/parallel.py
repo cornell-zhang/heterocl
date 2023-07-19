@@ -4,10 +4,16 @@
 from hcl_mlir.exceptions import (
     APIError,
 )
-
+from hcl_mlir.ir import (
+    Location,
+    InsertionPoint,
+)
+from hcl_mlir.dialects import hcl as hcl_d
 from ..ast import ast
+from ..ast.ir_builder import IRBuilder
 from ..utils import get_src_loc
 from .base import Primitive, register_primitive
+from ..context import get_context, get_location
 
 
 @register_primitive()
@@ -29,3 +35,11 @@ class ParallelPrimitive(Primitive):
         loc = ast.Location(filename, lineno)
         parallel_op = ast.ParallelOp(var, loc)
         sch.ast.top_func.body.append(parallel_op)
+        op = parallel_op
+        with get_context(), get_location():
+            loc = Location.file(op.loc.filename, op.loc.lineno, 0)
+            ir_builder = IRBuilder(sch._ast)
+            ip = InsertionPoint.at_block_terminator(sch.top_func.entry_block)
+            ir_builder.build_visitor(op.target, ip)
+            parallel_op = hcl_d.ParallelOp(op.target.result, ip=ip, loc=loc)
+            op.ir_op = parallel_op

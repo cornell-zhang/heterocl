@@ -4,10 +4,18 @@
 from hcl_mlir.exceptions import (
     APIError,
 )
-
+from hcl_mlir.ir import (
+    Location,
+    InsertionPoint,
+    IntegerType,
+    IntegerAttr,
+)
+from hcl_mlir.dialects import hcl as hcl_d
 from ..ast import ast
+from ..ast.ir_builder import IRBuilder
 from ..utils import get_src_loc
 from .base import Primitive, register_primitive
+from ..context import get_context, get_location
 
 
 @register_primitive()
@@ -29,9 +37,31 @@ class TilePrimitive(Primitive):
             stage.stage_handle, x_parent, y_parent, x_factor, y_factor, loc
         )
         sch.ast.top_func.body.append(tile_op)
-        return (
+        op = tile_op
+        res0, res1, res2, res3 = (
             tile_op.results[0],
             tile_op.results[1],
             tile_op.results[2],
             tile_op.results[3],
         )
+        with get_context(), get_location():
+            loc = Location.file(op.loc.filename, op.loc.lineno, 0)
+            ir_builder = IRBuilder(sch._ast)
+            ip = InsertionPoint.at_block_terminator(sch.top_func.entry_block)
+            i32 = IntegerType.get_unsigned(32)
+            x_factor = IntegerAttr.get(i32, op.x_factor)
+            y_factor = IntegerAttr.get(i32, op.y_factor)
+            ir_builder.build_visitor(op.x_parent, ip)
+            ir_builder.build_visitor(op.y_parent, ip)
+            tile_op = hcl_d.TileOp(
+                op.x_parent.result,
+                op.y_parent.result,
+                x_factor,
+                y_factor,
+                ip=ip,
+                loc=loc,
+            )
+            op.ir_op = tile_op
+            for result_loop_hdl, hdl_result in zip(op.results, tile_op.results):
+                result_loop_hdl.result = hdl_result
+        return (res0, res1, res2, res3)

@@ -469,6 +469,7 @@ class IRBuilder:
         # as the same argument object may be refered in multiple functions
         # we need to make sure that the result is not reused
         for arg in op.args:
+            arg.prev_result = arg.result
             arg.result = None
 
     def build_call_op(self, op: ast.CallOp, ip):

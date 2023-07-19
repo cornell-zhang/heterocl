@@ -1,10 +1,7 @@
 # Copyright HeteroCL authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from hcl_mlir.exceptions import (
-    APIError,
-)
-
+from hcl_mlir.ir import UnitAttr
 from ..ast import ast
 from ..utils import get_src_loc
 from .base import Primitive, register_primitive
@@ -23,3 +20,5 @@ class SystolicPrimitive(Primitive):
         systolic_op = ast.SystolicOp(stage.tensor, loc)
         schedule = sch._CurrentSchedule
         schedule.ast.top_func.body.append(systolic_op)
+        op = systolic_op
+        op.target.ir_op.attributes["systolic"] = UnitAttr.get()

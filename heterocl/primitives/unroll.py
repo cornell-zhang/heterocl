@@ -4,10 +4,18 @@
 from hcl_mlir.exceptions import (
     APIError,
 )
-
+from hcl_mlir.ir import (
+    Location,
+    InsertionPoint,
+    IntegerType,
+    IntegerAttr,
+)
+from hcl_mlir.dialects import hcl as hcl_d
 from ..ast import ast
+from ..ast.ir_builder import IRBuilder
 from ..utils import get_src_loc
 from .base import Primitive, register_primitive
+from ..context import get_context, get_location
 
 
 @register_primitive()
@@ -29,3 +37,13 @@ class UnrollPrimitive(Primitive):
         loc = ast.Location(filename, lineno)
         unroll_op = ast.UnrollOp(var, factor, loc)
         sch.ast.top_func.body.append(unroll_op)
+        op = unroll_op
+        with get_context(), get_location():
+            loc = Location.file(op.loc.filename, op.loc.lineno, 0)
+            ir_builder = IRBuilder(sch._ast)
+            ip = InsertionPoint.at_block_terminator(sch.top_func.entry_block)
+            ir_builder.build_visitor(op.target, ip)
+            i32 = IntegerType.get_unsigned(32)
+            factor = IntegerAttr.get(i32, op.factor)
+            unroll_op = hcl_d.UnrollOp(op.target.result, factor=factor, ip=ip, loc=loc)
+            op.ir_op = unroll_op

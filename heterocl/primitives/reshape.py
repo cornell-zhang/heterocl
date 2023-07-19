@@ -6,9 +6,17 @@ import functools
 from hcl_mlir.exceptions import (
     APIError,
 )
+from hcl_mlir.ir import (
+    Location,
+    InsertionPoint,
+    MemRefType,
+)
+from hcl_mlir.dialects import hcl as hcl_d
 from ..ast import ast
-from ..utils import get_src_loc
+from ..ast.ir_builder import IRBuilder
+from ..utils import get_src_loc, hcl_dtype_to_mlir
 from .base import Primitive, register_primitive
+from ..context import get_context, get_location
 
 
 @register_primitive()
@@ -30,3 +38,16 @@ class ReshapePrimitive(Primitive):
         loc = ast.Location(filename, lineno)
         reshape_op = ast.ReshapeOp(target, shape, loc)
         sch.ast.top_func.body.append(reshape_op)
+        op = reshape_op
+        with get_context(), get_location():
+            loc = Location.file(op.loc.filename, op.loc.lineno, 0)
+            ir_builder = IRBuilder(sch._ast)
+            # Be careful, since arg.result has been removed when building func op
+            if op.tensor.result is None:
+                op.tensor.result = op.tensor.prev_result
+            ip = InsertionPoint.at_block_terminator(sch.top_func.entry_block)
+            ir_builder.build_visitor(op.tensor, ip)
+            eletype = hcl_dtype_to_mlir(op.tensor.dtype)
+            memref_type = MemRefType.get(op.shape, eletype, loc=loc)
+            reshape_op = hcl_d.ReshapeOp(memref_type, op.tensor.result, ip=ip, loc=loc)
+            op.ir_op = reshape_op
