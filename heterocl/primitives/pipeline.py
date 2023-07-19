@@ -1,5 +1,6 @@
 # Copyright HeteroCL authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
+# pylint: disable=no-name-in-module, arguments-differ
 
 from hcl_mlir.exceptions import (
     APIError,
@@ -45,5 +46,5 @@ class PipelinePrimitive(Primitive):
             ir_builder.build_visitor(op.target, ip)
             i32 = IntegerType.get_unsigned(32)
             ii = IntegerAttr.get(i32, op.ii)
-            pipeline_op = hcl_d.PipelineOp(op.target.result, ii=ii, ip=ip, loc=loc)
-            op.ir_op = pipeline_op
+            hcl_pipeline_op = hcl_d.PipelineOp(op.target.result, ii=ii, ip=ip, loc=loc)
+            op.ir_op = hcl_pipeline_op

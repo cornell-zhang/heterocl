@@ -1,5 +1,6 @@
 # Copyright HeteroCL authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
+# pylint: disable=no-name-in-module, arguments-differ
 
 from hcl_mlir.ir import UnitAttr
 from ..ast import ast

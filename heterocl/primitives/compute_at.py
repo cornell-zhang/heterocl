@@ -1,5 +1,6 @@
 # Copyright HeteroCL authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
+# pylint: disable=no-name-in-module, arguments-differ
 
 from hcl_mlir.exceptions import (
     APIError,
@@ -45,7 +46,7 @@ class ComputeAtPrimitive(Primitive):
             ir_builder.build_visitor(op.stage, ip)
             ir_builder.build_visitor(op.parent, ip)
             ir_builder.build_visitor(op.axis, ip)
-            compute_at_op = hcl_d.ComputeAtOp(
+            hcl_compute_at_op = hcl_d.ComputeAtOp(
                 op.stage.result, op.parent.result, op.axis.result, ip=ip, loc=loc
             )
-            op.ir_op = compute_at_op
+            op.ir_op = hcl_compute_at_op

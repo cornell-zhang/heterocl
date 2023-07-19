@@ -1,6 +1,6 @@
 # Copyright HeteroCL authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
-# pylint: disable=unused-argument
+# pylint: disable=unused-argument, no-name-in-module
 
 import functools
 
@@ -28,7 +28,6 @@ from .passes.pass_manager import PassManager as ast_pass_manager
 from .passes.nest_if import NestElseIf
 from .passes.promote_func import PromoteFunc
 from .context import set_context, get_context, exit_context, get_location
-from .ast.ir_builder import IRBuilder
 
 
 def _build_ast(inputs, func=None, name=""):
@@ -280,12 +279,12 @@ class Schedule:
                 for stage_hdl in op.stage_hdls:
                     ir_builder.build_visitor(stage_hdl, ip)
                 hdl_results = [hdl.result for hdl in op.stage_hdls]
-                outline_op = hcl_d.OutlineOp(hdl_results, ip=ip, loc=loc)
+                hcl_outline_op = hcl_d.OutlineOp(hdl_results, ip=ip, loc=loc)
                 if op.unify is not None:
-                    outline_op.attributes["unify"] = StringAttr.get(op.unify)
+                    hcl_outline_op.attributes["unify"] = StringAttr.get(op.unify)
                 if op.axis is not None:
-                    outline_op.attributes["axis"] = StringAttr.get(op.axis)
-                op.ir_op = outline_op
+                    hcl_outline_op.attributes["axis"] = StringAttr.get(op.axis)
+                op.ir_op = hcl_outline_op
         return results if len(results) > 1 else results[0]
 
 
@@ -371,16 +370,16 @@ class Stage:
         op = outline_op
         with get_context(), get_location():
             loc = Location.file(op.loc.filename, op.loc.lineno, 0)
+            ip = InsertionPoint.at_block_terminator(self.top_func.entry_block)
             for stage_hdl in op.stage_hdls:
                 self.build_visitor(stage_hdl, ip)
             hdl_results = [hdl.result for hdl in op.stage_hdls]
-            ip = InsertionPoint.at_block_terminator(self.top_func.entry_block)
-            outline_op = hcl_d.OutlineOp(hdl_results, ip=ip, loc=loc)
+            hcl_outline_op = hcl_d.OutlineOp(hdl_results, ip=ip, loc=loc)
             if op.unify is not None:
-                outline_op.attributes["unify"] = StringAttr.get(op.unify)
+                hcl_outline_op.attributes["unify"] = StringAttr.get(op.unify)
             if op.axis is not None:
-                outline_op.attributes["axis"] = StringAttr.get(op.axis)
-            op.ir_op = outline_op
+                hcl_outline_op.attributes["axis"] = StringAttr.get(op.axis)
+            op.ir_op = hcl_outline_op
         return StageFunction(stage.name)
 
 

@@ -1,5 +1,6 @@
 # Copyright HeteroCL authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
+# pylint: disable=no-name-in-module, arguments-differ
 
 from hcl_mlir.exceptions import (
     HCLValueError,
@@ -67,7 +68,7 @@ class ParitionPrimitive(Primitive):
                 op.tensor.result = op.tensor.prev_result
             ip = InsertionPoint.at_block_terminator(sch.top_func.entry_block)
             ir_builder.build_visitor(op.tensor, ip)
-            partition_op = hcl_d.PartitionOp(
+            hcl_partition_op = hcl_d.PartitionOp(
                 op.tensor.result,
                 partition_kind=partition_type,
                 dim=dim,
@@ -75,4 +76,4 @@ class ParitionPrimitive(Primitive):
                 ip=ip,
                 loc=loc,
             )
-            op.ir_op = partition_op
+            op.ir_op = hcl_partition_op

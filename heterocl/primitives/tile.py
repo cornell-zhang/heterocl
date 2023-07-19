@@ -1,5 +1,6 @@
 # Copyright HeteroCL authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
+# pylint: disable=no-name-in-module, arguments-differ
 
 from hcl_mlir.exceptions import (
     APIError,
@@ -53,7 +54,7 @@ class TilePrimitive(Primitive):
             y_factor = IntegerAttr.get(i32, op.y_factor)
             ir_builder.build_visitor(op.x_parent, ip)
             ir_builder.build_visitor(op.y_parent, ip)
-            tile_op = hcl_d.TileOp(
+            hcl_tile_op = hcl_d.TileOp(
                 op.x_parent.result,
                 op.y_parent.result,
                 x_factor,
@@ -61,7 +62,7 @@ class TilePrimitive(Primitive):
                 ip=ip,
                 loc=loc,
             )
-            op.ir_op = tile_op
-            for result_loop_hdl, hdl_result in zip(op.results, tile_op.results):
+            op.ir_op = hcl_tile_op
+            for result_loop_hdl, hdl_result in zip(op.results, hcl_tile_op.results):
                 result_loop_hdl.result = hdl_result
         return (res0, res1, res2, res3)

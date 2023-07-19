@@ -1,5 +1,6 @@
 # Copyright HeteroCL authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
+# pylint: disable=no-name-in-module, arguments-differ
 
 import functools
 
@@ -49,5 +50,7 @@ class ReshapePrimitive(Primitive):
             ir_builder.build_visitor(op.tensor, ip)
             eletype = hcl_dtype_to_mlir(op.tensor.dtype)
             memref_type = MemRefType.get(op.shape, eletype, loc=loc)
-            reshape_op = hcl_d.ReshapeOp(memref_type, op.tensor.result, ip=ip, loc=loc)
-            op.ir_op = reshape_op
+            hcl_reshape_op = hcl_d.ReshapeOp(
+                memref_type, op.tensor.result, ip=ip, loc=loc
+            )
+            op.ir_op = hcl_reshape_op

@@ -1,6 +1,8 @@
 # Copyright HeteroCL authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 """Schedule primitive base."""
+# pylint: disable=no-method-argument
+
 from __future__ import annotations
 from abc import ABCMeta, abstractmethod
 

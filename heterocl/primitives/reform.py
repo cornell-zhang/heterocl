@@ -1,5 +1,6 @@
 # Copyright HeteroCL authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
+# pylint: disable=no-name-in-module, arguments-differ
 
 from hcl_mlir.exceptions import (
     APIError,
@@ -43,6 +44,8 @@ class ReformPrimitive(Primitive):
             else:
                 raise RuntimeError("Not supported layout")
             memref_type = MemRefType.get(op.target.shape, op.target.ir_op.dtype)
-            reform_op = hcl_d.ReformOp(memref_type, op.target.result, ip=ip, loc=loc)
-            reform_op.attributes["layout"] = AffineMapAttr.get(attr)
-            op.ir_op = reform_op
+            hcl_reform_op = hcl_d.ReformOp(
+                memref_type, op.target.result, ip=ip, loc=loc
+            )
+            hcl_reform_op.attributes["layout"] = AffineMapAttr.get(attr)
+            op.ir_op = hcl_reform_op

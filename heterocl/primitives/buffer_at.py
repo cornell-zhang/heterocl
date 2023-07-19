@@ -1,5 +1,6 @@
 # Copyright HeteroCL authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
+# pylint: disable=no-name-in-module, arguments-differ, unused-argument
 
 from hcl_mlir.exceptions import (
     APIError,
@@ -41,9 +42,9 @@ class BufferAtPrimitive(Primitive):
             ir_builder.build_visitor(op.axis, ip)
             f32 = F32Type.get()
             memref_type = MemRefType.get((1,), f32, loc=loc)
-            buffer_at_op = hcl_d.BufferAtOp(
+            hcl_buffer_at_op = hcl_d.BufferAtOp(
                 memref_type, op.target.result, op.axis.result, ip=ip, loc=loc
             )
-            op.ir_op = buffer_at_op
-            op.result = buffer_at_op.result
+            op.ir_op = hcl_buffer_at_op
+            op.result = hcl_buffer_at_op.result
         return buffer_at_op

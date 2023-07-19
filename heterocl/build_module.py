@@ -24,9 +24,6 @@ from .module import HCLModule, HCLSuperModule
 from .runtime import copy_build_files
 from .schedule import Schedule
 from .utils import hcl_dtype_to_mlir
-from .passes.pass_manager import PassManager as ast_pass_manager
-from .passes.nest_if import NestElseIf
-from .passes.promote_func import PromoteFunc
 from .ast.ir_builder import IRBuilder
 from .ast.build_cleaner import ASTCleaner
 from .ast import ast

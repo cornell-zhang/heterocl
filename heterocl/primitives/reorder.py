@@ -1,5 +1,6 @@
 # Copyright HeteroCL authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
+# pylint: disable=no-name-in-module, arguments-differ
 
 from hcl_mlir.exceptions import (
     APIError,
@@ -46,5 +47,5 @@ class ReorderPrimitive(Primitive):
             for arg in op.args:
                 ir_builder.build_visitor(arg, ip)
             arg_results = [arg.result for arg in op.args]
-            reorder_op = hcl_d.ReorderOp(arg_results, ip=ip, loc=loc)
-        op.ir_op = reorder_op
+            hcl_reorder_op = hcl_d.ReorderOp(arg_results, ip=ip, loc=loc)
+        op.ir_op = hcl_reorder_op

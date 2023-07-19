@@ -1,5 +1,6 @@
 # Copyright HeteroCL authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
+# pylint: disable=no-name-in-module, arguments-differ
 
 from hcl_mlir.exceptions import (
     APIError,
@@ -37,7 +38,7 @@ class ReplacePrimitive(Primitive):
             ip = InsertionPoint.at_block_terminator(sch.top_func.entry_block)
             ir_builder.build_visitor(op.target, ip)
             ir_builder.build_visitor(op.src, ip)
-            replace_op = hcl_d.ReplaceOp(
+            hcl_replace_op = hcl_d.ReplaceOp(
                 op.target.result, op.src.result, ip=ip, loc=loc
             )
-            op.ir_op = replace_op
+            op.ir_op = hcl_replace_op

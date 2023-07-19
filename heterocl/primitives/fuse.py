@@ -1,5 +1,6 @@
 # Copyright HeteroCL authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
+# pylint: disable=no-name-in-module, arguments-differ
 
 from hcl_mlir.exceptions import (
     APIError,
@@ -47,7 +48,7 @@ class FusePrimitive(Primitive):
             for arg in op.arg_list:
                 ir_builder.build_visitor(arg, ip)
             arg_results = [arg.result for arg in op.arg_list]
-            fuse_op = hcl_d.FuseOp(arg_results, ip=ip, loc=loc)
-            op.ir_op = fuse_op
-            op.result = fuse_op.result
+            hcl_fuse_op = hcl_d.FuseOp(arg_results, ip=ip, loc=loc)
+            op.ir_op = hcl_fuse_op
+            op.result = hcl_fuse_op.result
         return fuse_op

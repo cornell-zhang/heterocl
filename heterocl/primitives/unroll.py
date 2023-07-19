@@ -1,5 +1,6 @@
 # Copyright HeteroCL authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
+# pylint: disable=no-name-in-module, arguments-differ
 
 from hcl_mlir.exceptions import (
     APIError,
@@ -45,5 +46,7 @@ class UnrollPrimitive(Primitive):
             ir_builder.build_visitor(op.target, ip)
             i32 = IntegerType.get_unsigned(32)
             factor = IntegerAttr.get(i32, op.factor)
-            unroll_op = hcl_d.UnrollOp(op.target.result, factor=factor, ip=ip, loc=loc)
-            op.ir_op = unroll_op
+            hcl_unroll_op = hcl_d.UnrollOp(
+                op.target.result, factor=factor, ip=ip, loc=loc
+            )
+            op.ir_op = hcl_unroll_op

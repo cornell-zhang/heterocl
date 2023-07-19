@@ -1,5 +1,6 @@
 # Copyright HeteroCL authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
+# pylint: disable=no-name-in-module, arguments-differ
 
 from hcl_mlir.exceptions import (
     APIError,
@@ -49,8 +50,8 @@ class SplitPrimitive(Primitive):
             ir_builder.build_visitor(op.parent, ip)
             i32 = IntegerType.get_unsigned(32)
             factor = IntegerAttr.get(i32, op.factor)
-            split_op = hcl_d.SplitOp(op.parent.result, factor, ip=ip, loc=loc)
-            op.ir_op = split_op
-            for result_loop_hdl, hdl_result in zip(op.results, split_op.results):
+            hcl_split_op = hcl_d.SplitOp(op.parent.result, factor, ip=ip, loc=loc)
+            op.ir_op = hcl_split_op
+            for result_loop_hdl, hdl_result in zip(op.results, hcl_split_op.results):
                 result_loop_hdl.result = hdl_result
         return res0, res1

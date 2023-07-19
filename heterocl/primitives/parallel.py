@@ -1,5 +1,6 @@
 # Copyright HeteroCL authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
+# pylint: disable=no-name-in-module, arguments-differ
 
 from hcl_mlir.exceptions import (
     APIError,
@@ -41,5 +42,5 @@ class ParallelPrimitive(Primitive):
             ir_builder = IRBuilder(sch._ast)
             ip = InsertionPoint.at_block_terminator(sch.top_func.entry_block)
             ir_builder.build_visitor(op.target, ip)
-            parallel_op = hcl_d.ParallelOp(op.target.result, ip=ip, loc=loc)
-            op.ir_op = parallel_op
+            hcl_parallel_op = hcl_d.ParallelOp(op.target.result, ip=ip, loc=loc)
+            op.ir_op = hcl_parallel_op
