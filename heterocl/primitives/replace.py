@@ -32,13 +32,12 @@ class ReplacePrimitive(Primitive):
         replace_op = ast.ReplaceOp(src, dst, loc)
         sch.ast.top_func.body.append(replace_op)
         op = replace_op
-        with get_context(), get_location():
-            loc = Location.file(op.loc.filename, op.loc.lineno, 0)
-            ir_builder = IRBuilder(sch._ast)
-            ip = InsertionPoint.at_block_terminator(sch.top_func.entry_block)
-            ir_builder.build_visitor(op.target, ip)
-            ir_builder.build_visitor(op.src, ip)
-            hcl_replace_op = hcl_d.ReplaceOp(
-                op.target.result, op.src.result, ip=ip, loc=loc
-            )
-            op.ir_op = hcl_replace_op
+        ir_builder = IRBuilder(sch._ast)
+        loc = Location.file(op.loc.filename, op.loc.lineno, 0)
+        ip = InsertionPoint.at_block_terminator(sch.top_func.entry_block)
+        ir_builder.build_visitor(op.target, ip)
+        ir_builder.build_visitor(op.src, ip)
+        hcl_replace_op = hcl_d.ReplaceOp(
+            op.target.result, op.src.result, ip=ip, loc=loc
+        )
+        op.ir_op = hcl_replace_op

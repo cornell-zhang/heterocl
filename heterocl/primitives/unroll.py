@@ -39,14 +39,13 @@ class UnrollPrimitive(Primitive):
         unroll_op = ast.UnrollOp(var, factor, loc)
         sch.ast.top_func.body.append(unroll_op)
         op = unroll_op
-        with get_context(), get_location():
-            loc = Location.file(op.loc.filename, op.loc.lineno, 0)
-            ir_builder = IRBuilder(sch._ast)
-            ip = InsertionPoint.at_block_terminator(sch.top_func.entry_block)
-            ir_builder.build_visitor(op.target, ip)
-            i32 = IntegerType.get_unsigned(32)
-            factor = IntegerAttr.get(i32, op.factor)
-            hcl_unroll_op = hcl_d.UnrollOp(
-                op.target.result, factor=factor, ip=ip, loc=loc
-            )
-            op.ir_op = hcl_unroll_op
+        ir_builder = IRBuilder(sch._ast)
+        loc = Location.file(op.loc.filename, op.loc.lineno, 0)
+        ip = InsertionPoint.at_block_terminator(sch.top_func.entry_block)
+        ir_builder.build_visitor(op.target, ip)
+        i32 = IntegerType.get_unsigned(32)
+        factor = IntegerAttr.get(i32, op.factor)
+        hcl_unroll_op = hcl_d.UnrollOp(
+            op.target.result, factor=factor, ip=ip, loc=loc
+        )
+        op.ir_op = hcl_unroll_op

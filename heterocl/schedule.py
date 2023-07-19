@@ -153,7 +153,18 @@ class Schedule:
 
         # Register primitives.
         for pname, cls in PRIMITIVES.items():
-            setattr(self, pname, functools.partial(cls.apply, self))
+            setattr(
+                self,
+                pname,
+                functools.partial(
+                    self.wrapped_apply, functools.partial(cls.apply, self)
+                ),
+            )
+
+    def wrapped_apply(self, apply_fn, *args, **kwargs):
+        filename, lineno = get_src_loc()
+        with get_context(), Location.file(filename, lineno, 0):
+            return apply_fn(*args, **kwargs)
 
     @property
     def device_module(self):
@@ -334,8 +345,15 @@ class Stage:
             setattr(
                 self,
                 pname,
-                functools.partial(cls.apply, self),
+                functools.partial(
+                    self.wrapped_apply, functools.partial(cls.apply, self)
+                ),
             )
+
+    def wrapped_apply(self, apply_fn, *args, **kwargs):
+        filename, lineno = get_src_loc()
+        with get_context(), Location.file(filename, lineno, 0):
+            return apply_fn(*args, **kwargs)
 
     @staticmethod
     def lookup(name):

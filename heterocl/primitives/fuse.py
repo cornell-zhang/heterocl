@@ -41,14 +41,13 @@ class FusePrimitive(Primitive):
         fuse_op = ast.FuseOp(args, loc)
         sch.ast.top_func.body.append(fuse_op)
         op = fuse_op
-        with get_context(), get_location():
-            loc = Location.file(op.loc.filename, op.loc.lineno, 0)
-            ir_builder = IRBuilder(sch._ast)
-            ip = InsertionPoint.at_block_terminator(sch.top_func.entry_block)
-            for arg in op.arg_list:
-                ir_builder.build_visitor(arg, ip)
-            arg_results = [arg.result for arg in op.arg_list]
-            hcl_fuse_op = hcl_d.FuseOp(arg_results, ip=ip, loc=loc)
-            op.ir_op = hcl_fuse_op
-            op.result = hcl_fuse_op.result
+        ir_builder = IRBuilder(sch._ast)
+        loc = Location.file(op.loc.filename, op.loc.lineno, 0)
+        ip = InsertionPoint.at_block_terminator(sch.top_func.entry_block)
+        for arg in op.arg_list:
+            ir_builder.build_visitor(arg, ip)
+        arg_results = [arg.result for arg in op.arg_list]
+        hcl_fuse_op = hcl_d.FuseOp(arg_results, ip=ip, loc=loc)
+        op.ir_op = hcl_fuse_op
+        op.result = hcl_fuse_op.result
         return fuse_op

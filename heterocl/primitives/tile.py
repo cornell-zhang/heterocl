@@ -45,24 +45,23 @@ class TilePrimitive(Primitive):
             tile_op.results[2],
             tile_op.results[3],
         )
-        with get_context(), get_location():
-            loc = Location.file(op.loc.filename, op.loc.lineno, 0)
-            ir_builder = IRBuilder(sch._ast)
-            ip = InsertionPoint.at_block_terminator(sch.top_func.entry_block)
-            i32 = IntegerType.get_unsigned(32)
-            x_factor = IntegerAttr.get(i32, op.x_factor)
-            y_factor = IntegerAttr.get(i32, op.y_factor)
-            ir_builder.build_visitor(op.x_parent, ip)
-            ir_builder.build_visitor(op.y_parent, ip)
-            hcl_tile_op = hcl_d.TileOp(
-                op.x_parent.result,
-                op.y_parent.result,
-                x_factor,
-                y_factor,
-                ip=ip,
-                loc=loc,
-            )
-            op.ir_op = hcl_tile_op
-            for result_loop_hdl, hdl_result in zip(op.results, hcl_tile_op.results):
-                result_loop_hdl.result = hdl_result
+        ir_builder = IRBuilder(sch._ast)
+        loc = Location.file(op.loc.filename, op.loc.lineno, 0)
+        ip = InsertionPoint.at_block_terminator(sch.top_func.entry_block)
+        i32 = IntegerType.get_unsigned(32)
+        x_factor = IntegerAttr.get(i32, op.x_factor)
+        y_factor = IntegerAttr.get(i32, op.y_factor)
+        ir_builder.build_visitor(op.x_parent, ip)
+        ir_builder.build_visitor(op.y_parent, ip)
+        hcl_tile_op = hcl_d.TileOp(
+            op.x_parent.result,
+            op.y_parent.result,
+            x_factor,
+            y_factor,
+            ip=ip,
+            loc=loc,
+        )
+        op.ir_op = hcl_tile_op
+        for result_loop_hdl, hdl_result in zip(op.results, hcl_tile_op.results):
+            result_loop_hdl.result = hdl_result
         return (res0, res1, res2, res3)

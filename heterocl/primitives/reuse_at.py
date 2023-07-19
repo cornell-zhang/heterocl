@@ -38,20 +38,19 @@ class ReuseAtPrimitive(Primitive):
         ast_reuse_at_op = ast.ReuseAtOp(target, axis, loc)
         sch.ast.top_func.body.append(ast_reuse_at_op)
         op = ast_reuse_at_op
-        with get_context(), get_location():
-            loc = Location.file(op.loc.filename, op.loc.lineno, 0)
-            ir_builder = IRBuilder(sch._ast)
-            # Be careful, since arg.result has been removed when building func op
-            if op.target.result is None:
-                op.target.result = op.target.prev_result
-            ip = InsertionPoint.at_block_terminator(sch.top_func.entry_block)
-            ir_builder.build_visitor(op.target, ip)
-            ir_builder.build_visitor(op.axis, ip)
-            f32 = F32Type.get()
-            memref_type = MemRefType.get((1,), f32, loc=loc)
-            reuse_at_op = hcl_d.ReuseAtOp(
-                memref_type, op.target.result, op.axis.result, ip=ip, loc=loc
-            )
-            op.ir_op = reuse_at_op
-            op.result = reuse_at_op.result
+        ir_builder = IRBuilder(sch._ast)
+        loc = Location.file(op.loc.filename, op.loc.lineno, 0)
+        # Be careful, since arg.result has been removed when building func op
+        if op.target.result is None:
+            op.target.result = op.target.prev_result
+        ip = InsertionPoint.at_block_terminator(sch.top_func.entry_block)
+        ir_builder.build_visitor(op.target, ip)
+        ir_builder.build_visitor(op.axis, ip)
+        f32 = F32Type.get()
+        memref_type = MemRefType.get((1,), f32, loc=loc)
+        reuse_at_op = hcl_d.ReuseAtOp(
+            memref_type, op.target.result, op.axis.result, ip=ip, loc=loc
+        )
+        op.ir_op = reuse_at_op
+        op.result = reuse_at_op.result
         return ast_reuse_at_op

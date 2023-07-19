@@ -34,17 +34,16 @@ class BufferAtPrimitive(Primitive):
         buffer_at_op = ast.BufferAtOp(target, axis, loc)
         sch.ast.top_func.body.append(buffer_at_op)
         op = buffer_at_op
-        with get_context(), get_location():
-            loc = Location.file(op.loc.filename, op.loc.lineno, 0)
-            ir_builder = IRBuilder(sch._ast)
-            ip = InsertionPoint.at_block_terminator(sch.top_func.entry_block)
-            ir_builder.build_visitor(op.target, ip)
-            ir_builder.build_visitor(op.axis, ip)
-            f32 = F32Type.get()
-            memref_type = MemRefType.get((1,), f32, loc=loc)
-            hcl_buffer_at_op = hcl_d.BufferAtOp(
-                memref_type, op.target.result, op.axis.result, ip=ip, loc=loc
-            )
-            op.ir_op = hcl_buffer_at_op
-            op.result = hcl_buffer_at_op.result
+        ir_builder = IRBuilder(sch._ast)
+        loc = Location.file(op.loc.filename, op.loc.lineno, 0)
+        ip = InsertionPoint.at_block_terminator(sch.top_func.entry_block)
+        ir_builder.build_visitor(op.target, ip)
+        ir_builder.build_visitor(op.axis, ip)
+        f32 = F32Type.get()
+        memref_type = MemRefType.get((1,), f32, loc=loc)
+        hcl_buffer_at_op = hcl_d.BufferAtOp(
+            memref_type, op.target.result, op.axis.result, ip=ip, loc=loc
+        )
+        op.ir_op = hcl_buffer_at_op
+        op.result = hcl_buffer_at_op.resultå
         return buffer_at_op

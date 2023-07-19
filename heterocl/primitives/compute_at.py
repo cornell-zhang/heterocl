@@ -39,14 +39,13 @@ class ComputeAtPrimitive(Primitive):
         )
         sch.ast.top_func.body.append(compute_at_op)
         op = compute_at_op
-        with get_context(), get_location():
-            loc = Location.file(op.loc.filename, op.loc.lineno, 0)
-            ir_builder = IRBuilder(sch._ast)
-            ip = InsertionPoint.at_block_terminator(sch.top_func.entry_block)
-            ir_builder.build_visitor(op.stage, ip)
-            ir_builder.build_visitor(op.parent, ip)
-            ir_builder.build_visitor(op.axis, ip)
-            hcl_compute_at_op = hcl_d.ComputeAtOp(
-                op.stage.result, op.parent.result, op.axis.result, ip=ip, loc=loc
-            )
-            op.ir_op = hcl_compute_at_op
+        ir_builder = IRBuilder(sch._ast)
+        loc = Location.file(op.loc.filename, op.loc.lineno, 0)
+        ip = InsertionPoint.at_block_terminator(sch.top_func.entry_block)
+        ir_builder.build_visitor(op.stage, ip)
+        ir_builder.build_visitor(op.parent, ip)
+        ir_builder.build_visitor(op.axis, ip)
+        hcl_compute_at_op = hcl_d.ComputeAtOp(
+            op.stage.result, op.parent.result, op.axis.result, ip=ip, loc=loc
+        )
+        op.ir_op = hcl_compute_at_op

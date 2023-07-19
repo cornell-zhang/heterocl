@@ -40,12 +40,11 @@ class ReorderPrimitive(Primitive):
         reorder_op = ast.ReorderOp(args, loc)
         sch.ast.top_func.body.append(reorder_op)
         op = reorder_op
-        with get_context(), get_location():
-            loc = Location.file(op.loc.filename, op.loc.lineno, 0)
-            ir_builder = IRBuilder(sch._ast)
-            ip = InsertionPoint.at_block_terminator(sch.top_func.entry_block)
-            for arg in op.args:
-                ir_builder.build_visitor(arg, ip)
-            arg_results = [arg.result for arg in op.args]
-            hcl_reorder_op = hcl_d.ReorderOp(arg_results, ip=ip, loc=loc)
+        loc = Location.file(op.loc.filename, op.loc.lineno, 0)
+        ir_builder = IRBuilder(sch._ast)
+        ip = InsertionPoint.at_block_terminator(sch.top_func.entry_block)
+        for arg in op.args:
+            ir_builder.build_visitor(arg, ip)
+        arg_results = [arg.result for arg in op.args]
+        hcl_reorder_op = hcl_d.ReorderOp(arg_results, ip=ip, loc=loc)
         op.ir_op = hcl_reorder_op

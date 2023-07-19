@@ -55,25 +55,24 @@ class ParitionPrimitive(Primitive):
         partition_op = ast.PartitionOp(target, partition_type, dim, factor, loc)
         sch.ast.top_func.body.append(partition_op)
         op = partition_op
-        with get_context(), get_location():
-            loc = Location.file(op.loc.filename, op.loc.lineno, 0)
-            i32 = IntegerType.get_signless(32)
-            ui32 = IntegerType.get_unsigned(32)
-            partition_type = IntegerAttr.get(i32, op.kind)
-            dim = IntegerAttr.get(ui32, op.dim)
-            factor = IntegerAttr.get(ui32, op.factor)
-            ir_builder = IRBuilder(sch._ast)
-            # Be careful, since arg.result has been removed when building func op
-            if op.tensor.result is None:
-                op.tensor.result = op.tensor.prev_result
-            ip = InsertionPoint.at_block_terminator(sch.top_func.entry_block)
-            ir_builder.build_visitor(op.tensor, ip)
-            hcl_partition_op = hcl_d.PartitionOp(
-                op.tensor.result,
-                partition_kind=partition_type,
-                dim=dim,
-                factor=factor,
-                ip=ip,
-                loc=loc,
-            )
-            op.ir_op = hcl_partition_op
+        i32 = IntegerType.get_signless(32)
+        ui32 = IntegerType.get_unsigned(32)
+        partition_type = IntegerAttr.get(i32, op.kind)
+        dim = IntegerAttr.get(ui32, op.dim)
+        factor = IntegerAttr.get(ui32, op.factor)
+        ir_builder = IRBuilder(sch._ast)
+        loc = Location.file(op.loc.filename, op.loc.lineno, 0)
+        # Be careful, since arg.result has been removed when building func op
+        if op.tensor.result is None:
+            op.tensor.result = op.tensor.prev_result
+        ip = InsertionPoint.at_block_terminator(sch.top_func.entry_block)
+        ir_builder.build_visitor(op.tensor, ip)
+        hcl_partition_op = hcl_d.PartitionOp(
+            op.tensor.result,
+            partition_kind=partition_type,
+            dim=dim,
+            factor=factor,
+            ip=ip,
+            loc=loc,
+        )
+        op.ir_op = hcl_partition_op
