@@ -24,9 +24,6 @@ from .module import HCLModule, HCLSuperModule
 from .runtime import copy_build_files
 from .schedule import Schedule
 from .utils import hcl_dtype_to_mlir
-from .passes.pass_manager import PassManager as ast_pass_manager
-from .passes.nest_if import NestElseIf
-from .passes.promote_func import PromoteFunc
 from .ast.ir_builder import IRBuilder
 from .ast.build_cleaner import ASTCleaner
 from .ast import ast
@@ -51,26 +48,7 @@ def lower(
     """Lowering step before build into target
     by applying optimization pass
     """
-    if schedule.is_lowered():
-        raise APIError(
-            "The module has been lowered. Please apply schedule primitives before the lowering process."
-        )
-    # HeteroCL Transformation Pipeline
-    ast_pm = ast_pass_manager()
-    ast_pm.add_pass(NestElseIf)
-    ast_pm.add_pass(PromoteFunc)
-    device_agnostic_ast = ast_pm.run(schedule.ast)
-    schedule._ast = device_agnostic_ast
-
-    # Build MLIR IR
-    set_context()
-    agnostic_ir_builder = IRBuilder(device_agnostic_ast)
-    agnostic_ir_builder.build()
-    agnostic_module = agnostic_ir_builder.module
-    schedule._module = _mlir_lower_pipeline(agnostic_module)
-    schedule._top_func = agnostic_ir_builder.top_func
-    exit_context()
-
+    schedule._module = _mlir_lower_pipeline(schedule._module)
     schedule.set_lowered()
     return schedule.module
 
