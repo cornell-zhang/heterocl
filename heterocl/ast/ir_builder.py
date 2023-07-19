@@ -362,40 +362,10 @@ class IRBuilder:
             self.build_op_handle(op, ip)
         elif isinstance(op, ast.LoopHandle):
             self.build_loop_handle(op, ip)
-        elif isinstance(op, ast.ReuseAtOp):
-            self.build_reuse_at_op(op, ip)
-        elif isinstance(op, ast.PartitionOp):
-            self.build_partition_op(op, ip)
-        elif isinstance(op, ast.ReplaceOp):
-            self.build_replace_op(op, ip)
-        elif isinstance(op, ast.ReshapeOp):
-            self.build_reshape_op(op, ip)
-        elif isinstance(op, ast.ReformOp):
-            self.build_reform_op(op, ip)
-        elif isinstance(op, ast.BufferAtOp):
-            self.build_buffer_at_op(op, ip)
         elif isinstance(op, ast.InterKernelToOp):
             self.build_inter_kernel_to_op(op, ip)
         elif isinstance(op, ast.OutlineOp):
             self.build_outline_op(op, ip)
-        elif isinstance(op, ast.ReorderOp):
-            self.build_reorder_op(op, ip)
-        elif isinstance(op, ast.SplitOp):
-            self.build_split_op(op, ip)
-        elif isinstance(op, ast.TileOp):
-            self.build_tile_op(op, ip)
-        elif isinstance(op, ast.PipelineOp):
-            self.build_pipeline_op(op, ip)
-        elif isinstance(op, ast.UnrollOp):
-            self.build_unroll_op(op, ip)
-        elif isinstance(op, ast.ParallelOp):
-            self.build_parallel_op(op, ip)
-        elif isinstance(op, ast.FuseOp):
-            self.build_fuse_op(op, ip)
-        elif isinstance(op, ast.ComputeAtOp):
-            self.build_compute_at_op(op, ip)
-        elif isinstance(op, ast.SystolicOp):
-            self.build_systolic_op(op, ip)
         else:
             raise HCLNotImplementedError(
                 f"{type(op)}'s build visitor is not implemented yet."
@@ -1611,75 +1581,6 @@ class IRBuilder:
         op.ir_op = hdl_op
         op.result = hdl_op.result
 
-    def build_partition_op(self, op: ast.PartitionOp, ip):
-        loc = Location.file(op.loc.filename, op.loc.lineno, 0)
-        i32 = IntegerType.get_signless(32)
-        ui32 = IntegerType.get_unsigned(32)
-        partition_type = IntegerAttr.get(i32, op.kind)
-        dim = IntegerAttr.get(ui32, op.dim)
-        factor = IntegerAttr.get(ui32, op.factor)
-        self.build_visitor(op.tensor, ip)
-        partition_op = hcl_d.PartitionOp(
-            op.tensor.result,
-            partition_kind=partition_type,
-            dim=dim,
-            factor=factor,
-            ip=ip,
-            loc=loc,
-        )
-        op.ir_op = partition_op
-
-    def build_replace_op(self, op: ast.ReplaceOp, ip):
-        loc = Location.file(op.loc.filename, op.loc.lineno, 0)
-        self.build_visitor(op.target, ip)
-        self.build_visitor(op.src, ip)
-        replace_op = hcl_d.ReplaceOp(op.target.result, op.src.result, ip=ip, loc=loc)
-        op.ir_op = replace_op
-
-    def build_reshape_op(self, op: ast.ReshapeOp, ip):
-        loc = Location.file(op.loc.filename, op.loc.lineno, 0)
-        self.build_visitor(op.tensor, ip)
-        eletype = hcl_dtype_to_mlir(op.tensor.dtype)
-        memref_type = MemRefType.get(op.shape, eletype, loc=loc)
-        reshape_op = hcl_d.ReshapeOp(memref_type, op.tensor.result, ip=ip, loc=loc)
-        op.ir_op = reshape_op
-
-    def build_reform_op(self, op: ast.ReformOp, ip):
-        loc = Location.file(op.loc.filename, op.loc.lineno, 0)
-        self.build_visitor(op.target, ip)
-        if op.layout == "nhwc":
-            attr = AffineMap.get_permutation([0, 2, 3, 1])
-        else:
-            raise RuntimeError("Not supported layout")
-        memref_type = MemRefType.get(op.target.shape, op.target.ir_op.dtype)
-        reform_op = hcl_d.ReformOp(memref_type, op.target.result, ip=ip, loc=loc)
-        reform_op.attributes["layout"] = AffineMapAttr.get(attr)
-        op.ir_op = reform_op
-
-    def build_reuse_at_op(self, op: ast.ReuseAtOp, ip):
-        loc = Location.file(op.loc.filename, op.loc.lineno, 0)
-        self.build_visitor(op.target, ip)
-        self.build_visitor(op.axis, ip)
-        f32 = F32Type.get()
-        memref_type = MemRefType.get((1,), f32, loc=loc)
-        reuse_at_op = hcl_d.ReuseAtOp(
-            memref_type, op.target.result, op.axis.result, ip=ip, loc=loc
-        )
-        op.ir_op = reuse_at_op
-        op.result = reuse_at_op.result
-
-    def build_buffer_at_op(self, op: ast.BufferAtOp, ip):
-        loc = Location.file(op.loc.filename, op.loc.lineno, 0)
-        self.build_visitor(op.target, ip)
-        self.build_visitor(op.axis, ip)
-        f32 = F32Type.get()
-        memref_type = MemRefType.get((1,), f32, loc=loc)
-        buffer_at_op = hcl_d.BufferAtOp(
-            memref_type, op.target.result, op.axis.result, ip=ip, loc=loc
-        )
-        op.ir_op = buffer_at_op
-        op.result = buffer_at_op.result
-
     def build_inter_kernel_to_op(self, op: ast.InterKernelToOp, ip):
         loc = Location.file(op.loc.filename, op.loc.lineno, 0)
         self.build_visitor(op.tensor, ip)
@@ -1705,79 +1606,3 @@ class IRBuilder:
         if op.axis is not None:
             outline_op.attributes["axis"] = StringAttr.get(op.axis)
         op.ir_op = outline_op
-
-    def build_reorder_op(self, op: ast.ReorderOp, ip):
-        loc = Location.file(op.loc.filename, op.loc.lineno, 0)
-        for arg in op.args:
-            self.build_visitor(arg, ip)
-        arg_results = [arg.result for arg in op.args]
-        reorder_op = hcl_d.ReorderOp(arg_results, ip=ip, loc=loc)
-        op.ir_op = reorder_op
-
-    def build_split_op(self, op: ast.SplitOp, ip):
-        loc = Location.file(op.loc.filename, op.loc.lineno, 0)
-        self.build_visitor(op.parent, ip)
-        i32 = IntegerType.get_unsigned(32)
-        factor = IntegerAttr.get(i32, op.factor)
-        split_op = hcl_d.SplitOp(op.parent.result, factor, ip=ip, loc=loc)
-        op.ir_op = split_op
-        for result_loop_hdl, hdl_result in zip(op.results, split_op.results):
-            result_loop_hdl.result = hdl_result
-
-    def build_tile_op(self, op: ast.TileOp, ip):
-        loc = Location.file(op.loc.filename, op.loc.lineno, 0)
-        i32 = IntegerType.get_unsigned(32)
-        x_factor = IntegerAttr.get(i32, op.x_factor)
-        y_factor = IntegerAttr.get(i32, op.y_factor)
-        self.build_visitor(op.x_parent, ip)
-        self.build_visitor(op.y_parent, ip)
-        tile_op = hcl_d.TileOp(
-            op.x_parent.result, op.y_parent.result, x_factor, y_factor, ip=ip, loc=loc
-        )
-        op.ir_op = tile_op
-        for result_loop_hdl, hdl_result in zip(op.results, tile_op.results):
-            result_loop_hdl.result = hdl_result
-
-    def build_pipeline_op(self, op: ast.PipelineOp, ip):
-        loc = Location.file(op.loc.filename, op.loc.lineno, 0)
-        self.build_visitor(op.target, ip)
-        i32 = IntegerType.get_unsigned(32)
-        ii = IntegerAttr.get(i32, op.ii)
-        pipeline_op = hcl_d.PipelineOp(op.target.result, ii=ii, ip=ip, loc=loc)
-        op.ir_op = pipeline_op
-
-    def build_unroll_op(self, op: ast.UnrollOp, ip):
-        loc = Location.file(op.loc.filename, op.loc.lineno, 0)
-        self.build_visitor(op.target, ip)
-        i32 = IntegerType.get_unsigned(32)
-        factor = IntegerAttr.get(i32, op.factor)
-        unroll_op = hcl_d.UnrollOp(op.target.result, factor=factor, ip=ip, loc=loc)
-        op.ir_op = unroll_op
-
-    def build_parallel_op(self, op: ast.ParallelOp, ip):
-        loc = Location.file(op.loc.filename, op.loc.lineno, 0)
-        self.build_visitor(op.target, ip)
-        parallel_op = hcl_d.ParallelOp(op.target.result, ip=ip, loc=loc)
-        op.ir_op = parallel_op
-
-    def build_fuse_op(self, op: ast.FuseOp, ip):
-        loc = Location.file(op.loc.filename, op.loc.lineno, 0)
-        for arg in op.arg_list:
-            self.build_visitor(arg, ip)
-        arg_results = [arg.result for arg in op.arg_list]
-        fuse_op = hcl_d.FuseOp(arg_results, ip=ip, loc=loc)
-        op.ir_op = fuse_op
-        op.result = fuse_op.result
-
-    def build_compute_at_op(self, op: ast.ComputeAtOp, ip):
-        loc = Location.file(op.loc.filename, op.loc.lineno, 0)
-        self.build_visitor(op.stage, ip)
-        self.build_visitor(op.parent, ip)
-        self.build_visitor(op.axis, ip)
-        compute_at_op = hcl_d.ComputeAtOp(
-            op.stage.result, op.parent.result, op.axis.result, ip=ip, loc=loc
-        )
-        op.ir_op = compute_at_op
-
-    def build_systolic_op(self, op: ast.SystolicOp, ip):
-        op.target.ir_op.attributes["systolic"] = UnitAttr.get()
