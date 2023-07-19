@@ -45,7 +45,5 @@ class UnrollPrimitive(Primitive):
         ir_builder.build_visitor(op.target, ip)
         i32 = IntegerType.get_unsigned(32)
         factor = IntegerAttr.get(i32, op.factor)
-        hcl_unroll_op = hcl_d.UnrollOp(
-            op.target.result, factor=factor, ip=ip, loc=loc
-        )
+        hcl_unroll_op = hcl_d.UnrollOp(op.target.result, factor=factor, ip=ip, loc=loc)
         op.ir_op = hcl_unroll_op

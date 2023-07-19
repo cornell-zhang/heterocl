@@ -49,7 +49,5 @@ class ReshapePrimitive(Primitive):
         ir_builder.build_visitor(op.tensor, ip)
         eletype = hcl_dtype_to_mlir(op.tensor.dtype)
         memref_type = MemRefType.get(op.shape, eletype, loc=loc)
-        hcl_reshape_op = hcl_d.ReshapeOp(
-            memref_type, op.tensor.result, ip=ip, loc=loc
-        )
+        hcl_reshape_op = hcl_d.ReshapeOp(memref_type, op.tensor.result, ip=ip, loc=loc)
         op.ir_op = hcl_reshape_op
