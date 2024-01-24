@@ -170,6 +170,7 @@ def setup():
         setup_requires=["numpy", "pybind11", "pip", "cmake"],
         install_requires=parse_requirements("requirements.txt"),
         packages=setuptools.find_packages(),
+        package_data={"heterocl": ["harness/**/*"]},
         url="https://github.com/cornell-zhang/heterocl",
         python_requires=">=3.7",
         classifiers=[
