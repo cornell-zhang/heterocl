@@ -24,6 +24,7 @@ jobs:
             export PREFIX=/home/circleci/llvm-project/build
             git clone https://github.com/cornell-zhang/hcl-dialect.git
             cd hcl-dialect
+            git checkout f2f5e43a93173f9a86671c8f5004d5fb21cb329b
             mkdir -p build && cd build
             cmake -G "Unix Makefiles" .. \
                 -DMLIR_DIR=$PREFIX/lib/cmake/mlir \
