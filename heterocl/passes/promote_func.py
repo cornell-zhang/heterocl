@@ -3,7 +3,6 @@
 
 from ..ast import ast
 from .pass_manager import Pass
-from hcl_mlir.exceptions import *
 
 
 class PromoteFunc(Pass):

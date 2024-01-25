@@ -47,7 +47,7 @@ export PATH=${LLVM_BUILD_DIR}/bin:${PATH}
 To verify HeteroCL is installed correctly, you can run the following test.
 
 ```bash
-python3 -m pytest test
+python3 -m pytest tests
 ```
 
 

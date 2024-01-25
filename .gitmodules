@@ -1,3 +1,3 @@
 [submodule "hcl-dialect"]
 	path = hcl-dialect
-	url = git@github.com:cornell-zhang/hcl-dialect.git
+	url = https://github.com/cornell-zhang/hcl-dialect.git

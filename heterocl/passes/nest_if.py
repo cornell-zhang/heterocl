@@ -1,9 +1,9 @@
 # Copyright HeteroCL authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+from hcl_mlir.exceptions import APIError
 from ..ast import ast
 from .pass_manager import Pass
-from hcl_mlir.exceptions import *
 
 
 class NestElseIf(Pass):
@@ -50,7 +50,7 @@ class NestElseIf(Pass):
             return
 
         # if-elif-else chains
-        chains = list()
+        chains = []
         for op in scope.body:
             if isinstance(op, ast.IfOp):
                 chains.append([op])
@@ -95,9 +95,9 @@ class NestElseIf(Pass):
                     raise APIError("Invalid if-elif-else chain: " + str(chain))
 
         # remove ElseIfOp and ElseOp
-        new_body = list()
+        new_body = []
         for op in scope.body:
-            if isinstance(op, ast.ElseIfOp) or isinstance(op, ast.ElseOp):
+            if isinstance(op, (ast.ElseIfOp, ast.ElseOp)):
                 pass
             else:
                 new_body.append(op)
