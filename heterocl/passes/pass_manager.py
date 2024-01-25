@@ -1,12 +1,10 @@
 # Copyright HeteroCL authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from ..ast import ast
-from hcl_mlir.exceptions import *
-from hcl_mlir.ir import *
+from hcl_mlir.exceptions import HCLNotImplementedError
 
 
-class Pass(object):
+class Pass:
     """Base class for all intermediate pass.
 
     A pass is a visitor that can mutate the Intermediate Layer.
@@ -35,7 +33,7 @@ class Pass(object):
                 self.update_level(body_op)
 
 
-class PassManager(object):
+class PassManager:
     """A pass manager that manages a pipeline of passes."""
 
     def __init__(self):
