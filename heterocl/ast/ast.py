@@ -170,10 +170,41 @@ def simplify(expr):
         index = struct.index
         e = struct.tensor.fcompute(*index)[expr.field]
         return sp.simplify(simplify(e))
-    if isinstance(expr, SelectOp):  # pylint: disable=no-else-return
+    if isinstance(expr, SelectOp):
         if simplify(expr.cond):
             return sp.simplify(simplify(expr.true_value))
         return sp.simplify(simplify(expr.false_value))
+    if isinstance(expr, MathExpOp):
+        expr = unwrap_sp(simplify(expr.expr))
+        return sp.exp(expr)
+    if isinstance(expr, MathPowOp):
+        lhs = unwrap_sp(simplify(expr.lhs))
+        rhs = unwrap_sp(simplify(expr.rhs))
+        return sp.Pow(lhs, rhs)
+    if isinstance(expr, MathLogOp):
+        expr = unwrap_sp(simplify(expr.expr))
+        return sp.log(expr)
+    if isinstance(expr, MathLog2Op):
+        expr = unwrap_sp(simplify(expr.expr))
+        return sp.log(expr, 2)
+    if isinstance(expr, MathLog10Op):
+        expr = unwrap_sp(simplify(expr.expr))
+        return sp.log(expr, 10)
+    if isinstance(expr, MathSqrtOp):
+        expr = unwrap_sp(simplify(expr.expr))
+        return sp.sqrt(expr)
+    if isinstance(expr, MathSinOp):
+        expr = unwrap_sp(simplify(expr.expr))
+        return sp.sin(expr)
+    if isinstance(expr, MathCosOp):
+        expr = unwrap_sp(simplify(expr.expr))
+        return sp.cos(expr)
+    # if isinstance(expr, MathTanOp):
+    #     expr = unwrap_sp(simplify(expr.expr))
+    #     return sp.tan(expr)
+    if isinstance(expr, MathTanhOp):  # pylint: disable=no-else-return
+        expr = unwrap_sp(simplify(expr.expr))
+        return sp.tanh(expr)
     else:
         raise HCLError(f"Unsupported expression type: {type(expr)}")
 
