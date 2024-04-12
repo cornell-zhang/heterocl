@@ -1,8 +1,10 @@
 <!--- Copyright HeteroCL authors. All Rights Reserved. -->
 <!--- SPDX-License-Identifier: Apache-2.0  -->
 
+**Note: HeteroCL is no longer maintained. Our efforts have been migrated to [Allo [PLDI'24]](https://arxiv.org/abs/2404.04815), a new programming language for composable accelerator design. Please refer to our new [repository](https://github.com/cornell-zhang/allo) for the latest updates.**
+
 [![GitHub license](https://dmlc.github.io/img/apache2.svg)](./LICENSE)
-[![CircleCI](https://circleci.com/gh/cornell-zhang/heterocl/tree/main.svg?style=svg&circle-token=2b5ee9faf30b94aac41b61032d03e4654a65079d)](https://circleci.com/gh/cornell-zhang/heterocl/tree/main)
+[![CircleCI](https://circleci.com/gh/cornell-zhang/heterocl.svg?style=shield)](https://circleci.com/gh/cornell-zhang/heterocl/tree/main)
 
 HeteroCL: A Multi-Paradigm Programming Infrastructure for Software-Defined Reconfigurable Computing
 ===================================================================================================
